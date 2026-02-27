@@ -11,6 +11,7 @@ import sql from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
+import { generateUploadUrl } from './src/storage.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +31,7 @@ async function startServer() {
   const PORT = 3000;
 
   // Raw body needed for Stripe webhook signature verification
+  app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));
   app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
   app.use(express.json());
   app.use(cookieParser());
@@ -51,13 +53,18 @@ async function startServer() {
     message: { error: 'Too many auth attempts, please try again later' },
   });
 
+  app.use('/api/v1/', apiLimiter);
+  app.use('/api/v1/auth/', authLimiter);
+
+  // Backwards compatibility: /api/* also works (same routes)
   app.use('/api/', apiLimiter);
   app.use('/api/auth/', authLimiter);
 
-  // API Routes
+  // All versioned API routes
+  const v1 = express.Router();
 
   // --- Auth ---
-  app.post('/api/auth/signup', async (req, res) => {
+  v1.post('/auth/signup', async (req, res) => {
     const { email, password, name, role } = req.body;
 
     if (!email || !password || !name) {
@@ -85,7 +92,7 @@ async function startServer() {
     res.status(201).json({ user, token });
   });
 
-  app.post('/api/auth/login', async (req, res) => {
+  v1.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -109,7 +116,7 @@ async function startServer() {
     res.json({ user: safeUser, token });
   });
 
-  app.get('/api/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`
       SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ${req.userId}
     `;
@@ -121,7 +128,7 @@ async function startServer() {
   });
 
   // --- Users ---
-  app.put('/api/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.put('/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { name, bio, avatar_url, role } = req.body;
 
     if (!name) {
@@ -146,12 +153,12 @@ async function startServer() {
   });
 
   // --- Pets ---
-  app.get('/api/pets', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.get('/pets', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const pets = await sql`SELECT * FROM pets WHERE owner_id = ${req.userId}`;
     res.json({ pets });
   });
 
-  app.post('/api/pets', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/pets', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { name, breed, age, weight, medical_history, photo_url } = req.body;
     if (!name) {
       res.status(400).json({ error: 'Pet name is required' });
@@ -165,7 +172,7 @@ async function startServer() {
     res.status(201).json({ pet });
   });
 
-  app.put('/api/pets/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.put('/pets/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [pet] = await sql`SELECT * FROM pets WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
     if (!pet) {
       res.status(404).json({ error: 'Pet not found' });
@@ -185,7 +192,7 @@ async function startServer() {
     res.json({ pet: updated });
   });
 
-  app.delete('/api/pets/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.delete('/pets/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [pet] = await sql`SELECT * FROM pets WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
     if (!pet) {
       res.status(404).json({ error: 'Pet not found' });
@@ -196,7 +203,7 @@ async function startServer() {
   });
 
   // --- Sitters ---
-  app.get('/api/sitters', async (req, res) => {
+  v1.get('/sitters', async (req, res) => {
     const serviceType = req.query.serviceType as string | undefined;
     const lat = req.query.lat as string | undefined;
     const lng = req.query.lng as string | undefined;
@@ -249,7 +256,7 @@ async function startServer() {
     res.json({ sitters });
   });
 
-  app.get('/api/sitters/:id', async (req, res) => {
+  v1.get('/sitters/:id', async (req, res) => {
     const [sitter] = await sql`
       SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ${req.params.id}
     `;
@@ -270,7 +277,7 @@ async function startServer() {
   });
 
   // --- Reviews (double-blind) ---
-  app.post('/api/reviews', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/reviews', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { booking_id, rating, comment } = req.body;
 
     if (!booking_id || !rating || rating < 1 || rating > 5) {
@@ -321,7 +328,7 @@ async function startServer() {
   });
 
   // Get reviews for a user (only published ones)
-  app.get('/api/reviews/:userId', async (req, res) => {
+  v1.get('/reviews/:userId', async (req, res) => {
     const reviews = await sql`
       SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
       FROM reviews r
@@ -334,12 +341,12 @@ async function startServer() {
   });
 
   // --- Sitter Verification ---
-  app.get('/api/verification/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.get('/verification/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [verification] = await sql`SELECT * FROM verifications WHERE sitter_id = ${req.userId}`;
     res.json({ verification: verification || null });
   });
 
-  app.post('/api/verification/start', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/verification/start', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
     if (user.role !== 'sitter' && user.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can start verification' });
@@ -359,7 +366,7 @@ async function startServer() {
     res.status(201).json({ verification });
   });
 
-  app.put('/api/verification/update', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.put('/verification/update', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { house_photos_url } = req.body;
     const [verification] = await sql`SELECT * FROM verifications WHERE sitter_id = ${req.userId}`;
     if (!verification) {
@@ -374,7 +381,7 @@ async function startServer() {
   });
 
   // Webhook endpoint for background check results
-  app.post('/api/webhooks/background-check', async (req, res) => {
+  v1.post('/webhooks/background-check', async (req, res) => {
     const { sitter_id, status } = req.body;
     if (!sitter_id || !status) {
       res.status(400).json({ error: 'sitter_id and status are required' });
@@ -403,7 +410,7 @@ async function startServer() {
   });
 
   // Get verification status for a sitter (public)
-  app.get('/api/verification/:sitterId', async (req, res) => {
+  v1.get('/verification/:sitterId', async (req, res) => {
     const [verification] = await sql`
       SELECT id_check_status, background_check_status, completed_at FROM verifications WHERE sitter_id = ${req.params.sitterId}
     `;
@@ -411,14 +418,14 @@ async function startServer() {
   });
 
   // --- Availability ---
-  app.get('/api/availability/:sitterId', async (req, res) => {
+  v1.get('/availability/:sitterId', async (req, res) => {
     const slots = await sql`
       SELECT * FROM availability WHERE sitter_id = ${req.params.sitterId} ORDER BY day_of_week, start_time
     `;
     res.json({ slots });
   });
 
-  app.post('/api/availability', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/availability', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { day_of_week, specific_date, start_time, end_time, recurring } = req.body;
     if (start_time == null || end_time == null) {
       res.status(400).json({ error: 'start_time and end_time are required' });
@@ -432,7 +439,7 @@ async function startServer() {
     res.status(201).json({ slot });
   });
 
-  app.delete('/api/availability/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.delete('/availability/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [slot] = await sql`SELECT * FROM availability WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     if (!slot) {
       res.status(404).json({ error: 'Availability slot not found' });
@@ -443,7 +450,7 @@ async function startServer() {
   });
 
   // --- Walk Events ---
-  app.get('/api/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.get('/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [booking] = await sql`SELECT * FROM bookings WHERE id = ${req.params.bookingId}`;
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
@@ -457,7 +464,7 @@ async function startServer() {
     res.json({ events });
   });
 
-  app.post('/api/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [booking] = await sql`SELECT * FROM bookings WHERE id = ${req.params.bookingId}`;
     if (!booking || booking.sitter_id !== req.userId) {
       res.status(403).json({ error: 'Only the sitter can log walk events' });
@@ -493,7 +500,7 @@ async function startServer() {
   });
 
   // --- Bookings ---
-  app.post('/api/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time, total_price } = req.body;
     const [booking] = await sql`
       INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
@@ -509,7 +516,7 @@ async function startServer() {
     res.json({ id: booking.id, status: booking.status });
   });
 
-  app.get('/api/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.get('/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const bookings = await sql`
       SELECT b.*,
              s.name as sitter_name, s.avatar_url as sitter_avatar,
@@ -527,7 +534,7 @@ async function startServer() {
   });
 
   // --- Messages ---
-  app.get('/api/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const otherUserId = Number(req.params.userId);
     const messages = await sql`
       SELECT * FROM messages
@@ -576,7 +583,7 @@ async function startServer() {
   });
 
   // --- Notifications ---
-  app.get('/api/notifications', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.get('/notifications', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const limit = Math.min(Number(req.query.limit) || 50, 100);
     const offset = Number(req.query.offset) || 0;
     const notifications = await getUserNotifications(req.userId!, limit, offset);
@@ -584,7 +591,7 @@ async function startServer() {
     res.json({ notifications, unreadCount });
   });
 
-  app.post('/api/notifications/:id/read', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/notifications/:id/read', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const success = await markAsRead(Number(req.params.id), req.userId!);
     if (!success) {
       res.status(404).json({ error: 'Notification not found' });
@@ -593,24 +600,24 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.post('/api/notifications/read-all', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/notifications/read-all', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const count = await markAllAsRead(req.userId!);
     res.json({ markedRead: count });
   });
 
-  app.get('/api/notification-preferences', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.get('/notification-preferences', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const prefs = await getPreferences(req.userId!);
     res.json({ preferences: prefs });
   });
 
-  app.put('/api/notification-preferences', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.put('/notification-preferences', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { new_booking, booking_status, new_message, walk_updates } = req.body;
     const prefs = await updatePreferences(req.userId!, { new_booking, booking_status, new_message, walk_updates });
     res.json({ preferences: prefs });
   });
 
   // --- Stripe Connect ---
-  app.post('/api/stripe/connect', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/stripe/connect', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const [user] = await sql`SELECT email, role, stripe_account_id FROM users WHERE id = ${req.userId}`;
       if (user.role !== 'sitter' && user.role !== 'both') {
@@ -632,7 +639,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/stripe/account-link', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/stripe/account-link', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const [user] = await sql`SELECT stripe_account_id FROM users WHERE id = ${req.userId}`;
       if (!user.stripe_account_id) {
@@ -649,7 +656,7 @@ async function startServer() {
   });
 
   // --- Payments ---
-  app.post('/api/payments/create-intent', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/payments/create-intent', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
       if (!booking_id) {
@@ -680,7 +687,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/payments/capture', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/payments/capture', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
       const [booking] = await sql`
@@ -699,7 +706,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/payments/cancel', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/payments/cancel', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
       const [booking] = await sql`
@@ -719,7 +726,7 @@ async function startServer() {
   });
 
   // --- Stripe Webhook ---
-  app.post('/api/webhooks/stripe', async (req, res) => {
+  v1.post('/webhooks/stripe', async (req, res) => {
     const sig = req.headers['stripe-signature'];
     if (!sig) {
       res.status(400).json({ error: 'Missing stripe-signature header' });
@@ -745,6 +752,31 @@ async function startServer() {
       res.status(400).json({ error: 'Webhook verification failed' });
     }
   });
+
+  // --- Media Upload (S3 signed URLs) ---
+  v1.post('/uploads/signed-url', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { folder, contentType } = req.body;
+      const validFolders = ['pets', 'avatars', 'verifications', 'walks'] as const;
+      if (!folder || !validFolders.includes(folder)) {
+        res.status(400).json({ error: 'folder must be one of: pets, avatars, verifications, walks' });
+        return;
+      }
+      if (!contentType || !contentType.startsWith('image/')) {
+        res.status(400).json({ error: 'contentType must be an image type' });
+        return;
+      }
+      const result = await generateUploadUrl(folder, contentType, req.userId!);
+      res.json(result);
+    } catch (error) {
+      console.error('Upload URL error:', error);
+      res.status(500).json({ error: 'Failed to generate upload URL. Is S3 configured?' });
+    }
+  });
+
+  // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
+  app.use('/api/v1', v1);
+  app.use('/api', v1);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
