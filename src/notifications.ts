@@ -1,4 +1,4 @@
-import db from './db.ts';
+import sql from './db.ts';
 
 export interface Notification {
   id: number;
@@ -6,7 +6,7 @@ export interface Notification {
   type: 'new_booking' | 'booking_status' | 'new_message' | 'walk_started' | 'walk_completed';
   title: string;
   body: string;
-  data?: string; // JSON string for extra payload
+  data?: string;
   read: boolean;
   created_at: string;
 }
@@ -19,15 +19,15 @@ export interface NotificationPreferences {
   walk_updates: boolean;
 }
 
-export function createNotification(
+export async function createNotification(
   userId: number,
   type: Notification['type'],
   title: string,
   body: string,
   data?: Record<string, unknown>
-): Notification {
+): Promise<Notification> {
   // Check user preferences
-  const prefs = db.prepare('SELECT * FROM notification_preferences WHERE user_id = ?').get(userId) as Record<string, unknown> | undefined;
+  const [prefs] = await sql`SELECT * FROM notification_preferences WHERE user_id = ${userId}`;
 
   if (prefs) {
     const prefMap: Record<string, string> = {
@@ -39,74 +39,65 @@ export function createNotification(
     };
     const prefKey = prefMap[type];
     if (prefKey && !prefs[prefKey]) {
-      // User has disabled this notification type — skip
       return { id: 0, user_id: userId, type, title, body, read: false, created_at: new Date().toISOString() };
     }
   }
 
   const dataStr = data ? JSON.stringify(data) : null;
-  const info = db.prepare(
-    'INSERT INTO notifications (user_id, type, title, body, data) VALUES (?, ?, ?, ?, ?)'
-  ).run(userId, type, title, body, dataStr);
+  const [notification] = await sql`
+    INSERT INTO notifications (user_id, type, title, body, data)
+    VALUES (${userId}, ${type}, ${title}, ${body}, ${dataStr})
+    RETURNING *
+  `;
 
-  return db.prepare('SELECT * FROM notifications WHERE id = ?').get(info.lastInsertRowid) as Notification;
+  return notification as unknown as Notification;
 }
 
-export function getUserNotifications(userId: number, limit = 50, offset = 0): Notification[] {
-  return db.prepare(
-    'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
-  ).all(userId, limit, offset) as Notification[];
+export async function getUserNotifications(userId: number, limit = 50, offset = 0): Promise<Notification[]> {
+  const rows = await sql`
+    SELECT * FROM notifications WHERE user_id = ${userId}
+    ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
+  `;
+  return rows as unknown as Notification[];
 }
 
-export function getUnreadCount(userId: number): number {
-  const row = db.prepare('SELECT count(*) as count FROM notifications WHERE user_id = ? AND read = 0').get(userId) as { count: number };
-  return row.count;
+export async function getUnreadCount(userId: number): Promise<number> {
+  const [{ count }] = await sql`SELECT count(*)::int as count FROM notifications WHERE user_id = ${userId} AND read = false`;
+  return count;
 }
 
-export function markAsRead(notificationId: number, userId: number): boolean {
-  const info = db.prepare('UPDATE notifications SET read = 1 WHERE id = ? AND user_id = ?').run(notificationId, userId);
-  return info.changes > 0;
+export async function markAsRead(notificationId: number, userId: number): Promise<boolean> {
+  const result = await sql`UPDATE notifications SET read = true WHERE id = ${notificationId} AND user_id = ${userId}`;
+  return result.count > 0;
 }
 
-export function markAllAsRead(userId: number): number {
-  const info = db.prepare('UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0').run(userId);
-  return info.changes;
+export async function markAllAsRead(userId: number): Promise<number> {
+  const result = await sql`UPDATE notifications SET read = true WHERE user_id = ${userId} AND read = false`;
+  return result.count;
 }
 
-export function getPreferences(userId: number): NotificationPreferences {
-  const prefs = db.prepare('SELECT * FROM notification_preferences WHERE user_id = ?').get(userId) as NotificationPreferences | undefined;
-  if (prefs) return prefs;
-  // Return defaults (all enabled)
+export async function getPreferences(userId: number): Promise<NotificationPreferences> {
+  const [prefs] = await sql`SELECT * FROM notification_preferences WHERE user_id = ${userId}`;
+  if (prefs) return prefs as unknown as NotificationPreferences;
   return { user_id: userId, new_booking: true, booking_status: true, new_message: true, walk_updates: true };
 }
 
-export function updatePreferences(userId: number, prefs: Partial<Omit<NotificationPreferences, 'user_id'>>): NotificationPreferences {
-  const existing = db.prepare('SELECT * FROM notification_preferences WHERE user_id = ?').get(userId);
+export async function updatePreferences(userId: number, prefs: Partial<Omit<NotificationPreferences, 'user_id'>>): Promise<NotificationPreferences> {
+  const [existing] = await sql`SELECT * FROM notification_preferences WHERE user_id = ${userId}`;
   if (existing) {
-    db.prepare(`
+    await sql`
       UPDATE notification_preferences
-      SET new_booking = COALESCE(?, new_booking),
-          booking_status = COALESCE(?, booking_status),
-          new_message = COALESCE(?, new_message),
-          walk_updates = COALESCE(?, walk_updates)
-      WHERE user_id = ?
-    `).run(
-      prefs.new_booking != null ? (prefs.new_booking ? 1 : 0) : null,
-      prefs.booking_status != null ? (prefs.booking_status ? 1 : 0) : null,
-      prefs.new_message != null ? (prefs.new_message ? 1 : 0) : null,
-      prefs.walk_updates != null ? (prefs.walk_updates ? 1 : 0) : null,
-      userId
-    );
+      SET new_booking = COALESCE(${prefs.new_booking ?? null}, new_booking),
+          booking_status = COALESCE(${prefs.booking_status ?? null}, booking_status),
+          new_message = COALESCE(${prefs.new_message ?? null}, new_message),
+          walk_updates = COALESCE(${prefs.walk_updates ?? null}, walk_updates)
+      WHERE user_id = ${userId}
+    `;
   } else {
-    db.prepare(
-      'INSERT INTO notification_preferences (user_id, new_booking, booking_status, new_message, walk_updates) VALUES (?, ?, ?, ?, ?)'
-    ).run(
-      userId,
-      prefs.new_booking != null ? (prefs.new_booking ? 1 : 0) : 1,
-      prefs.booking_status != null ? (prefs.booking_status ? 1 : 0) : 1,
-      prefs.new_message != null ? (prefs.new_message ? 1 : 0) : 1,
-      prefs.walk_updates != null ? (prefs.walk_updates ? 1 : 0) : 1
-    );
+    await sql`
+      INSERT INTO notification_preferences (user_id, new_booking, booking_status, new_message, walk_updates)
+      VALUES (${userId}, ${prefs.new_booking ?? true}, ${prefs.booking_status ?? true}, ${prefs.new_message ?? true}, ${prefs.walk_updates ?? true})
+    `;
   }
   return getPreferences(userId);
 }

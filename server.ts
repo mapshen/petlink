@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { initDb } from './src/db.ts';
-import db from './src/db.ts';
+import sql from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
@@ -15,10 +15,10 @@ import { createNotification, getUserNotifications, getUnreadCount, markAsRead, m
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize DB
-initDb();
-
 async function startServer() {
+  // Initialize DB
+  await initDb();
+
   const app = express();
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
@@ -36,7 +36,7 @@ async function startServer() {
 
   // Rate limiting
   const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 15 * 60 * 1000,
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
@@ -57,7 +57,7 @@ async function startServer() {
   // API Routes
 
   // --- Auth ---
-  app.post('/api/auth/signup', (req, res) => {
+  app.post('/api/auth/signup', async (req, res) => {
     const { email, password, name, role } = req.body;
 
     if (!email || !password || !name) {
@@ -68,24 +68,24 @@ async function startServer() {
     const validRoles = ['owner', 'sitter', 'both'];
     const userRole = validRoles.includes(role) ? role : 'owner';
 
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    const [existing] = await sql`SELECT id FROM users WHERE email = ${email}`;
     if (existing) {
       res.status(409).json({ error: 'Email already in use' });
       return;
     }
 
     const passwordHash = hashPassword(password);
-    const stmt = db.prepare(
-      'INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)'
-    );
-    const info = stmt.run(email, passwordHash, name, userRole);
-    const user = db.prepare('SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ?').get(info.lastInsertRowid);
-    const token = signToken({ userId: Number(info.lastInsertRowid) });
+    const [user] = await sql`
+      INSERT INTO users (email, password_hash, name, role)
+      VALUES (${email}, ${passwordHash}, ${name}, ${userRole})
+      RETURNING id, email, name, role, bio, avatar_url, lat, lng
+    `;
+    const token = signToken({ userId: user.id });
 
     res.status(201).json({ user, token });
   });
 
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -93,26 +93,26 @@ async function startServer() {
       return;
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as Record<string, unknown> | undefined;
+    const [user] = await sql`SELECT * FROM users WHERE email = ${email}`;
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
 
-    if (!verifyPassword(password, user.password_hash as string)) {
+    if (!verifyPassword(password, user.password_hash)) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
 
-    const token = signToken({ userId: user.id as number });
+    const token = signToken({ userId: user.id });
     const { password_hash: _, ...safeUser } = user;
     res.json({ user: safeUser, token });
   });
 
-  app.get('/api/auth/me', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const user = db.prepare(
-      'SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ?'
-    ).get(req.userId);
+  app.get('/api/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`
+      SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ${req.userId}
+    `;
     if (user) {
       res.json({ user });
     } else {
@@ -121,7 +121,7 @@ async function startServer() {
   });
 
   // --- Users ---
-  app.put('/api/users/me', authMiddleware, (req: AuthenticatedRequest, res) => {
+  app.put('/api/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { name, bio, avatar_url, role } = req.body;
 
     if (!name) {
@@ -130,40 +130,43 @@ async function startServer() {
     }
 
     const validRoles = ['owner', 'sitter', 'both'];
-    const userRole = validRoles.includes(role) ? role : undefined;
+    const userRole = validRoles.includes(role) ? role : null;
 
-    db.prepare(
-      'UPDATE users SET name = ?, bio = ?, avatar_url = ?, role = COALESCE(?, role) WHERE id = ?'
-    ).run(name, bio || null, avatar_url || null, userRole, req.userId);
+    await sql`
+      UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null},
+      role = COALESCE(${userRole}::user_role, role)
+      WHERE id = ${req.userId}
+    `;
 
-    const user = db.prepare(
-      'SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ?'
-    ).get(req.userId);
+    const [user] = await sql`
+      SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ${req.userId}
+    `;
 
     res.json({ user });
   });
 
   // --- Pets ---
-  app.get('/api/pets', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const pets = db.prepare('SELECT * FROM pets WHERE owner_id = ?').all(req.userId);
+  app.get('/api/pets', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const pets = await sql`SELECT * FROM pets WHERE owner_id = ${req.userId}`;
     res.json({ pets });
   });
 
-  app.post('/api/pets', authMiddleware, (req: AuthenticatedRequest, res) => {
+  app.post('/api/pets', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { name, breed, age, weight, medical_history, photo_url } = req.body;
     if (!name) {
       res.status(400).json({ error: 'Pet name is required' });
       return;
     }
-    const info = db.prepare(
-      'INSERT INTO pets (owner_id, name, breed, age, weight, medical_history, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(req.userId, name, breed || null, age || null, weight || null, medical_history || null, photo_url || null);
-    const pet = db.prepare('SELECT * FROM pets WHERE id = ?').get(info.lastInsertRowid);
+    const [pet] = await sql`
+      INSERT INTO pets (owner_id, name, breed, age, weight, medical_history, photo_url)
+      VALUES (${req.userId}, ${name}, ${breed || null}, ${age || null}, ${weight || null}, ${medical_history || null}, ${photo_url || null})
+      RETURNING *
+    `;
     res.status(201).json({ pet });
   });
 
-  app.put('/api/pets/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const pet = db.prepare('SELECT * FROM pets WHERE id = ? AND owner_id = ?').get(req.params.id, req.userId);
+  app.put('/api/pets/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [pet] = await sql`SELECT * FROM pets WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
     if (!pet) {
       res.status(404).json({ error: 'Pet not found' });
       return;
@@ -173,66 +176,101 @@ async function startServer() {
       res.status(400).json({ error: 'Pet name is required' });
       return;
     }
-    db.prepare(
-      'UPDATE pets SET name = ?, breed = ?, age = ?, weight = ?, medical_history = ?, photo_url = ? WHERE id = ? AND owner_id = ?'
-    ).run(name, breed || null, age || null, weight || null, medical_history || null, photo_url || null, req.params.id, req.userId);
-    const updated = db.prepare('SELECT * FROM pets WHERE id = ?').get(req.params.id);
+    const [updated] = await sql`
+      UPDATE pets SET name = ${name}, breed = ${breed || null}, age = ${age || null},
+      weight = ${weight || null}, medical_history = ${medical_history || null}, photo_url = ${photo_url || null}
+      WHERE id = ${req.params.id} AND owner_id = ${req.userId}
+      RETURNING *
+    `;
     res.json({ pet: updated });
   });
 
-  app.delete('/api/pets/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const pet = db.prepare('SELECT * FROM pets WHERE id = ? AND owner_id = ?').get(req.params.id, req.userId);
+  app.delete('/api/pets/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [pet] = await sql`SELECT * FROM pets WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
     if (!pet) {
       res.status(404).json({ error: 'Pet not found' });
       return;
     }
-    db.prepare('DELETE FROM pets WHERE id = ? AND owner_id = ?').run(req.params.id, req.userId);
+    await sql`DELETE FROM pets WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
     res.json({ success: true });
   });
 
   // --- Sitters ---
-  app.get('/api/sitters', (req, res) => {
-    const { serviceType } = req.query;
-    let query = `
-      SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
-             s.price, s.type as service_type
-      FROM users u
-      JOIN services s ON u.id = s.sitter_id
-      WHERE u.role IN ('sitter', 'both')
-    `;
-    const params: unknown[] = [];
+  app.get('/api/sitters', async (req, res) => {
+    const serviceType = req.query.serviceType as string | undefined;
+    const lat = req.query.lat as string | undefined;
+    const lng = req.query.lng as string | undefined;
+    const radius = req.query.radius as string | undefined;
 
-    if (serviceType) {
-      query += ` AND s.type = ?`;
-      params.push(serviceType);
+    // PostGIS geo search if lat/lng/radius provided
+    if (lat && lng && radius) {
+      const sitters = serviceType
+        ? await sql`
+            SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
+                   s.price, s.type as service_type,
+                   ST_Distance(u.location, ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography) as distance_meters
+            FROM users u
+            JOIN services s ON u.id = s.sitter_id
+            WHERE u.role IN ('sitter', 'both')
+              AND s.type = ${serviceType}
+              AND ST_DWithin(u.location, ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography, ${Number(radius)})
+            ORDER BY distance_meters
+          `
+        : await sql`
+            SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
+                   s.price, s.type as service_type,
+                   ST_Distance(u.location, ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography) as distance_meters
+            FROM users u
+            JOIN services s ON u.id = s.sitter_id
+            WHERE u.role IN ('sitter', 'both')
+              AND ST_DWithin(u.location, ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography, ${Number(radius)})
+            ORDER BY distance_meters
+          `;
+      res.json({ sitters });
+      return;
     }
 
-    const sitters = db.prepare(query).all(...params);
+    const sitters = serviceType
+      ? await sql`
+          SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
+                 s.price, s.type as service_type
+          FROM users u
+          JOIN services s ON u.id = s.sitter_id
+          WHERE u.role IN ('sitter', 'both') AND s.type = ${serviceType}
+        `
+      : await sql`
+          SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
+                 s.price, s.type as service_type
+          FROM users u
+          JOIN services s ON u.id = s.sitter_id
+          WHERE u.role IN ('sitter', 'both')
+        `;
+
     res.json({ sitters });
   });
 
-  app.get('/api/sitters/:id', (req, res) => {
-    const sitter = db.prepare(
-      'SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ?'
-    ).get(req.params.id);
+  app.get('/api/sitters/:id', async (req, res) => {
+    const [sitter] = await sql`
+      SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ${req.params.id}
+    `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });
       return;
     }
 
-    const services = db.prepare('SELECT * FROM services WHERE sitter_id = ?').all(req.params.id);
-    const reviews = db.prepare(`
+    const services = await sql`SELECT * FROM services WHERE sitter_id = ${req.params.id}`;
+    const reviews = await sql`
       SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
       FROM reviews r
       JOIN users u ON r.reviewer_id = u.id
-      WHERE r.reviewee_id = ?
-    `).all(req.params.id);
+      WHERE r.reviewee_id = ${req.params.id}
+    `;
 
     res.json({ sitter, services, reviews });
   });
 
   // --- Reviews (double-blind) ---
-  app.post('/api/reviews', authMiddleware, (req: AuthenticatedRequest, res) => {
+  app.post('/api/reviews', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { booking_id, rating, comment } = req.body;
 
     if (!booking_id || !rating || rating < 1 || rating > 5) {
@@ -240,7 +278,7 @@ async function startServer() {
       return;
     }
 
-    const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(booking_id) as Record<string, unknown> | undefined;
+    const [booking] = await sql`SELECT * FROM bookings WHERE id = ${booking_id}`;
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
       return;
@@ -260,83 +298,83 @@ async function startServer() {
 
     const revieweeId = isOwner ? booking.sitter_id : booking.owner_id;
 
-    // Check for duplicate
-    const existing = db.prepare('SELECT id FROM reviews WHERE booking_id = ? AND reviewer_id = ?').get(booking_id, req.userId);
+    const [existing] = await sql`SELECT id FROM reviews WHERE booking_id = ${booking_id} AND reviewer_id = ${req.userId}`;
     if (existing) {
       res.status(409).json({ error: 'You have already reviewed this booking' });
       return;
     }
 
-    const info = db.prepare(
-      'INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment) VALUES (?, ?, ?, ?, ?)'
-    ).run(booking_id, req.userId, revieweeId, rating, comment || null);
+    const [review] = await sql`
+      INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
+      VALUES (${booking_id}, ${req.userId}, ${revieweeId}, ${rating}, ${comment || null})
+      RETURNING id
+    `;
 
     // Check if both parties have reviewed — if so, publish both
-    const otherReview = db.prepare(
-      'SELECT id FROM reviews WHERE booking_id = ? AND reviewer_id = ?'
-    ).get(booking_id, revieweeId);
+    const [otherReview] = await sql`SELECT id FROM reviews WHERE booking_id = ${booking_id} AND reviewer_id = ${revieweeId}`;
 
     if (otherReview) {
-      const now = new Date().toISOString();
-      db.prepare('UPDATE reviews SET published_at = ? WHERE booking_id = ? AND published_at IS NULL').run(now, booking_id);
+      await sql`UPDATE reviews SET published_at = NOW() WHERE booking_id = ${booking_id} AND published_at IS NULL`;
     }
 
-    res.status(201).json({ id: info.lastInsertRowid });
+    res.status(201).json({ id: review.id });
   });
 
   // Get reviews for a user (only published ones)
-  app.get('/api/reviews/:userId', (req, res) => {
-    const reviews = db.prepare(`
+  app.get('/api/reviews/:userId', async (req, res) => {
+    const reviews = await sql`
       SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
       FROM reviews r
       JOIN users u ON r.reviewer_id = u.id
-      WHERE r.reviewee_id = ? AND r.published_at IS NOT NULL
+      WHERE r.reviewee_id = ${req.params.userId} AND r.published_at IS NOT NULL
       ORDER BY r.created_at DESC
-    `).all(req.params.userId);
+    `;
 
     res.json({ reviews });
   });
 
   // --- Sitter Verification ---
-  app.get('/api/verification/me', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const verification = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(req.userId);
+  app.get('/api/verification/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [verification] = await sql`SELECT * FROM verifications WHERE sitter_id = ${req.userId}`;
     res.json({ verification: verification || null });
   });
 
-  app.post('/api/verification/start', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(req.userId) as Record<string, unknown>;
+  app.post('/api/verification/start', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
     if (user.role !== 'sitter' && user.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can start verification' });
       return;
     }
 
-    const existing = db.prepare('SELECT id FROM verifications WHERE sitter_id = ?').get(req.userId);
+    const [existing] = await sql`SELECT id FROM verifications WHERE sitter_id = ${req.userId}`;
     if (existing) {
       res.status(409).json({ error: 'Verification already started' });
       return;
     }
 
-    const info = db.prepare(
-      'INSERT INTO verifications (sitter_id, submitted_at) VALUES (?, ?)'
-    ).run(req.userId, new Date().toISOString());
-    const verification = db.prepare('SELECT * FROM verifications WHERE id = ?').get(info.lastInsertRowid);
+    const [verification] = await sql`
+      INSERT INTO verifications (sitter_id, submitted_at) VALUES (${req.userId}, NOW())
+      RETURNING *
+    `;
     res.status(201).json({ verification });
   });
 
-  app.put('/api/verification/update', authMiddleware, (req: AuthenticatedRequest, res) => {
+  app.put('/api/verification/update', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { house_photos_url } = req.body;
-    const verification = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(req.userId);
+    const [verification] = await sql`SELECT * FROM verifications WHERE sitter_id = ${req.userId}`;
     if (!verification) {
       res.status(404).json({ error: 'No verification found. Start verification first.' });
       return;
     }
-    db.prepare('UPDATE verifications SET house_photos_url = ? WHERE sitter_id = ?').run(house_photos_url, req.userId);
-    const updated = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(req.userId);
+    const [updated] = await sql`
+      UPDATE verifications SET house_photos_url = ${house_photos_url} WHERE sitter_id = ${req.userId}
+      RETURNING *
+    `;
     res.json({ verification: updated });
   });
 
-  // Webhook endpoint for background check results (called by external provider)
-  app.post('/api/webhooks/background-check', (req, res) => {
+  // Webhook endpoint for background check results
+  app.post('/api/webhooks/background-check', async (req, res) => {
     const { sitter_id, status } = req.body;
     if (!sitter_id || !status) {
       res.status(400).json({ error: 'sitter_id and status are required' });
@@ -348,61 +386,65 @@ async function startServer() {
       return;
     }
 
-    const verification = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(sitter_id);
+    const [verification] = await sql`SELECT * FROM verifications WHERE sitter_id = ${sitter_id}`;
     if (!verification) {
       res.status(404).json({ error: 'Verification not found' });
       return;
     }
 
-    db.prepare('UPDATE verifications SET background_check_status = ? WHERE sitter_id = ?').run(status, sitter_id);
+    await sql`UPDATE verifications SET background_check_status = ${status}::bg_check_status WHERE sitter_id = ${sitter_id}`;
 
-    // If background check passed and ID is approved, mark as completed
-    const updated = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(sitter_id) as Record<string, unknown>;
+    const [updated] = await sql`SELECT * FROM verifications WHERE sitter_id = ${sitter_id}`;
     if (updated.background_check_status === 'passed' && updated.id_check_status === 'approved') {
-      db.prepare('UPDATE verifications SET completed_at = ? WHERE sitter_id = ?').run(new Date().toISOString(), sitter_id);
+      await sql`UPDATE verifications SET completed_at = NOW() WHERE sitter_id = ${sitter_id}`;
     }
 
     res.json({ success: true });
   });
 
-  // Get verification status for a sitter (public, for profile display)
-  app.get('/api/verification/:sitterId', (req, res) => {
-    const verification = db.prepare('SELECT id_check_status, background_check_status, completed_at FROM verifications WHERE sitter_id = ?').get(req.params.sitterId);
+  // Get verification status for a sitter (public)
+  app.get('/api/verification/:sitterId', async (req, res) => {
+    const [verification] = await sql`
+      SELECT id_check_status, background_check_status, completed_at FROM verifications WHERE sitter_id = ${req.params.sitterId}
+    `;
     res.json({ verification: verification || null });
   });
 
   // --- Availability ---
-  app.get('/api/availability/:sitterId', (req, res) => {
-    const slots = db.prepare('SELECT * FROM availability WHERE sitter_id = ? ORDER BY day_of_week, start_time').all(req.params.sitterId);
+  app.get('/api/availability/:sitterId', async (req, res) => {
+    const slots = await sql`
+      SELECT * FROM availability WHERE sitter_id = ${req.params.sitterId} ORDER BY day_of_week, start_time
+    `;
     res.json({ slots });
   });
 
-  app.post('/api/availability', authMiddleware, (req: AuthenticatedRequest, res) => {
+  app.post('/api/availability', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { day_of_week, specific_date, start_time, end_time, recurring } = req.body;
     if (start_time == null || end_time == null) {
       res.status(400).json({ error: 'start_time and end_time are required' });
       return;
     }
-    const info = db.prepare(
-      'INSERT INTO availability (sitter_id, day_of_week, specific_date, start_time, end_time, recurring) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(req.userId, day_of_week ?? null, specific_date || null, start_time, end_time, recurring ? 1 : 0);
-    const slot = db.prepare('SELECT * FROM availability WHERE id = ?').get(info.lastInsertRowid);
+    const [slot] = await sql`
+      INSERT INTO availability (sitter_id, day_of_week, specific_date, start_time, end_time, recurring)
+      VALUES (${req.userId}, ${day_of_week ?? null}, ${specific_date || null}, ${start_time}, ${end_time}, ${recurring ? true : false})
+      RETURNING *
+    `;
     res.status(201).json({ slot });
   });
 
-  app.delete('/api/availability/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const slot = db.prepare('SELECT * FROM availability WHERE id = ? AND sitter_id = ?').get(req.params.id, req.userId);
+  app.delete('/api/availability/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [slot] = await sql`SELECT * FROM availability WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     if (!slot) {
       res.status(404).json({ error: 'Availability slot not found' });
       return;
     }
-    db.prepare('DELETE FROM availability WHERE id = ? AND sitter_id = ?').run(req.params.id, req.userId);
+    await sql`DELETE FROM availability WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     res.json({ success: true });
   });
 
   // --- Walk Events ---
-  app.get('/api/walks/:bookingId/events', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.bookingId) as Record<string, unknown> | undefined;
+  app.get('/api/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [booking] = await sql`SELECT * FROM bookings WHERE id = ${req.params.bookingId}`;
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
       return;
@@ -411,12 +453,12 @@ async function startServer() {
       res.status(403).json({ error: 'Not part of this booking' });
       return;
     }
-    const events = db.prepare('SELECT * FROM walk_events WHERE booking_id = ? ORDER BY created_at ASC').all(req.params.bookingId);
+    const events = await sql`SELECT * FROM walk_events WHERE booking_id = ${req.params.bookingId} ORDER BY created_at ASC`;
     res.json({ events });
   });
 
-  app.post('/api/walks/:bookingId/events', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.bookingId) as Record<string, unknown> | undefined;
+  app.post('/api/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [booking] = await sql`SELECT * FROM bookings WHERE id = ${req.params.bookingId}`;
     if (!booking || booking.sitter_id !== req.userId) {
       res.status(403).json({ error: 'Only the sitter can log walk events' });
       return;
@@ -426,50 +468,49 @@ async function startServer() {
       res.status(400).json({ error: 'event_type is required' });
       return;
     }
-    const info = db.prepare(
-      'INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(req.params.bookingId, event_type, lat || null, lng || null, note || null, photo_url || null);
+    const [event] = await sql`
+      INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url)
+      VALUES (${req.params.bookingId}, ${event_type}, ${lat || null}, ${lng || null}, ${note || null}, ${photo_url || null})
+      RETURNING *
+    `;
 
     // If event is 'start', update booking to in_progress and notify owner
     if (event_type === 'start') {
-      db.prepare("UPDATE bookings SET status = 'in_progress' WHERE id = ?").run(req.params.bookingId);
-      const walkBooking = booking as Record<string, unknown>;
-      const sitterUser = db.prepare('SELECT name FROM users WHERE id = ?').get(req.userId) as { name: string };
-      const startNotif = createNotification(walkBooking.owner_id as number, 'walk_started', 'Walk Started', `${sitterUser.name} has started the walk.`, { booking_id: Number(req.params.bookingId) });
-      io.to(String(walkBooking.owner_id)).emit('notification', startNotif);
+      await sql`UPDATE bookings SET status = 'in_progress' WHERE id = ${req.params.bookingId}`;
+      const [sitterUser] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
+      const startNotif = await createNotification(booking.owner_id, 'walk_started', 'Walk Started', `${sitterUser.name} has started the walk.`, { booking_id: Number(req.params.bookingId) });
+      io.to(String(booking.owner_id)).emit('notification', startNotif);
     }
     // If event is 'end', update booking to completed and notify owner
     if (event_type === 'end') {
-      db.prepare("UPDATE bookings SET status = 'completed' WHERE id = ?").run(req.params.bookingId);
-      const walkBooking = booking as Record<string, unknown>;
-      const sitterUser = db.prepare('SELECT name FROM users WHERE id = ?').get(req.userId) as { name: string };
-      const endNotif = createNotification(walkBooking.owner_id as number, 'walk_completed', 'Walk Completed', `${sitterUser.name} has completed the walk.`, { booking_id: Number(req.params.bookingId) });
-      io.to(String(walkBooking.owner_id)).emit('notification', endNotif);
+      await sql`UPDATE bookings SET status = 'completed' WHERE id = ${req.params.bookingId}`;
+      const [sitterUser] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
+      const endNotif = await createNotification(booking.owner_id, 'walk_completed', 'Walk Completed', `${sitterUser.name} has completed the walk.`, { booking_id: Number(req.params.bookingId) });
+      io.to(String(booking.owner_id)).emit('notification', endNotif);
     }
 
-    const event = db.prepare('SELECT * FROM walk_events WHERE id = ?').get(info.lastInsertRowid);
     res.status(201).json({ event });
   });
 
   // --- Bookings ---
-  app.post('/api/bookings', authMiddleware, (req: AuthenticatedRequest, res) => {
+  app.post('/api/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time, total_price } = req.body;
-    const stmt = db.prepare(`
+    const [booking] = await sql`
       INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending')
-    `);
-    const info = stmt.run(sitter_id, req.userId, service_id, start_time, end_time, total_price);
+      VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${total_price}, 'pending')
+      RETURNING id, status
+    `;
 
     // Notify sitter of new booking
-    const owner = db.prepare('SELECT name FROM users WHERE id = ?').get(req.userId) as { name: string };
-    const notification = createNotification(sitter_id, 'new_booking', 'New Booking Request', `${owner.name} has requested a booking.`, { booking_id: Number(info.lastInsertRowid) });
+    const [owner] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
+    const notification = await createNotification(sitter_id, 'new_booking', 'New Booking Request', `${owner.name} has requested a booking.`, { booking_id: booking.id });
     io.to(String(sitter_id)).emit('notification', notification);
 
-    res.json({ id: info.lastInsertRowid, status: 'pending' });
+    res.json({ id: booking.id, status: booking.status });
   });
 
-  app.get('/api/bookings', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const bookings = db.prepare(`
+  app.get('/api/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const bookings = await sql`
       SELECT b.*,
              s.name as sitter_name, s.avatar_url as sitter_avatar,
              o.name as owner_name, o.avatar_url as owner_avatar,
@@ -478,24 +519,22 @@ async function startServer() {
       JOIN users s ON b.sitter_id = s.id
       JOIN users o ON b.owner_id = o.id
       JOIN services svc ON b.service_id = svc.id
-      WHERE b.owner_id = ? OR b.sitter_id = ?
+      WHERE b.owner_id = ${req.userId} OR b.sitter_id = ${req.userId}
       ORDER BY b.start_time DESC
-    `).all(req.userId, req.userId);
+    `;
 
     res.json({ bookings });
   });
 
   // --- Messages ---
-  app.get('/api/messages/:userId', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const otherUserId = req.params.userId;
-
-    const messages = db.prepare(`
+  app.get('/api/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const otherUserId = Number(req.params.userId);
+    const messages = await sql`
       SELECT * FROM messages
-      WHERE (sender_id = ? AND receiver_id = ?)
-         OR (sender_id = ? AND receiver_id = ?)
+      WHERE (sender_id = ${req.userId} AND receiver_id = ${otherUserId})
+         OR (sender_id = ${otherUserId} AND receiver_id = ${req.userId})
       ORDER BY created_at ASC
-    `).all(req.userId, otherUserId, otherUserId, req.userId);
-
+    `;
     res.json({ messages });
   });
 
@@ -518,42 +557,35 @@ async function startServer() {
     const userId = (socket as any).userId;
     socket.join(String(userId));
 
-    socket.on('send_message', (data) => {
+    socket.on('send_message', async (data) => {
       const { receiver_id, content } = data;
 
-      const stmt = db.prepare('INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)');
-      const info = stmt.run(userId, receiver_id, content);
-
-      const message = {
-        id: info.lastInsertRowid,
-        sender_id: userId,
-        receiver_id,
-        content,
-        created_at: new Date().toISOString()
-      };
+      const [message] = await sql`
+        INSERT INTO messages (sender_id, receiver_id, content) VALUES (${userId}, ${receiver_id}, ${content})
+        RETURNING *
+      `;
 
       io.to(String(receiver_id)).emit('receive_message', message);
       io.to(String(userId)).emit('receive_message', message);
 
       // Notify receiver of new message
-      const sender = db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as { name: string };
-      const notification = createNotification(receiver_id, 'new_message', 'New Message', `${sender.name}: ${content.substring(0, 100)}`, { sender_id: userId });
+      const [sender] = await sql`SELECT name FROM users WHERE id = ${userId}`;
+      const notification = await createNotification(receiver_id, 'new_message', 'New Message', `${sender.name}: ${content.substring(0, 100)}`, { sender_id: userId });
       io.to(String(receiver_id)).emit('notification', notification);
     });
   });
 
-
   // --- Notifications ---
-  app.get('/api/notifications', authMiddleware, (req: AuthenticatedRequest, res) => {
+  app.get('/api/notifications', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const limit = Math.min(Number(req.query.limit) || 50, 100);
     const offset = Number(req.query.offset) || 0;
-    const notifications = getUserNotifications(req.userId!, limit, offset);
-    const unreadCount = getUnreadCount(req.userId!);
+    const notifications = await getUserNotifications(req.userId!, limit, offset);
+    const unreadCount = await getUnreadCount(req.userId!);
     res.json({ notifications, unreadCount });
   });
 
-  app.post('/api/notifications/:id/read', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const success = markAsRead(Number(req.params.id), req.userId!);
+  app.post('/api/notifications/:id/read', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const success = await markAsRead(Number(req.params.id), req.userId!);
     if (!success) {
       res.status(404).json({ error: 'Notification not found' });
       return;
@@ -561,26 +593,26 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.post('/api/notifications/read-all', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const count = markAllAsRead(req.userId!);
+  app.post('/api/notifications/read-all', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const count = await markAllAsRead(req.userId!);
     res.json({ markedRead: count });
   });
 
-  app.get('/api/notification-preferences', authMiddleware, (req: AuthenticatedRequest, res) => {
-    const prefs = getPreferences(req.userId!);
+  app.get('/api/notification-preferences', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const prefs = await getPreferences(req.userId!);
     res.json({ preferences: prefs });
   });
 
-  app.put('/api/notification-preferences', authMiddleware, (req: AuthenticatedRequest, res) => {
+  app.put('/api/notification-preferences', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { new_booking, booking_status, new_message, walk_updates } = req.body;
-    const prefs = updatePreferences(req.userId!, { new_booking, booking_status, new_message, walk_updates });
+    const prefs = await updatePreferences(req.userId!, { new_booking, booking_status, new_message, walk_updates });
     res.json({ preferences: prefs });
   });
 
   // --- Stripe Connect ---
   app.post('/api/stripe/connect', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = db.prepare('SELECT email, role, stripe_account_id FROM users WHERE id = ?').get(req.userId) as Record<string, unknown>;
+      const [user] = await sql`SELECT email, role, stripe_account_id FROM users WHERE id = ${req.userId}`;
       if (user.role !== 'sitter' && user.role !== 'both') {
         res.status(403).json({ error: 'Only sitters can connect a Stripe account' });
         return;
@@ -589,8 +621,8 @@ async function startServer() {
         res.status(409).json({ error: 'Stripe account already connected' });
         return;
       }
-      const accountId = await createConnectedAccount(user.email as string);
-      db.prepare('UPDATE users SET stripe_account_id = ? WHERE id = ?').run(accountId, req.userId);
+      const accountId = await createConnectedAccount(user.email);
+      await sql`UPDATE users SET stripe_account_id = ${accountId} WHERE id = ${req.userId}`;
       const appUrl = process.env.APP_URL || 'http://localhost:3000';
       const url = await createAccountLink(accountId, appUrl);
       res.json({ accountId, onboardingUrl: url });
@@ -602,13 +634,13 @@ async function startServer() {
 
   app.post('/api/stripe/account-link', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = db.prepare('SELECT stripe_account_id FROM users WHERE id = ?').get(req.userId) as Record<string, unknown>;
+      const [user] = await sql`SELECT stripe_account_id FROM users WHERE id = ${req.userId}`;
       if (!user.stripe_account_id) {
         res.status(400).json({ error: 'No Stripe account connected' });
         return;
       }
       const appUrl = process.env.APP_URL || 'http://localhost:3000';
-      const url = await createAccountLink(user.stripe_account_id as string, appUrl);
+      const url = await createAccountLink(user.stripe_account_id, appUrl);
       res.json({ onboardingUrl: url });
     } catch (error) {
       console.error('Stripe account link error:', error);
@@ -624,7 +656,7 @@ async function startServer() {
         res.status(400).json({ error: 'booking_id is required' });
         return;
       }
-      const booking = db.prepare('SELECT * FROM bookings WHERE id = ? AND owner_id = ?').get(booking_id, req.userId) as Record<string, unknown> | undefined;
+      const [booking] = await sql`SELECT * FROM bookings WHERE id = ${booking_id} AND owner_id = ${req.userId}`;
       if (!booking) {
         res.status(404).json({ error: 'Booking not found' });
         return;
@@ -633,14 +665,14 @@ async function startServer() {
         res.status(409).json({ error: 'Payment already initiated for this booking' });
         return;
       }
-      const sitter = db.prepare('SELECT stripe_account_id FROM users WHERE id = ?').get(booking.sitter_id) as Record<string, unknown>;
+      const [sitter] = await sql`SELECT stripe_account_id FROM users WHERE id = ${booking.sitter_id}`;
       if (!sitter.stripe_account_id) {
         res.status(400).json({ error: 'Sitter has not connected a Stripe account' });
         return;
       }
-      const amountCents = Math.round((booking.total_price as number) * 100);
-      const { clientSecret, paymentIntentId } = await createPaymentIntent(amountCents, sitter.stripe_account_id as string);
-      db.prepare("UPDATE bookings SET payment_intent_id = ?, payment_status = 'held' WHERE id = ?").run(paymentIntentId, booking_id);
+      const amountCents = Math.round(booking.total_price * 100);
+      const { clientSecret, paymentIntentId } = await createPaymentIntent(amountCents, sitter.stripe_account_id);
+      await sql`UPDATE bookings SET payment_intent_id = ${paymentIntentId}, payment_status = 'held' WHERE id = ${booking_id}`;
       res.json({ clientSecret, paymentIntentId });
     } catch (error) {
       console.error('Payment intent error:', error);
@@ -651,15 +683,15 @@ async function startServer() {
   app.post('/api/payments/capture', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
-      const booking = db.prepare(
-        "SELECT * FROM bookings WHERE id = ? AND (owner_id = ? OR sitter_id = ?) AND payment_status = 'held'"
-      ).get(booking_id, req.userId, req.userId) as Record<string, unknown> | undefined;
+      const [booking] = await sql`
+        SELECT * FROM bookings WHERE id = ${booking_id} AND (owner_id = ${req.userId} OR sitter_id = ${req.userId}) AND payment_status = 'held'
+      `;
       if (!booking) {
         res.status(404).json({ error: 'Booking not found or payment not held' });
         return;
       }
-      await capturePayment(booking.payment_intent_id as string);
-      db.prepare("UPDATE bookings SET payment_status = 'captured' WHERE id = ?").run(booking_id);
+      await capturePayment(booking.payment_intent_id);
+      await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${booking_id}`;
       res.json({ success: true });
     } catch (error) {
       console.error('Payment capture error:', error);
@@ -670,15 +702,15 @@ async function startServer() {
   app.post('/api/payments/cancel', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
-      const booking = db.prepare(
-        "SELECT * FROM bookings WHERE id = ? AND owner_id = ? AND payment_status = 'held'"
-      ).get(booking_id, req.userId) as Record<string, unknown> | undefined;
+      const [booking] = await sql`
+        SELECT * FROM bookings WHERE id = ${booking_id} AND owner_id = ${req.userId} AND payment_status = 'held'
+      `;
       if (!booking) {
         res.status(404).json({ error: 'Booking not found or payment not held' });
         return;
       }
-      await cancelPayment(booking.payment_intent_id as string);
-      db.prepare("UPDATE bookings SET payment_status = 'cancelled', status = 'cancelled' WHERE id = ?").run(booking_id);
+      await cancelPayment(booking.payment_intent_id);
+      await sql`UPDATE bookings SET payment_status = 'cancelled', status = 'cancelled' WHERE id = ${booking_id}`;
       res.json({ success: true });
     } catch (error) {
       console.error('Payment cancel error:', error);
@@ -698,12 +730,12 @@ async function startServer() {
       switch (event.type) {
         case 'payment_intent.succeeded': {
           const pi = event.data.object as { id: string };
-          db.prepare("UPDATE bookings SET payment_status = 'captured' WHERE payment_intent_id = ?").run(pi.id);
+          await sql`UPDATE bookings SET payment_status = 'captured' WHERE payment_intent_id = ${pi.id}`;
           break;
         }
         case 'payment_intent.canceled': {
           const pi = event.data.object as { id: string };
-          db.prepare("UPDATE bookings SET payment_status = 'cancelled' WHERE payment_intent_id = ?").run(pi.id);
+          await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE payment_intent_id = ${pi.id}`;
           break;
         }
       }
