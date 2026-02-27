@@ -1,0 +1,67 @@
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  role: 'owner' | 'sitter' | 'both';
+  bio?: string;
+  avatar_url?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface Pet {
+  id: number;
+  owner_id: number;
+  name: string;
+  breed?: string;
+  age?: number;
+  weight?: number;
+  medical_history?: string;
+  photo_url?: string;
+}
+
+export interface Service {
+  id: number;
+  sitter_id: number;
+  type: 'walking' | 'sitting' | 'drop-in' | 'grooming';
+  price: number;
+  description?: string;
+}
+
+export interface Booking {
+  id: number;
+  sitter_id: number;
+  owner_id: number;
+  pet_id?: number;
+  service_id?: number;
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  start_time: string;
+  end_time: string;
+  total_price?: number;
+  sitter_name?: string;
+  sitter_avatar?: string;
+  owner_name?: string;
+  owner_avatar?: string;
+  service_type?: string;
+}
+
+export interface Message {
+  id: number;
+  booking_id?: number;
+  sender_id: number;
+  receiver_id: number;
+  content: string;
+  created_at: string;
+}
+
+export interface Review {
+  id: number;
+  booking_id: number;
+  reviewer_id: number;
+  reviewee_id: number;
+  rating: number;
+  comment?: string;
+  created_at: string;
+  reviewer_name?: string;
+  reviewer_avatar?: string;
+}
