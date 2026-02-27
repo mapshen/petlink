@@ -27,7 +27,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="bg-emerald-600 p-2 rounded-xl group-hover:bg-emerald-700 transition-colors">
               <PawPrint className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-stone-900">Pawscout</span>
+            <span className="text-xl font-bold tracking-tight text-stone-900">PetLink</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -86,7 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2">
               <PawPrint className="w-5 h-5 text-stone-400" />
-              <span className="text-stone-500 font-medium">Pawscout &copy; 2024</span>
+              <span className="text-stone-500 font-medium">PetLink &copy; 2024</span>
             </div>
             <div className="flex gap-6 text-sm text-stone-500">
               <a href="#" className="hover:text-stone-900">Privacy</a>

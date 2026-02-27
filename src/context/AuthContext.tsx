@@ -16,7 +16,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for existing session (mock)
-    const storedUser = localStorage.getItem('pawscout_user');
+    const storedUser = localStorage.getItem('petlink_user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const data = await res.json();
       setUser(data.user);
-      localStorage.setItem('pawscout_user', JSON.stringify(data.user));
+      localStorage.setItem('petlink_user', JSON.stringify(data.user));
     } catch (error) {
       console.error(error);
       throw error;
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('pawscout_user');
+    localStorage.removeItem('petlink_user');
   };
 
   return (
