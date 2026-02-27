@@ -139,6 +139,53 @@ async function startServer() {
     res.json({ user });
   });
 
+  // --- Pets ---
+  app.get('/api/pets', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const pets = db.prepare('SELECT * FROM pets WHERE owner_id = ?').all(req.userId);
+    res.json({ pets });
+  });
+
+  app.post('/api/pets', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const { name, breed, age, weight, medical_history, photo_url } = req.body;
+    if (!name) {
+      res.status(400).json({ error: 'Pet name is required' });
+      return;
+    }
+    const info = db.prepare(
+      'INSERT INTO pets (owner_id, name, breed, age, weight, medical_history, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(req.userId, name, breed || null, age || null, weight || null, medical_history || null, photo_url || null);
+    const pet = db.prepare('SELECT * FROM pets WHERE id = ?').get(info.lastInsertRowid);
+    res.status(201).json({ pet });
+  });
+
+  app.put('/api/pets/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const pet = db.prepare('SELECT * FROM pets WHERE id = ? AND owner_id = ?').get(req.params.id, req.userId);
+    if (!pet) {
+      res.status(404).json({ error: 'Pet not found' });
+      return;
+    }
+    const { name, breed, age, weight, medical_history, photo_url } = req.body;
+    if (!name) {
+      res.status(400).json({ error: 'Pet name is required' });
+      return;
+    }
+    db.prepare(
+      'UPDATE pets SET name = ?, breed = ?, age = ?, weight = ?, medical_history = ?, photo_url = ? WHERE id = ? AND owner_id = ?'
+    ).run(name, breed || null, age || null, weight || null, medical_history || null, photo_url || null, req.params.id, req.userId);
+    const updated = db.prepare('SELECT * FROM pets WHERE id = ?').get(req.params.id);
+    res.json({ pet: updated });
+  });
+
+  app.delete('/api/pets/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const pet = db.prepare('SELECT * FROM pets WHERE id = ? AND owner_id = ?').get(req.params.id, req.userId);
+    if (!pet) {
+      res.status(404).json({ error: 'Pet not found' });
+      return;
+    }
+    db.prepare('DELETE FROM pets WHERE id = ? AND owner_id = ?').run(req.params.id, req.userId);
+    res.json({ success: true });
+  });
+
   // --- Sitters ---
   app.get('/api/sitters', (req, res) => {
     const { serviceType } = req.query;
