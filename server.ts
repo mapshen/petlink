@@ -293,6 +293,78 @@ async function startServer() {
     res.json({ reviews });
   });
 
+  // --- Availability ---
+  app.get('/api/availability/:sitterId', (req, res) => {
+    const slots = db.prepare('SELECT * FROM availability WHERE sitter_id = ? ORDER BY day_of_week, start_time').all(req.params.sitterId);
+    res.json({ slots });
+  });
+
+  app.post('/api/availability', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const { day_of_week, specific_date, start_time, end_time, recurring } = req.body;
+    if (start_time == null || end_time == null) {
+      res.status(400).json({ error: 'start_time and end_time are required' });
+      return;
+    }
+    const info = db.prepare(
+      'INSERT INTO availability (sitter_id, day_of_week, specific_date, start_time, end_time, recurring) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(req.userId, day_of_week ?? null, specific_date || null, start_time, end_time, recurring ? 1 : 0);
+    const slot = db.prepare('SELECT * FROM availability WHERE id = ?').get(info.lastInsertRowid);
+    res.status(201).json({ slot });
+  });
+
+  app.delete('/api/availability/:id', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const slot = db.prepare('SELECT * FROM availability WHERE id = ? AND sitter_id = ?').get(req.params.id, req.userId);
+    if (!slot) {
+      res.status(404).json({ error: 'Availability slot not found' });
+      return;
+    }
+    db.prepare('DELETE FROM availability WHERE id = ? AND sitter_id = ?').run(req.params.id, req.userId);
+    res.json({ success: true });
+  });
+
+  // --- Walk Events ---
+  app.get('/api/walks/:bookingId/events', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.bookingId) as Record<string, unknown> | undefined;
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+    if (booking.owner_id !== req.userId && booking.sitter_id !== req.userId) {
+      res.status(403).json({ error: 'Not part of this booking' });
+      return;
+    }
+    const events = db.prepare('SELECT * FROM walk_events WHERE booking_id = ? ORDER BY created_at ASC').all(req.params.bookingId);
+    res.json({ events });
+  });
+
+  app.post('/api/walks/:bookingId/events', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.bookingId) as Record<string, unknown> | undefined;
+    if (!booking || booking.sitter_id !== req.userId) {
+      res.status(403).json({ error: 'Only the sitter can log walk events' });
+      return;
+    }
+    const { event_type, lat, lng, note, photo_url } = req.body;
+    if (!event_type) {
+      res.status(400).json({ error: 'event_type is required' });
+      return;
+    }
+    const info = db.prepare(
+      'INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(req.params.bookingId, event_type, lat || null, lng || null, note || null, photo_url || null);
+
+    // If event is 'start', update booking to in_progress
+    if (event_type === 'start') {
+      db.prepare("UPDATE bookings SET status = 'in_progress' WHERE id = ?").run(req.params.bookingId);
+    }
+    // If event is 'end', update booking to completed
+    if (event_type === 'end') {
+      db.prepare("UPDATE bookings SET status = 'completed' WHERE id = ?").run(req.params.bookingId);
+    }
+
+    const event = db.prepare('SELECT * FROM walk_events WHERE id = ?').get(info.lastInsertRowid);
+    res.status(201).json({ event });
+  });
+
   // --- Bookings ---
   app.post('/api/bookings', authMiddleware, (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time, total_price } = req.body;
