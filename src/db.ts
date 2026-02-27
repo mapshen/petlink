@@ -20,6 +20,7 @@ export function initDb() {
       avatar_url TEXT,
       lat REAL,
       lng REAL,
+      stripe_account_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -54,6 +55,8 @@ export function initDb() {
       start_time DATETIME NOT NULL,
       end_time DATETIME NOT NULL,
       total_price REAL,
+      payment_intent_id TEXT,
+      payment_status TEXT CHECK(payment_status IN ('pending', 'held', 'captured', 'cancelled')) DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (sitter_id) REFERENCES users(id),
       FOREIGN KEY (owner_id) REFERENCES users(id),

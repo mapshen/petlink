@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit';
 import { initDb } from './src/db.ts';
 import db from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
+import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent } from './src/payments.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +28,8 @@ async function startServer() {
   });
   const PORT = 3000;
 
+  // Raw body needed for Stripe webhook signature verification
+  app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
   app.use(express.json());
   app.use(cookieParser());
 
@@ -519,6 +522,143 @@ async function startServer() {
     });
   });
 
+
+  // --- Stripe Connect ---
+  app.post('/api/stripe/connect', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const user = db.prepare('SELECT email, role, stripe_account_id FROM users WHERE id = ?').get(req.userId) as Record<string, unknown>;
+      if (user.role !== 'sitter' && user.role !== 'both') {
+        res.status(403).json({ error: 'Only sitters can connect a Stripe account' });
+        return;
+      }
+      if (user.stripe_account_id) {
+        res.status(409).json({ error: 'Stripe account already connected' });
+        return;
+      }
+      const accountId = await createConnectedAccount(user.email as string);
+      db.prepare('UPDATE users SET stripe_account_id = ? WHERE id = ?').run(accountId, req.userId);
+      const appUrl = process.env.APP_URL || 'http://localhost:3000';
+      const url = await createAccountLink(accountId, appUrl);
+      res.json({ accountId, onboardingUrl: url });
+    } catch (error) {
+      console.error('Stripe connect error:', error);
+      res.status(500).json({ error: 'Failed to create Stripe account' });
+    }
+  });
+
+  app.post('/api/stripe/account-link', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const user = db.prepare('SELECT stripe_account_id FROM users WHERE id = ?').get(req.userId) as Record<string, unknown>;
+      if (!user.stripe_account_id) {
+        res.status(400).json({ error: 'No Stripe account connected' });
+        return;
+      }
+      const appUrl = process.env.APP_URL || 'http://localhost:3000';
+      const url = await createAccountLink(user.stripe_account_id as string, appUrl);
+      res.json({ onboardingUrl: url });
+    } catch (error) {
+      console.error('Stripe account link error:', error);
+      res.status(500).json({ error: 'Failed to create account link' });
+    }
+  });
+
+  // --- Payments ---
+  app.post('/api/payments/create-intent', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { booking_id } = req.body;
+      if (!booking_id) {
+        res.status(400).json({ error: 'booking_id is required' });
+        return;
+      }
+      const booking = db.prepare('SELECT * FROM bookings WHERE id = ? AND owner_id = ?').get(booking_id, req.userId) as Record<string, unknown> | undefined;
+      if (!booking) {
+        res.status(404).json({ error: 'Booking not found' });
+        return;
+      }
+      if (booking.payment_intent_id) {
+        res.status(409).json({ error: 'Payment already initiated for this booking' });
+        return;
+      }
+      const sitter = db.prepare('SELECT stripe_account_id FROM users WHERE id = ?').get(booking.sitter_id) as Record<string, unknown>;
+      if (!sitter.stripe_account_id) {
+        res.status(400).json({ error: 'Sitter has not connected a Stripe account' });
+        return;
+      }
+      const amountCents = Math.round((booking.total_price as number) * 100);
+      const { clientSecret, paymentIntentId } = await createPaymentIntent(amountCents, sitter.stripe_account_id as string);
+      db.prepare("UPDATE bookings SET payment_intent_id = ?, payment_status = 'held' WHERE id = ?").run(paymentIntentId, booking_id);
+      res.json({ clientSecret, paymentIntentId });
+    } catch (error) {
+      console.error('Payment intent error:', error);
+      res.status(500).json({ error: 'Failed to create payment' });
+    }
+  });
+
+  app.post('/api/payments/capture', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { booking_id } = req.body;
+      const booking = db.prepare(
+        "SELECT * FROM bookings WHERE id = ? AND (owner_id = ? OR sitter_id = ?) AND payment_status = 'held'"
+      ).get(booking_id, req.userId, req.userId) as Record<string, unknown> | undefined;
+      if (!booking) {
+        res.status(404).json({ error: 'Booking not found or payment not held' });
+        return;
+      }
+      await capturePayment(booking.payment_intent_id as string);
+      db.prepare("UPDATE bookings SET payment_status = 'captured' WHERE id = ?").run(booking_id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Payment capture error:', error);
+      res.status(500).json({ error: 'Failed to capture payment' });
+    }
+  });
+
+  app.post('/api/payments/cancel', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { booking_id } = req.body;
+      const booking = db.prepare(
+        "SELECT * FROM bookings WHERE id = ? AND owner_id = ? AND payment_status = 'held'"
+      ).get(booking_id, req.userId) as Record<string, unknown> | undefined;
+      if (!booking) {
+        res.status(404).json({ error: 'Booking not found or payment not held' });
+        return;
+      }
+      await cancelPayment(booking.payment_intent_id as string);
+      db.prepare("UPDATE bookings SET payment_status = 'cancelled', status = 'cancelled' WHERE id = ?").run(booking_id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Payment cancel error:', error);
+      res.status(500).json({ error: 'Failed to cancel payment' });
+    }
+  });
+
+  // --- Stripe Webhook ---
+  app.post('/api/webhooks/stripe', async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    if (!sig) {
+      res.status(400).json({ error: 'Missing stripe-signature header' });
+      return;
+    }
+    try {
+      const event = constructWebhookEvent(req.body, sig as string);
+      switch (event.type) {
+        case 'payment_intent.succeeded': {
+          const pi = event.data.object as { id: string };
+          db.prepare("UPDATE bookings SET payment_status = 'captured' WHERE payment_intent_id = ?").run(pi.id);
+          break;
+        }
+        case 'payment_intent.canceled': {
+          const pi = event.data.object as { id: string };
+          db.prepare("UPDATE bookings SET payment_status = 'cancelled' WHERE payment_intent_id = ?").run(pi.id);
+          break;
+        }
+      }
+      res.json({ received: true });
+    } catch (error) {
+      console.error('Stripe webhook error:', error);
+      res.status(400).json({ error: 'Webhook verification failed' });
+    }
+  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
