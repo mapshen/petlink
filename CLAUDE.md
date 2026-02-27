@@ -23,7 +23,7 @@ No test runner is configured yet. No linter beyond TypeScript.
 Single Express server serves both the API and Vite-powered frontend in dev mode. Socket.io is attached to the same HTTP server for real-time messaging.
 
 - **Database**: SQLite via `better-sqlite3`, file `pawscout.db`, schema defined and seeded in `src/db.ts`
-- **Auth**: Mock — login by email only, user ID passed via `x-user-id` header. JWT/bcrypt are imported but not wired up.
+- **Auth**: Mock — login by email only, user ID passed via `x-user-id` header. JWT/bcrypt are installed as dependencies but never imported or used.
 - **Real-time**: Socket.io handles `join_room`, `send_message`, `receive_message` events for 1:1 chat.
 
 ### API Routes (all under `/api/`)
@@ -32,7 +32,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 |---|---|---|
 | `/api/auth/login` | POST | Email-only login |
 | `/api/auth/me` | GET | Reads `x-user-id` header |
-| `/api/sitters` | GET | Optional `?service=` filter |
+| `/api/sitters` | GET | Optional `?serviceType=` filter |
 | `/api/sitters/:id` | GET | Includes services & reviews |
 | `/api/bookings` | POST | Create booking |
 | `/api/bookings` | GET | List by `x-user-id` |
