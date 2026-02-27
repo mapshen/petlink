@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Booking } from '../types';
 import { Calendar, Clock, MapPin, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +15,7 @@ export default function Dashboard() {
     const fetchBookings = async () => {
       try {
         const res = await fetch('/api/bookings', {
-          headers: { 'x-user-id': user.id.toString() }
+          headers: getAuthHeaders(token)
         });
         const data = await res.json();
         setBookings(data.bookings);

@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, Service, Review } from '../types';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { MapPin, Star, Calendar, MessageSquare, ShieldCheck } from 'lucide-react';
 
 export default function SitterProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [sitter, setSitter] = useState<User | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -46,10 +46,9 @@ export default function SitterProfile() {
       const service = services.find(s => s.id === selectedService);
       const res = await fetch('/api/bookings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(token),
         body: JSON.stringify({
           sitter_id: sitter?.id,
-          owner_id: user.id,
           service_id: selectedService,
           start_time: new Date(bookingDate).toISOString(),
           end_time: new Date(new Date(bookingDate).getTime() + 3600000).toISOString(), // 1 hour later
