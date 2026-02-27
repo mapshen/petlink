@@ -22,9 +22,12 @@ async function startServer() {
 
   const app = express();
   const httpServer = createServer(app);
+  const corsOrigin = process.env.NODE_ENV === 'production'
+    ? (process.env.APP_URL || 'http://localhost:3000')
+    : '*';
   const io = new Server(httpServer, {
     cors: {
-      origin: "*",
+      origin: corsOrigin,
       methods: ["GET", "POST"]
     }
   });
@@ -72,10 +75,20 @@ async function startServer() {
       return;
     }
 
+    if (typeof password !== 'string' || password.length < 8) {
+      res.status(400).json({ error: 'Password must be at least 8 characters' });
+      return;
+    }
+    if (password.length > 72) {
+      res.status(400).json({ error: 'Password must not exceed 72 characters' });
+      return;
+    }
+
     const validRoles = ['owner', 'sitter', 'both'];
     const userRole = validRoles.includes(role) ? role : 'owner';
+    const normalizedEmail = String(email).trim().toLowerCase();
 
-    const [existing] = await sql`SELECT id FROM users WHERE email = ${email}`;
+    const [existing] = await sql`SELECT id FROM users WHERE email = ${normalizedEmail}`;
     if (existing) {
       res.status(409).json({ error: 'Email already in use' });
       return;
@@ -84,7 +97,7 @@ async function startServer() {
     const passwordHash = hashPassword(password);
     const [user] = await sql`
       INSERT INTO users (email, password_hash, name, role)
-      VALUES (${email}, ${passwordHash}, ${name}, ${userRole})
+      VALUES (${normalizedEmail}, ${passwordHash}, ${String(name).trim()}, ${userRole})
       RETURNING id, email, name, role, bio, avatar_url, lat, lng
     `;
     const token = signToken({ userId: user.id });
@@ -100,7 +113,8 @@ async function startServer() {
       return;
     }
 
-    const [user] = await sql`SELECT * FROM users WHERE email = ${email}`;
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const [user] = await sql`SELECT * FROM users WHERE email = ${normalizedEmail}`;
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -502,6 +516,29 @@ async function startServer() {
   // --- Bookings ---
   v1.post('/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time, total_price } = req.body;
+
+    if (!sitter_id || !service_id || !start_time || !end_time) {
+      res.status(400).json({ error: 'sitter_id, service_id, start_time, and end_time are required' });
+      return;
+    }
+    if (sitter_id === req.userId) {
+      res.status(400).json({ error: 'Cannot book yourself' });
+      return;
+    }
+    if (total_price != null && (typeof total_price !== 'number' || total_price < 0)) {
+      res.status(400).json({ error: 'total_price must be a non-negative number' });
+      return;
+    }
+    if (new Date(end_time) <= new Date(start_time)) {
+      res.status(400).json({ error: 'end_time must be after start_time' });
+      return;
+    }
+    const [service] = await sql`SELECT id FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    if (!service) {
+      res.status(400).json({ error: 'Invalid service for this sitter' });
+      return;
+    }
+
     const [booking] = await sql`
       INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
       VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${total_price}, 'pending')

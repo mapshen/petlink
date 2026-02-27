@@ -19,8 +19,8 @@ export default function Dashboard() {
         });
         const data = await res.json();
         setBookings(data.bookings);
-      } catch (error) {
-        console.error(error);
+      } catch {
+        // Silently handle — bookings fetch failed
       } finally {
         setLoading(false);
       }

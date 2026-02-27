@@ -25,8 +25,8 @@ export default function SitterProfile() {
         setServices(data.services);
         setReviews(data.reviews);
         if (data.services.length > 0) setSelectedService(data.services[0].id);
-      } catch (error) {
-        console.error(error);
+      } catch {
+        // Silently handle — sitter fetch failed
       } finally {
         setLoading(false);
       }
@@ -59,8 +59,8 @@ export default function SitterProfile() {
       if (res.ok) {
         navigate('/dashboard');
       }
-    } catch (error) {
-      console.error('Booking failed', error);
+    } catch {
+      // Silently handle — booking request failed
     }
   };
 

@@ -3,7 +3,11 @@ import jwt from 'jsonwebtoken';
 import type { Request, Response, NextFunction } from 'express';
 import sql from './db.ts';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'petlink-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET environment variable is required in production');
+}
+const resolvedSecret = JWT_SECRET || 'petlink-dev-secret-change-in-production';
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRY = '7d';
 
@@ -16,11 +20,11 @@ export function verifyPassword(password: string, hash: string): boolean {
 }
 
 export function signToken(payload: { userId: number }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+  return jwt.sign(payload, resolvedSecret, { expiresIn: TOKEN_EXPIRY });
 }
 
 export function verifyToken(token: string): { userId: number } {
-  return jwt.verify(token, JWT_SECRET) as { userId: number };
+  return jwt.verify(token, resolvedSecret) as { userId: number };
 }
 
 export interface AuthenticatedRequest extends Request {

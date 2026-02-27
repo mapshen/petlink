@@ -47,8 +47,8 @@ export default function Messages() {
         const res = await fetch(`/api/sitters/${recipientId}`); // Reuse sitter endpoint for user details
         const data = await res.json();
         setRecipient(data.sitter);
-      } catch (error) {
-        console.error('Failed to fetch recipient', error);
+      } catch {
+        // Silently handle — recipient may not be available
       }
     };
 
@@ -61,8 +61,8 @@ export default function Messages() {
         const data = await res.json();
         setMessages(data.messages);
         scrollToBottom();
-      } catch (error) {
-        console.error('Failed to fetch messages', error);
+      } catch {
+        // Silently handle — messages fetch failed
       }
     };
 
