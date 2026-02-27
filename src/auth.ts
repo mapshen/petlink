@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { Request, Response, NextFunction } from 'express';
-import db from './db.ts';
+import sql from './db.ts';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'petlink-dev-secret-change-in-production';
 const SALT_ROUNDS = 10;
@@ -27,7 +27,7 @@ export interface AuthenticatedRequest extends Request {
   userId?: number;
 }
 
-export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith('Bearer ')) {
@@ -39,7 +39,7 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
 
   try {
     const decoded = verifyToken(token);
-    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(decoded.userId);
+    const [user] = await sql`SELECT id FROM users WHERE id = ${decoded.userId}`;
     if (!user) {
       res.status(401).json({ error: 'User not found' });
       return;
