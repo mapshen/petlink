@@ -20,14 +20,10 @@ export default function Messages() {
   useEffect(() => {
     if (!user) return;
 
-    // Connect to Socket.io
+    // Connect to Socket.io with JWT auth
     const newSocket = io('/', {
       transports: ['websocket'],
-    });
-
-    newSocket.on('connect', () => {
-      console.log('Connected to socket server');
-      newSocket.emit('join_room', user.id);
+      auth: { token },
     });
 
     newSocket.on('receive_message', (message: Message) => {
@@ -83,7 +79,6 @@ export default function Messages() {
     if (!socket || !newMessage.trim() || !user || !recipientId) return;
 
     const messageData = {
-      sender_id: user.id,
       receiver_id: parseInt(recipientId),
       content: newMessage
     };

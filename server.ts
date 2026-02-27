@@ -5,9 +5,10 @@ import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 import { initDb } from './src/db.ts';
 import db from './src/db.ts';
-import { hashPassword, verifyPassword, signToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
+import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +29,26 @@ async function startServer() {
 
   app.use(express.json());
   app.use(cookieParser());
+
+  // Rate limiting
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later' },
+  });
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many auth attempts, please try again later' },
+  });
+
+  app.use('/api/', apiLimiter);
+  app.use('/api/auth/', authLimiter);
 
   // API Routes
 
@@ -178,28 +199,41 @@ async function startServer() {
     res.json({ messages });
   });
 
-  // Socket.io
+  // Socket.io with JWT authentication
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) {
+      return next(new Error('Authentication required'));
+    }
+    try {
+      const decoded = verifyToken(token);
+      (socket as any).userId = decoded.userId;
+      next();
+    } catch {
+      next(new Error('Invalid token'));
+    }
+  });
+
   io.on('connection', (socket) => {
-    socket.on('join_room', (userId) => {
-      socket.join(userId);
-    });
+    const userId = (socket as any).userId;
+    socket.join(String(userId));
 
     socket.on('send_message', (data) => {
-      const { sender_id, receiver_id, content } = data;
+      const { receiver_id, content } = data;
 
       const stmt = db.prepare('INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)');
-      const info = stmt.run(sender_id, receiver_id, content);
+      const info = stmt.run(userId, receiver_id, content);
 
       const message = {
         id: info.lastInsertRowid,
-        sender_id,
+        sender_id: userId,
         receiver_id,
         content,
         created_at: new Date().toISOString()
       };
 
-      io.to(receiver_id).emit('receive_message', message);
-      io.to(sender_id).emit('receive_message', message);
+      io.to(String(receiver_id)).emit('receive_message', message);
+      io.to(String(userId)).emit('receive_message', message);
     });
   });
 
