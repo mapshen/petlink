@@ -28,24 +28,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
     const storedToken = localStorage.getItem('petlink_token');
     const storedUser = localStorage.getItem('petlink_user');
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+    if (!storedToken || !storedUser) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    try {
+      JSON.parse(storedUser);
+    } catch {
+      localStorage.removeItem('petlink_user');
+      localStorage.removeItem('petlink_token');
+      setLoading(false);
+      return;
+    }
+
+    fetch('/api/v1/auth/me', {
+      headers: { Authorization: `Bearer ${storedToken}` },
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Token invalid');
+        return res.json();
+      })
+      .then((data) => {
+        setToken(storedToken);
+        setUser(data.user);
+        localStorage.setItem('petlink_user', JSON.stringify(data.user));
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        localStorage.removeItem('petlink_user');
+        localStorage.removeItem('petlink_token');
+      })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
     if (!res.ok) {
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       throw new Error(data.error || 'Login failed');
     }
 
@@ -57,14 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signup = async (email: string, password: string, name: string, role?: string) => {
-    const res = await fetch('/api/auth/signup', {
+    const res = await fetch('/api/v1/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name, role }),
     });
 
     if (!res.ok) {
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       throw new Error(data.error || 'Signup failed');
     }
 

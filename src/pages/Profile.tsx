@@ -31,7 +31,7 @@ export default function Profile() {
     setMessage('');
 
     try {
-      const res = await fetch('/api/users/me', {
+      const res = await fetch('/api/v1/users/me', {
         method: 'PUT',
         headers: getAuthHeaders(token),
         body: JSON.stringify({ name, bio, avatar_url: avatarUrl, role }),

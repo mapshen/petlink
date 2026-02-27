@@ -19,11 +19,11 @@ export default function Search() {
     const fetchSitters = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/sitters?serviceType=${serviceType}&lat=37.7749&lng=-122.4194`); // Mock lat/lng
+        const res = await fetch(`/api/v1/sitters?serviceType=${serviceType}&lat=37.7749&lng=-122.4194`); // Mock lat/lng
         const data = await res.json();
         setSitters(data.sitters);
-      } catch (error) {
-        console.error('Failed to fetch sitters', error);
+      } catch {
+        // Silently handle — sitters fetch failed
       } finally {
         setLoading(false);
       }

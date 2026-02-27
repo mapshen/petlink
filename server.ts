@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
@@ -22,9 +23,17 @@ async function startServer() {
 
   const app = express();
   const httpServer = createServer(app);
+  const corsOrigin = process.env.NODE_ENV === 'production'
+    ? (process.env.APP_URL || 'http://localhost:3000')
+    : '*';
+  app.use(cors({
+    origin: corsOrigin,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
   const io = new Server(httpServer, {
     cors: {
-      origin: "*",
+      origin: corsOrigin,
       methods: ["GET", "POST"]
     }
   });
@@ -72,10 +81,25 @@ async function startServer() {
       return;
     }
 
+    if (typeof password !== 'string' || password.length < 8) {
+      res.status(400).json({ error: 'Password must be at least 8 characters' });
+      return;
+    }
+    if (password.length > 72) {
+      res.status(400).json({ error: 'Password must not exceed 72 characters' });
+      return;
+    }
+
     const validRoles = ['owner', 'sitter', 'both'];
     const userRole = validRoles.includes(role) ? role : 'owner';
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      res.status(400).json({ error: 'A valid email address is required' });
+      return;
+    }
 
-    const [existing] = await sql`SELECT id FROM users WHERE email = ${email}`;
+    const [existing] = await sql`SELECT id FROM users WHERE email = ${normalizedEmail}`;
     if (existing) {
       res.status(409).json({ error: 'Email already in use' });
       return;
@@ -84,7 +108,7 @@ async function startServer() {
     const passwordHash = hashPassword(password);
     const [user] = await sql`
       INSERT INTO users (email, password_hash, name, role)
-      VALUES (${email}, ${passwordHash}, ${name}, ${userRole})
+      VALUES (${normalizedEmail}, ${passwordHash}, ${String(name).trim()}, ${userRole})
       RETURNING id, email, name, role, bio, avatar_url, lat, lng
     `;
     const token = signToken({ userId: user.id });
@@ -100,7 +124,8 @@ async function startServer() {
       return;
     }
 
-    const [user] = await sql`SELECT * FROM users WHERE email = ${email}`;
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const [user] = await sql`SELECT * FROM users WHERE email = ${normalizedEmail}`;
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -382,6 +407,15 @@ async function startServer() {
 
   // Webhook endpoint for background check results
   v1.post('/webhooks/background-check', async (req, res) => {
+    const webhookSecret = process.env.BG_CHECK_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const signature = req.headers['x-webhook-signature'];
+      if (signature !== webhookSecret) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+    }
+
     const { sitter_id, status } = req.body;
     if (!sitter_id || !status) {
       res.status(400).json({ error: 'sitter_id and status are required' });
@@ -502,6 +536,35 @@ async function startServer() {
   // --- Bookings ---
   v1.post('/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time, total_price } = req.body;
+
+    if (!sitter_id || !service_id || !start_time || !end_time) {
+      res.status(400).json({ error: 'sitter_id, service_id, start_time, and end_time are required' });
+      return;
+    }
+    if (Number(sitter_id) === req.userId) {
+      res.status(400).json({ error: 'Cannot book yourself' });
+      return;
+    }
+    if (total_price != null && (typeof total_price !== 'number' || total_price < 0)) {
+      res.status(400).json({ error: 'total_price must be a non-negative number' });
+      return;
+    }
+    const startDate = new Date(start_time);
+    const endDate = new Date(end_time);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      res.status(400).json({ error: 'start_time and end_time must be valid dates' });
+      return;
+    }
+    if (endDate <= startDate) {
+      res.status(400).json({ error: 'end_time must be after start_time' });
+      return;
+    }
+    const [service] = await sql`SELECT id FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    if (!service) {
+      res.status(400).json({ error: 'Invalid service for this sitter' });
+      return;
+    }
+
     const [booking] = await sql`
       INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
       VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${total_price}, 'pending')
@@ -565,20 +628,32 @@ async function startServer() {
     socket.join(String(userId));
 
     socket.on('send_message', async (data) => {
-      const { receiver_id, content } = data;
+      try {
+        const { receiver_id, content } = data;
+        if (!receiver_id || typeof receiver_id !== 'number') return;
+        if (!content || typeof content !== 'string' || content.trim().length === 0) return;
+        if (content.length > 5000) return;
+        if (receiver_id === userId) return;
 
-      const [message] = await sql`
-        INSERT INTO messages (sender_id, receiver_id, content) VALUES (${userId}, ${receiver_id}, ${content})
-        RETURNING *
-      `;
+        const [recipient] = await sql`SELECT id FROM users WHERE id = ${receiver_id}`;
+        if (!recipient) return;
 
-      io.to(String(receiver_id)).emit('receive_message', message);
-      io.to(String(userId)).emit('receive_message', message);
+        const trimmedContent = content.trim();
+        const [message] = await sql`
+          INSERT INTO messages (sender_id, receiver_id, content) VALUES (${userId}, ${receiver_id}, ${trimmedContent})
+          RETURNING *
+        `;
 
-      // Notify receiver of new message
-      const [sender] = await sql`SELECT name FROM users WHERE id = ${userId}`;
-      const notification = await createNotification(receiver_id, 'new_message', 'New Message', `${sender.name}: ${content.substring(0, 100)}`, { sender_id: userId });
-      io.to(String(receiver_id)).emit('notification', notification);
+        io.to(String(receiver_id)).emit('receive_message', message);
+        io.to(String(userId)).emit('receive_message', message);
+
+        // Notify receiver of new message
+        const [sender] = await sql`SELECT name FROM users WHERE id = ${userId}`;
+        const notification = await createNotification(receiver_id, 'new_message', 'New Message', `${sender.name}: ${trimmedContent.substring(0, 100)}`, { sender_id: userId });
+        io.to(String(receiver_id)).emit('notification', notification);
+      } catch {
+        // Silently handle — malformed message data
+      }
     });
   });
 

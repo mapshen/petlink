@@ -18,15 +18,15 @@ export default function SitterProfile() {
   useEffect(() => {
     const fetchSitter = async () => {
       try {
-        const res = await fetch(`/api/sitters/${id}`);
+        const res = await fetch(`/api/v1/sitters/${id}`);
         if (!res.ok) throw new Error('Sitter not found');
         const data = await res.json();
         setSitter(data.sitter);
         setServices(data.services);
         setReviews(data.reviews);
         if (data.services.length > 0) setSelectedService(data.services[0].id);
-      } catch (error) {
-        console.error(error);
+      } catch {
+        // Silently handle — sitter fetch failed
       } finally {
         setLoading(false);
       }
@@ -44,7 +44,7 @@ export default function SitterProfile() {
 
     try {
       const service = services.find(s => s.id === selectedService);
-      const res = await fetch('/api/bookings', {
+      const res = await fetch('/api/v1/bookings', {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify({
@@ -59,8 +59,8 @@ export default function SitterProfile() {
       if (res.ok) {
         navigate('/dashboard');
       }
-    } catch (error) {
-      console.error('Booking failed', error);
+    } catch {
+      // Silently handle — booking request failed
     }
   };
 

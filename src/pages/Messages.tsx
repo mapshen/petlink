@@ -44,25 +44,25 @@ export default function Messages() {
     // Fetch recipient details
     const fetchRecipient = async () => {
       try {
-        const res = await fetch(`/api/sitters/${recipientId}`); // Reuse sitter endpoint for user details
+        const res = await fetch(`/api/v1/sitters/${recipientId}`); // Reuse sitter endpoint for user details
         const data = await res.json();
         setRecipient(data.sitter);
-      } catch (error) {
-        console.error('Failed to fetch recipient', error);
+      } catch {
+        // Silently handle — recipient may not be available
       }
     };
 
     // Fetch message history
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`/api/messages/${recipientId}`, {
+        const res = await fetch(`/api/v1/messages/${recipientId}`, {
           headers: getAuthHeaders(token)
         });
         const data = await res.json();
         setMessages(data.messages);
         scrollToBottom();
-      } catch (error) {
-        console.error('Failed to fetch messages', error);
+      } catch {
+        // Silently handle — messages fetch failed
       }
     };
 
