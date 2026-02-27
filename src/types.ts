@@ -65,3 +65,24 @@ export interface Review {
   reviewer_name?: string;
   reviewer_avatar?: string;
 }
+
+export interface Availability {
+  id: number;
+  sitter_id: number;
+  day_of_week?: number;
+  specific_date?: string;
+  start_time: string;
+  end_time: string;
+  recurring: boolean;
+}
+
+export interface WalkEvent {
+  id: number;
+  booking_id: number;
+  event_type: 'start' | 'pee' | 'poop' | 'photo' | 'end';
+  lat?: number;
+  lng?: number;
+  note?: string;
+  photo_url?: string;
+  created_at: string;
+}

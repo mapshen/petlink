@@ -86,6 +86,30 @@ export function initDb() {
       FOREIGN KEY (reviewee_id) REFERENCES users(id),
       UNIQUE(booking_id, reviewer_id)
     );
+
+    CREATE TABLE IF NOT EXISTS availability (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sitter_id INTEGER NOT NULL,
+      day_of_week INTEGER CHECK(day_of_week >= 0 AND day_of_week <= 6),
+      specific_date DATE,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      recurring BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (sitter_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS walk_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      booking_id INTEGER NOT NULL,
+      event_type TEXT CHECK(event_type IN ('start', 'pee', 'poop', 'photo', 'end')) NOT NULL,
+      lat REAL,
+      lng REAL,
+      note TEXT,
+      photo_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+    );
   `;
 
   db.exec(schema);
