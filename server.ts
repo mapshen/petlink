@@ -87,6 +87,11 @@ async function startServer() {
     const validRoles = ['owner', 'sitter', 'both'];
     const userRole = validRoles.includes(role) ? role : 'owner';
     const normalizedEmail = String(email).trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      res.status(400).json({ error: 'A valid email address is required' });
+      return;
+    }
 
     const [existing] = await sql`SELECT id FROM users WHERE email = ${normalizedEmail}`;
     if (existing) {
@@ -396,6 +401,15 @@ async function startServer() {
 
   // Webhook endpoint for background check results
   v1.post('/webhooks/background-check', async (req, res) => {
+    const webhookSecret = process.env.BG_CHECK_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const signature = req.headers['x-webhook-signature'];
+      if (signature !== webhookSecret) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+    }
+
     const { sitter_id, status } = req.body;
     if (!sitter_id || !status) {
       res.status(400).json({ error: 'sitter_id and status are required' });
@@ -521,7 +535,7 @@ async function startServer() {
       res.status(400).json({ error: 'sitter_id, service_id, start_time, and end_time are required' });
       return;
     }
-    if (sitter_id === req.userId) {
+    if (Number(sitter_id) === req.userId) {
       res.status(400).json({ error: 'Cannot book yourself' });
       return;
     }
@@ -529,7 +543,13 @@ async function startServer() {
       res.status(400).json({ error: 'total_price must be a non-negative number' });
       return;
     }
-    if (new Date(end_time) <= new Date(start_time)) {
+    const startDate = new Date(start_time);
+    const endDate = new Date(end_time);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      res.status(400).json({ error: 'start_time and end_time must be valid dates' });
+      return;
+    }
+    if (endDate <= startDate) {
       res.status(400).json({ error: 'end_time must be after start_time' });
       return;
     }

@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
     const storedToken = localStorage.getItem('petlink_token');
     const storedUser = localStorage.getItem('petlink_user');
     if (!storedToken || !storedUser) {
@@ -35,9 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    let parsedUser: User | null = null;
     try {
-      parsedUser = JSON.parse(storedUser);
+      JSON.parse(storedUser);
     } catch {
       localStorage.removeItem('petlink_user');
       localStorage.removeItem('petlink_token');
@@ -47,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     fetch('/api/v1/auth/me', {
       headers: { Authorization: `Bearer ${storedToken}` },
+      signal: controller.signal,
     })
       .then((res) => {
         if (!res.ok) throw new Error('Token invalid');
@@ -57,11 +58,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.user);
         localStorage.setItem('petlink_user', JSON.stringify(data.user));
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
         localStorage.removeItem('petlink_user');
         localStorage.removeItem('petlink_token');
       })
       .finally(() => setLoading(false));
+
+    return () => controller.abort();
   }, []);
 
   const login = async (email: string, password: string) => {
