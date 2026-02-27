@@ -10,6 +10,7 @@ import { initDb } from './src/db.ts';
 import db from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent } from './src/payments.ts';
+import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -429,13 +430,21 @@ async function startServer() {
       'INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(req.params.bookingId, event_type, lat || null, lng || null, note || null, photo_url || null);
 
-    // If event is 'start', update booking to in_progress
+    // If event is 'start', update booking to in_progress and notify owner
     if (event_type === 'start') {
       db.prepare("UPDATE bookings SET status = 'in_progress' WHERE id = ?").run(req.params.bookingId);
+      const walkBooking = booking as Record<string, unknown>;
+      const sitterUser = db.prepare('SELECT name FROM users WHERE id = ?').get(req.userId) as { name: string };
+      const startNotif = createNotification(walkBooking.owner_id as number, 'walk_started', 'Walk Started', `${sitterUser.name} has started the walk.`, { booking_id: Number(req.params.bookingId) });
+      io.to(String(walkBooking.owner_id)).emit('notification', startNotif);
     }
-    // If event is 'end', update booking to completed
+    // If event is 'end', update booking to completed and notify owner
     if (event_type === 'end') {
       db.prepare("UPDATE bookings SET status = 'completed' WHERE id = ?").run(req.params.bookingId);
+      const walkBooking = booking as Record<string, unknown>;
+      const sitterUser = db.prepare('SELECT name FROM users WHERE id = ?').get(req.userId) as { name: string };
+      const endNotif = createNotification(walkBooking.owner_id as number, 'walk_completed', 'Walk Completed', `${sitterUser.name} has completed the walk.`, { booking_id: Number(req.params.bookingId) });
+      io.to(String(walkBooking.owner_id)).emit('notification', endNotif);
     }
 
     const event = db.prepare('SELECT * FROM walk_events WHERE id = ?').get(info.lastInsertRowid);
@@ -450,6 +459,12 @@ async function startServer() {
       VALUES (?, ?, ?, ?, ?, ?, 'pending')
     `);
     const info = stmt.run(sitter_id, req.userId, service_id, start_time, end_time, total_price);
+
+    // Notify sitter of new booking
+    const owner = db.prepare('SELECT name FROM users WHERE id = ?').get(req.userId) as { name: string };
+    const notification = createNotification(sitter_id, 'new_booking', 'New Booking Request', `${owner.name} has requested a booking.`, { booking_id: Number(info.lastInsertRowid) });
+    io.to(String(sitter_id)).emit('notification', notification);
+
     res.json({ id: info.lastInsertRowid, status: 'pending' });
   });
 
@@ -519,9 +534,48 @@ async function startServer() {
 
       io.to(String(receiver_id)).emit('receive_message', message);
       io.to(String(userId)).emit('receive_message', message);
+
+      // Notify receiver of new message
+      const sender = db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as { name: string };
+      const notification = createNotification(receiver_id, 'new_message', 'New Message', `${sender.name}: ${content.substring(0, 100)}`, { sender_id: userId });
+      io.to(String(receiver_id)).emit('notification', notification);
     });
   });
 
+
+  // --- Notifications ---
+  app.get('/api/notifications', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const offset = Number(req.query.offset) || 0;
+    const notifications = getUserNotifications(req.userId!, limit, offset);
+    const unreadCount = getUnreadCount(req.userId!);
+    res.json({ notifications, unreadCount });
+  });
+
+  app.post('/api/notifications/:id/read', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const success = markAsRead(Number(req.params.id), req.userId!);
+    if (!success) {
+      res.status(404).json({ error: 'Notification not found' });
+      return;
+    }
+    res.json({ success: true });
+  });
+
+  app.post('/api/notifications/read-all', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const count = markAllAsRead(req.userId!);
+    res.json({ markedRead: count });
+  });
+
+  app.get('/api/notification-preferences', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const prefs = getPreferences(req.userId!);
+    res.json({ preferences: prefs });
+  });
+
+  app.put('/api/notification-preferences', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const { new_booking, booking_status, new_message, walk_updates } = req.body;
+    const prefs = updatePreferences(req.userId!, { new_booking, booking_status, new_message, walk_updates });
+    res.json({ preferences: prefs });
+  });
 
   // --- Stripe Connect ---
   app.post('/api/stripe/connect', authMiddleware, async (req: AuthenticatedRequest, res) => {
