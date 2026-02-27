@@ -14,7 +14,7 @@ export default function Dashboard() {
     if (!user) return;
     const fetchBookings = async () => {
       try {
-        const res = await fetch('/api/bookings', {
+        const res = await fetch('/api/v1/bookings', {
           headers: getAuthHeaders(token)
         });
         const data = await res.json();

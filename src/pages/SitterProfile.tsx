@@ -18,7 +18,7 @@ export default function SitterProfile() {
   useEffect(() => {
     const fetchSitter = async () => {
       try {
-        const res = await fetch(`/api/sitters/${id}`);
+        const res = await fetch(`/api/v1/sitters/${id}`);
         if (!res.ok) throw new Error('Sitter not found');
         const data = await res.json();
         setSitter(data.sitter);
@@ -44,7 +44,7 @@ export default function SitterProfile() {
 
     try {
       const service = services.find(s => s.id === selectedService);
-      const res = await fetch('/api/bookings', {
+      const res = await fetch('/api/v1/bookings', {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify({

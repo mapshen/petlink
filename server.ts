@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
@@ -25,6 +26,11 @@ async function startServer() {
   const corsOrigin = process.env.NODE_ENV === 'production'
     ? (process.env.APP_URL || 'http://localhost:3000')
     : '*';
+  app.use(cors({
+    origin: corsOrigin,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
   const io = new Server(httpServer, {
     cors: {
       origin: corsOrigin,
@@ -622,20 +628,32 @@ async function startServer() {
     socket.join(String(userId));
 
     socket.on('send_message', async (data) => {
-      const { receiver_id, content } = data;
+      try {
+        const { receiver_id, content } = data;
+        if (!receiver_id || typeof receiver_id !== 'number') return;
+        if (!content || typeof content !== 'string' || content.trim().length === 0) return;
+        if (content.length > 5000) return;
+        if (receiver_id === userId) return;
 
-      const [message] = await sql`
-        INSERT INTO messages (sender_id, receiver_id, content) VALUES (${userId}, ${receiver_id}, ${content})
-        RETURNING *
-      `;
+        const [recipient] = await sql`SELECT id FROM users WHERE id = ${receiver_id}`;
+        if (!recipient) return;
 
-      io.to(String(receiver_id)).emit('receive_message', message);
-      io.to(String(userId)).emit('receive_message', message);
+        const trimmedContent = content.trim();
+        const [message] = await sql`
+          INSERT INTO messages (sender_id, receiver_id, content) VALUES (${userId}, ${receiver_id}, ${trimmedContent})
+          RETURNING *
+        `;
 
-      // Notify receiver of new message
-      const [sender] = await sql`SELECT name FROM users WHERE id = ${userId}`;
-      const notification = await createNotification(receiver_id, 'new_message', 'New Message', `${sender.name}: ${content.substring(0, 100)}`, { sender_id: userId });
-      io.to(String(receiver_id)).emit('notification', notification);
+        io.to(String(receiver_id)).emit('receive_message', message);
+        io.to(String(userId)).emit('receive_message', message);
+
+        // Notify receiver of new message
+        const [sender] = await sql`SELECT name FROM users WHERE id = ${userId}`;
+        const notification = await createNotification(receiver_id, 'new_message', 'New Message', `${sender.name}: ${trimmedContent.substring(0, 100)}`, { sender_id: userId });
+        io.to(String(receiver_id)).emit('notification', notification);
+      } catch {
+        // Silently handle — malformed message data
+      }
     });
   });
 

@@ -31,7 +31,7 @@ export default function Pets() {
 
   const fetchPets = async () => {
     try {
-      const res = await fetch('/api/pets', { headers: getAuthHeaders(token) });
+      const res = await fetch('/api/v1/pets', { headers: getAuthHeaders(token) });
       const data = await res.json();
       setPets(data.pets);
     } catch (err) {
@@ -49,7 +49,7 @@ export default function Pets() {
       weight: form.weight ? Number(form.weight) : null,
     };
 
-    const url = editingId ? `/api/pets/${editingId}` : '/api/pets';
+    const url = editingId ? `/api/v1/pets/${editingId}` : '/api/v1/pets';
     const method = editingId ? 'PUT' : 'POST';
 
     const res = await fetch(url, {
@@ -80,7 +80,7 @@ export default function Pets() {
   };
 
   const handleDelete = async (id: number) => {
-    const res = await fetch(`/api/pets/${id}`, {
+    const res = await fetch(`/api/v1/pets/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(token),
     });
