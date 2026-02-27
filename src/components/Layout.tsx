@@ -49,14 +49,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
             {user ? (
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <img 
-                    src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.name}`} 
-                    alt={user.name} 
+                <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                  <img
+                    src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.name}`}
+                    alt={user.name}
                     className="w-8 h-8 rounded-full border border-stone-200"
                   />
                   <span className="text-sm font-medium hidden sm:block">{user.name}</span>
-                </div>
+                </Link>
                 <button 
                   onClick={logout}
                   className="p-2 text-stone-400 hover:text-red-500 transition-colors"

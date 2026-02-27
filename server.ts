@@ -116,6 +116,29 @@ async function startServer() {
     }
   });
 
+  // --- Users ---
+  app.put('/api/users/me', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const { name, bio, avatar_url, role } = req.body;
+
+    if (!name) {
+      res.status(400).json({ error: 'Name is required' });
+      return;
+    }
+
+    const validRoles = ['owner', 'sitter', 'both'];
+    const userRole = validRoles.includes(role) ? role : undefined;
+
+    db.prepare(
+      'UPDATE users SET name = ?, bio = ?, avatar_url = ?, role = COALESCE(?, role) WHERE id = ?'
+    ).run(name, bio || null, avatar_url || null, userRole, req.userId);
+
+    const user = db.prepare(
+      'SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ?'
+    ).get(req.userId);
+
+    res.json({ user });
+  });
+
   // --- Sitters ---
   app.get('/api/sitters', (req, res) => {
     const { serviceType } = req.query;
