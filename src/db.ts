@@ -110,6 +110,18 @@ export function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS verifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sitter_id INTEGER NOT NULL UNIQUE,
+      id_check_status TEXT CHECK(id_check_status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+      background_check_status TEXT CHECK(background_check_status IN ('pending', 'submitted', 'passed', 'failed')) DEFAULT 'pending',
+      house_photos_url TEXT,
+      submitted_at DATETIME,
+      completed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (sitter_id) REFERENCES users(id) ON DELETE CASCADE
+    );
   `;
 
   db.exec(schema);

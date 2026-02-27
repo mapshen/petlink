@@ -293,6 +293,80 @@ async function startServer() {
     res.json({ reviews });
   });
 
+  // --- Sitter Verification ---
+  app.get('/api/verification/me', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const verification = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(req.userId);
+    res.json({ verification: verification || null });
+  });
+
+  app.post('/api/verification/start', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(req.userId) as Record<string, unknown>;
+    if (user.role !== 'sitter' && user.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can start verification' });
+      return;
+    }
+
+    const existing = db.prepare('SELECT id FROM verifications WHERE sitter_id = ?').get(req.userId);
+    if (existing) {
+      res.status(409).json({ error: 'Verification already started' });
+      return;
+    }
+
+    const info = db.prepare(
+      'INSERT INTO verifications (sitter_id, submitted_at) VALUES (?, ?)'
+    ).run(req.userId, new Date().toISOString());
+    const verification = db.prepare('SELECT * FROM verifications WHERE id = ?').get(info.lastInsertRowid);
+    res.status(201).json({ verification });
+  });
+
+  app.put('/api/verification/update', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const { house_photos_url } = req.body;
+    const verification = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(req.userId);
+    if (!verification) {
+      res.status(404).json({ error: 'No verification found. Start verification first.' });
+      return;
+    }
+    db.prepare('UPDATE verifications SET house_photos_url = ? WHERE sitter_id = ?').run(house_photos_url, req.userId);
+    const updated = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(req.userId);
+    res.json({ verification: updated });
+  });
+
+  // Webhook endpoint for background check results (called by external provider)
+  app.post('/api/webhooks/background-check', (req, res) => {
+    const { sitter_id, status } = req.body;
+    if (!sitter_id || !status) {
+      res.status(400).json({ error: 'sitter_id and status are required' });
+      return;
+    }
+    const validStatuses = ['submitted', 'passed', 'failed'];
+    if (!validStatuses.includes(status)) {
+      res.status(400).json({ error: 'Invalid status' });
+      return;
+    }
+
+    const verification = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(sitter_id);
+    if (!verification) {
+      res.status(404).json({ error: 'Verification not found' });
+      return;
+    }
+
+    db.prepare('UPDATE verifications SET background_check_status = ? WHERE sitter_id = ?').run(status, sitter_id);
+
+    // If background check passed and ID is approved, mark as completed
+    const updated = db.prepare('SELECT * FROM verifications WHERE sitter_id = ?').get(sitter_id) as Record<string, unknown>;
+    if (updated.background_check_status === 'passed' && updated.id_check_status === 'approved') {
+      db.prepare('UPDATE verifications SET completed_at = ? WHERE sitter_id = ?').run(new Date().toISOString(), sitter_id);
+    }
+
+    res.json({ success: true });
+  });
+
+  // Get verification status for a sitter (public, for profile display)
+  app.get('/api/verification/:sitterId', (req, res) => {
+    const verification = db.prepare('SELECT id_check_status, background_check_status, completed_at FROM verifications WHERE sitter_id = ?').get(req.params.sitterId);
+    res.json({ verification: verification || null });
+  });
+
   // --- Availability ---
   app.get('/api/availability/:sitterId', (req, res) => {
     const slots = db.prepare('SELECT * FROM availability WHERE sitter_id = ? ORDER BY day_of_week, start_time').all(req.params.sitterId);
