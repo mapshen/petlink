@@ -1,5 +1,0 @@
-{
-  "name": "Pawscout",
-  "description": "A comprehensive pet sitting and dog walking platform featuring dual-role profiles, real-time tracking, and secure booking.",
-  "requestFramePermissions": ["geolocation"]
-}

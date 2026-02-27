@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PetLink — a pet services marketplace (Rover clone) built with React 19 + Express + SQLite + Socket.io. Monorepo with frontend and backend in the same package. Originally scaffolded from Google AI Studio.
+PetLink — a pet services marketplace (Rover clone) built with React 19 + Express + SQLite + Socket.io. Monorepo with frontend and backend in the same package.
 
 ## Commands
 
@@ -22,7 +22,7 @@ No test runner is configured yet. No linter beyond TypeScript.
 ### Backend (`server.ts`)
 Single Express server serves both the API and Vite-powered frontend in dev mode. Socket.io is attached to the same HTTP server for real-time messaging.
 
-- **Database**: SQLite via `better-sqlite3`, file `pawscout.db`, schema defined and seeded in `src/db.ts`
+- **Database**: SQLite via `better-sqlite3`, file `petlink.db`, schema defined and seeded in `src/db.ts`
 - **Auth**: Mock — login by email only, user ID passed via `x-user-id` header. JWT/bcrypt are installed as dependencies but never imported or used.
 - **Real-time**: Socket.io handles `join_room`, `send_message`, `receive_message` events for 1:1 chat.
 
@@ -42,7 +42,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 
 - **Entry**: `src/main.tsx` → `src/App.tsx` (router) → `src/components/Layout.tsx` (shell)
-- **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`pawscout_user`)
+- **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`petlink_user`)
 - **Pages**: `src/pages/` — Home, Login, Search, SitterProfile, Dashboard, Messages, TrackWalk
 - **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review interfaces
 - **Path alias**: `@/*` maps to project root (configured in both vite.config.ts and tsconfig.json)
@@ -57,13 +57,6 @@ User roles: `'owner' | 'sitter' | 'both'`. Service types: `'walking' | 'sitting'
 - `date-fns` — date formatting
 - `motion` — animations (Framer Motion v12)
 - `clsx` + `tailwind-merge` — conditional class composition
-- `@google/genai` — Gemini API (key via `GEMINI_API_KEY` env var)
-
-## Environment Variables
-
-Copy `.env.example` to `.env.local`:
-- `GEMINI_API_KEY` — Gemini API access
-- `APP_URL` — Hosted URL (for AI Studio deployment)
 
 ## Design System
 
