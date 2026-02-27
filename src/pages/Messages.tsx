@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Message, User } from '../types';
 import io, { Socket } from 'socket.io-client';
 import { Send, User as UserIcon } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Messages() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [searchParams] = useSearchParams();
   const recipientId = searchParams.get('recipient');
   
@@ -60,7 +60,7 @@ export default function Messages() {
     const fetchMessages = async () => {
       try {
         const res = await fetch(`/api/messages/${recipientId}`, {
-          headers: { 'x-user-id': user.id.toString() }
+          headers: getAuthHeaders(token)
         });
         const data = await res.json();
         setMessages(data.messages);
