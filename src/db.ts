@@ -79,10 +79,12 @@ export function initDb() {
       reviewee_id INTEGER NOT NULL,
       rating INTEGER CHECK(rating >= 1 AND rating <= 5),
       comment TEXT,
+      published_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (booking_id) REFERENCES bookings(id),
       FOREIGN KEY (reviewer_id) REFERENCES users(id),
-      FOREIGN KEY (reviewee_id) REFERENCES users(id)
+      FOREIGN KEY (reviewee_id) REFERENCES users(id),
+      UNIQUE(booking_id, reviewer_id)
     );
   `;
 

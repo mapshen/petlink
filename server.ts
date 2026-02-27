@@ -227,6 +227,72 @@ async function startServer() {
     res.json({ sitter, services, reviews });
   });
 
+  // --- Reviews (double-blind) ---
+  app.post('/api/reviews', authMiddleware, (req: AuthenticatedRequest, res) => {
+    const { booking_id, rating, comment } = req.body;
+
+    if (!booking_id || !rating || rating < 1 || rating > 5) {
+      res.status(400).json({ error: 'booking_id and rating (1-5) are required' });
+      return;
+    }
+
+    const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(booking_id) as Record<string, unknown> | undefined;
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+
+    if (booking.status !== 'completed') {
+      res.status(400).json({ error: 'Can only review completed bookings' });
+      return;
+    }
+
+    const isOwner = booking.owner_id === req.userId;
+    const isSitter = booking.sitter_id === req.userId;
+    if (!isOwner && !isSitter) {
+      res.status(403).json({ error: 'Not part of this booking' });
+      return;
+    }
+
+    const revieweeId = isOwner ? booking.sitter_id : booking.owner_id;
+
+    // Check for duplicate
+    const existing = db.prepare('SELECT id FROM reviews WHERE booking_id = ? AND reviewer_id = ?').get(booking_id, req.userId);
+    if (existing) {
+      res.status(409).json({ error: 'You have already reviewed this booking' });
+      return;
+    }
+
+    const info = db.prepare(
+      'INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment) VALUES (?, ?, ?, ?, ?)'
+    ).run(booking_id, req.userId, revieweeId, rating, comment || null);
+
+    // Check if both parties have reviewed — if so, publish both
+    const otherReview = db.prepare(
+      'SELECT id FROM reviews WHERE booking_id = ? AND reviewer_id = ?'
+    ).get(booking_id, revieweeId);
+
+    if (otherReview) {
+      const now = new Date().toISOString();
+      db.prepare('UPDATE reviews SET published_at = ? WHERE booking_id = ? AND published_at IS NULL').run(now, booking_id);
+    }
+
+    res.status(201).json({ id: info.lastInsertRowid });
+  });
+
+  // Get reviews for a user (only published ones)
+  app.get('/api/reviews/:userId', (req, res) => {
+    const reviews = db.prepare(`
+      SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
+      FROM reviews r
+      JOIN users u ON r.reviewer_id = u.id
+      WHERE r.reviewee_id = ? AND r.published_at IS NOT NULL
+      ORDER BY r.created_at DESC
+    `).all(req.params.userId);
+
+    res.json({ reviews });
+  });
+
   // --- Bookings ---
   app.post('/api/bookings', authMiddleware, (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time, total_price } = req.body;
