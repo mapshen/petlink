@@ -37,7 +37,8 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Auth | `POST /auth/signup`, `POST /auth/login`, `GET /auth/me` |
 | Users | `PUT /users/me` |
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id` |
-| Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=`), `GET /sitters/:id` |
+| Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=`), `GET /sitters/:id` |
+| Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
 | Bookings | `POST /bookings`, `GET /bookings`, `PUT /bookings/:id/status` |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read) |
 | Reviews | `POST /reviews` (double-blind), `GET /reviews/:userId` |
@@ -56,7 +57,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 
 - **Entry**: `src/main.tsx` → `src/App.tsx` (router) → `src/components/Layout.tsx` (shell)
 - **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`petlink_token`, `petlink_user`)
-- **Pages**: Home, Login, Search, SitterProfile, Dashboard, Messages, TrackWalk, Profile, Pets
+- **Pages**: Home, Login, Search, SitterProfile, Dashboard, Messages, TrackWalk, Profile, Pets, Services
 - **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review, Availability, WalkEvent
 - **Path alias**: `@/*` maps to project root
 
@@ -80,7 +81,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 
 ## Testing
 
-105 tests across 11 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+111 tests across 11 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 

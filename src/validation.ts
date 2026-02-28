@@ -68,6 +68,13 @@ export const updateBookingStatusSchema = z.object({
   status: z.enum(['confirmed', 'cancelled'], { message: 'Status must be "confirmed" or "cancelled"' }),
 });
 
+// --- Service Schemas ---
+export const serviceSchema = z.object({
+  type: z.enum(['walking', 'sitting', 'drop-in', 'grooming'], { message: 'Type must be walking, sitting, drop-in, or grooming' }),
+  price: z.number().min(1, 'Price must be at least $1').max(9999, 'Price must be under $10,000'),
+  description: z.string().max(1000, 'Description must be under 1000 characters').optional().nullable(),
+});
+
 // --- Review Schemas ---
 export const createReviewSchema = z.object({
   booking_id: z.number().int().positive('Invalid booking ID'),

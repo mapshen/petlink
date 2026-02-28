@@ -11,6 +11,7 @@ import Messages from './pages/Messages';
 import TrackWalk from './pages/TrackWalk';
 import Profile from './pages/Profile';
 import Pets from './pages/Pets';
+import Services from './pages/Services';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="/messages" element={<Messages />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/pets" element={<Pets />} />
+            <Route path="/services" element={<Services />} />
             <Route path="/track/:bookingId" element={<TrackWalk />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
