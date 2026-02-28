@@ -7,6 +7,7 @@ export interface User {
   avatar_url?: string;
   lat?: number;
   lng?: number;
+  accepted_pet_sizes?: string[];
 }
 
 export interface Pet {

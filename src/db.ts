@@ -267,6 +267,9 @@ export async function initDb() {
     END $$
   `.catch(() => {});
 
+  // Schema migrations — add new columns safely
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_pet_sizes TEXT[] DEFAULT '{}'`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
@@ -285,16 +288,16 @@ export async function initDb() {
     `;
 
     const [sitter] = await sql`
-      INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng)
-      VALUES (${'sitter@example.com'}, ${demoPassword}, ${'Bob Sitter'}, ${'sitter'}, ${'Experienced dog walker and sitter.'}, ${'https://i.pravatar.cc/150?u=bob'}, ${37.7750}, ${-122.4180})
+      INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes)
+      VALUES (${'sitter@example.com'}, ${demoPassword}, ${'Bob Sitter'}, ${'sitter'}, ${'Experienced dog walker and sitter.'}, ${'https://i.pravatar.cc/150?u=bob'}, ${37.7750}, ${-122.4180}, ${['small', 'medium', 'large']})
       RETURNING id
     `;
     await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${sitter.id}, ${'walking'}, ${25}, ${'30 minute walk around the neighborhood.'})`;
     await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${sitter.id}, ${'sitting'}, ${50}, ${'Overnight sitting at your home.'})`;
 
     const [dual] = await sql`
-      INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng)
-      VALUES (${'dual@example.com'}, ${demoPassword}, ${'Charlie Dual'}, ${'both'}, ${'I walk dogs and have a cat.'}, ${'https://i.pravatar.cc/150?u=charlie'}, ${37.7760}, ${-122.4200})
+      INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes)
+      VALUES (${'dual@example.com'}, ${demoPassword}, ${'Charlie Dual'}, ${'both'}, ${'I walk dogs and have a cat.'}, ${'https://i.pravatar.cc/150?u=charlie'}, ${37.7760}, ${-122.4200}, ${['small', 'medium', 'large', 'giant']})
       RETURNING id
     `;
     await sql`
