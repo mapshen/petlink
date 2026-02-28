@@ -221,7 +221,6 @@ describe('createBookingSchema', () => {
       service_id: 2,
       start_time: '2026-03-01T10:00:00Z',
       end_time: '2026-03-01T11:00:00Z',
-      total_price: 50,
     });
     expect(result.success).toBe(true);
   });
@@ -256,36 +255,18 @@ describe('createBookingSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects negative total_price', () => {
+  it('strips unknown fields like total_price', () => {
     const result = createBookingSchema.safeParse({
       sitter_id: 1,
       service_id: 2,
       start_time: '2026-03-01T10:00:00Z',
       end_time: '2026-03-01T11:00:00Z',
-      total_price: -10,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('accepts null total_price', () => {
-    const result = createBookingSchema.safeParse({
-      sitter_id: 1,
-      service_id: 2,
-      start_time: '2026-03-01T10:00:00Z',
-      end_time: '2026-03-01T11:00:00Z',
-      total_price: null,
+      total_price: 999,
     });
     expect(result.success).toBe(true);
-  });
-
-  it('accepts omitted total_price', () => {
-    const result = createBookingSchema.safeParse({
-      sitter_id: 1,
-      service_id: 2,
-      start_time: '2026-03-01T10:00:00Z',
-      end_time: '2026-03-01T11:00:00Z',
-    });
-    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty('total_price');
+    }
   });
 });
 

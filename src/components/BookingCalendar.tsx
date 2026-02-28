@@ -35,7 +35,7 @@ export default function BookingCalendar({ sitterId, selectedDate, onDateSelect, 
       }
     };
     fetchAvailability();
-  }, [sitterId]);
+  }, [sitterId, onAvailabilityLoaded]);
 
   const today = startOfDay(new Date());
 
@@ -83,6 +83,7 @@ export default function BookingCalendar({ sitterId, selectedDate, onDateSelect, 
       <div className="flex items-center justify-between mb-4">
         <button
           type="button"
+          aria-label="Previous month"
           onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
           className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 transition-colors"
         >
@@ -93,6 +94,7 @@ export default function BookingCalendar({ sitterId, selectedDate, onDateSelect, 
         </h4>
         <button
           type="button"
+          aria-label="Next month"
           onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
           className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 transition-colors"
         >

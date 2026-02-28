@@ -60,13 +60,29 @@ export default function TimeSlotPicker({ selectedDate, availability, selectedTim
         h += 1;
         m = 0;
       }
-      while (h < end.hours || (h === end.hours && m < end.minutes)) {
+      const MAX_SLOTS = 24;
+      let count = 0;
+      while ((h < end.hours || (h === end.hours && m < end.minutes)) && count < MAX_SLOTS) {
         slotSet.add(to24h(h, m));
         h += 1;
+        count += 1;
       }
     }
 
-    return [...slotSet].sort();
+    const sorted = [...slotSet].sort();
+
+    // Filter out past slots when the selected date is today
+    const now = new Date();
+    const isToday = selectedDate.toDateString() === now.toDateString();
+    if (isToday) {
+      const currentHour = now.getHours();
+      return sorted.filter((slot) => {
+        const { hours } = parseTime(slot);
+        return hours > currentHour;
+      });
+    }
+
+    return sorted;
   }, [selectedDate, availability]);
 
   if (timeSlots.length === 0) {

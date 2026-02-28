@@ -582,8 +582,16 @@ async function startServer() {
   v1.post('/bookings', authMiddleware, validate(createBookingSchema), async (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time } = req.body;
 
-    if (new Date(start_time) < new Date()) {
+    const startMs = new Date(start_time).getTime();
+    const endMs = new Date(end_time).getTime();
+    if (startMs < Date.now()) {
       res.status(400).json({ error: 'Cannot book in the past' });
+      return;
+    }
+    const durationMs = endMs - startMs;
+    const MAX_DURATION_MS = 24 * 60 * 60 * 1000;
+    if (durationMs > MAX_DURATION_MS) {
+      res.status(400).json({ error: 'Booking duration cannot exceed 24 hours' });
       return;
     }
     if (Number(sitter_id) === req.userId) {

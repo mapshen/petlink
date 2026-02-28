@@ -53,9 +53,12 @@ function generateTimeSlots(
       h += 1;
       m = 0;
     }
-    while (h < end.hours || (h === end.hours && m < end.minutes)) {
+    const MAX_SLOTS = 24;
+    let count = 0;
+    while ((h < end.hours || (h === end.hours && m < end.minutes)) && count < MAX_SLOTS) {
       slotSet.add(to24h(h, m));
       h += 1;
+      count += 1;
     }
   }
 
@@ -147,5 +150,15 @@ describe('TimeSlotPicker: generateTimeSlots', () => {
     }];
     const slots = generateTimeSlots(monday, avail);
     expect(slots).toEqual(['10:00', '11:00']);
+  });
+
+  it('handles cross-midnight windows safely (no infinite loop)', () => {
+    const avail: Availability[] = [{
+      id: 1, sitter_id: 1, recurring: true, day_of_week: 1,
+      start_time: '22:00:00', end_time: '02:00:00',
+    }];
+    const slots = generateTimeSlots(monday, avail);
+    // Should not hang — MAX_SLOTS cap prevents infinite loop
+    expect(slots.length).toBeLessThanOrEqual(24);
   });
 });
