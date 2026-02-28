@@ -132,9 +132,14 @@ export async function initDb() {
       sender_id INTEGER NOT NULL REFERENCES users(id),
       receiver_id INTEGER NOT NULL REFERENCES users(id),
       content TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      read_at TIMESTAMPTZ
     )
   `;
+
+  // Indexes for conversation query performance
+  await sql`CREATE INDEX IF NOT EXISTS idx_messages_sender_receiver_created ON messages (sender_id, receiver_id, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_messages_receiver_unread ON messages (receiver_id) WHERE read_at IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS reviews (

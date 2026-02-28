@@ -38,7 +38,8 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Users | `PUT /users/me` |
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id` |
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=`), `GET /sitters/:id` |
-| Bookings | `POST /bookings`, `GET /bookings` |
+| Bookings | `POST /bookings`, `GET /bookings`, `PUT /bookings/:id/status` |
+| Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read) |
 | Reviews | `POST /reviews` (double-blind), `GET /reviews/:userId` |
 | Verification | `GET /verification/me`, `POST /verification/start`, `PUT /verification/update`, `GET /verification/:sitterId` |
 | Availability | `GET /availability/:sitterId`, `POST /availability`, `DELETE /availability/:id` |
@@ -78,7 +79,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 
 ## Testing
 
-21 tests across 5 suites (Vitest). See `DEVELOPMENT.md` for full testing guide.
+35 tests across 7 suites (Vitest). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 

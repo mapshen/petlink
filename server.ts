@@ -700,8 +700,59 @@ async function startServer() {
   });
 
   // --- Messages ---
+  v1.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const conversations = await sql`
+      WITH last_messages AS (
+        SELECT DISTINCT ON (
+          LEAST(sender_id, receiver_id),
+          GREATEST(sender_id, receiver_id)
+        )
+          sender_id,
+          receiver_id,
+          content,
+          created_at
+        FROM messages
+        WHERE sender_id = ${req.userId} OR receiver_id = ${req.userId}
+        ORDER BY
+          LEAST(sender_id, receiver_id),
+          GREATEST(sender_id, receiver_id),
+          created_at DESC
+      ),
+      unread_counts AS (
+        SELECT sender_id AS from_user, COUNT(*)::int AS unread
+        FROM messages
+        WHERE receiver_id = ${req.userId} AND read_at IS NULL
+        GROUP BY sender_id
+      )
+      SELECT
+        u.id AS other_user_id,
+        u.name AS other_user_name,
+        u.avatar_url AS other_user_avatar,
+        lm.content AS last_message,
+        lm.created_at AS last_message_at,
+        COALESCE(uc.unread, 0)::int AS unread_count
+      FROM last_messages lm
+      JOIN users u ON u.id = CASE
+        WHEN lm.sender_id = ${req.userId} THEN lm.receiver_id
+        ELSE lm.sender_id
+      END
+      LEFT JOIN unread_counts uc ON uc.from_user = u.id
+      ORDER BY lm.created_at DESC
+    `;
+    res.json({ conversations });
+  });
+
   v1.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const otherUserId = Number(req.params.userId);
+    if (!Number.isInteger(otherUserId) || otherUserId <= 0) {
+      res.status(400).json({ error: 'Invalid user ID' });
+      return;
+    }
+    // Mark messages as read first, then fetch (so read_at is populated in response)
+    await sql`
+      UPDATE messages SET read_at = NOW()
+      WHERE sender_id = ${otherUserId} AND receiver_id = ${req.userId} AND read_at IS NULL
+    `;
     const messages = await sql`
       SELECT * FROM messages
       WHERE (sender_id = ${req.userId} AND receiver_id = ${otherUserId})
