@@ -79,7 +79,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 
 ## Testing
 
-35 tests across 7 suites (Vitest). See `DEVELOPMENT.md` for full testing guide.
+72 tests across 8 suites (Vitest). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 
