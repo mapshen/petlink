@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Booking } from '../types';
-import { Calendar, MapPin, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -21,7 +22,7 @@ export default function Dashboard() {
         const data = await res.json();
         setBookings(data.bookings);
       } catch {
-        // Silently handle — bookings fetch failed
+        setError('Failed to load bookings. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -34,6 +35,7 @@ export default function Dashboard() {
       return;
     }
     setUpdatingIds((prev) => new Set([...prev, bookingId]));
+    setError(null);
     try {
       const res = await fetch(`/api/v1/bookings/${bookingId}/status`, {
         method: 'PUT',
@@ -48,8 +50,8 @@ export default function Dashboard() {
       setBookings((prev) =>
         prev.map((b) => (b.id === bookingId ? { ...b, status: data.booking.status } : b))
       );
-    } catch {
-      // Silently handle — status update failed
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update booking status.');
     } finally {
       setUpdatingIds((prev) => {
         const next = new Set(prev);
@@ -64,6 +66,14 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-3xl font-bold text-stone-900 mb-8">Dashboard</h1>
+
+      {error && (
+        <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-grow">{error}</span>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
         <div className="border-b border-stone-100 px-6 py-4 bg-stone-50">

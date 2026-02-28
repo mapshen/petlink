@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Message, User } from '../types';
 import io, { Socket } from 'socket.io-client';
-import { Send, User as UserIcon } from 'lucide-react';
+import { Send, User as UserIcon, AlertCircle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Messages() {
@@ -15,6 +15,7 @@ export default function Messages() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [recipient, setRecipient] = useState<User | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,11 +45,11 @@ export default function Messages() {
     // Fetch recipient details
     const fetchRecipient = async () => {
       try {
-        const res = await fetch(`/api/v1/sitters/${recipientId}`); // Reuse sitter endpoint for user details
+        const res = await fetch(`/api/v1/sitters/${recipientId}`);
         const data = await res.json();
         setRecipient(data.sitter);
       } catch {
-        // Silently handle — recipient may not be available
+        setError('Failed to load conversation details.');
       }
     };
 
@@ -58,11 +59,12 @@ export default function Messages() {
         const res = await fetch(`/api/v1/messages/${recipientId}`, {
           headers: getAuthHeaders(token)
         });
+        if (!res.ok) throw new Error('Failed to load messages');
         const data = await res.json();
         setMessages(data.messages);
         scrollToBottom();
       } catch {
-        // Silently handle — messages fetch failed
+        setError('Failed to load messages. Please try again.');
       }
     };
 
@@ -116,6 +118,13 @@ export default function Messages() {
 
         {/* Chat Area */}
         <div className="flex-grow flex flex-col">
+          {error && (
+            <div className="m-4 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-grow">{error}</span>
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
+            </div>
+          )}
           {recipient ? (
             <>
               <div className="p-4 border-b border-stone-100 flex items-center gap-3 bg-stone-50">

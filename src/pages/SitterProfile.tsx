@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, Service, Review } from '../types';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { MapPin, Star, Calendar, MessageSquare, ShieldCheck } from 'lucide-react';
+import { MapPin, Star, Calendar, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export default function SitterProfile() {
   const { id } = useParams();
@@ -14,6 +14,8 @@ export default function SitterProfile() {
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [bookingDate, setBookingDate] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSitter = async () => {
@@ -26,7 +28,7 @@ export default function SitterProfile() {
         setReviews(data.reviews);
         if (data.services.length > 0) setSelectedService(data.services[0].id);
       } catch {
-        // Silently handle — sitter fetch failed
+        setError('Failed to load sitter profile.');
       } finally {
         setLoading(false);
       }
@@ -41,6 +43,7 @@ export default function SitterProfile() {
     }
     
     if (!selectedService || !bookingDate) return;
+    setBookingError(null);
 
     try {
       const service = services.find(s => s.id === selectedService);
@@ -56,16 +59,29 @@ export default function SitterProfile() {
         })
       });
 
-      if (res.ok) {
-        navigate('/dashboard');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Booking request failed');
       }
-    } catch {
-      // Silently handle — booking request failed
+      navigate('/dashboard');
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : 'Failed to create booking. Please try again.');
     }
   };
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
-  if (!sitter) return <div className="text-center py-12">Sitter not found</div>;
+  if (!sitter) return (
+    <div className="text-center py-12">
+      {error ? (
+        <div className="flex flex-col items-center gap-3">
+          <AlertCircle className="w-8 h-8 text-red-400" />
+          <p className="text-red-600">{error}</p>
+        </div>
+      ) : (
+        <p className="text-stone-500">Sitter not found</p>
+      )}
+    </div>
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -173,7 +189,14 @@ export default function SitterProfile() {
               />
             </div>
 
-            <button 
+            {bookingError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{bookingError}</span>
+              </div>
+            )}
+
+            <button
               onClick={handleBooking}
               disabled={!selectedService || !bookingDate}
               className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
