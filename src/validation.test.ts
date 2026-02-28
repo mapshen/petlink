@@ -8,6 +8,8 @@ import {
   createBookingSchema,
   updateBookingStatusSchema,
   createReviewSchema,
+  createSitterPhotoSchema,
+  updateSitterPhotoSchema,
   validate,
 } from './validation.ts';
 
@@ -356,6 +358,62 @@ describe('serviceSchema', () => {
 
   it('rejects description over 1000 characters', () => {
     const result = serviceSchema.safeParse({ type: 'walking', price: 25, description: 'a'.repeat(1001) });
+    expect(result.success).toBe(false);
+  });
+});
+
+// --- Sitter Photo Schema Tests ---
+
+describe('createSitterPhotoSchema', () => {
+  it('accepts valid photo data', () => {
+    const result = createSitterPhotoSchema.safeParse({
+      photo_url: 'https://example.com/photo.jpg',
+      caption: 'My backyard',
+      sort_order: 0,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('defaults caption to empty string', () => {
+    const result = createSitterPhotoSchema.safeParse({ photo_url: 'https://example.com/photo.jpg' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.caption).toBe('');
+    }
+  });
+
+  it('rejects invalid URL', () => {
+    const result = createSitterPhotoSchema.safeParse({ photo_url: 'not-a-url' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects HTTP URL (requires HTTPS)', () => {
+    const result = createSitterPhotoSchema.safeParse({ photo_url: 'http://example.com/photo.jpg' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects caption over 200 characters', () => {
+    const result = createSitterPhotoSchema.safeParse({
+      photo_url: 'https://example.com/photo.jpg',
+      caption: 'a'.repeat(201),
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('updateSitterPhotoSchema', () => {
+  it('accepts partial update', () => {
+    const result = updateSitterPhotoSchema.safeParse({ caption: 'New caption' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts sort_order update', () => {
+    const result = updateSitterPhotoSchema.safeParse({ sort_order: 3 });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects negative sort_order', () => {
+    const result = updateSitterPhotoSchema.safeParse({ sort_order: -1 });
     expect(result.success).toBe(false);
   });
 });

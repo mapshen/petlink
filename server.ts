@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema } from './src/validation.ts';
 import type { ErrorRequestHandler } from 'express';
 
 // Wraps async route handlers to forward rejected promises to Express error middleware
@@ -287,7 +287,9 @@ async function startServer() {
       WHERE r.reviewee_id = ${req.params.id}
     `;
 
-    res.json({ sitter, services, reviews });
+    const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.id} ORDER BY sort_order, created_at`;
+
+    res.json({ sitter, services, reviews, photos });
   });
 
   // --- Services (sitter CRUD) ---
@@ -525,6 +527,62 @@ async function startServer() {
       return;
     }
     await sql`DELETE FROM availability WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    res.json({ success: true });
+  });
+
+  // --- Sitter Photos ---
+  v1.get('/sitter-photos/:sitterId', async (req, res) => {
+    const photos = await sql`
+      SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.sitterId} ORDER BY sort_order, created_at
+    `;
+    res.json({ photos });
+  });
+
+  v1.post('/sitter-photos', authMiddleware, validate(createSitterPhotoSchema), async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can upload photos' });
+      return;
+    }
+    const { photo_url, caption, sort_order } = req.body;
+    // Atomic insert with limit check to prevent race condition
+    const [photo] = await sql`
+      INSERT INTO sitter_photos (sitter_id, photo_url, caption, sort_order)
+      SELECT ${req.userId}, ${photo_url}, ${caption}, ${sort_order}
+      WHERE (SELECT COUNT(*) FROM sitter_photos WHERE sitter_id = ${req.userId}) < 10
+      RETURNING *
+    `;
+    if (!photo) {
+      res.status(400).json({ error: 'Maximum 10 photos allowed' });
+      return;
+    }
+    res.status(201).json({ photo });
+  });
+
+  v1.put('/sitter-photos/:id', authMiddleware, validate(updateSitterPhotoSchema), async (req: AuthenticatedRequest, res) => {
+    const [existing] = await sql`SELECT id FROM sitter_photos WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!existing) {
+      res.status(404).json({ error: 'Photo not found' });
+      return;
+    }
+    const { caption, sort_order } = req.body;
+    const [photo] = await sql`
+      UPDATE sitter_photos SET
+        caption = COALESCE(${caption ?? null}, caption),
+        sort_order = COALESCE(${sort_order ?? null}, sort_order)
+      WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
+      RETURNING *
+    `;
+    res.json({ photo });
+  });
+
+  v1.delete('/sitter-photos/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [existing] = await sql`SELECT id FROM sitter_photos WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!existing) {
+      res.status(404).json({ error: 'Photo not found' });
+      return;
+    }
+    await sql`DELETE FROM sitter_photos WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     res.json({ success: true });
   });
 

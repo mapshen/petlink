@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Service, Review, Availability } from '../types';
+import { User, Service, Review, Availability, SitterPhoto } from '../types';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../config';
 import BookingCalendar from '../components/BookingCalendar';
 import TimeSlotPicker from '../components/TimeSlotPicker';
+import PhotoGallery from '../components/PhotoGallery';
 
 export default function SitterProfile() {
   const { id } = useParams();
@@ -14,6 +15,7 @@ export default function SitterProfile() {
   const [sitter, setSitter] = useState<User | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [photos, setPhotos] = useState<SitterPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -40,6 +42,7 @@ export default function SitterProfile() {
         setSitter(data.sitter);
         setServices(data.services);
         setReviews(data.reviews);
+        setPhotos(data.photos || []);
         if (data.services.length > 0) setSelectedService(data.services[0].id);
       } catch {
         setError('Failed to load sitter profile.');
@@ -144,6 +147,13 @@ export default function SitterProfile() {
               )}
             </div>
           </div>
+
+          {photos.length > 0 && (
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
+              <h2 className="text-xl font-bold mb-4 text-stone-900">Photos</h2>
+              <PhotoGallery photos={photos} />
+            </div>
+          )}
 
           <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
             <h2 className="text-xl font-bold mb-6 text-stone-900">Reviews</h2>
