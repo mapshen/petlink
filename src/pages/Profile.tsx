@@ -6,7 +6,7 @@ import { API_BASE } from '../config';
 import { useImageUpload } from '../hooks/useImageUpload';
 
 export default function Profile() {
-  const { user, token } = useAuth();
+  const { user, token, updateUser } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -56,11 +56,8 @@ export default function Profile() {
       }
 
       const data = await res.json();
-      // Update localStorage with new user data
-      localStorage.setItem('petlink_user', JSON.stringify(data.user));
+      updateUser(data.user);
       setMessage('Profile updated successfully');
-      // Reload to update auth context
-      window.location.reload();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Update failed');
     } finally {
