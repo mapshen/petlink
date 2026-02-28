@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Service, Review } from '../types';
+import { User, Service, Review, Availability } from '../types';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { MapPin, Star, Calendar, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
+import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../config';
+import BookingCalendar from '../components/BookingCalendar';
+import TimeSlotPicker from '../components/TimeSlotPicker';
 
 export default function SitterProfile() {
   const { id } = useParams();
@@ -14,9 +16,20 @@ export default function SitterProfile() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<number | null>(null);
-  const [bookingDate, setBookingDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<Availability[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
+
+  const handleAvailabilityLoaded = useCallback((data: Availability[]) => {
+    setAvailability(data);
+  }, []);
+
+  const handleDateSelect = useCallback((date: Date) => {
+    setSelectedDate(date);
+    setSelectedTime(null);
+  }, []);
 
   useEffect(() => {
     const fetchSitter = async () => {
@@ -42,20 +55,25 @@ export default function SitterProfile() {
       navigate('/login');
       return;
     }
-    
-    if (!selectedService || !bookingDate) return;
+
+    if (!selectedService || !selectedDate || !selectedTime) return;
     setBookingError(null);
 
     try {
       const service = services.find(s => s.id === selectedService);
+      const [hours, minutes] = selectedTime.split(':').map(Number);
+      const startDate = new Date(selectedDate);
+      startDate.setHours(hours, minutes, 0, 0);
+      const endDate = new Date(startDate.getTime() + 3600000); // 1 hour later
+
       const res = await fetch(`${API_BASE}/bookings`, {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify({
           sitter_id: sitter?.id,
           service_id: selectedService,
-          start_time: new Date(bookingDate).toISOString(),
-          end_time: new Date(new Date(bookingDate).getTime() + 3600000).toISOString(), // 1 hour later
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
           total_price: service?.price
         })
       });
@@ -188,15 +206,27 @@ export default function SitterProfile() {
               </div>
             </div>
 
-            <div className="space-y-2 mb-8">
-              <label className="block text-sm font-medium text-stone-700">Date & Time</label>
-              <input 
-                type="datetime-local" 
-                className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                value={bookingDate}
-                onChange={(e) => setBookingDate(e.target.value)}
+            <div className="space-y-4 mb-6">
+              <label className="block text-sm font-medium text-stone-700">Date</label>
+              <BookingCalendar
+                sitterId={sitter.id}
+                selectedDate={selectedDate}
+                onDateSelect={handleDateSelect}
+                onAvailabilityLoaded={handleAvailabilityLoaded}
               />
             </div>
+
+            {selectedDate && (
+              <div className="space-y-2 mb-6">
+                <label className="block text-sm font-medium text-stone-700">Time</label>
+                <TimeSlotPicker
+                  selectedDate={selectedDate}
+                  availability={availability}
+                  selectedTime={selectedTime}
+                  onTimeSelect={setSelectedTime}
+                />
+              </div>
+            )}
 
             {bookingError && (
               <div role="alert" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
@@ -208,7 +238,7 @@ export default function SitterProfile() {
 
             <button
               onClick={handleBooking}
-              disabled={!selectedService || !bookingDate}
+              disabled={!selectedService || !selectedDate || !selectedTime}
               className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Request Booking
