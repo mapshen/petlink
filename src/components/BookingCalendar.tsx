@@ -25,8 +25,8 @@ export default function BookingCalendar({ sitterId, selectedDate, onDateSelect, 
         const res = await fetch(`${API_BASE}/availability/${sitterId}`);
         if (res.ok) {
           const data = await res.json();
-          setAvailability(data.availability);
-          onAvailabilityLoaded?.(data.availability);
+          setAvailability(data.slots);
+          onAvailabilityLoaded?.(data.slots);
         }
       } catch {
         // Availability fetch failure is non-fatal — show all dates as available

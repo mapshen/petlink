@@ -580,13 +580,13 @@ async function startServer() {
 
   // --- Bookings ---
   v1.post('/bookings', authMiddleware, validate(createBookingSchema), async (req: AuthenticatedRequest, res) => {
-    const { sitter_id, service_id, start_time, end_time, total_price } = req.body;
+    const { sitter_id, service_id, start_time, end_time } = req.body;
 
     if (Number(sitter_id) === req.userId) {
       res.status(400).json({ error: 'Cannot book yourself' });
       return;
     }
-    const [service] = await sql`SELECT id FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    const [service] = await sql`SELECT id, price FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
     if (!service) {
       res.status(400).json({ error: 'Invalid service for this sitter' });
       return;
@@ -594,7 +594,7 @@ async function startServer() {
 
     const [booking] = await sql`
       INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
-      VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${total_price}, 'pending')
+      VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${service.price}, 'pending')
       RETURNING id, status
     `;
 
