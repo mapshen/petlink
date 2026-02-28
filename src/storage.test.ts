@@ -39,4 +39,30 @@ describe('storage', () => {
     const result = await generateUploadUrl('avatars', 'image/png', 42);
     expect(result.key).toMatch(/^avatars\/42\/.+\.png$/);
   });
+
+  it('uses custom endpoint for public URL when S3_ENDPOINT is set', async () => {
+    process.env.S3_ENDPOINT = 'http://localhost:9000';
+    const { generateUploadUrl } = await import('./storage.ts');
+    const result = await generateUploadUrl('walks', 'image/webp', 7);
+    expect(result.publicUrl).toContain('http://localhost:9000');
+    expect(result.publicUrl).toContain('test-bucket');
+  });
+
+  it('falls back to bin extension for unknown content type', async () => {
+    const { generateUploadUrl } = await import('./storage.ts');
+    const result = await generateUploadUrl('pets', 'application/', 1);
+    expect(result.key).toMatch(/\.bin$/);
+  });
+
+  it('throws when S3 is not configured', async () => {
+    delete process.env.S3_BUCKET;
+    const { generateUploadUrl } = await import('./storage.ts');
+    await expect(generateUploadUrl('pets', 'image/jpeg', 1)).rejects.toThrow('S3 storage is not configured');
+  });
+
+  it('deleteObject calls S3 client', async () => {
+    const { deleteObject } = await import('./storage.ts');
+    await deleteObject('pets/1/test.jpg');
+    // Should not throw — mock resolves
+  });
 });

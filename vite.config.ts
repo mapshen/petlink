@@ -11,5 +11,18 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    test: {
+      coverage: {
+        provider: 'v8' as const,
+        include: ['src/**/*.ts'],
+        exclude: ['src/**/*.test.ts', 'src/**/*.d.ts', 'src/db.ts', 'src/types.ts', 'src/**/*.tsx'],
+        thresholds: {
+          statements: 80,
+          branches: 70,
+          functions: 80,
+          lines: 80,
+        },
+      },
+    },
   };
 });
