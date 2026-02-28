@@ -9,6 +9,7 @@ export default function Dashboard() {
   const { user, token } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -27,6 +28,29 @@ export default function Dashboard() {
     };
     fetchBookings();
   }, [user]);
+
+  const updateBookingStatus = async (bookingId: number, status: 'confirmed' | 'cancelled') => {
+    setUpdatingId(bookingId);
+    try {
+      const res = await fetch(`/api/v1/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to update booking');
+      }
+      const data = await res.json();
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: data.booking.status } : b))
+      );
+    } catch {
+      // Silently handle — status update failed
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
 
@@ -87,15 +111,49 @@ export default function Dashboard() {
                       </span>
                     </div>
                     
-                    {booking.status === 'in_progress' && (
-                      <Link 
-                        to={`/track/${booking.id}`}
-                        className="text-emerald-600 text-sm font-medium hover:text-emerald-700 flex items-center gap-1"
-                      >
-                        <MapPin className="w-4 h-4" />
-                        Track Walk
-                      </Link>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {isSitter && booking.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => updateBookingStatus(booking.id, 'confirmed')}
+                            disabled={updatingId === booking.id}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => updateBookingStatus(booking.id, 'cancelled')}
+                            disabled={updatingId === booking.id}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            Decline
+                          </button>
+                        </>
+                      )}
+
+                      {!isSitter && (booking.status === 'pending' || booking.status === 'confirmed') && (
+                        <button
+                          onClick={() => updateBookingStatus(booking.id, 'cancelled')}
+                          disabled={updatingId === booking.id}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          Cancel
+                        </button>
+                      )}
+
+                      {booking.status === 'in_progress' && (
+                        <Link
+                          to={`/track/${booking.id}`}
+                          className="text-emerald-600 text-sm font-medium hover:text-emerald-700 flex items-center gap-1"
+                        >
+                          <MapPin className="w-4 h-4" />
+                          Track Walk
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

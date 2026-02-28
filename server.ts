@@ -596,6 +596,77 @@ async function startServer() {
     res.json({ bookings });
   });
 
+  // --- Booking Status Update ---
+  v1.put('/bookings/:id/status', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const { status } = req.body;
+    const bookingId = Number(req.params.id);
+
+    const allowedStatuses = ['confirmed', 'cancelled'];
+    if (!status || !allowedStatuses.includes(status)) {
+      res.status(400).json({ error: 'Status must be "confirmed" or "cancelled"' });
+      return;
+    }
+
+    const [booking] = await sql`SELECT * FROM bookings WHERE id = ${bookingId}`;
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+
+    const isSitter = booking.sitter_id === req.userId;
+    const isOwner = booking.owner_id === req.userId;
+
+    if (!isSitter && !isOwner) {
+      res.status(403).json({ error: 'Not authorized to update this booking' });
+      return;
+    }
+
+    if (status === 'confirmed') {
+      if (!isSitter) {
+        res.status(403).json({ error: 'Only the sitter can confirm a booking' });
+        return;
+      }
+      if (booking.status !== 'pending') {
+        res.status(400).json({ error: 'Only pending bookings can be confirmed' });
+        return;
+      }
+    }
+
+    if (status === 'cancelled') {
+      if (isSitter && booking.status !== 'pending') {
+        res.status(400).json({ error: 'Sitter can only decline pending bookings' });
+        return;
+      }
+      if (isOwner && booking.status !== 'pending' && booking.status !== 'confirmed') {
+        res.status(400).json({ error: 'Owner can only cancel pending or confirmed bookings' });
+        return;
+      }
+    }
+
+    const [updated] = await sql`
+      UPDATE bookings SET status = ${status}::booking_status WHERE id = ${bookingId}
+      RETURNING *
+    `;
+
+    const [actingUser] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
+    const otherUserId = isSitter ? booking.owner_id : booking.sitter_id;
+
+    const title = status === 'confirmed' ? 'Booking Confirmed'
+      : isSitter ? 'Booking Declined' : 'Booking Cancelled';
+    const body = status === 'confirmed'
+      ? `${actingUser.name} has confirmed your booking.`
+      : isSitter
+        ? `${actingUser.name} has declined your booking request.`
+        : `${actingUser.name} has cancelled the booking.`;
+
+    const notification = await createNotification(
+      otherUserId, 'booking_status', title, body, { booking_id: bookingId }
+    );
+    io.to(String(otherUserId)).emit('notification', notification);
+
+    res.json({ booking: updated });
+  });
+
   // --- Messages ---
   v1.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const otherUserId = Number(req.params.userId);
