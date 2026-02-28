@@ -60,7 +60,6 @@ export default function SitterProfile() {
     setBookingError(null);
 
     try {
-      const service = services.find(s => s.id === selectedService);
       const [hours, minutes] = selectedTime.split(':').map(Number);
       const startDate = new Date(selectedDate);
       startDate.setHours(hours, minutes, 0, 0);
@@ -74,7 +73,6 @@ export default function SitterProfile() {
           service_id: selectedService,
           start_time: startDate.toISOString(),
           end_time: endDate.toISOString(),
-          total_price: service?.price
         })
       });
 

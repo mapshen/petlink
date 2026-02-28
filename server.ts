@@ -582,6 +582,10 @@ async function startServer() {
   v1.post('/bookings', authMiddleware, validate(createBookingSchema), async (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time } = req.body;
 
+    if (new Date(start_time) < new Date()) {
+      res.status(400).json({ error: 'Cannot book in the past' });
+      return;
+    }
     if (Number(sitter_id) === req.userId) {
       res.status(400).json({ error: 'Cannot book yourself' });
       return;
