@@ -57,7 +57,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 
 - **Entry**: `src/main.tsx` → `src/App.tsx` (router) → `src/components/Layout.tsx` (shell)
 - **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`petlink_token`, `petlink_user`)
-- **Pages**: Home, Login, Search, SitterProfile, Dashboard, Messages, TrackWalk, Profile, Pets, Services
+- **Pages**: Home, Login, Search, SitterProfile, Dashboard, Messages, TrackWalk, Profile, Pets, Services, Onboarding
 - **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows)
 - **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review, Availability, WalkEvent
 - **Path alias**: `@/*` maps to project root
