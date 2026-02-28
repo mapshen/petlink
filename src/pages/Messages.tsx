@@ -193,7 +193,7 @@ export default function Messages() {
                   >
                     <div className="relative flex-shrink-0">
                       <img
-                        src={conv.other_user_avatar || `https://ui-avatars.com/api/?name=${conv.other_user_name}`}
+                        src={conv.other_user_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.other_user_name)}`}
                         alt={conv.other_user_name}
                         className="w-11 h-11 rounded-full object-cover"
                       />
@@ -245,7 +245,7 @@ export default function Messages() {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <img
-                  src={selectedConversation.other_user_avatar || `https://ui-avatars.com/api/?name=${selectedConversation.other_user_name}`}
+                  src={selectedConversation.other_user_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedConversation.other_user_name)}`}
                   alt={selectedConversation.other_user_name}
                   className="w-10 h-10 rounded-full"
                 />
@@ -356,7 +356,7 @@ function ThreadWithNewUser({
           <ArrowLeft className="w-5 h-5" />
         </button>
         <img
-          src={recipientAvatar || `https://ui-avatars.com/api/?name=${recipientName || 'User'}`}
+          src={recipientAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(recipientName || 'User')}`}
           alt={recipientName || 'User'}
           className="w-10 h-10 rounded-full"
         />

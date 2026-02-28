@@ -221,7 +221,7 @@ export default function Search() {
                 <div className="flex p-6 gap-4">
                   <div className="flex-shrink-0">
                     <img
-                      src={sitter.avatar_url || `https://ui-avatars.com/api/?name=${sitter.name}`}
+                      src={sitter.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sitter.name)}`}
                       alt={sitter.name}
                       className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
                     />

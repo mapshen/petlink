@@ -79,7 +79,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 
 ## Testing
 
-95 tests across 10 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+105 tests across 11 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 

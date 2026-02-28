@@ -51,7 +51,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-4">
                 <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                   <img
-                    src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.name}`}
+                    src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`}
                     alt={user.name}
                     className="w-8 h-8 rounded-full border border-stone-200"
                   />
