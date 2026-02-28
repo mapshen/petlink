@@ -622,6 +622,83 @@ async function startServer() {
     res.json({ bookings });
   });
 
+  // --- Booking Status Update ---
+  v1.put('/bookings/:id/status', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const { status } = req.body;
+    const bookingId = Number(req.params.id);
+
+    if (!Number.isInteger(bookingId) || bookingId <= 0) {
+      res.status(400).json({ error: 'Invalid booking ID' });
+      return;
+    }
+
+    const allowedStatuses = ['confirmed', 'cancelled'];
+    if (!status || !allowedStatuses.includes(status)) {
+      res.status(400).json({ error: 'Status must be "confirmed" or "cancelled"' });
+      return;
+    }
+
+    // Atomic update with preconditions in WHERE clause to prevent race conditions
+    let updated;
+    if (status === 'confirmed') {
+      [updated] = await sql`
+        UPDATE bookings SET status = 'confirmed'::booking_status
+        WHERE id = ${bookingId} AND sitter_id = ${req.userId} AND status = 'pending'
+        RETURNING *
+      `;
+    } else {
+      // Cancelled — sitter can cancel pending, owner can cancel pending or confirmed
+      [updated] = await sql`
+        UPDATE bookings SET status = 'cancelled'::booking_status
+        WHERE id = ${bookingId}
+          AND (
+            (sitter_id = ${req.userId} AND status = 'pending')
+            OR (owner_id = ${req.userId} AND status IN ('pending', 'confirmed'))
+          )
+        RETURNING *
+      `;
+    }
+
+    if (!updated) {
+      // Determine the specific error
+      const [booking] = await sql`SELECT * FROM bookings WHERE id = ${bookingId}`;
+      if (!booking) {
+        res.status(404).json({ error: 'Booking not found' });
+        return;
+      }
+      if (booking.sitter_id !== req.userId && booking.owner_id !== req.userId) {
+        res.status(403).json({ error: 'Not authorized to update this booking' });
+        return;
+      }
+      res.status(409).json({ error: 'Booking status cannot be changed. It may have been updated already.' });
+      return;
+    }
+
+    // Notifications are best-effort — don't fail the request if they error
+    try {
+      const isSitter = updated.sitter_id === req.userId;
+      const [actingUser] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
+      const otherUserId = isSitter ? updated.owner_id : updated.sitter_id;
+
+      const title = status === 'confirmed' ? 'Booking Confirmed'
+        : isSitter ? 'Booking Declined' : 'Booking Cancelled';
+      const body = status === 'confirmed'
+        ? `${actingUser.name} has confirmed your booking.`
+        : isSitter
+          ? `${actingUser.name} has declined your booking request.`
+          : `${actingUser.name} has cancelled the booking.`;
+
+      const notification = await createNotification(
+        otherUserId, 'booking_status', title, body, { booking_id: bookingId }
+      );
+      io.to(String(otherUserId)).emit('notification', notification);
+    } catch {
+      // Notification failed — booking status was already updated successfully
+    }
+
+    res.json({ booking: updated });
+  });
+
   // --- Messages ---
   v1.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const otherUserId = Number(req.params.userId);
