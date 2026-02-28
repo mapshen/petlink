@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Pet } from '../types';
-import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle } from 'lucide-react';
+import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle, Camera, Loader2 } from 'lucide-react';
 import { API_BASE } from '../config';
+import { useImageUpload } from '../hooks/useImageUpload';
 
 interface PetFormData {
   name: string;
@@ -25,6 +26,17 @@ export default function Pets() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<PetFormData>(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const petFileInputRef = useRef<HTMLInputElement>(null);
+  const { uploading, progress, error: uploadError, upload, clearError } = useImageUpload(token);
+
+  const handlePetPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    clearError();
+    const url = await upload(file, 'pets');
+    if (url) setForm((prev) => ({ ...prev, photo_url: url }));
+    if (petFileInputRef.current) petFileInputRef.current.value = '';
+  };
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -155,8 +167,51 @@ export default function Pets() {
           <textarea rows={3} placeholder="Medical history / vaccination records" value={form.medical_history}
             onChange={e => setForm({...form, medical_history: e.target.value})}
             className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
-          <input placeholder="Photo URL" value={form.photo_url} onChange={e => setForm({...form, photo_url: e.target.value})}
-            className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+          {/* Pet Photo Upload */}
+          <div className="flex items-center gap-4">
+            <div className="relative group flex-shrink-0">
+              {form.photo_url ? (
+                <img src={form.photo_url} alt="Pet" className="w-20 h-20 rounded-xl object-cover border-2 border-stone-100" />
+              ) : (
+                <div className="w-20 h-20 rounded-xl bg-stone-100 flex items-center justify-center border-2 border-stone-200">
+                  <PawPrint className="w-6 h-6 text-stone-300" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => petFileInputRef.current?.click()}
+                disabled={uploading}
+                className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                {uploading ? (
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                ) : (
+                  <Camera className="w-5 h-5 text-white" />
+                )}
+              </button>
+              <input
+                ref={petFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handlePetPhotoUpload}
+                className="hidden"
+              />
+            </div>
+            <div className="flex-grow">
+              <p className="text-sm font-medium text-stone-700">Pet Photo</p>
+              <p className="text-xs text-stone-400 mt-0.5">JPEG, PNG, WebP or GIF. Max 5MB.</p>
+              {uploading && (
+                <div className="mt-2 w-full bg-stone-100 rounded-full h-1.5">
+                  <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                </div>
+              )}
+              {uploadError && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> {uploadError}
+                </p>
+              )}
+            </div>
+          </div>
 
           <button type="submit" className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2">
             <Save className="w-4 h-4" /> {editingId ? 'Update' : 'Add'} Pet

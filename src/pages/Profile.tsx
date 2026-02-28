@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { User as UserIcon, Save, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Save, Camera, Loader2, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../config';
+import { useImageUpload } from '../hooks/useImageUpload';
 
 export default function Profile() {
   const { user, token, logout } = useAuth();
@@ -14,6 +15,17 @@ export default function Profile() {
   const [role, setRole] = useState<'owner' | 'sitter' | 'both'>('owner');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploading, progress, error: uploadError, upload, clearError } = useImageUpload(token);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    clearError();
+    const url = await upload(file, 'avatars');
+    if (url) setAvatarUrl(url);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   useEffect(() => {
     if (!user) {
@@ -71,22 +83,47 @@ export default function Profile() {
       <h1 className="text-3xl font-bold text-stone-900 mb-8">Edit Profile</h1>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 space-y-6">
-        {/* Avatar preview */}
+        {/* Avatar upload */}
         <div className="flex items-center gap-4">
-          <img
-            src={avatarUrl || `https://ui-avatars.com/api/?name=${name}`}
-            alt={name}
-            className="w-20 h-20 rounded-full border-4 border-emerald-50 object-cover"
-          />
-          <div className="flex-grow">
-            <label className="block text-sm font-medium text-stone-700 mb-1">Avatar URL</label>
-            <input
-              type="url"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://example.com/avatar.jpg"
-              className="w-full p-2 border border-stone-200 rounded-lg text-sm focus:ring-emerald-500 focus:border-emerald-500"
+          <div className="relative group">
+            <img
+              src={avatarUrl || `https://ui-avatars.com/api/?name=${name}`}
+              alt={name}
+              className="w-20 h-20 rounded-full border-4 border-emerald-50 object-cover"
             />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              {uploading ? (
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              ) : (
+                <Camera className="w-5 h-5 text-white" />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+          </div>
+          <div className="flex-grow">
+            <p className="text-sm font-medium text-stone-700">Profile Photo</p>
+            <p className="text-xs text-stone-400 mt-0.5">JPEG, PNG, WebP or GIF. Max 5MB.</p>
+            {uploading && (
+              <div className="mt-2 w-full bg-stone-100 rounded-full h-1.5">
+                <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+              </div>
+            )}
+            {uploadError && (
+              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> {uploadError}
+              </p>
+            )}
           </div>
         </div>
 
