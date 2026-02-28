@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { User, Service, Review } from '../types';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { MapPin, Star, Calendar, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function SitterProfile() {
   const { id } = useParams();
@@ -20,7 +21,7 @@ export default function SitterProfile() {
   useEffect(() => {
     const fetchSitter = async () => {
       try {
-        const res = await fetch(`/api/v1/sitters/${id}`);
+        const res = await fetch(`${API_BASE}/sitters/${id}`);
         if (!res.ok) throw new Error('Sitter not found');
         const data = await res.json();
         setSitter(data.sitter);
@@ -47,7 +48,7 @@ export default function SitterProfile() {
 
     try {
       const service = services.find(s => s.id === selectedService);
-      const res = await fetch('/api/v1/bookings', {
+      const res = await fetch(`${API_BASE}/bookings`, {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify({

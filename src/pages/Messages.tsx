@@ -5,6 +5,7 @@ import { Message, Conversation } from '../types';
 import io, { Socket } from 'socket.io-client';
 import { Send, AlertCircle, ArrowLeft, MessageSquare } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
+import { API_BASE } from '../config';
 
 export default function Messages() {
   const { user, token } = useAuth();
@@ -32,7 +33,7 @@ export default function Messages() {
   const fetchConversations = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch('/api/v1/conversations', {
+      const res = await fetch(`${API_BASE}/conversations`, {
         headers: getAuthHeaders(token),
       });
       if (!res.ok) throw new Error('Failed to load conversations');
@@ -105,7 +106,7 @@ export default function Messages() {
 
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`/api/v1/messages/${selectedUserId}`, {
+        const res = await fetch(`${API_BASE}/messages/${selectedUserId}`, {
           headers: getAuthHeaders(token),
         });
         if (!res.ok) throw new Error('Failed to load messages');
@@ -336,7 +337,7 @@ function ThreadWithNewUser({
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch(`/api/v1/sitters/${userId}`);
+        const res = await fetch(`${API_BASE}/sitters/${userId}`);
         if (!res.ok) throw new Error('User not found');
         const data = await res.json();
         setRecipientName(data.sitter.name);
