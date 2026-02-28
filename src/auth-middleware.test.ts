@@ -86,6 +86,7 @@ describe('authMiddleware', () => {
     expect(next).toHaveBeenCalled();
     expect(req.userId).toBe(42);
     expect(res.status).not.toHaveBeenCalled();
+    expect(mockedSql).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -13,7 +13,7 @@ export default defineConfig(() => {
     },
     test: {
       coverage: {
-        provider: 'v8' as const,
+        provider: 'v8',
         include: ['src/**/*.ts'],
         exclude: ['src/**/*.test.ts', 'src/**/*.d.ts', 'src/db.ts', 'src/types.ts', 'src/**/*.tsx'],
         thresholds: {
