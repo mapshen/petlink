@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Pet } from '../types';
-import { PawPrint, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle } from 'lucide-react';
 
 interface PetFormData {
   name: string;
@@ -23,6 +23,7 @@ export default function Pets() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<PetFormData>(emptyForm);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -32,10 +33,11 @@ export default function Pets() {
   const fetchPets = async () => {
     try {
       const res = await fetch('/api/v1/pets', { headers: getAuthHeaders(token) });
+      if (!res.ok) throw new Error('Failed to load pets');
       const data = await res.json();
       setPets(data.pets);
-    } catch (err) {
-      // silently handle
+    } catch {
+      setError('Failed to load pets. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -43,6 +45,7 @@ export default function Pets() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     const payload = {
       ...form,
       age: form.age ? Number(form.age) : null,
@@ -52,17 +55,24 @@ export default function Pets() {
     const url = editingId ? `/api/v1/pets/${editingId}` : '/api/v1/pets';
     const method = editingId ? 'PUT' : 'POST';
 
-    const res = await fetch(url, {
-      method,
-      headers: getAuthHeaders(token),
-      body: JSON.stringify(payload),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: getAuthHeaders(token),
+        body: JSON.stringify(payload),
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to ${editingId ? 'update' : 'add'} pet`);
+      }
+
       setShowForm(false);
       setEditingId(null);
       setForm(emptyForm);
       fetchPets();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save pet. Please try again.');
     }
   };
 
@@ -80,11 +90,18 @@ export default function Pets() {
   };
 
   const handleDelete = async (id: number) => {
-    const res = await fetch(`/api/v1/pets/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(token),
-    });
-    if (res.ok) fetchPets();
+    if (!window.confirm('Are you sure you want to remove this pet?')) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/pets/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(token),
+      });
+      if (!res.ok) throw new Error('Failed to delete pet');
+      fetchPets();
+    } catch {
+      setError('Failed to delete pet. Please try again.');
+    }
   };
 
   const cancelForm = () => {
@@ -108,6 +125,14 @@ export default function Pets() {
           </button>
         )}
       </div>
+
+      {error && (
+        <div role="alert" className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-grow">{error}</span>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-8 space-y-4">

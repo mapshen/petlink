@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { User, Service } from '../types';
-import { MapPin, Star, ShieldCheck } from 'lucide-react';
+import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface SitterWithService extends User {
   price: number;
@@ -14,23 +14,27 @@ export default function Search() {
   const location = searchParams.get('location') || '';
   const [sitters, setSitters] = useState<SitterWithService[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const fetchSitters = async () => {
       setLoading(true);
+      setError(null);
       try {
         const res = await fetch(`/api/v1/sitters?serviceType=${serviceType}&lat=37.7749&lng=-122.4194`); // Mock lat/lng
+        if (!res.ok) throw new Error('Failed to load sitters');
         const data = await res.json();
         setSitters(data.sitters);
       } catch {
-        // Silently handle — sitters fetch failed
+        setError('Failed to load sitters. Please try again.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchSitters();
-  }, [serviceType, location]);
+  }, [serviceType, location, retryCount]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -40,6 +44,16 @@ export default function Search() {
          serviceType === 'grooming' ? 'Groomers' : 'Drop-in Visits'} 
         {' '}near {location || 'you'}
       </h1>
+
+      {error && (
+        <div role="alert" className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-grow">{error}</span>
+          <button onClick={() => setRetryCount(c => c + 1)} disabled={loading} className="flex items-center gap-1 text-red-600 hover:text-red-800 font-medium disabled:opacity-50">
+            <RefreshCw className="w-3.5 h-3.5" /> Retry
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
