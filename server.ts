@@ -14,6 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema } from './src/validation.ts';
 import type { ErrorRequestHandler } from 'express';
 
 // Wraps async route handlers to forward rejected promises to Express error middleware
@@ -103,33 +104,10 @@ async function startServer() {
   const v1 = createAsyncRouter();
 
   // --- Auth ---
-  v1.post('/auth/signup', async (req, res) => {
+  v1.post('/auth/signup', validate(signupSchema), async (req, res) => {
     const { email, password, name, role } = req.body;
 
-    if (!email || !password || !name) {
-      res.status(400).json({ error: 'Email, password, and name are required' });
-      return;
-    }
-
-    if (typeof password !== 'string' || password.length < 8) {
-      res.status(400).json({ error: 'Password must be at least 8 characters' });
-      return;
-    }
-    if (password.length > 72) {
-      res.status(400).json({ error: 'Password must not exceed 72 characters' });
-      return;
-    }
-
-    const validRoles = ['owner', 'sitter', 'both'];
-    const userRole = validRoles.includes(role) ? role : 'owner';
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(normalizedEmail)) {
-      res.status(400).json({ error: 'A valid email address is required' });
-      return;
-    }
-
-    const [existing] = await sql`SELECT id FROM users WHERE email = ${normalizedEmail}`;
+    const [existing] = await sql`SELECT id FROM users WHERE email = ${email}`;
     if (existing) {
       res.status(409).json({ error: 'Email already in use' });
       return;
@@ -138,7 +116,7 @@ async function startServer() {
     const passwordHash = hashPassword(password);
     const [user] = await sql`
       INSERT INTO users (email, password_hash, name, role)
-      VALUES (${normalizedEmail}, ${passwordHash}, ${String(name).trim()}, ${userRole})
+      VALUES (${email}, ${passwordHash}, ${name}, ${role})
       RETURNING id, email, name, role, bio, avatar_url, lat, lng
     `;
     const token = signToken({ userId: user.id });
@@ -146,16 +124,10 @@ async function startServer() {
     res.status(201).json({ user, token });
   });
 
-  v1.post('/auth/login', async (req, res) => {
+  v1.post('/auth/login', validate(loginSchema), async (req, res) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      res.status(400).json({ error: 'Email and password are required' });
-      return;
-    }
-
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const [user] = await sql`SELECT * FROM users WHERE email = ${normalizedEmail}`;
+    const [user] = await sql`SELECT * FROM users WHERE email = ${email}`;
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -183,20 +155,12 @@ async function startServer() {
   });
 
   // --- Users ---
-  v1.put('/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.put('/users/me', authMiddleware, validate(updateProfileSchema), async (req: AuthenticatedRequest, res) => {
     const { name, bio, avatar_url, role } = req.body;
-
-    if (!name) {
-      res.status(400).json({ error: 'Name is required' });
-      return;
-    }
-
-    const validRoles = ['owner', 'sitter', 'both'];
-    const userRole = validRoles.includes(role) ? role : null;
 
     await sql`
       UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null},
-      role = COALESCE(${userRole}::user_role, role)
+      role = COALESCE(${role || null}::user_role, role)
       WHERE id = ${req.userId}
     `;
 
@@ -213,12 +177,8 @@ async function startServer() {
     res.json({ pets });
   });
 
-  v1.post('/pets', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/pets', authMiddleware, validate(petSchema), async (req: AuthenticatedRequest, res) => {
     const { name, breed, age, weight, medical_history, photo_url } = req.body;
-    if (!name) {
-      res.status(400).json({ error: 'Pet name is required' });
-      return;
-    }
     const [pet] = await sql`
       INSERT INTO pets (owner_id, name, breed, age, weight, medical_history, photo_url)
       VALUES (${req.userId}, ${name}, ${breed || null}, ${age || null}, ${weight || null}, ${medical_history || null}, ${photo_url || null})
@@ -227,17 +187,13 @@ async function startServer() {
     res.status(201).json({ pet });
   });
 
-  v1.put('/pets/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.put('/pets/:id', authMiddleware, validate(petSchema), async (req: AuthenticatedRequest, res) => {
     const [pet] = await sql`SELECT * FROM pets WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
     if (!pet) {
       res.status(404).json({ error: 'Pet not found' });
       return;
     }
     const { name, breed, age, weight, medical_history, photo_url } = req.body;
-    if (!name) {
-      res.status(400).json({ error: 'Pet name is required' });
-      return;
-    }
     const [updated] = await sql`
       UPDATE pets SET name = ${name}, breed = ${breed || null}, age = ${age || null},
       weight = ${weight || null}, medical_history = ${medical_history || null}, photo_url = ${photo_url || null}
@@ -332,13 +288,8 @@ async function startServer() {
   });
 
   // --- Reviews (double-blind) ---
-  v1.post('/reviews', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/reviews', authMiddleware, validate(createReviewSchema), async (req: AuthenticatedRequest, res) => {
     const { booking_id, rating, comment } = req.body;
-
-    if (!booking_id || !rating || rating < 1 || rating > 5) {
-      res.status(400).json({ error: 'booking_id and rating (1-5) are required' });
-      return;
-    }
 
     const [booking] = await sql`SELECT * FROM bookings WHERE id = ${booking_id}`;
     if (!booking) {
@@ -564,29 +515,11 @@ async function startServer() {
   });
 
   // --- Bookings ---
-  v1.post('/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/bookings', authMiddleware, validate(createBookingSchema), async (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time, total_price } = req.body;
 
-    if (!sitter_id || !service_id || !start_time || !end_time) {
-      res.status(400).json({ error: 'sitter_id, service_id, start_time, and end_time are required' });
-      return;
-    }
     if (Number(sitter_id) === req.userId) {
       res.status(400).json({ error: 'Cannot book yourself' });
-      return;
-    }
-    if (total_price != null && (typeof total_price !== 'number' || total_price < 0)) {
-      res.status(400).json({ error: 'total_price must be a non-negative number' });
-      return;
-    }
-    const startDate = new Date(start_time);
-    const endDate = new Date(end_time);
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      res.status(400).json({ error: 'start_time and end_time must be valid dates' });
-      return;
-    }
-    if (endDate <= startDate) {
-      res.status(400).json({ error: 'end_time must be after start_time' });
       return;
     }
     const [service] = await sql`SELECT id FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
@@ -627,18 +560,12 @@ async function startServer() {
   });
 
   // --- Booking Status Update ---
-  v1.put('/bookings/:id/status', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.put('/bookings/:id/status', authMiddleware, validate(updateBookingStatusSchema), async (req: AuthenticatedRequest, res) => {
     const { status } = req.body;
     const bookingId = Number(req.params.id);
 
     if (!Number.isInteger(bookingId) || bookingId <= 0) {
       res.status(400).json({ error: 'Invalid booking ID' });
-      return;
-    }
-
-    const allowedStatuses = ['confirmed', 'cancelled'];
-    if (!status || !allowedStatuses.includes(status)) {
-      res.status(400).json({ error: 'Status must be "confirmed" or "cancelled"' });
       return;
     }
 

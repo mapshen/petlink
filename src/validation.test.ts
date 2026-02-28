@@ -1,0 +1,341 @@
+import { describe, it, expect } from 'vitest';
+import {
+  signupSchema,
+  loginSchema,
+  updateProfileSchema,
+  petSchema,
+  createBookingSchema,
+  updateBookingStatusSchema,
+  createReviewSchema,
+  validate,
+} from './validation.ts';
+
+// --- Schema Unit Tests ---
+
+describe('signupSchema', () => {
+  it('accepts valid signup data', () => {
+    const result = signupSchema.safeParse({
+      email: ' Test@Example.COM ',
+      password: 'password123',
+      name: '  Alice  ',
+      role: 'owner',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.email).toBe('test@example.com');
+      expect(result.data.name).toBe('Alice');
+      expect(result.data.role).toBe('owner');
+    }
+  });
+
+  it('defaults role to owner', () => {
+    const result = signupSchema.safeParse({
+      email: 'test@example.com',
+      password: 'password123',
+      name: 'Alice',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.role).toBe('owner');
+    }
+  });
+
+  it('rejects missing email', () => {
+    const result = signupSchema.safeParse({
+      password: 'password123',
+      name: 'Alice',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid email', () => {
+    const result = signupSchema.safeParse({
+      email: 'not-an-email',
+      password: 'password123',
+      name: 'Alice',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects short password', () => {
+    const result = signupSchema.safeParse({
+      email: 'test@example.com',
+      password: 'short',
+      name: 'Alice',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects password exceeding 72 chars', () => {
+    const result = signupSchema.safeParse({
+      email: 'test@example.com',
+      password: 'a'.repeat(73),
+      name: 'Alice',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty name', () => {
+    const result = signupSchema.safeParse({
+      email: 'test@example.com',
+      password: 'password123',
+      name: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid role', () => {
+    const result = signupSchema.safeParse({
+      email: 'test@example.com',
+      password: 'password123',
+      name: 'Alice',
+      role: 'admin',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('loginSchema', () => {
+  it('accepts valid login data', () => {
+    const result = loginSchema.safeParse({
+      email: 'Test@Example.COM',
+      password: 'any-password',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.email).toBe('test@example.com');
+    }
+  });
+
+  it('rejects empty password', () => {
+    const result = loginSchema.safeParse({
+      email: 'test@example.com',
+      password: '',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('updateProfileSchema', () => {
+  it('accepts valid profile update', () => {
+    const result = updateProfileSchema.safeParse({
+      name: '  Bob  ',
+      bio: 'I love dogs',
+      avatar_url: 'https://example.com/pic.jpg',
+      role: 'sitter',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.name).toBe('Bob');
+    }
+  });
+
+  it('accepts nullable/optional fields', () => {
+    const result = updateProfileSchema.safeParse({
+      name: 'Bob',
+      bio: null,
+      avatar_url: '',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty name', () => {
+    const result = updateProfileSchema.safeParse({
+      name: '',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('petSchema', () => {
+  it('accepts valid pet data', () => {
+    const result = petSchema.safeParse({
+      name: '  Buddy  ',
+      breed: 'Golden Retriever',
+      age: 3,
+      weight: 65.5,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.name).toBe('Buddy');
+    }
+  });
+
+  it('rejects age over 50', () => {
+    const result = petSchema.safeParse({ name: 'Buddy', age: 51 });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects weight over 500', () => {
+    const result = petSchema.safeParse({ name: 'Buddy', weight: 501 });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects negative age', () => {
+    const result = petSchema.safeParse({ name: 'Buddy', age: -1 });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts null optional fields', () => {
+    const result = petSchema.safeParse({
+      name: 'Buddy',
+      breed: null,
+      age: null,
+      weight: null,
+      medical_history: null,
+      photo_url: null,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('createBookingSchema', () => {
+  it('accepts valid booking data', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+      total_price: 50,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects end_time before start_time', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      start_time: '2026-03-01T11:00:00Z',
+      end_time: '2026-03-01T10:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects equal start and end times', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T10:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid date strings', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      start_time: 'not-a-date',
+      end_time: '2026-03-01T11:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects negative total_price', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+      total_price: -10,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('updateBookingStatusSchema', () => {
+  it('accepts confirmed', () => {
+    const result = updateBookingStatusSchema.safeParse({ status: 'confirmed' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts cancelled', () => {
+    const result = updateBookingStatusSchema.safeParse({ status: 'cancelled' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid status', () => {
+    const result = updateBookingStatusSchema.safeParse({ status: 'pending' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('createReviewSchema', () => {
+  it('accepts valid review data', () => {
+    const result = createReviewSchema.safeParse({
+      booking_id: 1,
+      rating: 5,
+      comment: 'Great sitter!',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects rating below 1', () => {
+    const result = createReviewSchema.safeParse({
+      booking_id: 1,
+      rating: 0,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects rating above 5', () => {
+    const result = createReviewSchema.safeParse({
+      booking_id: 1,
+      rating: 6,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-integer rating', () => {
+    const result = createReviewSchema.safeParse({
+      booking_id: 1,
+      rating: 3.5,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// --- validate middleware ---
+
+describe('validate middleware', () => {
+  const mockRes = () => {
+    const res: any = {};
+    res.status = (code: number) => { res.statusCode = code; return res; };
+    res.json = (data: any) => { res.body = data; return res; };
+    return res;
+  };
+
+  it('calls next() on valid input', () => {
+    const middleware = validate(loginSchema);
+    const req: any = { body: { email: 'test@example.com', password: 'pass' } };
+    const res = mockRes();
+    let nextCalled = false;
+    middleware(req, res, () => { nextCalled = true; });
+    expect(nextCalled).toBe(true);
+    expect(req.body.email).toBe('test@example.com');
+  });
+
+  it('replaces req.body with parsed data (transforms applied)', () => {
+    const middleware = validate(signupSchema);
+    const req: any = {
+      body: { email: '  TEST@EXAMPLE.COM  ', password: 'password123', name: '  Alice  ' },
+    };
+    const res = mockRes();
+    middleware(req, res, () => {});
+    expect(req.body.email).toBe('test@example.com');
+    expect(req.body.name).toBe('Alice');
+    expect(req.body.role).toBe('owner');
+  });
+
+  it('returns 400 with error on invalid input', () => {
+    const middleware = validate(loginSchema);
+    const req: any = { body: { email: 'not-email', password: '' } };
+    const res = mockRes();
+    let nextCalled = false;
+    middleware(req, res, () => { nextCalled = true; });
+    expect(nextCalled).toBe(false);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.errors).toBeInstanceOf(Array);
+  });
+});
