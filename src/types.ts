@@ -52,6 +52,16 @@ export interface Message {
   receiver_id: number;
   content: string;
   created_at: string;
+  read_at?: string | null;
+}
+
+export interface Conversation {
+  other_user_id: number;
+  other_user_name: string;
+  other_user_avatar: string | null;
+  last_message: string;
+  last_message_at: string;
+  unread_count: number;
 }
 
 export interface Review {
