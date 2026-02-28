@@ -744,16 +744,20 @@ async function startServer() {
 
   v1.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const otherUserId = Number(req.params.userId);
+    if (!Number.isInteger(otherUserId) || otherUserId <= 0) {
+      res.status(400).json({ error: 'Invalid user ID' });
+      return;
+    }
+    // Mark messages as read first, then fetch (so read_at is populated in response)
+    await sql`
+      UPDATE messages SET read_at = NOW()
+      WHERE sender_id = ${otherUserId} AND receiver_id = ${req.userId} AND read_at IS NULL
+    `;
     const messages = await sql`
       SELECT * FROM messages
       WHERE (sender_id = ${req.userId} AND receiver_id = ${otherUserId})
          OR (sender_id = ${otherUserId} AND receiver_id = ${req.userId})
       ORDER BY created_at ASC
-    `;
-    // Mark messages from the other user as read
-    await sql`
-      UPDATE messages SET read_at = NOW()
-      WHERE sender_id = ${otherUserId} AND receiver_id = ${req.userId} AND read_at IS NULL
     `;
     res.json({ messages });
   });
