@@ -51,11 +51,26 @@ async function startServer() {
 
   const app = express();
   const httpServer = createServer(app);
+  if (process.env.NODE_ENV === 'production' && !process.env.APP_URL) {
+    throw new Error('APP_URL environment variable is required in production');
+  }
   const corsOrigin = process.env.NODE_ENV === 'production'
-    ? (process.env.APP_URL || 'http://localhost:3000')
+    ? process.env.APP_URL!
     : '*';
   app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for SPA dev; configure for production
+    contentSecurityPolicy: process.env.NODE_ENV === 'production'
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://i.pravatar.cc", "https://ui-avatars.com"],
+            connectSrc: ["'self'", "wss:", "https://api.stripe.com", "https://nominatim.openstreetmap.org"],
+            frameSrc: ["https://js.stripe.com"],
+            fontSrc: ["'self'"],
+          },
+        }
+      : false,
   }));
   app.use(cors({
     origin: corsOrigin,
@@ -91,6 +106,16 @@ async function startServer() {
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many auth attempts, please try again later' },
+  });
+
+  // Health check (before rate limiting, no auth)
+  app.get('/api/v1/health', async (_req, res) => {
+    try {
+      await sql`SELECT 1`;
+      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    } catch {
+      res.status(503).json({ status: 'error', message: 'Database unreachable' });
+    }
   });
 
   app.use('/api/v1/', apiLimiter);

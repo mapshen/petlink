@@ -36,8 +36,10 @@ export default function Login() {
           <p className="mt-2 text-center text-sm text-stone-600">
             {isSignup ? (
               'Already have an account? '
-            ) : (
+            ) : import.meta.env.DEV ? (
               <>Demo: <span className="font-mono bg-stone-100 px-1 rounded">owner@example.com</span> / <span className="font-mono bg-stone-100 px-1 rounded">password123</span>{' '}</>
+            ) : (
+              'Don\'t have an account? '
             )}
             <button
               type="button"
