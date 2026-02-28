@@ -1,15 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
-
-const testDbPath = path.join(process.cwd(), 'test_bookings.db');
 
 describe('booking status management', () => {
   let testDb: ReturnType<typeof Database>;
 
   beforeAll(() => {
-    testDb = new Database(testDbPath);
+    testDb = new Database(':memory:');
     testDb.pragma('foreign_keys = ON');
     testDb.exec(`
       CREATE TABLE users (
@@ -48,7 +44,6 @@ describe('booking status management', () => {
 
   afterAll(() => {
     testDb.close();
-    fs.unlinkSync(testDbPath);
   });
 
   it('sitter can confirm a pending booking', () => {
