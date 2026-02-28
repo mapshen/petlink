@@ -58,7 +58,6 @@ export const createBookingSchema = z.object({
   service_id: z.number().int().positive('Invalid service ID'),
   start_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'start_time must be a valid date'),
   end_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'end_time must be a valid date'),
-  total_price: z.number().min(0, 'total_price must be non-negative').optional().nullable(),
 }).refine(
   (data) => new Date(data.end_time) > new Date(data.start_time),
   { message: 'end_time must be after start_time', path: ['end_time'] }
