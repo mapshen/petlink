@@ -99,7 +99,7 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <img
-                        src={otherPersonAvatar || `https://ui-avatars.com/api/?name=${otherPersonName}`}
+                        src={otherPersonAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(otherPersonName)}`}
                         alt={otherPersonName}
                         className="w-12 h-12 rounded-full object-cover border border-stone-200"
                       />

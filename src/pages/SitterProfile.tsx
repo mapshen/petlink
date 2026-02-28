@@ -92,7 +92,7 @@ export default function SitterProfile() {
           <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
             <div className="flex items-start gap-6">
               <img 
-                src={sitter.avatar_url || `https://ui-avatars.com/api/?name=${sitter.name}`} 
+                src={sitter.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sitter.name)}`} 
                 alt={sitter.name} 
                 className="w-24 h-24 rounded-full object-cover border-4 border-emerald-50"
               />
@@ -128,7 +128,7 @@ export default function SitterProfile() {
                 <div key={review.id} className="border-b border-stone-100 pb-6 last:border-0 last:pb-0">
                   <div className="flex items-center gap-3 mb-2">
                     <img 
-                      src={review.reviewer_avatar || `https://ui-avatars.com/api/?name=${review.reviewer_name}`} 
+                      src={review.reviewer_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.reviewer_name)}`} 
                       alt={review.reviewer_name} 
                       className="w-10 h-10 rounded-full"
                     />

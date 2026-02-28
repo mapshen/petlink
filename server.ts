@@ -922,8 +922,9 @@ async function startServer() {
         res.status(400).json({ error: 'folder must be one of: pets, avatars, verifications, walks' });
         return;
       }
-      if (!contentType || !contentType.startsWith('image/')) {
-        res.status(400).json({ error: 'contentType must be an image type' });
+      const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!contentType || !allowedContentTypes.includes(contentType)) {
+        res.status(400).json({ error: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif' });
         return;
       }
       const result = await generateUploadUrl(folder, contentType, req.userId!);

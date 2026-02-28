@@ -6,7 +6,7 @@ import { API_BASE } from '../config';
 import { useImageUpload } from '../hooks/useImageUpload';
 
 export default function Profile() {
-  const { user, token, logout } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -68,12 +68,6 @@ export default function Profile() {
     }
   };
 
-  const toggleRole = () => {
-    if (role === 'owner') setRole('sitter');
-    else if (role === 'sitter') setRole('owner');
-    else setRole('owner'); // 'both' toggles to 'owner'
-  };
-
   const enableBothRoles = () => setRole('both');
 
   if (!user) return null;
@@ -87,12 +81,13 @@ export default function Profile() {
         <div className="flex items-center gap-4">
           <div className="relative group">
             <img
-              src={avatarUrl || `https://ui-avatars.com/api/?name=${name}`}
+              src={avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`}
               alt={name}
               className="w-20 h-20 rounded-full border-4 border-emerald-50 object-cover"
             />
             <button
               type="button"
+              aria-label={uploading ? 'Uploading photo' : 'Change profile photo'}
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
               className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -109,6 +104,7 @@ export default function Profile() {
               accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={handleAvatarUpload}
               className="hidden"
+              aria-label="Upload profile photo"
             />
           </div>
           <div className="flex-grow">
@@ -201,7 +197,7 @@ export default function Profile() {
 
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || uploading}
           className="w-full bg-emerald-600 text-white py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           <Save className="w-4 h-4" />

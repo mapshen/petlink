@@ -179,6 +179,7 @@ export default function Pets() {
               )}
               <button
                 type="button"
+                aria-label={uploading ? 'Uploading photo' : 'Change pet photo'}
                 onClick={() => petFileInputRef.current?.click()}
                 disabled={uploading}
                 className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -195,6 +196,7 @@ export default function Pets() {
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={handlePetPhotoUpload}
                 className="hidden"
+                aria-label="Upload pet photo"
               />
             </div>
             <div className="flex-grow">
@@ -213,7 +215,7 @@ export default function Pets() {
             </div>
           </div>
 
-          <button type="submit" className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2">
+          <button type="submit" disabled={uploading} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2">
             <Save className="w-4 h-4" /> {editingId ? 'Update' : 'Add'} Pet
           </button>
         </form>
