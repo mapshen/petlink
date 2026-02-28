@@ -4,6 +4,7 @@ import {
   loginSchema,
   updateProfileSchema,
   petSchema,
+  serviceSchema,
   createBookingSchema,
   updateBookingStatusSchema,
   createReviewSchema,
@@ -337,6 +338,39 @@ describe('createReviewSchema', () => {
       rating: 3.5,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('serviceSchema', () => {
+  it('accepts valid service data', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 25, description: 'A nice walk' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts service without description', () => {
+    const result = serviceSchema.safeParse({ type: 'sitting', price: 50 });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid type', () => {
+    const result = serviceSchema.safeParse({ type: 'bathing', price: 25 });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects price below 1', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 0 });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects price above 9999', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 10000 });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts all valid service types', () => {
+    for (const type of ['walking', 'sitting', 'drop-in', 'grooming']) {
+      expect(serviceSchema.safeParse({ type, price: 30 }).success).toBe(true);
+    }
   });
 });
 

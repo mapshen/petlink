@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema } from './src/validation.ts';
 import type { ErrorRequestHandler } from 'express';
 
 // Wraps async route handlers to forward rejected promises to Express error middleware
@@ -310,6 +310,52 @@ async function startServer() {
     `;
 
     res.json({ sitter, services, reviews });
+  });
+
+  // --- Services (sitter CRUD) ---
+  v1.get('/services/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const services = await sql`SELECT * FROM services WHERE sitter_id = ${req.userId}`;
+    res.json({ services });
+  });
+
+  v1.post('/services', authMiddleware, validate(serviceSchema), async (req: AuthenticatedRequest, res) => {
+    const { type, price, description } = req.body;
+    const [existing] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type}`;
+    if (existing) {
+      res.status(409).json({ error: `You already have a ${type} service. Edit it instead.` });
+      return;
+    }
+    const [service] = await sql`
+      INSERT INTO services (sitter_id, type, price, description)
+      VALUES (${req.userId}, ${type}, ${price}, ${description || null})
+      RETURNING *
+    `;
+    res.status(201).json({ service });
+  });
+
+  v1.put('/services/:id', authMiddleware, validate(serviceSchema), async (req: AuthenticatedRequest, res) => {
+    const [service] = await sql`SELECT * FROM services WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!service) {
+      res.status(404).json({ error: 'Service not found' });
+      return;
+    }
+    const { type, price, description } = req.body;
+    const [updated] = await sql`
+      UPDATE services SET type = ${type}, price = ${price}, description = ${description || null}
+      WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
+      RETURNING *
+    `;
+    res.json({ service: updated });
+  });
+
+  v1.delete('/services/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [service] = await sql`SELECT * FROM services WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!service) {
+      res.status(404).json({ error: 'Service not found' });
+      return;
+    }
+    await sql`DELETE FROM services WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    res.json({ success: true });
   });
 
   // --- Reviews (double-blind) ---
