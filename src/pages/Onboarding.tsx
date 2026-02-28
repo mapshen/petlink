@@ -146,7 +146,7 @@ export default function Onboarding() {
       const res = await fetch(`${API_BASE}/users/me`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
-        body: JSON.stringify({ name: user?.name, avatar_url: avatarUrl, role: user?.role }),
+        body: JSON.stringify({ name: user?.name, bio: user?.bio || null, avatar_url: avatarUrl, role: user?.role }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
