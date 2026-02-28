@@ -58,7 +58,19 @@ async function startServer() {
     ? process.env.APP_URL!
     : '*';
   app.use(helmet({
-    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+    contentSecurityPolicy: process.env.NODE_ENV === 'production'
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://i.pravatar.cc", "https://ui-avatars.com"],
+            connectSrc: ["'self'", "wss:", "https://api.stripe.com", "https://nominatim.openstreetmap.org"],
+            frameSrc: ["https://js.stripe.com"],
+            fontSrc: ["'self'"],
+          },
+        }
+      : false,
   }));
   app.use(cors({
     origin: corsOrigin,
@@ -96,14 +108,7 @@ async function startServer() {
     message: { error: 'Too many auth attempts, please try again later' },
   });
 
-  app.use('/api/v1/', apiLimiter);
-  app.use('/api/v1/auth/', authLimiter);
-
-  // Backwards compatibility: /api/* also works (same routes)
-  app.use('/api/', apiLimiter);
-  app.use('/api/auth/', authLimiter);
-
-  // Health check (no rate limiting, no auth)
+  // Health check (before rate limiting, no auth)
   app.get('/api/v1/health', async (_req, res) => {
     try {
       await sql`SELECT 1`;
@@ -112,6 +117,13 @@ async function startServer() {
       res.status(503).json({ status: 'error', message: 'Database unreachable' });
     }
   });
+
+  app.use('/api/v1/', apiLimiter);
+  app.use('/api/v1/auth/', authLimiter);
+
+  // Backwards compatibility: /api/* also works (same routes)
+  app.use('/api/', apiLimiter);
+  app.use('/api/auth/', authLimiter);
 
   // All versioned API routes — async handlers auto-wrapped with error catching
   const v1 = createAsyncRouter();
