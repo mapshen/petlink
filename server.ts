@@ -13,6 +13,32 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
+import type { ErrorRequestHandler } from 'express';
+
+// Wraps async route handlers to forward rejected promises to Express error middleware
+function asyncHandler(fn: (...args: any[]) => Promise<any>) {
+  return (req: any, res: any, next: any) => {
+    fn(req, res, next).catch(next);
+  };
+}
+
+// Creates an Express Router that auto-wraps async handlers with error catching
+function createAsyncRouter(): ReturnType<typeof express.Router> {
+  const router = express.Router();
+  const methods = ['get', 'post', 'put', 'delete'] as const;
+  for (const method of methods) {
+    const original = router[method].bind(router);
+    (router as any)[method] = (path: string, ...handlers: any[]) => {
+      const wrapped = handlers.map((h: any) =>
+        typeof h === 'function' && h.constructor.name === 'AsyncFunction'
+          ? asyncHandler(h)
+          : h
+      );
+      return original(path, ...wrapped);
+    };
+  }
+  return router;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,8 +95,8 @@ async function startServer() {
   app.use('/api/', apiLimiter);
   app.use('/api/auth/', authLimiter);
 
-  // All versioned API routes
-  const v1 = express.Router();
+  // All versioned API routes — async handlers auto-wrapped with error catching
+  const v1 = createAsyncRouter();
 
   // --- Auth ---
   v1.post('/auth/signup', async (req, res) => {
@@ -923,6 +949,16 @@ async function startServer() {
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
   app.use('/api/v1', v1);
   app.use('/api', v1);
+
+  // Global error handler — catches unhandled errors from async route handlers
+  const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Unhandled route error:', message);
+    }
+    res.status(500).json({ error: 'Internal server error' });
+  };
+  app.use(errorHandler);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
