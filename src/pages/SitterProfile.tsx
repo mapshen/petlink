@@ -190,9 +190,10 @@ export default function SitterProfile() {
             </div>
 
             {bookingError && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
+              <div role="alert" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
                 <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>{bookingError}</span>
+                <span className="flex-grow">{bookingError}</span>
+                <button onClick={() => setBookingError(null)} className="text-red-400 hover:text-red-600 font-medium">Dismiss</button>
               </div>
             )}
 

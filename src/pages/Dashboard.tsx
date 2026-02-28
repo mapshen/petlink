@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Booking } from '../types';
-import { Calendar, MapPin, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
@@ -19,6 +19,7 @@ export default function Dashboard() {
         const res = await fetch('/api/v1/bookings', {
           headers: getAuthHeaders(token)
         });
+        if (!res.ok) throw new Error('Failed to load bookings');
         const data = await res.json();
         setBookings(data.bookings);
       } catch {
@@ -68,7 +69,7 @@ export default function Dashboard() {
       <h1 className="text-3xl font-bold text-stone-900 mb-8">Dashboard</h1>
 
       {error && (
-        <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+        <div role="alert" className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span className="flex-grow">{error}</span>
           <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>

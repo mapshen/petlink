@@ -46,10 +46,10 @@ export default function Search() {
       </h1>
 
       {error && (
-        <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+        <div role="alert" className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span className="flex-grow">{error}</span>
-          <button onClick={() => setRetryCount(c => c + 1)} className="flex items-center gap-1 text-red-600 hover:text-red-800 font-medium">
+          <button onClick={() => setRetryCount(c => c + 1)} disabled={loading} className="flex items-center gap-1 text-red-600 hover:text-red-800 font-medium disabled:opacity-50">
             <RefreshCw className="w-3.5 h-3.5" /> Retry
           </button>
         </div>

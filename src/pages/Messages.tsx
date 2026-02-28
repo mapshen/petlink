@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Message, User } from '../types';
 import io, { Socket } from 'socket.io-client';
-import { Send, User as UserIcon, AlertCircle, RefreshCw } from 'lucide-react';
+import { Send, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Messages() {
@@ -41,11 +41,13 @@ export default function Messages() {
 
   useEffect(() => {
     if (!user || !recipientId) return;
+    setError(null);
 
     // Fetch recipient details
     const fetchRecipient = async () => {
       try {
         const res = await fetch(`/api/v1/sitters/${recipientId}`);
+        if (!res.ok) throw new Error('Failed to load recipient');
         const data = await res.json();
         setRecipient(data.sitter);
       } catch {
@@ -119,7 +121,7 @@ export default function Messages() {
         {/* Chat Area */}
         <div className="flex-grow flex flex-col">
           {error && (
-            <div className="m-4 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+            <div role="alert" className="m-4 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span className="flex-grow">{error}</span>
               <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
