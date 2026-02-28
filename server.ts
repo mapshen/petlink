@@ -3,6 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
@@ -52,6 +53,9 @@ async function startServer() {
   const corsOrigin = process.env.NODE_ENV === 'production'
     ? (process.env.APP_URL || 'http://localhost:3000')
     : '*';
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disabled for SPA dev; configure for production
+  }));
   app.use(cors({
     origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],

@@ -3,6 +3,7 @@ import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Booking } from '../types';
 import { Calendar, MapPin, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { API_BASE } from '../config';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
@@ -16,7 +17,7 @@ export default function Dashboard() {
     if (!user) return;
     const fetchBookings = async () => {
       try {
-        const res = await fetch('/api/v1/bookings', {
+        const res = await fetch(`${API_BASE}/bookings`, {
           headers: getAuthHeaders(token)
         });
         if (!res.ok) throw new Error('Failed to load bookings');
@@ -38,7 +39,7 @@ export default function Dashboard() {
     setUpdatingIds((prev) => new Set([...prev, bookingId]));
     setError(null);
     try {
-      const res = await fetch(`/api/v1/bookings/${bookingId}/status`, {
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}/status`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
         body: JSON.stringify({ status }),

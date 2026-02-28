@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { User, Service } from '../types';
 import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
+import { API_BASE } from '../config';
 
 interface SitterWithService extends User {
   price: number;
@@ -22,7 +23,7 @@ export default function Search() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/v1/sitters?serviceType=${serviceType}&lat=37.7749&lng=-122.4194`); // Mock lat/lng
+        const res = await fetch(`${API_BASE}/sitters?serviceType=${serviceType}&lat=37.7749&lng=-122.4194`); // Mock lat/lng
         if (!res.ok) throw new Error('Failed to load sitters');
         const data = await res.json();
         setSitters(data.sitters);

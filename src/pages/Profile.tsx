@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, Save, ToggleLeft, ToggleRight } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function Profile() {
   const { user, token, logout } = useAuth();
@@ -31,7 +32,7 @@ export default function Profile() {
     setMessage('');
 
     try {
-      const res = await fetch('/api/v1/users/me', {
+      const res = await fetch(`${API_BASE}/users/me`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
         body: JSON.stringify({ name, bio, avatar_url: avatarUrl, role }),

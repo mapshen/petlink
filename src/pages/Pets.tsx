@@ -3,6 +3,7 @@ import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Pet } from '../types';
 import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle } from 'lucide-react';
+import { API_BASE } from '../config';
 
 interface PetFormData {
   name: string;
@@ -32,7 +33,7 @@ export default function Pets() {
 
   const fetchPets = async () => {
     try {
-      const res = await fetch('/api/v1/pets', { headers: getAuthHeaders(token) });
+      const res = await fetch(`${API_BASE}/pets`, { headers: getAuthHeaders(token) });
       if (!res.ok) throw new Error('Failed to load pets');
       const data = await res.json();
       setPets(data.pets);
@@ -52,7 +53,7 @@ export default function Pets() {
       weight: form.weight ? Number(form.weight) : null,
     };
 
-    const url = editingId ? `/api/v1/pets/${editingId}` : '/api/v1/pets';
+    const url = editingId ? `${API_BASE}/pets/${editingId}` : `${API_BASE}/pets`;
     const method = editingId ? 'PUT' : 'POST';
 
     try {
@@ -93,7 +94,7 @@ export default function Pets() {
     if (!window.confirm('Are you sure you want to remove this pet?')) return;
     setError(null);
     try {
-      const res = await fetch(`/api/v1/pets/${id}`, {
+      const res = await fetch(`${API_BASE}/pets/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders(token),
       });
