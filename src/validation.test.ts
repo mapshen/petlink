@@ -372,6 +372,11 @@ describe('serviceSchema', () => {
       expect(serviceSchema.safeParse({ type, price: 30 }).success).toBe(true);
     }
   });
+
+  it('rejects description over 1000 characters', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 25, description: 'a'.repeat(1001) });
+    expect(result.success).toBe(false);
+  });
 });
 
 // --- validate middleware ---

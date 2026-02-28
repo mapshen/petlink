@@ -319,6 +319,11 @@ async function startServer() {
   });
 
   v1.post('/services', authMiddleware, validate(serviceSchema), async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can manage services' });
+      return;
+    }
     const { type, price, description } = req.body;
     const [existing] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type}`;
     if (existing) {
@@ -334,6 +339,11 @@ async function startServer() {
   });
 
   v1.put('/services/:id', authMiddleware, validate(serviceSchema), async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can manage services' });
+      return;
+    }
     const [service] = await sql`SELECT * FROM services WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     if (!service) {
       res.status(404).json({ error: 'Service not found' });
@@ -349,6 +359,11 @@ async function startServer() {
   });
 
   v1.delete('/services/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can manage services' });
+      return;
+    }
     const [service] = await sql`SELECT * FROM services WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     if (!service) {
       res.status(404).json({ error: 'Service not found' });
