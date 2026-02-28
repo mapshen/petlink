@@ -51,11 +51,14 @@ async function startServer() {
 
   const app = express();
   const httpServer = createServer(app);
+  if (process.env.NODE_ENV === 'production' && !process.env.APP_URL) {
+    throw new Error('APP_URL environment variable is required in production');
+  }
   const corsOrigin = process.env.NODE_ENV === 'production'
-    ? (process.env.APP_URL || 'http://localhost:3000')
+    ? process.env.APP_URL!
     : '*';
   app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for SPA dev; configure for production
+    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
   }));
   app.use(cors({
     origin: corsOrigin,
@@ -99,6 +102,16 @@ async function startServer() {
   // Backwards compatibility: /api/* also works (same routes)
   app.use('/api/', apiLimiter);
   app.use('/api/auth/', authLimiter);
+
+  // Health check (no rate limiting, no auth)
+  app.get('/api/v1/health', async (_req, res) => {
+    try {
+      await sql`SELECT 1`;
+      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    } catch {
+      res.status(503).json({ status: 'error', message: 'Database unreachable' });
+    }
+  });
 
   // All versioned API routes — async handlers auto-wrapped with error catching
   const v1 = createAsyncRouter();
