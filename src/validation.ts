@@ -19,12 +19,13 @@ export function validate<T extends z.ZodType>(schema: T) {
 const emailSchema = z.string().trim().toLowerCase().email('A valid email address is required');
 const passwordSchema = z.string().min(8, 'Password must be at least 8 characters').max(72, 'Password must not exceed 72 characters');
 const roleSchema = z.enum(['owner', 'sitter', 'both']).optional().default('owner');
+const nameSchema = (msg: string) => z.string().transform((v) => v.trim()).pipe(z.string().min(1, msg));
 
 // --- Auth Schemas ---
 export const signupSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  name: z.string().min(1, 'Name is required').transform((v) => v.trim()),
+  name: nameSchema('Name is required'),
   role: roleSchema,
 });
 
@@ -35,7 +36,7 @@ export const loginSchema = z.object({
 
 // --- User Schemas ---
 export const updateProfileSchema = z.object({
-  name: z.string().min(1, 'Name is required').transform((v) => v.trim()),
+  name: nameSchema('Name is required'),
   bio: z.string().optional().nullable(),
   avatar_url: z.string().url().optional().nullable().or(z.literal('')),
   role: z.enum(['owner', 'sitter', 'both']).optional(),
@@ -43,7 +44,7 @@ export const updateProfileSchema = z.object({
 
 // --- Pet Schemas ---
 export const petSchema = z.object({
-  name: z.string().min(1, 'Pet name is required').transform((v) => v.trim()),
+  name: nameSchema('Pet name is required'),
   breed: z.string().optional().nullable(),
   age: z.number().int().min(0).max(50).optional().nullable(),
   weight: z.number().min(0).max(500).optional().nullable(),

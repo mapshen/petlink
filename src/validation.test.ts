@@ -84,6 +84,30 @@ describe('signupSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects whitespace-only name', () => {
+    const result = signupSchema.safeParse({
+      email: 'test@example.com',
+      password: 'password123',
+      name: '   ',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('strips unknown fields', () => {
+    const result = signupSchema.safeParse({
+      email: 'test@example.com',
+      password: 'password123',
+      name: 'Alice',
+      is_admin: true,
+      password_hash: 'fake',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty('is_admin');
+      expect(result.data).not.toHaveProperty('password_hash');
+    }
+  });
+
   it('rejects invalid role', () => {
     const result = signupSchema.safeParse({
       email: 'test@example.com',
@@ -240,6 +264,27 @@ describe('createBookingSchema', () => {
       total_price: -10,
     });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts null total_price', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+      total_price: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts omitted total_price', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+    });
+    expect(result.success).toBe(true);
   });
 });
 
