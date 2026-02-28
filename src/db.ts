@@ -213,7 +213,8 @@ export async function initDb() {
       new_booking BOOLEAN DEFAULT TRUE,
       booking_status BOOLEAN DEFAULT TRUE,
       new_message BOOLEAN DEFAULT TRUE,
-      walk_updates BOOLEAN DEFAULT TRUE
+      walk_updates BOOLEAN DEFAULT TRUE,
+      email_enabled BOOLEAN DEFAULT TRUE
     )
   `;
 

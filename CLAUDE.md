@@ -79,11 +79,12 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 - `clsx` + `tailwind-merge` — conditional class composition
 - `postgres` — PostgreSQL driver (tagged template literals)
 - `stripe` — Stripe Connect payments
+- `resend` — transactional email via Resend API (`src/email.ts`)
 - `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` — S3 uploads
 
 ## Testing
 
-130 tests across 13 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+149 tests across 16 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 

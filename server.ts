@@ -15,6 +15,8 @@ import { createConnectedAccount, createAccountLink, createPaymentIntent, capture
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
 import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema } from './src/validation.ts';
+import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail } from './src/email.ts';
+import { format as formatDate } from 'date-fns';
 import type { ErrorRequestHandler } from 'express';
 
 // Wraps async route handlers to forward rejected promises to Express error middleware
@@ -669,9 +671,25 @@ async function startServer() {
     `;
 
     // Notify sitter of new booking
-    const [owner] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
+    const [owner] = await sql`SELECT name, email FROM users WHERE id = ${req.userId}`;
+    const [sitter] = await sql`SELECT name, email FROM users WHERE id = ${sitter_id}`;
     const notification = await createNotification(sitter_id, 'new_booking', 'New Booking Request', `${owner.name} has requested a booking.`, { booking_id: booking.id });
     io.to(String(sitter_id)).emit('notification', notification);
+
+    // Send email notifications (fire-and-forget)
+    const formattedStart = formatDate(new Date(start_time), 'MMMM d, yyyy \'at\' h:mm a');
+    const [serviceDetail] = await sql`SELECT type FROM services WHERE id = ${service_id}`;
+    const serviceName = serviceDetail?.type || 'Pet Service';
+    const sitterPrefs = await getPreferences(sitter_id);
+    if (sitterPrefs.email_enabled && sitterPrefs.new_booking) {
+      const sitterEmail = buildSitterNewBookingEmail({ sitterName: sitter.name, ownerName: owner.name, serviceName, startTime: formattedStart, totalPrice: service.price });
+      sendEmail({ to: sitter.email, ...sitterEmail }).catch(() => {});
+    }
+    const ownerPrefs = await getPreferences(req.userId!);
+    if (ownerPrefs.email_enabled) {
+      const ownerEmail = buildBookingConfirmationEmail({ ownerName: owner.name, sitterName: sitter.name, serviceName, startTime: formattedStart, totalPrice: service.price });
+      sendEmail({ to: owner.email, ...ownerEmail }).catch(() => {});
+    }
 
     res.json({ id: booking.id, status: booking.status });
   });
@@ -757,6 +775,21 @@ async function startServer() {
         otherUserId, 'booking_status', title, body, { booking_id: bookingId }
       );
       io.to(String(otherUserId)).emit('notification', notification);
+
+      // Send email notification for status change
+      const [otherUser] = await sql`SELECT name, email FROM users WHERE id = ${otherUserId}`;
+      const otherPrefs = await getPreferences(otherUserId);
+      if (otherPrefs.email_enabled && otherPrefs.booking_status) {
+        const [svc] = await sql`SELECT type FROM services WHERE id = ${updated.service_id}`;
+        const statusEmail = buildBookingStatusEmail({
+          recipientName: otherUser.name,
+          otherPartyName: actingUser.name,
+          status: status as 'confirmed' | 'cancelled',
+          serviceName: svc?.type || 'Pet Service',
+          startTime: formatDate(new Date(updated.start_time), 'MMMM d, yyyy \'at\' h:mm a'),
+        });
+        sendEmail({ to: otherUser.email, ...statusEmail }).catch(() => {});
+      }
     } catch {
       // Notification failed — booking status was already updated successfully
     }
@@ -870,6 +903,14 @@ async function startServer() {
         const [sender] = await sql`SELECT name FROM users WHERE id = ${userId}`;
         const notification = await createNotification(receiver_id, 'new_message', 'New Message', `${sender.name}: ${trimmedContent.substring(0, 100)}`, { sender_id: userId });
         io.to(String(receiver_id)).emit('notification', notification);
+
+        // Send email notification for new message
+        const receiverPrefs = await getPreferences(receiver_id);
+        if (receiverPrefs.email_enabled && receiverPrefs.new_message) {
+          const [receiverUser] = await sql`SELECT name, email FROM users WHERE id = ${receiver_id}`;
+          const msgEmail = buildNewMessageEmail({ recipientName: receiverUser.name, senderName: sender.name, messagePreview: trimmedContent.substring(0, 200) });
+          sendEmail({ to: receiverUser.email, ...msgEmail }).catch(() => {});
+        }
       } catch {
         // Silently handle — malformed message data
       }
