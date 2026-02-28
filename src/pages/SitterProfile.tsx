@@ -118,6 +118,14 @@ export default function SitterProfile() {
             <div className="mt-8">
               <h2 className="text-xl font-bold mb-4 text-stone-900">About {sitter.name}</h2>
               <p className="text-stone-600 leading-relaxed">{sitter.bio}</p>
+              {sitter.accepted_pet_sizes && sitter.accepted_pet_sizes.length > 0 && (
+                <div className="mt-4 flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-stone-500">Accepts:</span>
+                  {sitter.accepted_pet_sizes.map((size) => (
+                    <span key={size} className="bg-stone-100 text-stone-600 text-xs px-2 py-1 rounded-full capitalize">{size}</span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

@@ -219,57 +219,35 @@ async function startServer() {
     const lat = req.query.lat as string | undefined;
     const lng = req.query.lng as string | undefined;
     const radius = req.query.radius as string | undefined;
+    const minPrice = req.query.minPrice as string | undefined;
+    const maxPrice = req.query.maxPrice as string | undefined;
+    const petSize = req.query.petSize as string | undefined;
 
-    // PostGIS geo search if lat/lng/radius provided
-    if (lat && lng && radius) {
-      const sitters = serviceType
-        ? await sql`
-            SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
-                   s.price, s.type as service_type,
-                   ST_Distance(u.location, ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography) as distance_meters
-            FROM users u
-            JOIN services s ON u.id = s.sitter_id
-            WHERE u.role IN ('sitter', 'both')
-              AND s.type = ${serviceType}
-              AND ST_DWithin(u.location, ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography, ${Number(radius)})
-            ORDER BY distance_meters
-          `
-        : await sql`
-            SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
-                   s.price, s.type as service_type,
-                   ST_Distance(u.location, ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography) as distance_meters
-            FROM users u
-            JOIN services s ON u.id = s.sitter_id
-            WHERE u.role IN ('sitter', 'both')
-              AND ST_DWithin(u.location, ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography, ${Number(radius)})
-            ORDER BY distance_meters
-          `;
-      res.json({ sitters });
-      return;
-    }
+    const hasGeo = lat && lng && radius;
+    const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography` : sql``;
 
-    const sitters = serviceType
-      ? await sql`
-          SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
-                 s.price, s.type as service_type
-          FROM users u
-          JOIN services s ON u.id = s.sitter_id
-          WHERE u.role IN ('sitter', 'both') AND s.type = ${serviceType}
-        `
-      : await sql`
-          SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
-                 s.price, s.type as service_type
-          FROM users u
-          JOIN services s ON u.id = s.sitter_id
-          WHERE u.role IN ('sitter', 'both')
-        `;
+    const sitters = await sql`
+      SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
+             u.accepted_pet_sizes,
+             s.price, s.type as service_type
+             ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}
+      FROM users u
+      JOIN services s ON u.id = s.sitter_id
+      WHERE u.role IN ('sitter', 'both')
+        ${serviceType ? sql`AND s.type = ${serviceType}` : sql``}
+        ${minPrice ? sql`AND s.price >= ${Number(minPrice)}` : sql``}
+        ${maxPrice ? sql`AND s.price <= ${Number(maxPrice)}` : sql``}
+        ${petSize ? sql`AND ${petSize} = ANY(u.accepted_pet_sizes)` : sql``}
+        ${hasGeo ? sql`AND ST_DWithin(u.location, ${geoPoint}, ${Number(radius)})` : sql``}
+      ${hasGeo ? sql`ORDER BY distance_meters` : sql``}
+    `;
 
     res.json({ sitters });
   });
 
   v1.get('/sitters/:id', async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ${req.params.id}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes FROM users WHERE id = ${req.params.id}
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });

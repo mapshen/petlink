@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { User } from '../types';
-import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw, Navigation, Search as SearchIcon } from 'lucide-react';
+import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw, Navigation, Search as SearchIcon, SlidersHorizontal, X, DollarSign } from 'lucide-react';
 import { API_BASE } from '../config';
 
 interface SitterWithService extends User {
   price: number;
   service_type: string;
   distance_meters?: number;
+  accepted_pet_sizes?: string[];
 }
 
 interface Coords {
@@ -20,6 +21,13 @@ const RADIUS_OPTIONS = [
   { label: '10 mi', value: 16093 },
   { label: '25 mi', value: 40234 },
   { label: '50 mi', value: 80467 },
+];
+
+const PET_SIZES = [
+  { label: 'Small', value: 'small', description: '0-25 lbs' },
+  { label: 'Medium', value: 'medium', description: '26-50 lbs' },
+  { label: 'Large', value: 'large', description: '51-100 lbs' },
+  { label: 'Giant', value: 'giant', description: '100+ lbs' },
 ];
 
 async function geocodeAddress(address: string): Promise<Coords | null> {
@@ -49,9 +57,17 @@ export default function Search() {
 
   const [locationInput, setLocationInput] = useState(initialLocation);
   const [coords, setCoords] = useState<Coords | null>(null);
-  const [radius, setRadius] = useState(RADIUS_OPTIONS[1].value); // Default 10 miles
+  const [radius, setRadius] = useState(RADIUS_OPTIONS[1].value);
   const [geocoding, setGeocoding] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+
+  // Filter state — initialized from URL params
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
+  const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
+  const [petSize, setPetSize] = useState(searchParams.get('petSize') || '');
+
+  const hasActiveFilters = minPrice || maxPrice || petSize;
 
   // Geocode on mount if location param provided
   useEffect(() => {
@@ -99,7 +115,22 @@ export default function Search() {
     handleGeocode(locationInput);
   };
 
-  // Fetch sitters when coords, serviceType, or radius changes
+  // Sync filters to URL params
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    if (minPrice) params.set('minPrice', minPrice); else params.delete('minPrice');
+    if (maxPrice) params.set('maxPrice', maxPrice); else params.delete('maxPrice');
+    if (petSize) params.set('petSize', petSize); else params.delete('petSize');
+    setSearchParams(params, { replace: true });
+  }, [minPrice, maxPrice, petSize]);
+
+  const clearFilters = () => {
+    setMinPrice('');
+    setMaxPrice('');
+    setPetSize('');
+  };
+
+  // Fetch sitters when coords, serviceType, radius, or filters change
   useEffect(() => {
     const fetchSitters = async () => {
       setLoading(true);
@@ -111,6 +142,9 @@ export default function Search() {
           params.set('lng', coords.lng.toString());
           params.set('radius', radius.toString());
         }
+        if (minPrice) params.set('minPrice', minPrice);
+        if (maxPrice) params.set('maxPrice', maxPrice);
+        if (petSize) params.set('petSize', petSize);
         const res = await fetch(`${API_BASE}/sitters?${params}`);
         if (!res.ok) throw new Error('Failed to load sitters');
         const data = await res.json();
@@ -123,7 +157,7 @@ export default function Search() {
     };
 
     fetchSitters();
-  }, [serviceType, coords, radius, retryCount]);
+  }, [serviceType, coords, radius, retryCount, minPrice, maxPrice, petSize]);
 
   const formatDistance = (meters?: number) => {
     if (!meters) return null;
@@ -140,7 +174,7 @@ export default function Search() {
       <h1 className="text-3xl font-bold text-stone-900 mb-6">{serviceLabel}</h1>
 
       {/* Location Search Bar */}
-      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-4 mb-8">
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-4 mb-4">
         <form onSubmit={handleLocationSubmit} className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-grow">
             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
@@ -196,6 +230,97 @@ export default function Search() {
           <p className="mt-2 text-xs text-stone-400">
             Searching within {RADIUS_OPTIONS.find(o => o.value === radius)?.label} of {locationInput || 'your location'}
           </p>
+        )}
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 mb-8">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-stone-700 hover:bg-stone-50 rounded-2xl transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>Filters</span>
+            {hasActiveFilters && (
+              <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                Active
+              </span>
+            )}
+          </div>
+          <span className="text-stone-400 text-xs">{filtersOpen ? 'Hide' : 'Show'}</span>
+        </button>
+
+        {filtersOpen && (
+          <div className="px-4 pb-4 border-t border-stone-100 pt-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Price Range */}
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-2">
+                  <DollarSign className="w-3 h-3 inline mr-1" />
+                  Price Range
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Min"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value)}
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                  <span className="text-stone-400 text-xs">to</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Max"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Pet Size */}
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-2">
+                  Pet Size
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {PET_SIZES.map((size) => (
+                    <button
+                      key={size.value}
+                      type="button"
+                      onClick={() => setPetSize(petSize === size.value ? '' : size.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        petSize === size.value
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                      title={size.description}
+                    >
+                      {size.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Clear Filters */}
+              <div className="flex items-end">
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-700 font-medium transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -257,6 +382,11 @@ export default function Search() {
                         <ShieldCheck className="w-3 h-3" />
                         <span>Verified</span>
                       </div>
+                      {sitter.accepted_pet_sizes && sitter.accepted_pet_sizes.length > 0 && (
+                        <span className="text-stone-400">
+                          {sitter.accepted_pet_sizes.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -267,9 +397,11 @@ export default function Search() {
           {sitters.length === 0 && (
             <div className="col-span-full text-center py-12 bg-stone-50 rounded-2xl">
               <p className="text-stone-500">
-                {coords
-                  ? 'No sitters found in this area. Try expanding your search radius.'
-                  : 'No sitters found. Try searching a specific location.'}
+                {hasActiveFilters
+                  ? 'No sitters match your filters. Try adjusting or clearing filters.'
+                  : coords
+                    ? 'No sitters found in this area. Try expanding your search radius.'
+                    : 'No sitters found. Try searching a specific location.'}
               </p>
             </div>
           )}
