@@ -132,6 +132,14 @@ export async function initDb() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS booking_pets (
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      PRIMARY KEY (booking_id, pet_id)
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
       booking_id INTEGER,
@@ -268,6 +276,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_photos_sitter_id ON sitter_photos (sitter_id, sort_order)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_verifications_sitter_id ON verifications (sitter_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites (user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_pets_booking_id ON booking_pets (booking_id)`;
 
   // Create spatial index on users.location if PostGIS is available
   await sql`
@@ -302,6 +311,8 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_pet_sizes TEXT[] DEFAULT '{}'`.catch(() => {});
   await sql`ALTER TYPE service_type ADD VALUE IF NOT EXISTS 'meet_greet'`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cancellation_policy cancellation_policy DEFAULT 'flexible'`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS additional_pet_price DOUBLE PRECISION DEFAULT 0`.catch(() => {});
+  await sql`ALTER TABLE walk_events ADD COLUMN IF NOT EXISTS pet_id INTEGER REFERENCES pets(id)`.catch(() => {});
 
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;

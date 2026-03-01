@@ -12,7 +12,7 @@ PetLink — a pet services marketplace (Rover clone). React 19 + Express + Postg
 npm run dev          # Start dev server (Express + Vite HMR on :3000)
 npm run build        # Production build (Vite)
 npm run lint         # Type-check (tsc --noEmit)
-npm run test         # Run all 21 tests (Vitest)
+npm run test         # Run all tests (Vitest)
 npm run test:watch   # Watch mode for TDD
 npm run clean        # Remove dist/
 ```
@@ -39,7 +39,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id` |
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=`), `GET /sitters/:id` |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
-| Bookings | `POST /bookings`, `GET /bookings`, `PUT /bookings/:id/status` |
+| Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read) |
 | Reviews | `POST /reviews` (double-blind), `GET /reviews/:userId` |
 | Verification | `GET /verification/me`, `POST /verification/start`, `PUT /verification/update`, `GET /verification/:sitterId` |
@@ -61,14 +61,14 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 - **Entry**: `src/main.tsx` → `src/App.tsx` (router) → `src/components/Layout.tsx` (shell)
 - **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`petlink_token`, `petlink_user`)
 - **Pages**: Home, Login, Search, SitterProfile, Dashboard, Messages, TrackWalk, Profile, Pets, Services, Onboarding, Photos
-- **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows), `PhotoGallery` (lightbox viewer), `FavoriteButton` (heart toggle), `FavoriteSitters` (dashboard favorites section)
+- **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows), `PhotoGallery` (lightbox viewer), `FavoriteButton` (heart toggle), `FavoriteSitters` (dashboard favorites section), `PetSelector` (multi-pet checkbox selection for bookings)
 - **Hooks**: `useFavorites` (favorites state + optimistic toggle), `useOnboardingStatus`, `useImageUpload`
 - **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review, Availability, WalkEvent, SitterPhoto, Favorite, CancellationPolicy
 - **Path alias**: `@/*` maps to project root
 
 ### Database Schema (`src/db.ts`)
 
-PostgreSQL with PostGIS. Tables: `users` (with `location` geography column), `pets`, `services`, `bookings`, `messages`, `reviews`, `availability`, `walk_events`, `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`, `favorites`.
+PostgreSQL with PostGIS. Tables: `users` (with `location` geography column), `pets`, `services` (with `additional_pet_price`), `bookings`, `booking_pets` (junction table for multi-pet bookings), `messages`, `reviews`, `availability`, `walk_events` (with optional `pet_id`), `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`, `favorites`.
 
 PostgreSQL enums: `user_role`, `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`.
 
@@ -87,7 +87,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 
 ## Testing
 
-196 tests across 18 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+211 tests across 19 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 

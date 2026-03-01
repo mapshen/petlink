@@ -137,6 +137,11 @@ export default function Dashboard() {
                       <div>
                         <h3 className="font-bold text-stone-900">{otherPersonName}</h3>
                         <div className="text-sm text-stone-500 capitalize">{booking.service_type?.replace(/[-_]/g, ' ')}</div>
+                        {booking.pets && booking.pets.length > 0 && (
+                          <div className="text-xs text-stone-400 mt-0.5">
+                            {booking.pets.map((p) => p.name).join(', ')}
+                          </div>
+                        )}
                       </div>
                     </div>
 
