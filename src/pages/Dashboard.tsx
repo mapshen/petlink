@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Booking } from '../types';
-import { Calendar, MapPin, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { API_BASE } from '../config';
 import { Link } from 'react-router-dom';
@@ -9,6 +9,20 @@ import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import { useFavorites } from '../hooks/useFavorites';
 import FavoriteSitters from '../components/FavoriteSitters';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 
 export default function Dashboard() {
   const { user, token } = useAuth();
@@ -16,6 +30,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [cancelDialogBookingId, setCancelDialogBookingId] = useState<number | null>(null);
+  const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
@@ -43,9 +59,6 @@ export default function Dashboard() {
   }, [user, token]);
 
   const updateBookingStatus = async (bookingId: number, status: 'confirmed' | 'cancelled') => {
-    if (status === 'cancelled' && !window.confirm('Are you sure you want to cancel this booking? Refund depends on the sitter\'s cancellation policy. This cannot be undone.')) {
-      return;
-    }
     setUpdatingIds((prev) => new Set([...prev, bookingId]));
     setError(null);
     try {
@@ -62,7 +75,7 @@ export default function Dashboard() {
       if (data.refund) {
         const pct = data.refund.refundPercent;
         const msg = pct > 0 ? `You will receive a ${pct}% refund.` : 'No refund is available per the cancellation policy.';
-        window.alert(`Booking cancelled. ${msg}`);
+        setRefundMessage(`Booking cancelled. ${msg}`);
       }
       setBookings((prev) =>
         prev.map((b) => (b.id === bookingId ? { ...b, status: data.booking.status } : b))
@@ -78,7 +91,23 @@ export default function Dashboard() {
     }
   };
 
+  const handleCancelConfirm = () => {
+    if (cancelDialogBookingId !== null) {
+      updateBookingStatus(cancelDialogBookingId, 'cancelled');
+      setCancelDialogBookingId(null);
+    }
+  };
+
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+
+  const statusVariant = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'default' as const;
+      case 'pending': return 'secondary' as const;
+      case 'cancelled': return 'destructive' as const;
+      default: return 'outline' as const;
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -95,11 +124,12 @@ export default function Dashboard() {
       )}
 
       {error && (
-        <div role="alert" className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span className="flex-grow">{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
-        </div>
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {favorites.length > 0 && (
@@ -129,11 +159,10 @@ export default function Dashboard() {
                 <div key={booking.id} className="p-6 hover:bg-stone-50 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <img
-                        src={otherPersonAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(otherPersonName)}`}
-                        alt={otherPersonName}
-                        className="w-12 h-12 rounded-full object-cover border border-stone-200"
-                      />
+                      <Avatar className="h-12 w-12 border border-stone-200">
+                        <AvatarImage src={otherPersonAvatar || undefined} alt={otherPersonName} />
+                        <AvatarFallback>{otherPersonName?.charAt(0)?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
                       <div>
                         <h3 className="font-bold text-stone-900">{otherPersonName}</h3>
                         <div className="text-sm text-stone-500 capitalize">{booking.service_type?.replace(/[-_]/g, ' ')}</div>
@@ -156,67 +185,62 @@ export default function Dashboard() {
                   </div>
 
                   <div className="mt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                        ${booking.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
-                          booking.status === 'pending' ? 'bg-amber-100 text-amber-800' :
-                          booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          'bg-stone-100 text-stone-800'}`}>
-                        {booking.status}
-                      </span>
-                    </div>
+                    <Badge variant={statusVariant(booking.status)} className="capitalize">
+                      {booking.status}
+                    </Badge>
 
                     <div className="flex items-center gap-2">
                       {isSitter && booking.status === 'pending' && (
                         <>
-                          <button
+                          <Button
+                            size="xs"
                             onClick={() => updateBookingStatus(booking.id, 'confirmed')}
                             disabled={updatingIds.has(booking.id)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
                             Accept
-                          </button>
-                          <button
-                            onClick={() => updateBookingStatus(booking.id, 'cancelled')}
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="destructive"
+                            onClick={() => setCancelDialogBookingId(booking.id)}
                             disabled={updatingIds.has(booking.id)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
                           >
                             <XCircle className="w-3.5 h-3.5" />
                             Decline
-                          </button>
+                          </Button>
                         </>
                       )}
 
                       {!isSitter && (booking.status === 'pending' || booking.status === 'confirmed') && (
-                        <button
-                          onClick={() => updateBookingStatus(booking.id, 'cancelled')}
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="text-red-700 border-red-200 hover:bg-red-50"
+                          onClick={() => setCancelDialogBookingId(booking.id)}
                           disabled={updatingIds.has(booking.id)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
                         >
                           <XCircle className="w-3.5 h-3.5" />
                           Cancel
-                        </button>
+                        </Button>
                       )}
 
                       {booking.status === 'in_progress' && (
-                        <Link
-                          to={`/track/${booking.id}`}
-                          className="text-emerald-600 text-sm font-medium hover:text-emerald-700 flex items-center gap-1"
-                        >
-                          <MapPin className="w-4 h-4" />
-                          Track Walk
-                        </Link>
+                        <Button size="xs" variant="ghost" asChild>
+                          <Link to={`/track/${booking.id}`}>
+                            <MapPin className="w-4 h-4" />
+                            Track Walk
+                          </Link>
+                        </Button>
                       )}
 
                       {!isSitter && booking.status === 'completed' && (
-                        <Link
-                          to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          Book Again
-                        </Link>
+                        <Button size="xs" variant="outline" asChild>
+                          <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Book Again
+                          </Link>
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -226,6 +250,35 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={cancelDialogBookingId !== null} onOpenChange={(open) => { if (!open) setCancelDialogBookingId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Booking</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this booking? Refund depends on the sitter's cancellation policy. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleCancelConfirm}>
+              Cancel Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={refundMessage !== null} onOpenChange={(open) => { if (!open) setRefundMessage(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Booking Cancelled</AlertDialogTitle>
+            <AlertDialogDescription>{refundMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

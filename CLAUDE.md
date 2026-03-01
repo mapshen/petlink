@@ -79,7 +79,8 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 - `date-fns` v4 — date formatting (see `docs/DATETIME_GUIDE.md`)
 - `lucide-react` — icons
 - `motion` — animations (Framer Motion v12)
-- `clsx` + `tailwind-merge` — conditional class composition
+- `shadcn/ui` — accessible UI components (Button, Card, Badge, Alert, AlertDialog, Avatar, Input, Textarea, Dialog, Select, Tabs)
+- `clsx` + `tailwind-merge` — conditional class composition (via `cn()` in `lib/utils.ts`)
 - `postgres` — PostgreSQL driver (tagged template literals)
 - `stripe` — Stripe Connect payments
 - `resend` — transactional email via Resend API (`src/email.ts`)

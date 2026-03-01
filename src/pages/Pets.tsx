@@ -5,6 +5,18 @@ import { Pet } from '../types';
 import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle, Camera, Loader2 } from 'lucide-react';
 import { API_BASE } from '../config';
 import { useImageUpload } from '../hooks/useImageUpload';
+import { Button } from '../components/ui/button';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 
 interface PetFormData {
   name: string;
@@ -26,6 +38,7 @@ export default function Pets() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<PetFormData>(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialogPetId, setDeleteDialogPetId] = useState<number | null>(null);
   const petFileInputRef = useRef<HTMLInputElement>(null);
   const { uploading, progress, error: uploadError, upload, clearError } = useImageUpload(token);
 
@@ -103,7 +116,6 @@ export default function Pets() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to remove this pet?')) return;
     setError(null);
     try {
       const res = await fetch(`${API_BASE}/pets/${id}`, {
@@ -140,11 +152,12 @@ export default function Pets() {
       </div>
 
       {error && (
-        <div role="alert" className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span className="flex-grow">{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
-        </div>
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {showForm && (
@@ -240,7 +253,7 @@ export default function Pets() {
                     <button onClick={() => handleEdit(pet)} className="p-1.5 text-stone-400 hover:text-emerald-600 transition-colors">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDelete(pet.id)} className="p-1.5 text-stone-400 hover:text-red-500 transition-colors">
+                    <button onClick={() => setDeleteDialogPetId(pet.id)} className="p-1.5 text-stone-400 hover:text-red-500 transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -258,6 +271,23 @@ export default function Pets() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={deleteDialogPetId !== null} onOpenChange={(open) => { if (!open) setDeleteDialogPetId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Pet</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this pet? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { if (deleteDialogPetId !== null) handleDelete(deleteDialogPetId); }}>
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
