@@ -112,6 +112,15 @@ export interface Favorite {
   created_at: string;
 }
 
+export interface FavoriteSitter {
+  id: number;
+  sitter_id: number;
+  created_at: string;
+  sitter_name: string;
+  sitter_avatar: string | null;
+  sitter_bio: string | null;
+}
+
 export interface SitterPhoto {
   id: number;
   sitter_id: number;

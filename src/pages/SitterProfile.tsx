@@ -61,7 +61,7 @@ export default function SitterProfile() {
       }
     };
     fetchSitter();
-  }, [id]);
+  }, [id, searchParams]);
 
   useEffect(() => {
     if (!user || !token) return;

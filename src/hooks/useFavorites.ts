@@ -1,15 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config';
-
-interface FavoriteSitter {
-  id: number;
-  sitter_id: number;
-  created_at: string;
-  sitter_name: string;
-  sitter_avatar: string | null;
-  sitter_bio: string | null;
-}
+import { FavoriteSitter } from '../types';
 
 export function useFavorites() {
   const { user, token } = useAuth();
@@ -56,8 +48,12 @@ export function useFavorites() {
         return next;
       });
 
+      let previousFavorites: FavoriteSitter[] = [];
       if (wasFavorited) {
-        setFavorites((prev) => prev.filter((f) => f.sitter_id !== sitterId));
+        setFavorites((prev) => {
+          previousFavorites = prev;
+          return prev.filter((f) => f.sitter_id !== sitterId);
+        });
       }
 
       try {
@@ -94,6 +90,9 @@ export function useFavorites() {
           }
           return next;
         });
+        if (wasFavorited) {
+          setFavorites(previousFavorites);
+        }
       }
     },
     [token]

@@ -2,14 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import FavoriteButton from './FavoriteButton';
-
-interface FavoriteSitter {
-  id: number;
-  sitter_id: number;
-  sitter_name: string;
-  sitter_avatar: string | null;
-  sitter_bio: string | null;
-}
+import { FavoriteSitter } from '../types';
 
 interface FavoriteSittersProps {
   favorites: FavoriteSitter[];
