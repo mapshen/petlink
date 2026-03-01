@@ -10,6 +10,8 @@ export function useFavorites() {
   const [loading, setLoading] = useState(false);
   const favoritedIdsRef = useRef(favoritedIds);
   favoritedIdsRef.current = favoritedIds;
+  const favoritesRef = useRef(favorites);
+  favoritesRef.current = favorites;
 
   useEffect(() => {
     if (!user || !token) {
@@ -48,12 +50,9 @@ export function useFavorites() {
         return next;
       });
 
-      let previousFavorites: FavoriteSitter[] = [];
+      const previousFavorites = favoritesRef.current;
       if (wasFavorited) {
-        setFavorites((prev) => {
-          previousFavorites = prev;
-          return prev.filter((f) => f.sitter_id !== sitterId);
-        });
+        setFavorites((prev) => prev.filter((f) => f.sitter_id !== sitterId));
       }
 
       try {

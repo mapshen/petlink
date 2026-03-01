@@ -16,6 +16,7 @@ export default function SitterProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const serviceIdParam = searchParams.get('serviceId');
   const { user, token } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
   const [sitter, setSitter] = useState<User | null>(null);
@@ -51,7 +52,7 @@ export default function SitterProfile() {
         setServices(data.services);
         setReviews(data.reviews);
         setPhotos(data.photos || []);
-        const rebookServiceId = Number(searchParams.get('serviceId'));
+        const rebookServiceId = Number(serviceIdParam);
         const matchedService = rebookServiceId && data.services.find((s: Service) => s.id === rebookServiceId);
         setSelectedService(matchedService ? matchedService.id : data.services.length > 0 ? data.services[0].id : null);
       } catch {
@@ -61,7 +62,7 @@ export default function SitterProfile() {
       }
     };
     fetchSitter();
-  }, [id, searchParams]);
+  }, [id, serviceIdParam]);
 
   useEffect(() => {
     if (!user || !token) return;
