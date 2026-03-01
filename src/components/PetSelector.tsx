@@ -25,17 +25,27 @@ export default function PetSelector({ pets, selectedPetIds, onSelectionChange, m
 
   return (
     <div className="space-y-2">
+      {selectedPetIds.length >= maxPets && (
+        <p className="text-xs text-amber-600">Maximum {maxPets} pets per booking reached.</p>
+      )}
       {pets.map((pet) => {
         const isSelected = selectedPetIds.includes(pet.id);
+        const isDisabled = !isSelected && selectedPetIds.length >= maxPets;
         return (
           <button
             key={pet.id}
             type="button"
+            role="checkbox"
+            aria-checked={isSelected}
+            aria-disabled={isDisabled || undefined}
+            aria-label={`Select ${pet.name}`}
             onClick={() => togglePet(pet.id)}
             className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${
               isSelected
                 ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
-                : 'border-stone-200 hover:border-emerald-200'
+                : isDisabled
+                  ? 'border-stone-100 opacity-50 cursor-not-allowed'
+                  : 'border-stone-200 hover:border-emerald-200'
             }`}
           >
             <img

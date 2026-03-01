@@ -771,9 +771,8 @@ async function startServer() {
         VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending')
         RETURNING id, status
       `;
-      for (const petId of pet_ids) {
-        await tx`INSERT INTO booking_pets (booking_id, pet_id) VALUES (${b.id}, ${petId})`;
-      }
+      const petRows = pet_ids.map((petId: number) => ({ booking_id: b.id, pet_id: petId }));
+      await tx`INSERT INTO booking_pets ${tx(petRows, 'booking_id', 'pet_id')}`;
       return b;
     });
 
