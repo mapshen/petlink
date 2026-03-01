@@ -26,6 +26,14 @@ const RADIUS_OPTIONS = [
   { label: '50 mi', value: 80467 },
 ];
 
+const SERVICE_LABELS: Record<string, string> = {
+  walking: 'Dog Walkers',
+  sitting: 'House Sitters',
+  grooming: 'Groomers',
+  meet_greet: 'Meet & Greet',
+  'drop-in': 'Drop-in Visits',
+};
+
 const PET_SIZES = [
   { label: 'Small', value: 'small', description: '0-25 lbs' },
   { label: 'Medium', value: 'medium', description: '26-50 lbs' },
@@ -171,11 +179,7 @@ export default function Search() {
   const { user: authUser } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
 
-  const serviceLabel = serviceType === 'walking' ? 'Dog Walkers'
-    : serviceType === 'sitting' ? 'House Sitters'
-    : serviceType === 'grooming' ? 'Groomers'
-    : serviceType === 'meet_greet' ? 'Meet & Greet'
-    : 'Drop-in Visits';
+  const serviceLabel = SERVICE_LABELS[serviceType] || 'Sitters';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -384,8 +388,8 @@ export default function Search() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="block text-lg font-bold text-emerald-600">${sitter.price}</span>
-                        <span className="text-xs text-stone-400">per {serviceType === 'walking' ? 'walk' : 'night'}</span>
+                        <span className="block text-lg font-bold text-emerald-600">{sitter.price === 0 ? 'Free' : `$${sitter.price}`}</span>
+                        {sitter.price > 0 && <span className="text-xs text-stone-400">per {serviceType === 'walking' ? 'walk' : 'night'}</span>}
                       </div>
                     </div>
 

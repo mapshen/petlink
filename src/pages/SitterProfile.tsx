@@ -292,7 +292,7 @@ export default function SitterProfile() {
 
             {selectedPetIds.length > 0 && selectedService && (() => {
               const svc = services.find((s) => s.id === selectedService);
-              if (!svc) return null;
+              if (!svc || svc.price === 0) return null;
               const total = calculateBookingPrice(svc.price, svc.additional_pet_price || 0, selectedPetIds.length);
               return (
                 <div className="mb-6 p-3 bg-stone-50 rounded-xl space-y-1">
@@ -331,7 +331,9 @@ export default function SitterProfile() {
             </button>
             
             <p className="text-xs text-center text-stone-400 mt-4">
-              You won't be charged until the sitter confirms.
+              {selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet'
+                ? 'This is a free meet & greet — no payment required.'
+                : 'You won\'t be charged until the sitter confirms.'}
             </p>
 
             {sitter.cancellation_policy && (

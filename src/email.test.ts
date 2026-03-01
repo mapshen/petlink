@@ -40,6 +40,18 @@ describe('email templates', () => {
       expect(result.html).toContain('PetLink');
     });
 
+    it('displays "Free" for zero-price bookings', () => {
+      const result = buildBookingConfirmationEmail({
+        ownerName: 'Alice',
+        sitterName: 'Bob',
+        serviceName: 'Meet & Greet',
+        startTime: 'March 5, 2026',
+        totalPrice: 0,
+      });
+      expect(result.html).toContain('Free');
+      expect(result.html).not.toContain('$0.00');
+    });
+
     it('formats price with two decimals', () => {
       const result = buildBookingConfirmationEmail({
         ownerName: 'Alice',
@@ -110,6 +122,18 @@ describe('email templates', () => {
       expect(result.html).toContain('Alice');
       expect(result.html).toContain('Dog Walking');
       expect(result.html).toContain('$25.00');
+    });
+
+    it('displays "Free" for zero-price sitter notifications', () => {
+      const result = buildSitterNewBookingEmail({
+        sitterName: 'Bob',
+        ownerName: 'Alice',
+        serviceName: 'Meet & Greet',
+        startTime: 'March 5, 2026',
+        totalPrice: 0,
+      });
+      expect(result.html).toContain('Free');
+      expect(result.html).not.toContain('$0.00');
     });
   });
 
