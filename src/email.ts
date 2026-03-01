@@ -44,7 +44,7 @@ export async function sendEmail(payload: EmailPayload): Promise<{ id: string } |
 
 function emailWrapper(title: string, content: string): string {
   return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f5f5f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
 <div style="max-width:560px;margin:0 auto;padding:24px">
@@ -75,7 +75,7 @@ export function buildBookingConfirmationEmail(params: {
   const service = escapeHtml(params.serviceName);
   const time = escapeHtml(params.startTime);
   return {
-    subject: sanitizeSubject(`Booking Confirmed — ${params.serviceName} with ${params.sitterName}`),
+    subject: sanitizeSubject(`Booking Request Submitted — ${params.serviceName} with ${params.sitterName}`),
     html: emailWrapper('Booking Request Submitted', `
 <p style="color:#44403c;line-height:1.6">Hi ${owner},</p>
 <p style="color:#44403c;line-height:1.6">Your booking request has been submitted!</p>
