@@ -33,7 +33,7 @@ export interface SignedUploadUrl {
 }
 
 export async function generateUploadUrl(
-  folder: 'pets' | 'avatars' | 'verifications' | 'walks',
+  folder: 'pets' | 'avatars' | 'verifications' | 'walks' | 'sitter-photos',
   contentType: string,
   userId: number
 ): Promise<SignedUploadUrl> {

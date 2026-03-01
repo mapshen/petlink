@@ -1250,9 +1250,9 @@ async function startServer() {
   v1.post('/uploads/signed-url', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const { folder, contentType } = req.body;
-      const validFolders = ['pets', 'avatars', 'verifications', 'walks'] as const;
+      const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos'] as const;
       if (!folder || !validFolders.includes(folder)) {
-        res.status(400).json({ error: 'folder must be one of: pets, avatars, verifications, walks' });
+        res.status(400).json({ error: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos' });
         return;
       }
       const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];

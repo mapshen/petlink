@@ -19,7 +19,7 @@ export function useImageUpload(token: string | null) {
   });
 
   const upload = useCallback(
-    async (file: File, folder: 'pets' | 'avatars' | 'verifications' | 'walks'): Promise<string | null> => {
+    async (file: File, folder: 'pets' | 'avatars' | 'verifications' | 'walks' | 'sitter-photos'): Promise<string | null> => {
       if (!ALLOWED_TYPES.includes(file.type)) {
         setState((s) => ({ ...s, error: 'Please select a JPEG, PNG, WebP, or GIF image.' }));
         return null;

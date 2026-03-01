@@ -58,6 +58,7 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
         <div
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
           role="dialog"
+          aria-modal="true"
           aria-label="Photo viewer"
           onClick={close}
         >
