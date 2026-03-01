@@ -31,7 +31,7 @@ describe('email templates', () => {
         startTime: 'March 5, 2026 at 10:00 AM',
         totalPrice: 25.00,
       });
-      expect(result.subject).toBe('Booking Confirmed — Dog Walking with Bob');
+      expect(result.subject).toBe('Booking Request Submitted — Dog Walking with Bob');
       expect(result.html).toContain('Hi Alice');
       expect(result.html).toContain('Bob');
       expect(result.html).toContain('Dog Walking');
@@ -123,6 +123,7 @@ describe('email templates', () => {
         totalPrice: 0,
       });
       expect(result.html).toContain('<!DOCTYPE html>');
+      expect(result.html).toContain('<html lang="en">');
       expect(result.html).toContain('PetLink');
       expect(result.html).toContain('email notifications enabled');
     });
@@ -139,6 +140,16 @@ describe('email templates', () => {
       });
       expect(result.html).not.toContain('<script>');
       expect(result.html).toContain('&lt;script&gt;');
+    });
+
+    it('escapes HTML in message preview', () => {
+      const result = buildNewMessageEmail({
+        recipientName: 'Alice',
+        senderName: 'Bob',
+        messagePreview: '<img src=x onerror=alert(1)>',
+      });
+      expect(result.html).not.toContain('<img');
+      expect(result.html).toContain('&lt;img');
     });
 
     it('sanitizes newlines in subject lines', () => {
