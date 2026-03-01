@@ -383,7 +383,7 @@ export default function Services() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => { if (deleteDialogId !== null) { handleDelete(deleteDialogId); setDeleteDialogId(null); } }}>
+            <AlertDialogAction variant="destructive" onClick={() => { if (deleteDialogId !== null) handleDelete(deleteDialogId); }}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

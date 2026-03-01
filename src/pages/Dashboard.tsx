@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [cancelDialogBookingId, setCancelDialogBookingId] = useState<number | null>(null);
+  const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
@@ -74,7 +75,7 @@ export default function Dashboard() {
       if (data.refund) {
         const pct = data.refund.refundPercent;
         const msg = pct > 0 ? `You will receive a ${pct}% refund.` : 'No refund is available per the cancellation policy.';
-        window.alert(`Booking cancelled. ${msg}`);
+        setRefundMessage(`Booking cancelled. ${msg}`);
       }
       setBookings((prev) =>
         prev.map((b) => (b.id === bookingId ? { ...b, status: data.booking.status } : b))
@@ -263,6 +264,18 @@ export default function Dashboard() {
             <AlertDialogAction variant="destructive" onClick={handleCancelConfirm}>
               Cancel Booking
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={refundMessage !== null} onOpenChange={(open) => { if (!open) setRefundMessage(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Booking Cancelled</AlertDialogTitle>
+            <AlertDialogDescription>{refundMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>OK</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

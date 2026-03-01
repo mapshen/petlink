@@ -282,7 +282,7 @@ export default function Pets() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => { if (deleteDialogPetId !== null) { handleDelete(deleteDialogPetId); setDeleteDialogPetId(null); } }}>
+            <AlertDialogAction variant="destructive" onClick={() => { if (deleteDialogPetId !== null) handleDelete(deleteDialogPetId); }}>
               Remove
             </AlertDialogAction>
           </AlertDialogFooter>
