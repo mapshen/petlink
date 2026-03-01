@@ -1072,6 +1072,10 @@ async function startServer() {
         return;
       }
       const amountCents = Math.round(booking.total_price * 100);
+      if (amountCents <= 0) {
+        res.status(400).json({ error: 'No payment required for free bookings' });
+        return;
+      }
       const { clientSecret, paymentIntentId } = await createPaymentIntent(amountCents, sitter.stripe_account_id);
       await sql`UPDATE bookings SET payment_intent_id = ${paymentIntentId}, payment_status = 'held' WHERE id = ${booking_id}`;
       res.json({ clientSecret, paymentIntentId });
