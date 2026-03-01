@@ -676,6 +676,17 @@ async function startServer() {
       res.status(400).json({ error: 'event_type is required' });
       return;
     }
+    if (pet_id != null) {
+      if (!Number.isInteger(pet_id) || pet_id <= 0) {
+        res.status(400).json({ error: 'Invalid pet_id' });
+        return;
+      }
+      const [validPet] = await sql`SELECT 1 FROM booking_pets WHERE booking_id = ${req.params.bookingId} AND pet_id = ${pet_id}`;
+      if (!validPet) {
+        res.status(400).json({ error: 'Pet is not part of this booking' });
+        return;
+      }
+    }
     const [event] = await sql`
       INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url, pet_id)
       VALUES (${req.params.bookingId}, ${event_type}, ${lat || null}, ${lng || null}, ${note || null}, ${photo_url || null}, ${pet_id || null})

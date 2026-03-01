@@ -318,6 +318,17 @@ describe('createBookingSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('rejects duplicate pet_ids', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      pet_ids: [1, 1, 2],
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('updateBookingStatusSchema', () => {
