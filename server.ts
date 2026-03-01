@@ -621,6 +621,11 @@ async function startServer() {
       res.status(409).json({ error: 'Already favorited' });
       return;
     }
+    const [{ count: favCount }] = await sql`SELECT count(*)::int as count FROM favorites WHERE user_id = ${req.userId}`;
+    if (favCount >= 100) {
+      res.status(400).json({ error: 'Maximum of 100 favorites reached' });
+      return;
+    }
     const [favorite] = await sql`
       INSERT INTO favorites (user_id, sitter_id) VALUES (${req.userId}, ${sitterId}) RETURNING *
     `;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config';
 
@@ -16,6 +16,8 @@ export function useFavorites() {
   const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
   const [favorites, setFavorites] = useState<FavoriteSitter[]>([]);
   const [loading, setLoading] = useState(false);
+  const favoritedIdsRef = useRef(favoritedIds);
+  favoritedIdsRef.current = favoritedIds;
 
   useEffect(() => {
     if (!user || !token) {
@@ -41,7 +43,7 @@ export function useFavorites() {
   const toggleFavorite = useCallback(
     async (sitterId: number) => {
       if (!token) return;
-      const wasFavorited = favoritedIds.has(sitterId);
+      const wasFavorited = favoritedIdsRef.current.has(sitterId);
 
       // Optimistic update
       setFavoritedIds((prev) => {
@@ -94,7 +96,7 @@ export function useFavorites() {
         });
       }
     },
-    [token, favoritedIds]
+    [token]
   );
 
   const isFavorited = useCallback(
