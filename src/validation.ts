@@ -91,7 +91,7 @@ export const createSitterPhotoSchema = z.object({
 
 export const updateSitterPhotoSchema = z.object({
   caption: z.string().max(200, 'Caption must be under 200 characters').optional(),
-  sort_order: z.number().int().min(0).optional(),
+  sort_order: z.number().int().min(0).max(9).optional(),
 });
 
 // --- Review Schemas ---

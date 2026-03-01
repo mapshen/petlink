@@ -38,8 +38,9 @@ export default function Photos() {
   }, [user, navigate]);
 
   const fetchPhotos = async () => {
+    if (!user) return;
     try {
-      const res = await fetch(`${API_BASE}/sitter-photos/${user?.id}`, {
+      const res = await fetch(`${API_BASE}/sitter-photos/${user.id}`, {
         headers: getAuthHeaders(token),
       });
       if (!res.ok) throw new Error('Failed to load photos');
@@ -57,7 +58,7 @@ export default function Photos() {
     if (!file) return;
     clearError();
     setError(null);
-    const url = await upload(file, 'avatars');
+    const url = await upload(file, 'sitter-photos');
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (!url) return;
 
