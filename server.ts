@@ -887,16 +887,17 @@ async function startServer() {
           await capturePayment(updated.payment_intent_id);
           await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${bookingId}`;
         }
-      } catch {
-        // Refund failed — booking is still cancelled, log for manual resolution
+      } catch (err) {
+        console.error(`Refund failed for booking ${bookingId}:`, err);
+        refund = null; // Don't send misleading refund info to client
       }
     } else if (status === 'cancelled' && updated.payment_intent_id && updated.payment_status === 'held') {
       // Sitter-initiated cancellation of pending booking — full refund
       try {
         await cancelPayment(updated.payment_intent_id);
         await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE id = ${bookingId}`;
-      } catch {
-        // Payment cancellation failed — booking is still cancelled
+      } catch (err) {
+        console.error(`Payment cancellation failed for booking ${bookingId}:`, err);
       }
     }
 

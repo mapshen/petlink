@@ -70,6 +70,7 @@ export default function Services() {
   };
 
   const savePolicy = async (newPolicy: CancellationPolicy) => {
+    const previousPolicy = policy;
     setPolicy(newPolicy);
     setPolicySaving(true);
     setPolicySaved(false);
@@ -83,6 +84,7 @@ export default function Services() {
       setPolicySaved(true);
       setTimeout(() => setPolicySaved(false), 2000);
     } catch {
+      setPolicy(previousPolicy);
       setError('Failed to save cancellation policy.');
     } finally {
       setPolicySaving(false);
