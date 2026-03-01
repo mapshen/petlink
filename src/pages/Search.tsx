@@ -173,7 +173,9 @@ export default function Search() {
 
   const serviceLabel = serviceType === 'walking' ? 'Dog Walkers'
     : serviceType === 'sitting' ? 'House Sitters'
-    : serviceType === 'grooming' ? 'Groomers' : 'Drop-in Visits';
+    : serviceType === 'grooming' ? 'Groomers'
+    : serviceType === 'meet_greet' ? 'Meet & Greet'
+    : 'Drop-in Visits';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

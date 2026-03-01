@@ -33,7 +33,7 @@ export async function initDb() {
   `;
   await sql`
     DO $$ BEGIN
-      CREATE TYPE service_type AS ENUM ('walking', 'sitting', 'drop-in', 'grooming');
+      CREATE TYPE service_type AS ENUM ('walking', 'sitting', 'drop-in', 'grooming', 'meet_greet');
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
@@ -292,8 +292,9 @@ export async function initDb() {
     END $$
   `.catch(() => {});
 
-  // Schema migrations — add new columns safely
+  // Schema migrations — add new columns/enums safely
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_pet_sizes TEXT[] DEFAULT '{}'`.catch(() => {});
+  await sql`ALTER TYPE service_type ADD VALUE IF NOT EXISTS 'meet_greet'`.catch(() => {});
 
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;

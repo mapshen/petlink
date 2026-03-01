@@ -69,10 +69,16 @@ export const updateBookingStatusSchema = z.object({
 
 // --- Service Schemas ---
 export const serviceSchema = z.object({
-  type: z.enum(['walking', 'sitting', 'drop-in', 'grooming'], { message: 'Type must be walking, sitting, drop-in, or grooming' }),
-  price: z.number().min(1, 'Price must be at least $1').max(9999, 'Price must be under $10,000'),
+  type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet'], { message: 'Type must be walking, sitting, drop-in, grooming, or meet_greet' }),
+  price: z.number().min(0, 'Price cannot be negative').max(9999, 'Price must be under $10,000'),
   description: z.string().max(1000, 'Description must be under 1000 characters').optional().nullable(),
-});
+}).refine(
+  (data) => data.type === 'meet_greet' || data.price >= 1,
+  { message: 'Price must be at least $1', path: ['price'] }
+).refine(
+  (data) => data.type !== 'meet_greet' || data.price === 0,
+  { message: 'Meet & greet must be free (price = 0)', path: ['price'] }
+);
 
 // --- Sitter Photo Schemas ---
 export const createSitterPhotoSchema = z.object({

@@ -131,7 +131,7 @@ export default function Dashboard() {
                       />
                       <div>
                         <h3 className="font-bold text-stone-900">{otherPersonName}</h3>
-                        <div className="text-sm text-stone-500 capitalize">{booking.service_type}</div>
+                        <div className="text-sm text-stone-500 capitalize">{booking.service_type?.replace(/[-_]/g, ' ')}</div>
                       </div>
                     </div>
 

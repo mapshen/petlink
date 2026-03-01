@@ -45,6 +45,7 @@ export default function Home() {
                   <option value="sitting">House Sitting</option>
                   <option value="drop-in">Drop-in Visits</option>
                   <option value="grooming">Grooming</option>
+                  <option value="meet_greet">Meet & Greet</option>
                 </select>
               </div>
               
