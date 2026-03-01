@@ -98,6 +98,13 @@ export interface WalkEvent {
   created_at: string;
 }
 
+export interface Favorite {
+  id: number;
+  user_id: number;
+  sitter_id: number;
+  created_at: string;
+}
+
 export interface SitterPhoto {
   id: number;
   sitter_id: number;
