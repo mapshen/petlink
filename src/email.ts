@@ -83,7 +83,7 @@ export function buildBookingConfirmationEmail(params: {
 <tr><td style="padding:8px 0;color:#78716c;font-size:14px">Sitter</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${sitter}</td></tr>
 <tr><td style="padding:8px 0;color:#78716c;font-size:14px">Service</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${service}</td></tr>
 <tr><td style="padding:8px 0;color:#78716c;font-size:14px">Date</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${time}</td></tr>
-<tr style="border-top:1px solid #e7e5e4"><td style="padding:8px 0;color:#78716c;font-size:14px;font-weight:600">Total</td><td style="padding:8px 0;color:#059669;font-size:14px;font-weight:600;text-align:right">$${params.totalPrice.toFixed(2)}</td></tr>
+<tr style="border-top:1px solid #e7e5e4"><td style="padding:8px 0;color:#78716c;font-size:14px;font-weight:600">Total</td><td style="padding:8px 0;color:#059669;font-size:14px;font-weight:600;text-align:right">${params.totalPrice === 0 ? 'Free' : `$${params.totalPrice.toFixed(2)}`}</td></tr>
 </table>
 <p style="color:#78716c;font-size:14px">The sitter will review your request shortly.</p>
 `),
@@ -165,7 +165,7 @@ export function buildSitterNewBookingEmail(params: {
 <tr><td style="padding:8px 0;color:#78716c;font-size:14px">From</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${owner}</td></tr>
 <tr><td style="padding:8px 0;color:#78716c;font-size:14px">Service</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${service}</td></tr>
 <tr><td style="padding:8px 0;color:#78716c;font-size:14px">Date</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${time}</td></tr>
-<tr style="border-top:1px solid #e7e5e4"><td style="padding:8px 0;color:#78716c;font-size:14px;font-weight:600">Price</td><td style="padding:8px 0;color:#059669;font-size:14px;font-weight:600;text-align:right">$${params.totalPrice.toFixed(2)}</td></tr>
+<tr style="border-top:1px solid #e7e5e4"><td style="padding:8px 0;color:#78716c;font-size:14px;font-weight:600">Price</td><td style="padding:8px 0;color:#059669;font-size:14px;font-weight:600;text-align:right">${params.totalPrice === 0 ? 'Free' : `$${params.totalPrice.toFixed(2)}`}</td></tr>
 </table>
 <p style="color:#78716c;font-size:14px">Log in to PetLink to accept or decline.</p>
 `),
