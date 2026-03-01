@@ -3,6 +3,9 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { User } from '../types';
 import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw, Navigation, Search as SearchIcon, SlidersHorizontal, X, DollarSign } from 'lucide-react';
 import { API_BASE } from '../config';
+import { useAuth } from '../context/AuthContext';
+import { useFavorites } from '../hooks/useFavorites';
+import FavoriteButton from '../components/FavoriteButton';
 
 interface SitterWithService extends User {
   price: number;
@@ -164,6 +167,9 @@ export default function Search() {
     const miles = meters / 1609.34;
     return miles < 1 ? `${(miles * 5280).toFixed(0)} ft` : `${miles.toFixed(1)} mi`;
   };
+
+  const { user: authUser } = useAuth();
+  const { isFavorited, toggleFavorite } = useFavorites();
 
   const serviceLabel = serviceType === 'walking' ? 'Dog Walkers'
     : serviceType === 'sitting' ? 'House Sitters'
@@ -342,7 +348,17 @@ export default function Search() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sitters.map((sitter) => (
             <Link key={sitter.id} to={`/sitter/${sitter.id}`} className="block group">
-              <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md transition-all duration-300">
+              <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md transition-all duration-300 relative">
+                {authUser && (
+                  <div className="absolute top-3 right-3 z-10">
+                    <FavoriteButton
+                      sitterId={sitter.id}
+                      isFavorited={isFavorited(sitter.id)}
+                      onToggle={toggleFavorite}
+                      size="sm"
+                    />
+                  </div>
+                )}
                 <div className="flex p-6 gap-4">
                   <div className="flex-shrink-0">
                     <img

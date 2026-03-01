@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Service, Review, Availability, SitterPhoto } from '../types';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
@@ -7,11 +7,15 @@ import { API_BASE } from '../config';
 import BookingCalendar from '../components/BookingCalendar';
 import TimeSlotPicker from '../components/TimeSlotPicker';
 import PhotoGallery from '../components/PhotoGallery';
+import { useFavorites } from '../hooks/useFavorites';
+import FavoriteButton from '../components/FavoriteButton';
 
 export default function SitterProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, token } = useAuth();
+  const { isFavorited, toggleFavorite } = useFavorites();
   const [sitter, setSitter] = useState<User | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -43,7 +47,9 @@ export default function SitterProfile() {
         setServices(data.services);
         setReviews(data.reviews);
         setPhotos(data.photos || []);
-        if (data.services.length > 0) setSelectedService(data.services[0].id);
+        const rebookServiceId = Number(searchParams.get('serviceId'));
+        const matchedService = rebookServiceId && data.services.find((s: Service) => s.id === rebookServiceId);
+        setSelectedService(matchedService ? matchedService.id : data.services.length > 0 ? data.services[0].id : null);
       } catch {
         setError('Failed to load sitter profile.');
       } finally {
@@ -116,7 +122,16 @@ export default function SitterProfile() {
                 className="w-24 h-24 rounded-full object-cover border-4 border-emerald-50"
               />
               <div>
-                <h1 className="text-3xl font-bold text-stone-900">{sitter.name}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold text-stone-900">{sitter.name}</h1>
+                  {user && user.id !== sitter.id && (
+                    <FavoriteButton
+                      sitterId={sitter.id}
+                      isFavorited={isFavorited(sitter.id)}
+                      onToggle={toggleFavorite}
+                    />
+                  )}
+                </div>
                 <div className="flex items-center text-stone-500 mt-2">
                   <MapPin className="w-4 h-4 mr-1" />
                   <span>San Francisco, CA</span>

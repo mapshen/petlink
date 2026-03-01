@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Booking } from '../types';
-import { Calendar, MapPin, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { API_BASE } from '../config';
 import { Link } from 'react-router-dom';
 import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
 import OnboardingChecklist from '../components/OnboardingChecklist';
+import { useFavorites } from '../hooks/useFavorites';
+import FavoriteSitters from '../components/FavoriteSitters';
 
 export default function Dashboard() {
   const { user, token } = useAuth();
@@ -19,6 +21,7 @@ export default function Dashboard() {
   );
   const isSitter = user?.role === 'sitter' || user?.role === 'both';
   const onboarding = useOnboardingStatus();
+  const { favorites, toggleFavorite } = useFavorites();
 
   useEffect(() => {
     if (!user) return;
@@ -91,6 +94,12 @@ export default function Dashboard() {
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span className="flex-grow">{error}</span>
           <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
+        </div>
+      )}
+
+      {favorites.length > 0 && (
+        <div className="mb-6">
+          <FavoriteSitters favorites={favorites} onToggle={toggleFavorite} />
         </div>
       )}
 
@@ -187,6 +196,16 @@ export default function Dashboard() {
                         >
                           <MapPin className="w-4 h-4" />
                           Track Walk
+                        </Link>
+                      )}
+
+                      {!isSitter && booking.status === 'completed' && (
+                        <Link
+                          to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Book Again
                         </Link>
                       )}
                     </div>
