@@ -18,9 +18,10 @@ interface ServiceForm {
   type: string;
   price: string;
   description: string;
+  additional_pet_price: string;
 }
 
-const EMPTY_FORM: ServiceForm = { type: 'walking', price: '', description: '' };
+const EMPTY_FORM: ServiceForm = { type: 'walking', price: '', description: '', additional_pet_price: '' };
 
 export default function Services() {
   const { user, token } = useAuth();
@@ -105,6 +106,7 @@ export default function Services() {
           type: form.type,
           price,
           description: form.description || null,
+          additional_pet_price: Number(form.additional_pet_price) || 0,
         }),
       });
       if (!res.ok) {
@@ -136,6 +138,7 @@ export default function Services() {
           type: form.type,
           price: editPrice,
           description: form.description || null,
+          additional_pet_price: Number(form.additional_pet_price) || 0,
         }),
       });
       if (!res.ok) {
@@ -178,6 +181,7 @@ export default function Services() {
       type: service.type,
       price: service.price.toString(),
       description: service.description || '',
+      additional_pet_price: (service.additional_pet_price || 0).toString(),
     });
   };
 
@@ -275,6 +279,9 @@ export default function Services() {
                     <div className="text-right">
                       <span className="text-xl font-bold text-emerald-600">${service.price}</span>
                       <span className="text-xs text-stone-400 block">per session</span>
+                      {(service.additional_pet_price || 0) > 0 && (
+                        <span className="text-xs text-stone-400 block">+${service.additional_pet_price}/extra pet</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <button
@@ -408,6 +415,22 @@ function ServiceFormFields({
           />
         )}
       </div>
+
+      {form.type !== 'meet_greet' && (
+        <div>
+          <label className="block text-sm font-medium text-stone-700 mb-1">Additional pet price ($)</label>
+          <input
+            type="number"
+            min="0"
+            max="500"
+            value={form.additional_pet_price}
+            onChange={(e) => setForm((prev) => ({ ...prev, additional_pet_price: e.target.value }))}
+            placeholder="0"
+            className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          />
+          <p className="text-xs text-stone-400 mt-1">Extra charge per additional pet (first pet included in base price)</p>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-stone-700 mb-1">Description (optional)</label>

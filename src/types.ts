@@ -30,6 +30,7 @@ export interface Service {
   type: 'walking' | 'sitting' | 'drop-in' | 'grooming' | 'meet_greet';
   price: number;
   description?: string;
+  additional_pet_price?: number;
 }
 
 export interface Booking {
@@ -47,6 +48,7 @@ export interface Booking {
   owner_name?: string;
   owner_avatar?: string;
   service_type?: string;
+  pets?: { id: number; name: string; photo_url?: string; breed?: string }[];
 }
 
 export interface Message {
@@ -98,6 +100,8 @@ export interface WalkEvent {
   lng?: number;
   note?: string;
   photo_url?: string;
+  pet_id?: number;
+  pet_name?: string;
   created_at: string;
 }
 

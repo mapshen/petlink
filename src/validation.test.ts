@@ -222,6 +222,7 @@ describe('createBookingSchema', () => {
     const result = createBookingSchema.safeParse({
       sitter_id: 1,
       service_id: 2,
+      pet_ids: [1],
       start_time: '2026-03-01T10:00:00Z',
       end_time: '2026-03-01T11:00:00Z',
     });
@@ -232,6 +233,7 @@ describe('createBookingSchema', () => {
     const result = createBookingSchema.safeParse({
       sitter_id: 1,
       service_id: 2,
+      pet_ids: [1],
       start_time: '2026-03-01T11:00:00Z',
       end_time: '2026-03-01T10:00:00Z',
     });
@@ -252,6 +254,7 @@ describe('createBookingSchema', () => {
     const result = createBookingSchema.safeParse({
       sitter_id: 1,
       service_id: 2,
+      pet_ids: [1],
       start_time: 'not-a-date',
       end_time: '2026-03-01T11:00:00Z',
     });
@@ -262,6 +265,7 @@ describe('createBookingSchema', () => {
     const result = createBookingSchema.safeParse({
       sitter_id: 1,
       service_id: 2,
+      pet_ids: [1],
       start_time: '2026-03-01T10:00:00Z',
       end_time: '2026-03-01T11:00:00Z',
       total_price: 999,
@@ -270,6 +274,60 @@ describe('createBookingSchema', () => {
     if (result.success) {
       expect(result.data).not.toHaveProperty('total_price');
     }
+  });
+
+  it('accepts multiple pet_ids', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      pet_ids: [1, 2, 3],
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty pet_ids', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      pet_ids: [],
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects more than 10 pet_ids', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      pet_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing pet_ids', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects duplicate pet_ids', () => {
+    const result = createBookingSchema.safeParse({
+      sitter_id: 1,
+      service_id: 2,
+      pet_ids: [1, 1, 2],
+      start_time: '2026-03-01T10:00:00Z',
+      end_time: '2026-03-01T11:00:00Z',
+    });
+    expect(result.success).toBe(false);
   });
 });
 
@@ -374,6 +432,32 @@ describe('serviceSchema', () => {
 
   it('rejects description over 1000 characters', () => {
     const result = serviceSchema.safeParse({ type: 'walking', price: 25, description: 'a'.repeat(1001) });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts additional_pet_price', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 25, additional_pet_price: 5 });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.additional_pet_price).toBe(5);
+    }
+  });
+
+  it('defaults additional_pet_price to 0', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 25 });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.additional_pet_price).toBe(0);
+    }
+  });
+
+  it('rejects negative additional_pet_price', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 25, additional_pet_price: -1 });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects additional_pet_price over 500', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 25, additional_pet_price: 501 });
     expect(result.success).toBe(false);
   });
 });

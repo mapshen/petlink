@@ -16,6 +16,7 @@ import { createNotification, getUserNotifications, getUnreadCount, markAsRead, m
 import { generateUploadUrl } from './src/storage.ts';
 import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema } from './src/validation.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
+import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail } from './src/email.ts';
 import { format as formatDate } from 'date-fns';
 import type { ErrorRequestHandler } from 'express';
@@ -307,15 +308,15 @@ async function startServer() {
       res.status(403).json({ error: 'Only sitters can manage services' });
       return;
     }
-    const { type, price, description } = req.body;
+    const { type, price, description, additional_pet_price } = req.body;
     const [existing] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type}`;
     if (existing) {
       res.status(409).json({ error: `You already have a ${type} service. Edit it instead.` });
       return;
     }
     const [service] = await sql`
-      INSERT INTO services (sitter_id, type, price, description)
-      VALUES (${req.userId}, ${type}, ${price}, ${description || null})
+      INSERT INTO services (sitter_id, type, price, description, additional_pet_price)
+      VALUES (${req.userId}, ${type}, ${price}, ${description || null}, ${additional_pet_price || 0})
       RETURNING *
     `;
     res.status(201).json({ service });
@@ -332,9 +333,9 @@ async function startServer() {
       res.status(404).json({ error: 'Service not found' });
       return;
     }
-    const { type, price, description } = req.body;
+    const { type, price, description, additional_pet_price } = req.body;
     const [updated] = await sql`
-      UPDATE services SET type = ${type}, price = ${price}, description = ${description || null}
+      UPDATE services SET type = ${type}, price = ${price}, description = ${description || null}, additional_pet_price = ${additional_pet_price || 0}
       WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
       RETURNING *
     `;
@@ -670,14 +671,25 @@ async function startServer() {
       res.status(403).json({ error: 'Only the sitter can log walk events' });
       return;
     }
-    const { event_type, lat, lng, note, photo_url } = req.body;
+    const { event_type, lat, lng, note, photo_url, pet_id } = req.body;
     if (!event_type) {
       res.status(400).json({ error: 'event_type is required' });
       return;
     }
+    if (pet_id != null) {
+      if (!Number.isInteger(pet_id) || pet_id <= 0) {
+        res.status(400).json({ error: 'Invalid pet_id' });
+        return;
+      }
+      const [validPet] = await sql`SELECT 1 FROM booking_pets WHERE booking_id = ${req.params.bookingId} AND pet_id = ${pet_id}`;
+      if (!validPet) {
+        res.status(400).json({ error: 'Pet is not part of this booking' });
+        return;
+      }
+    }
     const [event] = await sql`
-      INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url)
-      VALUES (${req.params.bookingId}, ${event_type}, ${lat || null}, ${lng || null}, ${note || null}, ${photo_url || null})
+      INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url, pet_id)
+      VALUES (${req.params.bookingId}, ${event_type}, ${lat || null}, ${lng || null}, ${note || null}, ${photo_url || null}, ${pet_id || null})
       RETURNING *
     `;
 
@@ -718,7 +730,7 @@ async function startServer() {
 
   // --- Bookings ---
   v1.post('/bookings', authMiddleware, validate(createBookingSchema), async (req: AuthenticatedRequest, res) => {
-    const { sitter_id, service_id, start_time, end_time } = req.body;
+    const { sitter_id, service_id, pet_ids, start_time, end_time } = req.body;
 
     const startMs = new Date(start_time).getTime();
     const endMs = new Date(end_time).getTime();
@@ -736,17 +748,34 @@ async function startServer() {
       res.status(400).json({ error: 'Cannot book yourself' });
       return;
     }
-    const [service] = await sql`SELECT id, price, type FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    const [service] = await sql`SELECT id, price, type, additional_pet_price FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
     if (!service) {
       res.status(400).json({ error: 'Invalid service for this sitter' });
       return;
     }
 
-    const [booking] = await sql`
-      INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
-      VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${service.price}, 'pending')
-      RETURNING id, status
-    `;
+    // Verify all pets belong to the owner
+    const ownerPets = await sql`SELECT id FROM pets WHERE id = ANY(${pet_ids}) AND owner_id = ${req.userId}`;
+    if (ownerPets.length !== pet_ids.length) {
+      res.status(400).json({ error: 'One or more pets not found or do not belong to you' });
+      return;
+    }
+
+    const totalPrice = calculateBookingPrice(service.price, service.additional_pet_price || 0, pet_ids.length);
+
+    // Use transaction for booking + booking_pets
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const booking = await sql.begin(async (tx: any) => {
+      const [b] = await tx`
+        INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
+        VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending')
+        RETURNING id, status
+      `;
+      for (const petId of pet_ids) {
+        await tx`INSERT INTO booking_pets (booking_id, pet_id) VALUES (${b.id}, ${petId})`;
+      }
+      return b;
+    });
 
     // Notify sitter of new booking
     const [owner] = await sql`SELECT name, email FROM users WHERE id = ${req.userId}`;
@@ -759,12 +788,12 @@ async function startServer() {
     const serviceName = service.type || 'Pet Service';
     const sitterPrefs = await getPreferences(sitter_id);
     if (sitterPrefs.email_enabled && sitterPrefs.new_booking) {
-      const sitterEmail = buildSitterNewBookingEmail({ sitterName: sitter.name, ownerName: owner.name, serviceName, startTime: formattedStart, totalPrice: service.price });
+      const sitterEmail = buildSitterNewBookingEmail({ sitterName: sitter.name, ownerName: owner.name, serviceName, startTime: formattedStart, totalPrice: totalPrice });
       sendEmail({ to: sitter.email, ...sitterEmail }).catch(() => {});
     }
     const ownerPrefs = await getPreferences(req.userId!);
     if (ownerPrefs.email_enabled && ownerPrefs.new_booking) {
-      const ownerEmail = buildBookingConfirmationEmail({ ownerName: owner.name, sitterName: sitter.name, serviceName, startTime: formattedStart, totalPrice: service.price });
+      const ownerEmail = buildBookingConfirmationEmail({ ownerName: owner.name, sitterName: sitter.name, serviceName, startTime: formattedStart, totalPrice: totalPrice });
       sendEmail({ to: owner.email, ...ownerEmail }).catch(() => {});
     }
 
@@ -785,7 +814,25 @@ async function startServer() {
       ORDER BY b.start_time DESC
     `;
 
-    res.json({ bookings });
+    // Batch-fetch pets for all bookings
+    const bookingIds = bookings.map((b: { id: number }) => b.id);
+    const bookingPets = bookingIds.length > 0
+      ? await sql`
+          SELECT bp.booking_id, p.id, p.name, p.photo_url, p.breed
+          FROM booking_pets bp
+          JOIN pets p ON bp.pet_id = p.id
+          WHERE bp.booking_id = ANY(${bookingIds})
+        `
+      : [];
+    const petsByBooking = new Map<number, { id: number; name: string; photo_url: string | null; breed: string | null }[]>();
+    for (const row of bookingPets) {
+      const list = petsByBooking.get(row.booking_id) || [];
+      list.push({ id: row.id, name: row.name, photo_url: row.photo_url, breed: row.breed });
+      petsByBooking.set(row.booking_id, list);
+    }
+    const enriched = bookings.map((b: { id: number }) => ({ ...b, pets: petsByBooking.get(b.id) || [] }));
+
+    res.json({ bookings: enriched });
   });
 
   // --- Booking Status Update ---

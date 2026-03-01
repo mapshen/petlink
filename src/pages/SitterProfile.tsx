@@ -1,14 +1,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { User, Service, Review, Availability, SitterPhoto } from '../types';
+import { User, Pet, Service, Review, Availability, SitterPhoto } from '../types';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../config';
 import BookingCalendar from '../components/BookingCalendar';
 import TimeSlotPicker from '../components/TimeSlotPicker';
 import PhotoGallery from '../components/PhotoGallery';
+import PetSelector from '../components/PetSelector';
 import { useFavorites } from '../hooks/useFavorites';
 import FavoriteButton from '../components/FavoriteButton';
+import { calculateBookingPrice } from '../multi-pet-pricing';
 
 export default function SitterProfile() {
   const { id } = useParams();
@@ -27,6 +29,8 @@ export default function SitterProfile() {
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [selectedPetIds, setSelectedPetIds] = useState<number[]>([]);
 
   const handleAvailabilityLoaded = useCallback((data: Availability[]) => {
     setAvailability(data);
@@ -59,13 +63,30 @@ export default function SitterProfile() {
     fetchSitter();
   }, [id]);
 
+  useEffect(() => {
+    if (!user || !token) return;
+    const fetchPets = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/pets`, { headers: getAuthHeaders(token) });
+        if (res.ok) {
+          const data = await res.json();
+          setPets(data.pets);
+          if (data.pets.length === 1) setSelectedPetIds([data.pets[0].id]);
+        }
+      } catch {
+        // Non-critical
+      }
+    };
+    fetchPets();
+  }, [user, token]);
+
   const handleBooking = async () => {
     if (!user) {
       navigate('/login');
       return;
     }
 
-    if (!selectedService || !selectedDate || !selectedTime) return;
+    if (!selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0) return;
     setBookingError(null);
 
     try {
@@ -82,6 +103,7 @@ export default function SitterProfile() {
         body: JSON.stringify({
           sitter_id: sitter?.id,
           service_id: selectedService,
+          pet_ids: selectedPetIds,
           start_time: startDate.toISOString(),
           end_time: endDate.toISOString(),
         })
@@ -226,6 +248,9 @@ export default function SitterProfile() {
                       <span className="font-bold text-emerald-600">{service.price === 0 ? 'Free' : `$${service.price}`}</span>
                     </div>
                     <p className="text-xs text-stone-500 mt-1">{service.description}</p>
+                    {(service.additional_pet_price || 0) > 0 && (
+                      <p className="text-xs text-stone-400 mt-0.5">+${service.additional_pet_price}/extra pet</p>
+                    )}
                   </button>
                 ))}
               </div>
@@ -253,6 +278,41 @@ export default function SitterProfile() {
               </div>
             )}
 
+            {user && pets.length > 0 && (
+              <div className="space-y-2 mb-6">
+                <label className="block text-sm font-medium text-stone-700">Your Pets</label>
+                <PetSelector
+                  pets={pets}
+                  selectedPetIds={selectedPetIds}
+                  onSelectionChange={setSelectedPetIds}
+                />
+              </div>
+            )}
+
+            {selectedPetIds.length > 0 && selectedService && (() => {
+              const svc = services.find((s) => s.id === selectedService);
+              if (!svc) return null;
+              const total = calculateBookingPrice(svc.price, svc.additional_pet_price || 0, selectedPetIds.length);
+              return (
+                <div className="mb-6 p-3 bg-stone-50 rounded-xl space-y-1">
+                  <div className="flex justify-between text-sm text-stone-600">
+                    <span>Base price</span>
+                    <span>${svc.price}</span>
+                  </div>
+                  {selectedPetIds.length > 1 && (svc.additional_pet_price || 0) > 0 && (
+                    <div className="flex justify-between text-sm text-stone-600">
+                      <span>{selectedPetIds.length - 1} extra pet{selectedPetIds.length > 2 ? 's' : ''} × ${svc.additional_pet_price}</span>
+                      <span>${((selectedPetIds.length - 1) * (svc.additional_pet_price || 0)).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
+                    <span>Total</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {bookingError && (
               <div role="alert" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
                 <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
@@ -263,7 +323,7 @@ export default function SitterProfile() {
 
             <button
               onClick={handleBooking}
-              disabled={!selectedService || !selectedDate || !selectedTime}
+              disabled={!selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
               className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Request Booking

@@ -56,6 +56,7 @@ export const petSchema = z.object({
 export const createBookingSchema = z.object({
   sitter_id: z.number().int().positive('Invalid sitter ID'),
   service_id: z.number().int().positive('Invalid service ID'),
+  pet_ids: z.array(z.number().int().positive('Invalid pet ID')).min(1, 'At least one pet is required').max(10, 'Maximum 10 pets per booking').refine((ids) => new Set(ids).size === ids.length, 'Duplicate pet IDs are not allowed'),
   start_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'start_time must be a valid date'),
   end_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'end_time must be a valid date'),
 }).refine(
@@ -72,6 +73,7 @@ export const serviceSchema = z.object({
   type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet'], { message: 'Type must be walking, sitting, drop-in, grooming, or meet_greet' }),
   price: z.number().min(0, 'Price cannot be negative').max(9999, 'Price must be under $10,000'),
   description: z.string().max(1000, 'Description must be under 1000 characters').optional().nullable(),
+  additional_pet_price: z.number().min(0, 'Additional pet price cannot be negative').max(500, 'Additional pet price must be under $500').optional().default(0),
 }).refine(
   (data) => data.type === 'meet_greet' || data.price >= 1,
   { message: 'Price must be at least $1', path: ['price'] }
