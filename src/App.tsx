@@ -13,6 +13,7 @@ import Profile from './pages/Profile';
 import Pets from './pages/Pets';
 import Services from './pages/Services';
 import Onboarding from './pages/Onboarding';
+import Photos from './pages/Photos';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/pets" element={<Pets />} />
             <Route path="/services" element={<Services />} />
             <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/photos" element={<Photos />} />
             <Route path="/track/:bookingId" element={<TrackWalk />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

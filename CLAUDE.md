@@ -44,6 +44,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Reviews | `POST /reviews` (double-blind), `GET /reviews/:userId` |
 | Verification | `GET /verification/me`, `POST /verification/start`, `PUT /verification/update`, `GET /verification/:sitterId` |
 | Availability | `GET /availability/:sitterId`, `POST /availability`, `DELETE /availability/:id` |
+| Sitter Photos | `GET /sitter-photos/:sitterId`, `POST /sitter-photos`, `PUT/DELETE /sitter-photos/:id` |
 | Walk Events | `GET/POST /walks/:bookingId/events` |
 | Notifications | `GET /notifications`, `POST /notifications/:id/read`, `POST /notifications/read-all`, `GET/PUT /notification-preferences` |
 | Payments | `POST /stripe/connect`, `POST /stripe/account-link`, `POST /payments/create-intent`, `POST /payments/capture`, `POST /payments/cancel` |
@@ -57,14 +58,14 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 
 - **Entry**: `src/main.tsx` → `src/App.tsx` (router) → `src/components/Layout.tsx` (shell)
 - **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`petlink_token`, `petlink_user`)
-- **Pages**: Home, Login, Search, SitterProfile, Dashboard, Messages, TrackWalk, Profile, Pets, Services, Onboarding
-- **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows)
-- **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review, Availability, WalkEvent
+- **Pages**: Home, Login, Search, SitterProfile, Dashboard, Messages, TrackWalk, Profile, Pets, Services, Onboarding, Photos
+- **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows), `PhotoGallery` (lightbox viewer)
+- **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review, Availability, WalkEvent, SitterPhoto
 - **Path alias**: `@/*` maps to project root
 
 ### Database Schema (`src/db.ts`)
 
-PostgreSQL with PostGIS. Tables: `users` (with `location` geography column), `pets`, `services`, `bookings`, `messages`, `reviews`, `availability`, `walk_events`, `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`.
+PostgreSQL with PostGIS. Tables: `users` (with `location` geography column), `pets`, `services`, `bookings`, `messages`, `reviews`, `availability`, `walk_events`, `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`.
 
 PostgreSQL enums: `user_role`, `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`.
 

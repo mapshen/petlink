@@ -74,6 +74,18 @@ export const serviceSchema = z.object({
   description: z.string().max(1000, 'Description must be under 1000 characters').optional().nullable(),
 });
 
+// --- Sitter Photo Schemas ---
+export const createSitterPhotoSchema = z.object({
+  photo_url: z.string().url('A valid photo URL is required').refine((url) => url.startsWith('https://'), 'Photo URL must use HTTPS'),
+  caption: z.string().max(200, 'Caption must be under 200 characters').optional().default(''),
+  sort_order: z.number().int().min(0).max(9).optional().default(0),
+});
+
+export const updateSitterPhotoSchema = z.object({
+  caption: z.string().max(200, 'Caption must be under 200 characters').optional(),
+  sort_order: z.number().int().min(0).optional(),
+});
+
 // --- Review Schemas ---
 export const createReviewSchema = z.object({
   booking_id: z.number().int().positive('Invalid booking ID'),

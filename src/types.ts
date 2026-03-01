@@ -97,3 +97,12 @@ export interface WalkEvent {
   photo_url?: string;
   created_at: string;
 }
+
+export interface SitterPhoto {
+  id: number;
+  sitter_id: number;
+  photo_url: string;
+  caption: string;
+  sort_order: number;
+  created_at: string;
+}
