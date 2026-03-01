@@ -658,7 +658,7 @@ async function startServer() {
       res.status(400).json({ error: 'Cannot book yourself' });
       return;
     }
-    const [service] = await sql`SELECT id, price FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    const [service] = await sql`SELECT id, price, type FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
     if (!service) {
       res.status(400).json({ error: 'Invalid service for this sitter' });
       return;
@@ -678,15 +678,14 @@ async function startServer() {
 
     // Send email notifications (fire-and-forget)
     const formattedStart = formatDate(new Date(start_time), 'MMMM d, yyyy \'at\' h:mm a');
-    const [serviceDetail] = await sql`SELECT type FROM services WHERE id = ${service_id}`;
-    const serviceName = serviceDetail?.type || 'Pet Service';
+    const serviceName = service.type || 'Pet Service';
     const sitterPrefs = await getPreferences(sitter_id);
     if (sitterPrefs.email_enabled && sitterPrefs.new_booking) {
       const sitterEmail = buildSitterNewBookingEmail({ sitterName: sitter.name, ownerName: owner.name, serviceName, startTime: formattedStart, totalPrice: service.price });
       sendEmail({ to: sitter.email, ...sitterEmail }).catch(() => {});
     }
     const ownerPrefs = await getPreferences(req.userId!);
-    if (ownerPrefs.email_enabled) {
+    if (ownerPrefs.email_enabled && ownerPrefs.new_booking) {
       const ownerEmail = buildBookingConfirmationEmail({ ownerName: owner.name, sitterName: sitter.name, serviceName, startTime: formattedStart, totalPrice: service.price });
       sendEmail({ to: owner.email, ...ownerEmail }).catch(() => {});
     }

@@ -4,7 +4,22 @@ import {
   buildBookingStatusEmail,
   buildNewMessageEmail,
   buildSitterNewBookingEmail,
+  escapeHtml,
 } from './email.ts';
+
+describe('escapeHtml', () => {
+  it('escapes HTML special characters', () => {
+    expect(escapeHtml('<script>alert("xss")</script>')).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+  });
+
+  it('escapes ampersands and quotes', () => {
+    expect(escapeHtml("Tom & Jerry's \"Café\"")).toBe('Tom &amp; Jerry&#39;s &quot;Café&quot;');
+  });
+
+  it('passes through safe strings unchanged', () => {
+    expect(escapeHtml('Alice Smith')).toBe('Alice Smith');
+  });
+});
 
 describe('email templates', () => {
   describe('buildBookingConfirmationEmail', () => {
@@ -110,6 +125,30 @@ describe('email templates', () => {
       expect(result.html).toContain('<!DOCTYPE html>');
       expect(result.html).toContain('PetLink');
       expect(result.html).toContain('email notifications enabled');
+    });
+  });
+
+  describe('XSS protection', () => {
+    it('escapes HTML in user names', () => {
+      const result = buildBookingConfirmationEmail({
+        ownerName: '<script>alert(1)</script>',
+        sitterName: 'Bob',
+        serviceName: 'Walking',
+        startTime: 'March 5',
+        totalPrice: 25,
+      });
+      expect(result.html).not.toContain('<script>');
+      expect(result.html).toContain('&lt;script&gt;');
+    });
+
+    it('sanitizes newlines in subject lines', () => {
+      const result = buildNewMessageEmail({
+        recipientName: 'Alice',
+        senderName: 'Bob\r\nBCC: attacker@evil.com',
+        messagePreview: 'Hello',
+      });
+      expect(result.subject).not.toContain('\r');
+      expect(result.subject).not.toContain('\n');
     });
   });
 });

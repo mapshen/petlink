@@ -6,6 +6,19 @@ const resend = process.env.RESEND_API_KEY
 
 const FROM_EMAIL = process.env.EMAIL_FROM || 'PetLink <noreply@petlink.app>';
 
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizeSubject(str: string): string {
+  return str.replace(/[\r\n]/g, ' ').trim();
+}
+
 interface EmailPayload {
   to: string;
   subject: string;
@@ -23,7 +36,6 @@ export async function sendEmail(payload: EmailPayload): Promise<{ id: string } |
   });
 
   if (error) {
-    console.error('Email send failed:', error.message);
     return null;
   }
 
@@ -58,17 +70,20 @@ export function buildBookingConfirmationEmail(params: {
   startTime: string;
   totalPrice: number;
 }): { subject: string; html: string } {
-  const { ownerName, sitterName, serviceName, startTime, totalPrice } = params;
+  const owner = escapeHtml(params.ownerName);
+  const sitter = escapeHtml(params.sitterName);
+  const service = escapeHtml(params.serviceName);
+  const time = escapeHtml(params.startTime);
   return {
-    subject: `Booking Confirmed — ${serviceName} with ${sitterName}`,
+    subject: sanitizeSubject(`Booking Confirmed — ${params.serviceName} with ${params.sitterName}`),
     html: emailWrapper('Booking Request Submitted', `
-<p style="color:#44403c;line-height:1.6">Hi ${ownerName},</p>
+<p style="color:#44403c;line-height:1.6">Hi ${owner},</p>
 <p style="color:#44403c;line-height:1.6">Your booking request has been submitted!</p>
 <table style="width:100%;border-collapse:collapse;margin:16px 0">
-<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Sitter</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${sitterName}</td></tr>
-<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Service</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${serviceName}</td></tr>
-<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Date</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${startTime}</td></tr>
-<tr style="border-top:1px solid #e7e5e4"><td style="padding:8px 0;color:#78716c;font-size:14px;font-weight:600">Total</td><td style="padding:8px 0;color:#059669;font-size:14px;font-weight:600;text-align:right">$${totalPrice.toFixed(2)}</td></tr>
+<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Sitter</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${sitter}</td></tr>
+<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Service</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${service}</td></tr>
+<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Date</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${time}</td></tr>
+<tr style="border-top:1px solid #e7e5e4"><td style="padding:8px 0;color:#78716c;font-size:14px;font-weight:600">Total</td><td style="padding:8px 0;color:#059669;font-size:14px;font-weight:600;text-align:right">$${params.totalPrice.toFixed(2)}</td></tr>
 </table>
 <p style="color:#78716c;font-size:14px">The sitter will review your request shortly.</p>
 `),
@@ -82,25 +97,28 @@ export function buildBookingStatusEmail(params: {
   serviceName: string;
   startTime: string;
 }): { subject: string; html: string } {
-  const { recipientName, otherPartyName, status, serviceName, startTime } = params;
-  const statusColor = status === 'confirmed' ? '#059669' : '#dc2626';
-  const statusLabel = status === 'confirmed' ? 'Confirmed' : 'Cancelled';
-  const statusMsg = status === 'confirmed'
-    ? `Great news! Your booking for ${serviceName} has been confirmed.`
-    : `Your booking for ${serviceName} has been cancelled.`;
+  const recipient = escapeHtml(params.recipientName);
+  const other = escapeHtml(params.otherPartyName);
+  const service = escapeHtml(params.serviceName);
+  const time = escapeHtml(params.startTime);
+  const statusColor = params.status === 'confirmed' ? '#059669' : '#dc2626';
+  const statusLabel = params.status === 'confirmed' ? 'Confirmed' : 'Cancelled';
+  const statusMsg = params.status === 'confirmed'
+    ? `Great news! Your booking for ${service} has been confirmed.`
+    : `Your booking for ${service} has been cancelled.`;
 
   return {
-    subject: `Booking ${statusLabel} — ${serviceName}`,
+    subject: sanitizeSubject(`Booking ${statusLabel} — ${params.serviceName}`),
     html: emailWrapper(`Booking ${statusLabel}`, `
-<p style="color:#44403c;line-height:1.6">Hi ${recipientName},</p>
+<p style="color:#44403c;line-height:1.6">Hi ${recipient},</p>
 <p style="color:#44403c;line-height:1.6">${statusMsg}</p>
 <div style="background:#fafaf9;border-radius:8px;padding:16px;margin:16px 0">
 <p style="margin:0 0 4px;color:#78716c;font-size:13px">Status</p>
 <p style="margin:0;font-weight:600;color:${statusColor}">${statusLabel}</p>
 </div>
 <table style="width:100%;border-collapse:collapse;margin:16px 0">
-<tr><td style="padding:8px 0;color:#78716c;font-size:14px">With</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${otherPartyName}</td></tr>
-<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Date</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${startTime}</td></tr>
+<tr><td style="padding:8px 0;color:#78716c;font-size:14px">With</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${other}</td></tr>
+<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Date</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${time}</td></tr>
 </table>
 `),
   };
@@ -111,14 +129,16 @@ export function buildNewMessageEmail(params: {
   senderName: string;
   messagePreview: string;
 }): { subject: string; html: string } {
-  const { recipientName, senderName, messagePreview } = params;
+  const recipient = escapeHtml(params.recipientName);
+  const sender = escapeHtml(params.senderName);
+  const preview = escapeHtml(params.messagePreview);
   return {
-    subject: `New message from ${senderName}`,
+    subject: sanitizeSubject(`New message from ${params.senderName}`),
     html: emailWrapper('New Message', `
-<p style="color:#44403c;line-height:1.6">Hi ${recipientName},</p>
-<p style="color:#44403c;line-height:1.6">You have a new message from <strong>${senderName}</strong>:</p>
+<p style="color:#44403c;line-height:1.6">Hi ${recipient},</p>
+<p style="color:#44403c;line-height:1.6">You have a new message from <strong>${sender}</strong>:</p>
 <div style="background:#fafaf9;border-radius:8px;padding:16px;margin:16px 0;border-left:3px solid #059669">
-<p style="margin:0;color:#44403c;font-style:italic">"${messagePreview}"</p>
+<p style="margin:0;color:#44403c;font-style:italic">"${preview}"</p>
 </div>
 <p style="color:#78716c;font-size:14px">Log in to PetLink to reply.</p>
 `),
@@ -132,17 +152,20 @@ export function buildSitterNewBookingEmail(params: {
   startTime: string;
   totalPrice: number;
 }): { subject: string; html: string } {
-  const { sitterName, ownerName, serviceName, startTime, totalPrice } = params;
+  const sitter = escapeHtml(params.sitterName);
+  const owner = escapeHtml(params.ownerName);
+  const service = escapeHtml(params.serviceName);
+  const time = escapeHtml(params.startTime);
   return {
-    subject: `New Booking Request from ${ownerName}`,
+    subject: sanitizeSubject(`New Booking Request from ${params.ownerName}`),
     html: emailWrapper('New Booking Request', `
-<p style="color:#44403c;line-height:1.6">Hi ${sitterName},</p>
+<p style="color:#44403c;line-height:1.6">Hi ${sitter},</p>
 <p style="color:#44403c;line-height:1.6">You have a new booking request!</p>
 <table style="width:100%;border-collapse:collapse;margin:16px 0">
-<tr><td style="padding:8px 0;color:#78716c;font-size:14px">From</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${ownerName}</td></tr>
-<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Service</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${serviceName}</td></tr>
-<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Date</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${startTime}</td></tr>
-<tr style="border-top:1px solid #e7e5e4"><td style="padding:8px 0;color:#78716c;font-size:14px;font-weight:600">Price</td><td style="padding:8px 0;color:#059669;font-size:14px;font-weight:600;text-align:right">$${totalPrice.toFixed(2)}</td></tr>
+<tr><td style="padding:8px 0;color:#78716c;font-size:14px">From</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${owner}</td></tr>
+<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Service</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${service}</td></tr>
+<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Date</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${time}</td></tr>
+<tr style="border-top:1px solid #e7e5e4"><td style="padding:8px 0;color:#78716c;font-size:14px;font-weight:600">Price</td><td style="padding:8px 0;color:#059669;font-size:14px;font-weight:600;text-align:right">$${params.totalPrice.toFixed(2)}</td></tr>
 </table>
 <p style="color:#78716c;font-size:14px">Log in to PetLink to accept or decline.</p>
 `),
