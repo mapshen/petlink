@@ -24,7 +24,7 @@ export interface Pet {
 export interface Service {
   id: number;
   sitter_id: number;
-  type: 'walking' | 'sitting' | 'drop-in' | 'grooming';
+  type: 'walking' | 'sitting' | 'drop-in' | 'grooming' | 'meet_greet';
   price: number;
   description?: string;
 }

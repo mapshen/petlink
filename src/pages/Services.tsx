@@ -10,6 +10,7 @@ const SERVICE_TYPES = [
   { value: 'sitting', label: 'House Sitting', icon: '🏠' },
   { value: 'drop-in', label: 'Drop-in Visit', icon: '👋' },
   { value: 'grooming', label: 'Grooming', icon: '✂️' },
+  { value: 'meet_greet', label: 'Meet & Greet', icon: '🤝' },
 ] as const;
 
 interface ServiceForm {
@@ -52,7 +53,9 @@ export default function Services() {
   };
 
   const handleAdd = async () => {
-    if (!form.price || Number(form.price) < 1) { setError('Price must be at least $1'); return; }
+    const isMeetGreet = form.type === 'meet_greet';
+    const price = isMeetGreet ? 0 : Number(form.price);
+    if (!isMeetGreet && (!form.price || price < 1)) { setError('Price must be at least $1'); return; }
     setSaving(true);
     setError(null);
     try {
@@ -61,7 +64,7 @@ export default function Services() {
         headers: getAuthHeaders(token),
         body: JSON.stringify({
           type: form.type,
-          price: Number(form.price),
+          price,
           description: form.description || null,
         }),
       });
@@ -81,7 +84,9 @@ export default function Services() {
   };
 
   const handleEdit = async () => {
-    if (!editingId || !form.price || Number(form.price) < 1) { setError('Price must be at least $1'); return; }
+    const isMeetGreetEdit = form.type === 'meet_greet';
+    const editPrice = isMeetGreetEdit ? 0 : Number(form.price);
+    if (!editingId || (!isMeetGreetEdit && (!form.price || editPrice < 1))) { setError('Price must be at least $1'); return; }
     setSaving(true);
     setError(null);
     try {
@@ -90,7 +95,7 @@ export default function Services() {
         headers: getAuthHeaders(token),
         body: JSON.stringify({
           type: form.type,
-          price: Number(form.price),
+          price: editPrice,
           description: form.description || null,
         }),
       });
@@ -295,7 +300,7 @@ function ServiceFormFields({
         <label className="block text-sm font-medium text-stone-700 mb-1">Service Type</label>
         <select
           value={form.type}
-          onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))}
+          onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value, ...(e.target.value === 'meet_greet' ? { price: '0' } : {}) }))}
           className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
         >
           {availableTypes.map((t) => (
@@ -306,15 +311,21 @@ function ServiceFormFields({
 
       <div>
         <label className="block text-sm font-medium text-stone-700 mb-1">Price per session ($)</label>
-        <input
-          type="number"
-          min="1"
-          max="9999"
-          value={form.price}
-          onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
-          placeholder="e.g. 25"
-          className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-        />
+        {form.type === 'meet_greet' ? (
+          <div className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 text-emerald-700 font-medium">
+            Free (Meet & Greet)
+          </div>
+        ) : (
+          <input
+            type="number"
+            min="1"
+            max="9999"
+            value={form.price}
+            onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
+            placeholder="e.g. 25"
+            className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          />
+        )}
       </div>
 
       <div>
@@ -331,7 +342,7 @@ function ServiceFormFields({
       <div className="flex items-center gap-3 pt-2">
         <button
           onClick={onSave}
-          disabled={saving || !form.price}
+          disabled={saving || (form.type !== 'meet_greet' && !form.price)}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
         >
           <Save className="w-4 h-4" />

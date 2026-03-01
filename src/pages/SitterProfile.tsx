@@ -72,7 +72,9 @@ export default function SitterProfile() {
       const [hours, minutes] = selectedTime.split(':').map(Number);
       const startDate = new Date(selectedDate);
       startDate.setHours(hours, minutes, 0, 0);
-      const endDate = new Date(startDate.getTime() + 3600000); // 1 hour later
+      const selectedSvc = services.find((s) => s.id === selectedService);
+      const durationMs = selectedSvc?.type === 'meet_greet' ? 1800000 : 3600000; // 30 min or 1 hour
+      const endDate = new Date(startDate.getTime() + durationMs);
 
       const res = await fetch(`${API_BASE}/bookings`, {
         method: 'POST',
@@ -220,8 +222,8 @@ export default function SitterProfile() {
                     }`}
                   >
                     <div className="flex justify-between items-center">
-                      <span className="font-medium text-stone-900 capitalize">{service.type.replace('-', ' ')}</span>
-                      <span className="font-bold text-emerald-600">${service.price}</span>
+                      <span className="font-medium text-stone-900 capitalize">{service.type.replace(/[-_]/g, ' ')}</span>
+                      <span className="font-bold text-emerald-600">{service.price === 0 ? 'Free' : `$${service.price}`}</span>
                     </div>
                     <p className="text-xs text-stone-500 mt-1">{service.description}</p>
                   </button>
