@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Service } from '../types';
-import { Plus, Pencil, Trash2, DollarSign, AlertCircle, Save, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, DollarSign, AlertCircle, Save, X, ShieldCheck, Check } from 'lucide-react';
 import { API_BASE } from '../config';
+import type { CancellationPolicy } from '../types';
 
 const SERVICE_TYPES = [
   { value: 'walking', label: 'Dog Walking', icon: '🚶' },
@@ -32,11 +33,15 @@ export default function Services() {
   const [form, setForm] = useState<ServiceForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [policy, setPolicy] = useState<CancellationPolicy>('flexible');
+  const [policySaving, setPolicySaving] = useState(false);
+  const [policySaved, setPolicySaved] = useState(false);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
     if (user.role === 'owner') { navigate('/dashboard'); return; }
     fetchServices();
+    fetchPolicy();
   }, [user, navigate]);
 
   const fetchServices = async () => {
@@ -49,6 +54,40 @@ export default function Services() {
       setError('Failed to load services.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPolicy = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/cancellation-policy`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setPolicy(data.cancellation_policy);
+      }
+    } catch {
+      // Non-critical — default to flexible
+    }
+  };
+
+  const savePolicy = async (newPolicy: CancellationPolicy) => {
+    const previousPolicy = policy;
+    setPolicy(newPolicy);
+    setPolicySaving(true);
+    setPolicySaved(false);
+    try {
+      const res = await fetch(`${API_BASE}/cancellation-policy`, {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({ cancellation_policy: newPolicy }),
+      });
+      if (!res.ok) throw new Error('Failed to save policy');
+      setPolicySaved(true);
+      setTimeout(() => setPolicySaved(false), 2000);
+    } catch {
+      setPolicy(previousPolicy);
+      setError('Failed to save cancellation policy.');
+    } finally {
+      setPolicySaving(false);
     }
   };
 
@@ -275,9 +314,51 @@ export default function Services() {
           </div>
         )}
       </div>
+
+      {/* Cancellation Policy */}
+      <div className="mt-10">
+        <div className="flex items-center gap-2 mb-4">
+          <ShieldCheck className="w-5 h-5 text-emerald-600" />
+          <h2 className="text-xl font-bold text-stone-900">Cancellation Policy</h2>
+          {policySaving && <span className="text-xs text-stone-400">Saving...</span>}
+          {policySaved && <span className="text-xs text-emerald-600 flex items-center gap-1"><Check className="w-3 h-3" /> Saved</span>}
+        </div>
+        <div className="space-y-3">
+          {CANCELLATION_POLICIES.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => savePolicy(p.value)}
+              disabled={policySaving}
+              className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${
+                policy === p.value
+                  ? 'border-emerald-500 bg-emerald-50'
+                  : 'border-stone-200 hover:border-stone-300 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-semibold text-stone-900">{p.label}</span>
+                  <p className="text-sm text-stone-500 mt-1">{p.description}</p>
+                </div>
+                {policy === p.value && (
+                  <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
+
+const CANCELLATION_POLICIES: { value: CancellationPolicy; label: string; description: string }[] = [
+  { value: 'flexible', label: 'Flexible', description: 'Full refund if cancelled at least 24 hours before the booking.' },
+  { value: 'moderate', label: 'Moderate', description: '50% refund if cancelled at least 48 hours before the booking.' },
+  { value: 'strict', label: 'Strict', description: 'No refund within 7 days of the booking.' },
+];
 
 function ServiceFormFields({
   form,

@@ -11,6 +11,9 @@ const mockPaymentIntents = {
   capture: vi.fn().mockResolvedValue({ id: 'pi_test123', status: 'succeeded' }),
   cancel: vi.fn().mockResolvedValue({ id: 'pi_test123', status: 'canceled' }),
 };
+const mockRefunds = {
+  create: vi.fn().mockResolvedValue({ id: 're_test123', status: 'succeeded' }),
+};
 const mockWebhooks = {
   constructEvent: vi.fn().mockReturnValue({ type: 'payment_intent.succeeded', data: { object: { id: 'pi_test123' } } }),
 };
@@ -21,6 +24,7 @@ vi.mock('stripe', () => {
       accounts = mockAccounts;
       accountLinks = mockAccountLinks;
       paymentIntents = mockPaymentIntents;
+      refunds = mockRefunds;
       webhooks = mockWebhooks;
     },
   };
@@ -65,5 +69,24 @@ describe('payments', () => {
     const { constructWebhookEvent } = await import('./payments.ts');
     const event = constructWebhookEvent('body', 'sig');
     expect(event.type).toBe('payment_intent.succeeded');
+  });
+
+  it('refundPayment with partial amount calls refunds.create with amount', async () => {
+    mockRefunds.create.mockClear();
+    const { refundPayment } = await import('./payments.ts');
+    await refundPayment('pi_test123', 2500);
+    expect(mockRefunds.create).toHaveBeenCalledWith({
+      payment_intent: 'pi_test123',
+      amount: 2500,
+    });
+  });
+
+  it('refundPayment without amount calls refunds.create for full refund', async () => {
+    mockRefunds.create.mockClear();
+    const { refundPayment } = await import('./payments.ts');
+    await refundPayment('pi_test123');
+    expect(mockRefunds.create).toHaveBeenCalledWith({
+      payment_intent: 'pi_test123',
+    });
   });
 });

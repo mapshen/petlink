@@ -67,6 +67,14 @@ export async function cancelPayment(paymentIntentId: string): Promise<void> {
   await stripe.paymentIntents.cancel(paymentIntentId);
 }
 
+export async function refundPayment(paymentIntentId: string, amountCents?: number): Promise<void> {
+  const stripe = getStripe();
+  await stripe.refunds.create({
+    payment_intent: paymentIntentId,
+    ...(amountCents !== undefined ? { amount: amountCents } : {}),
+  });
+}
+
 export function constructWebhookEvent(body: string | Buffer, signature: string): Stripe.Event {
   const stripe = getStripe();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;

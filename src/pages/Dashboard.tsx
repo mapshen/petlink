@@ -43,7 +43,7 @@ export default function Dashboard() {
   }, [user, token]);
 
   const updateBookingStatus = async (bookingId: number, status: 'confirmed' | 'cancelled') => {
-    if (status === 'cancelled' && !window.confirm('Are you sure? This cannot be undone.')) {
+    if (status === 'cancelled' && !window.confirm('Are you sure you want to cancel this booking? Refund depends on the sitter\'s cancellation policy. This cannot be undone.')) {
       return;
     }
     setUpdatingIds((prev) => new Set([...prev, bookingId]));
@@ -59,6 +59,11 @@ export default function Dashboard() {
         throw new Error(data.error || 'Failed to update booking');
       }
       const data = await res.json();
+      if (data.refund) {
+        const pct = data.refund.refundPercent;
+        const msg = pct > 0 ? `You will receive a ${pct}% refund.` : 'No refund is available per the cancellation policy.';
+        window.alert(`Booking cancelled. ${msg}`);
+      }
       setBookings((prev) =>
         prev.map((b) => (b.id === bookingId ? { ...b, status: data.booking.status } : b))
       );

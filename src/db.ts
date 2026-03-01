@@ -67,6 +67,12 @@ export async function initDb() {
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
+  await sql`
+    DO $$ BEGIN
+      CREATE TYPE cancellation_policy AS ENUM ('flexible', 'moderate', 'strict');
+    EXCEPTION WHEN duplicate_object THEN null;
+    END $$
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS users (
@@ -295,6 +301,7 @@ export async function initDb() {
   // Schema migrations — add new columns/enums safely
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_pet_sizes TEXT[] DEFAULT '{}'`.catch(() => {});
   await sql`ALTER TYPE service_type ADD VALUE IF NOT EXISTS 'meet_greet'`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cancellation_policy cancellation_policy DEFAULT 'flexible'`.catch(() => {});
 
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;

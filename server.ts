@@ -11,10 +11,11 @@ import rateLimit from 'express-rate-limit';
 import { initDb } from './src/db.ts';
 import sql from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
-import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent } from './src/payments.ts';
+import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema } from './src/validation.ts';
+import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail } from './src/email.ts';
 import { format as formatDate } from 'date-fns';
 import type { ErrorRequestHandler } from 'express';
@@ -274,7 +275,7 @@ async function startServer() {
 
   v1.get('/sitters/:id', async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes FROM users WHERE id = ${req.params.id}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, cancellation_policy FROM users WHERE id = ${req.params.id}
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });
@@ -698,6 +699,23 @@ async function startServer() {
     res.status(201).json({ event });
   });
 
+  // --- Cancellation Policy ---
+  v1.get('/cancellation-policy', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT cancellation_policy FROM users WHERE id = ${req.userId}`;
+    res.json({ cancellation_policy: user.cancellation_policy || 'flexible' });
+  });
+
+  v1.put('/cancellation-policy', authMiddleware, validate(cancellationPolicySchema), async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can set cancellation policy' });
+      return;
+    }
+    const { cancellation_policy } = req.body;
+    await sql`UPDATE users SET cancellation_policy = ${cancellation_policy} WHERE id = ${req.userId}`;
+    res.json({ cancellation_policy });
+  });
+
   // --- Bookings ---
   v1.post('/bookings', authMiddleware, validate(createBookingSchema), async (req: AuthenticatedRequest, res) => {
     const { sitter_id, service_id, start_time, end_time } = req.body;
@@ -853,7 +871,37 @@ async function startServer() {
       // Notification failed — booking status was already updated successfully
     }
 
-    res.json({ booking: updated });
+    // Calculate refund for owner-initiated cancellations of confirmed bookings with held payments
+    let refund = null;
+    if (status === 'cancelled' && updated.owner_id === req.userId && updated.payment_status === 'held' && updated.payment_intent_id) {
+      try {
+        const [sitter] = await sql`SELECT cancellation_policy FROM users WHERE id = ${updated.sitter_id}`;
+        const policy = sitter.cancellation_policy || 'flexible';
+        refund = calculateRefund(policy, Math.round((updated.total_price || 0) * 100), new Date(updated.start_time), new Date());
+
+        if (refund.refundAmount > 0) {
+          await refundPayment(updated.payment_intent_id, refund.refundAmount);
+          await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE id = ${bookingId}`;
+        } else {
+          // No refund — sitter keeps the full amount
+          await capturePayment(updated.payment_intent_id);
+          await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${bookingId}`;
+        }
+      } catch (err) {
+        console.error(`Refund failed for booking ${bookingId}:`, err);
+        refund = null; // Don't send misleading refund info to client
+      }
+    } else if (status === 'cancelled' && updated.payment_intent_id && updated.payment_status === 'held') {
+      // Sitter-initiated cancellation of pending booking — full refund
+      try {
+        await cancelPayment(updated.payment_intent_id);
+        await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE id = ${bookingId}`;
+      } catch (err) {
+        console.error(`Payment cancellation failed for booking ${bookingId}:`, err);
+      }
+    }
+
+    res.json({ booking: updated, refund });
   });
 
   // --- Messages ---

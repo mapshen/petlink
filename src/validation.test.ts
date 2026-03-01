@@ -10,6 +10,7 @@ import {
   createReviewSchema,
   createSitterPhotoSchema,
   updateSitterPhotoSchema,
+  cancellationPolicySchema,
   validate,
 } from './validation.ts';
 
@@ -430,6 +431,30 @@ describe('updateSitterPhotoSchema', () => {
   it('rejects negative sort_order', () => {
     const result = updateSitterPhotoSchema.safeParse({ sort_order: -1 });
     expect(result.success).toBe(false);
+  });
+});
+
+// --- Cancellation Policy Schema Tests ---
+
+describe('cancellationPolicySchema', () => {
+  it('accepts flexible policy', () => {
+    expect(cancellationPolicySchema.safeParse({ cancellation_policy: 'flexible' }).success).toBe(true);
+  });
+
+  it('accepts moderate policy', () => {
+    expect(cancellationPolicySchema.safeParse({ cancellation_policy: 'moderate' }).success).toBe(true);
+  });
+
+  it('accepts strict policy', () => {
+    expect(cancellationPolicySchema.safeParse({ cancellation_policy: 'strict' }).success).toBe(true);
+  });
+
+  it('rejects invalid policy', () => {
+    expect(cancellationPolicySchema.safeParse({ cancellation_policy: 'custom' }).success).toBe(false);
+  });
+
+  it('rejects missing policy', () => {
+    expect(cancellationPolicySchema.safeParse({}).success).toBe(false);
   });
 });
 

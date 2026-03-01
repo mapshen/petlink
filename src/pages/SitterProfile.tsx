@@ -273,6 +273,20 @@ export default function SitterProfile() {
               You won't be charged until the sitter confirms.
             </p>
 
+            {sitter.cancellation_policy && (
+              <div className="mt-4 p-3 bg-stone-50 rounded-xl">
+                <p className="text-xs font-medium text-stone-600 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  Cancellation: <span className="capitalize">{sitter.cancellation_policy}</span>
+                </p>
+                <p className="text-xs text-stone-400 mt-1">
+                  {sitter.cancellation_policy === 'flexible' && 'Full refund if cancelled 24+ hours before.'}
+                  {sitter.cancellation_policy === 'moderate' && '50% refund if cancelled 48+ hours before.'}
+                  {sitter.cancellation_policy === 'strict' && 'No refund within 7 days of booking.'}
+                </p>
+              </div>
+            )}
+
             <div className="mt-6 pt-6 border-t border-stone-100 text-center">
               <button 
                 onClick={() => navigate(`/messages?recipient=${sitter.id}`)}
