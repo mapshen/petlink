@@ -17,6 +17,7 @@ export interface NotificationPreferences {
   booking_status: boolean;
   new_message: boolean;
   walk_updates: boolean;
+  email_enabled: boolean;
 }
 
 export async function createNotification(
@@ -79,7 +80,7 @@ export async function markAllAsRead(userId: number): Promise<number> {
 export async function getPreferences(userId: number): Promise<NotificationPreferences> {
   const [prefs] = await sql`SELECT * FROM notification_preferences WHERE user_id = ${userId}`;
   if (prefs) return prefs as unknown as NotificationPreferences;
-  return { user_id: userId, new_booking: true, booking_status: true, new_message: true, walk_updates: true };
+  return { user_id: userId, new_booking: true, booking_status: true, new_message: true, walk_updates: true, email_enabled: true };
 }
 
 export async function updatePreferences(userId: number, prefs: Partial<Omit<NotificationPreferences, 'user_id'>>): Promise<NotificationPreferences> {
@@ -90,13 +91,14 @@ export async function updatePreferences(userId: number, prefs: Partial<Omit<Noti
       SET new_booking = COALESCE(${prefs.new_booking ?? null}, new_booking),
           booking_status = COALESCE(${prefs.booking_status ?? null}, booking_status),
           new_message = COALESCE(${prefs.new_message ?? null}, new_message),
-          walk_updates = COALESCE(${prefs.walk_updates ?? null}, walk_updates)
+          walk_updates = COALESCE(${prefs.walk_updates ?? null}, walk_updates),
+          email_enabled = COALESCE(${prefs.email_enabled ?? null}, email_enabled)
       WHERE user_id = ${userId}
     `;
   } else {
     await sql`
-      INSERT INTO notification_preferences (user_id, new_booking, booking_status, new_message, walk_updates)
-      VALUES (${userId}, ${prefs.new_booking ?? true}, ${prefs.booking_status ?? true}, ${prefs.new_message ?? true}, ${prefs.walk_updates ?? true})
+      INSERT INTO notification_preferences (user_id, new_booking, booking_status, new_message, walk_updates, email_enabled)
+      VALUES (${userId}, ${prefs.new_booking ?? true}, ${prefs.booking_status ?? true}, ${prefs.new_message ?? true}, ${prefs.walk_updates ?? true}, ${prefs.email_enabled ?? true})
     `;
   }
   return getPreferences(userId);
