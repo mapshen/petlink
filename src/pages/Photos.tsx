@@ -113,7 +113,7 @@ export default function Photos() {
 
     // Persist both sort_order changes
     try {
-      await Promise.all([
+      const results = await Promise.all([
         fetch(`${API_BASE}/sitter-photos/${updated[idx].id}`, {
           method: 'PUT',
           headers: getAuthHeaders(token),
@@ -125,6 +125,7 @@ export default function Photos() {
           body: JSON.stringify({ sort_order: newIdx }),
         }),
       ]);
+      if (results.some((r) => !r.ok)) throw new Error('Server rejected reorder');
     } catch {
       // Rollback on failure
       setPhotos(photos);
