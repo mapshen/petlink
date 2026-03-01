@@ -2,9 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Service } from '../types';
-import { Plus, Pencil, Trash2, DollarSign, AlertCircle, Save, X, ShieldCheck, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, DollarSign, Save, X, ShieldCheck, Check } from 'lucide-react';
 import { API_BASE } from '../config';
 import type { CancellationPolicy } from '../types';
+import { Button } from '../components/ui/button';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 
 const SERVICE_TYPES = [
   { value: 'walking', label: 'Dog Walking', icon: '🚶' },
@@ -34,6 +48,7 @@ export default function Services() {
   const [form, setForm] = useState<ServiceForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
   const [policy, setPolicy] = useState<CancellationPolicy>('flexible');
   const [policySaving, setPolicySaving] = useState(false);
   const [policySaved, setPolicySaved] = useState(false);
@@ -157,7 +172,6 @@ export default function Services() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Delete this service? This cannot be undone.')) return;
     setDeletingId(id);
     setError(null);
     try {
@@ -222,11 +236,12 @@ export default function Services() {
       </div>
 
       {error && (
-        <div role="alert" className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span className="flex-grow">{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
-        </div>
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Add Form */}
@@ -292,7 +307,7 @@ export default function Services() {
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(service.id)}
+                        onClick={() => setDeleteDialogId(service.id)}
                         disabled={deletingId === service.id}
                         className="p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         title="Delete service"
@@ -357,6 +372,23 @@ export default function Services() {
           ))}
         </div>
       </div>
+
+      <AlertDialog open={deleteDialogId !== null} onOpenChange={(open) => { if (!open) setDeleteDialogId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Service</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this service? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { if (deleteDialogId !== null) { handleDelete(deleteDialogId); setDeleteDialogId(null); } }}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -404,14 +436,13 @@ function ServiceFormFields({
             Free (Meet & Greet)
           </div>
         ) : (
-          <input
+          <Input
             type="number"
-            min="1"
-            max="9999"
+            min={1}
+            max={9999}
             value={form.price}
             onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
             placeholder="e.g. 25"
-            className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           />
         )}
       </div>
@@ -419,14 +450,13 @@ function ServiceFormFields({
       {form.type !== 'meet_greet' && (
         <div>
           <label className="block text-sm font-medium text-stone-700 mb-1">Additional pet price ($)</label>
-          <input
+          <Input
             type="number"
-            min="0"
-            max="500"
+            min={0}
+            max={500}
             value={form.additional_pet_price}
             onChange={(e) => setForm((prev) => ({ ...prev, additional_pet_price: e.target.value }))}
             placeholder="0"
-            className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           />
           <p className="text-xs text-stone-400 mt-1">Extra charge per additional pet (first pet included in base price)</p>
         </div>
@@ -434,32 +464,31 @@ function ServiceFormFields({
 
       <div>
         <label className="block text-sm font-medium text-stone-700 mb-1">Description (optional)</label>
-        <textarea
+        <Textarea
           value={form.description}
           onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
           placeholder="Describe what's included in this service..."
           rows={3}
-          className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+          className="resize-none"
         />
       </div>
 
       <div className="flex items-center gap-3 pt-2">
-        <button
+        <Button
           onClick={onSave}
           disabled={saving || (form.type !== 'meet_greet' && !form.price)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           {saving ? 'Saving...' : 'Save'}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           onClick={onCancel}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-4 py-2.5 border border-stone-200 text-stone-700 rounded-xl text-sm font-medium hover:bg-stone-50 transition-colors"
         >
           <X className="w-4 h-4" />
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   );

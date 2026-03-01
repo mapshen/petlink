@@ -5,6 +5,16 @@ import { SitterPhoto } from '../types';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { Trash2, ArrowUp, ArrowDown, Camera, Loader2, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../config';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 
 export default function Photos() {
   const { user, token } = useAuth();
@@ -14,6 +24,7 @@ export default function Photos() {
   const [error, setError] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editCaption, setEditCaption] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,7 +83,6 @@ export default function Photos() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Delete this photo?')) return;
     setDeletingId(id);
     setError(null);
     try {
@@ -253,7 +263,7 @@ export default function Photos() {
                   <ArrowDown className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(photo.id)}
+                  onClick={() => setDeleteDialogId(photo.id)}
                   disabled={deletingId === photo.id}
                   className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 ml-auto"
                   title="Delete photo"
@@ -273,6 +283,23 @@ export default function Photos() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={deleteDialogId !== null} onOpenChange={(open) => { if (!open) setDeleteDialogId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Photo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this photo?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { if (deleteDialogId !== null) { handleDelete(deleteDialogId); setDeleteDialogId(null); } }}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
