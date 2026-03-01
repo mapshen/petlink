@@ -9,8 +9,6 @@ interface PhotoGalleryProps {
 export default function PhotoGallery({ photos }: PhotoGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
-  if (photos.length === 0) return null;
-
   const goNext = useCallback(() => {
     setSelectedIndex((prev) => prev === null ? null : (prev + 1) % photos.length);
   }, [photos.length]);
@@ -32,6 +30,8 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedIndex, goNext, goPrev, close]);
+
+  if (photos.length === 0) return null;
 
   return (
     <>
