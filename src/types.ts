@@ -1,3 +1,5 @@
+export type CancellationPolicy = 'flexible' | 'moderate' | 'strict';
+
 export interface User {
   id: number;
   email: string;
@@ -8,6 +10,7 @@ export interface User {
   lat?: number;
   lng?: number;
   accepted_pet_sizes?: string[];
+  cancellation_policy?: CancellationPolicy;
 }
 
 export interface Pet {

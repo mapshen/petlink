@@ -98,3 +98,10 @@ export const createReviewSchema = z.object({
   rating: z.number().int().min(1, 'Rating must be 1-5').max(5, 'Rating must be 1-5'),
   comment: z.string().optional().nullable(),
 });
+
+// --- Cancellation Policy Schemas ---
+export const cancellationPolicySchema = z.object({
+  cancellation_policy: z.enum(['flexible', 'moderate', 'strict'], {
+    message: 'Policy must be flexible, moderate, or strict',
+  }),
+});
