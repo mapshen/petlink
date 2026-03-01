@@ -11,6 +11,7 @@ import PetSelector from '../components/PetSelector';
 import { useFavorites } from '../hooks/useFavorites';
 import FavoriteButton from '../components/FavoriteButton';
 import { calculateBookingPrice } from '../multi-pet-pricing';
+import { getPolicyDescription } from '../cancellation';
 
 export default function SitterProfile() {
   const { id } = useParams();
@@ -343,9 +344,7 @@ export default function SitterProfile() {
                   Cancellation: <span className="capitalize">{sitter.cancellation_policy}</span>
                 </p>
                 <p className="text-xs text-stone-400 mt-1">
-                  {sitter.cancellation_policy === 'flexible' && 'Full refund if cancelled 24+ hours before.'}
-                  {sitter.cancellation_policy === 'moderate' && '50% refund if cancelled 48+ hours before.'}
-                  {sitter.cancellation_policy === 'strict' && 'No refund within 7 days of booking.'}
+                  {getPolicyDescription(sitter.cancellation_policy)}
                 </p>
               </div>
             )}

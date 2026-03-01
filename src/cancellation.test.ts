@@ -89,6 +89,15 @@ describe('calculateRefund', () => {
     expect(result.eligible).toBe(true);
   });
 
+  it('returns no refund with clear message when booking already started', () => {
+    const cancelTime = new Date('2026-03-15T16:00:00Z'); // 2h after start
+    const result = calculateRefund('flexible', 5000, baseTime, cancelTime);
+    expect(result.refundPercent).toBe(0);
+    expect(result.refundAmount).toBe(0);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toContain('already started');
+  });
+
   it('rounds refund amount down for odd prices', () => {
     const cancelTime = new Date('2026-03-13T12:00:00Z'); // >48h
     const result = calculateRefund('moderate', 4999, baseTime, cancelTime);
