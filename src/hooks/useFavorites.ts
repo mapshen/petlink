@@ -1,15 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config';
-
-interface FavoriteSitter {
-  id: number;
-  sitter_id: number;
-  created_at: string;
-  sitter_name: string;
-  sitter_avatar: string | null;
-  sitter_bio: string | null;
-}
+import { FavoriteSitter } from '../types';
 
 export function useFavorites() {
   const { user, token } = useAuth();
@@ -18,6 +10,8 @@ export function useFavorites() {
   const [loading, setLoading] = useState(false);
   const favoritedIdsRef = useRef(favoritedIds);
   favoritedIdsRef.current = favoritedIds;
+  const favoritesRef = useRef(favorites);
+  favoritesRef.current = favorites;
 
   useEffect(() => {
     if (!user || !token) {
@@ -56,6 +50,7 @@ export function useFavorites() {
         return next;
       });
 
+      const previousFavorites = favoritesRef.current;
       if (wasFavorited) {
         setFavorites((prev) => prev.filter((f) => f.sitter_id !== sitterId));
       }
@@ -94,6 +89,9 @@ export function useFavorites() {
           }
           return next;
         });
+        if (wasFavorited) {
+          setFavorites(previousFavorites);
+        }
       }
     },
     [token]
