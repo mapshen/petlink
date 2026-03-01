@@ -23,6 +23,16 @@ export function calculateRefund(
   const msUntilStart = startTime.getTime() - cancelTime.getTime();
   const hoursUntilStart = msUntilStart / (1000 * 60 * 60);
 
+  // Booking already started — no refund regardless of policy
+  if (msUntilStart <= 0) {
+    return {
+      refundPercent: 0,
+      refundAmount: 0,
+      eligible: false,
+      reason: `${policy} policy: no refund (booking has already started)`,
+    };
+  }
+
   // Strict always returns 0 refund
   if (policy === 'strict') {
     return {
