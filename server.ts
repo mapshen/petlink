@@ -87,7 +87,7 @@ async function startServer() {
       methods: ["GET", "POST"]
     }
   });
-  const PORT = 3000;
+  const PORT = parseInt(process.env.PORT || '3002', 10);
 
   // Raw body needed for Stripe webhook signature verification
   app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));
