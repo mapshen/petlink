@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMode } from '../context/ModeContext';
 import { User as UserIcon, PawPrint, DollarSign, Camera } from 'lucide-react';
@@ -25,11 +25,9 @@ const ALL_SECTIONS: SectionDef[] = [
 export default function ProfilePage() {
   const { user } = useAuth();
   const { mode } = useMode();
-  const navigate = useNavigate();
 
   if (!user) {
-    navigate('/login');
-    return null;
+    return <Navigate to="/login" replace />;
   }
 
   const visibleSections = ALL_SECTIONS.filter(

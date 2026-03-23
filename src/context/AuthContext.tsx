@@ -118,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     localStorage.removeItem('petlink_user');
     localStorage.removeItem('petlink_token');
+    localStorage.removeItem('petlink_mode');
   };
 
   return (

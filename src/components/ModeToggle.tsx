@@ -7,8 +7,10 @@ export default function ModeToggle() {
   if (!canToggle) return null;
 
   return (
-    <div className="bg-stone-100 rounded-lg p-0.5 flex w-[140px]">
+    <div className="bg-stone-100 rounded-lg p-0.5 flex w-[140px]" role="radiogroup" aria-label="Account mode">
       <button
+        role="radio"
+        aria-checked={mode === 'owner'}
         onClick={() => setMode('owner')}
         className={`flex-1 py-1 rounded-md text-xs font-semibold text-center transition-all ${
           mode === 'owner'
@@ -19,6 +21,8 @@ export default function ModeToggle() {
         Owner
       </button>
       <button
+        role="radio"
+        aria-checked={mode === 'sitter'}
         onClick={() => setMode('sitter')}
         className={`flex-1 py-1 rounded-md text-xs font-semibold text-center transition-all ${
           mode === 'sitter'

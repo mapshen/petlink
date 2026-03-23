@@ -145,14 +145,18 @@ export default function Dashboard() {
           <h2 className="font-bold text-stone-700">Your Bookings</h2>
         </div>
 
-        {bookings.filter((b) => isSitterMode ? user?.id === b.sitter_id : user?.id === b.owner_id).length === 0 ? (
+        {(() => {
+          const filteredBookings = bookings.filter((b) =>
+            isSitterMode ? user?.id === b.sitter_id : user?.id === b.owner_id
+          );
+          return filteredBookings.length === 0 ? (
           <div className="p-12 text-center text-stone-500">
             <Calendar className="w-12 h-12 mx-auto mb-4 text-stone-300" />
             <p>No bookings yet.</p>
           </div>
         ) : (
           <div className="divide-y divide-stone-100">
-            {bookings.filter((b) => isSitterMode ? user?.id === b.sitter_id : user?.id === b.owner_id).map((booking) => {
+            {filteredBookings.map((booking) => {
               const otherPersonName = isSitterMode ? booking.owner_name : booking.sitter_name;
               const otherPersonAvatar = isSitterMode ? booking.owner_avatar : booking.sitter_avatar;
 
@@ -249,7 +253,8 @@ export default function Dashboard() {
               );
             })}
           </div>
-        )}
+        );
+        })()}
       </div>
 
       <AlertDialog open={cancelDialogBookingId !== null} onOpenChange={(open) => { if (!open) setCancelDialogBookingId(null); }}>
