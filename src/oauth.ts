@@ -13,7 +13,7 @@ export interface OAuthProfile {
 let googleClient: OAuth2Client | null = null;
 
 export async function verifyGoogleToken(idToken: string): Promise<OAuthProfile> {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
   if (!clientId) {
     throw new Error('GOOGLE_CLIENT_ID environment variable is not configured');
   }
@@ -43,7 +43,7 @@ export async function verifyGoogleToken(idToken: string): Promise<OAuthProfile> 
 }
 
 export async function verifyAppleToken(idToken: string): Promise<OAuthProfile> {
-  const clientId = process.env.APPLE_CLIENT_ID;
+  const clientId = process.env.APPLE_CLIENT_ID || process.env.VITE_APPLE_CLIENT_ID;
   if (!clientId) {
     throw new Error('APPLE_CLIENT_ID environment variable is not configured');
   }
@@ -63,7 +63,7 @@ export async function verifyAppleToken(idToken: string): Promise<OAuthProfile> {
 }
 
 export async function verifyFacebookToken(accessToken: string): Promise<OAuthProfile> {
-  const appId = process.env.FACEBOOK_APP_ID;
+  const appId = process.env.FACEBOOK_APP_ID || process.env.VITE_FACEBOOK_APP_ID;
   const appSecret = process.env.FACEBOOK_APP_SECRET;
   if (!appId || !appSecret) {
     throw new Error('FACEBOOK_APP_ID and FACEBOOK_APP_SECRET must be configured');
