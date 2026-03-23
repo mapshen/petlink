@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PetLink - Profile Toggle Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        emerald: { 50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0', 500: '#10b981', 600: '#059669', 700: '#047857' },
+        stone: { 50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e3', 300: '#d6d3d1', 400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c', 800: '#292524', 900: '#1c1917' },
+      }
+    }
+  }
+}
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  .toggle-owner { background: #059669; color: white; }
+  .toggle-sitter { background: #059669; color: white; }
+  .toggle-inactive { background: #f5f5f4; color: #78716c; }
+  .sidebar-link { transition: all 0.15s; }
+  .sidebar-link:hover { background: #fafaf9; color: #1c1917; }
+  .sidebar-link.active { color: #059669; font-weight: 600; border-left-color: #059669; }
+</style>
+</head>
+<body class="bg-stone-50 min-h-screen font-sans text-stone-900">
+
+<!-- Nav -->
+<div class="sticky top-0 z-50 bg-white border-b border-stone-200 shadow-sm">
+  <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-6">
+      <div class="flex items-center gap-2">
+        <div class="bg-emerald-600 p-1.5 rounded-lg">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+        </div>
+        <span class="font-bold text-stone-900">PetLink</span>
+      </div>
+      <nav class="flex items-center gap-5 text-sm font-medium text-stone-500">
+        <span class="hover:text-emerald-600 cursor-pointer">Search</span>
+        <span class="hover:text-emerald-600 cursor-pointer">Dashboard</span>
+        <span class="hover:text-emerald-600 cursor-pointer">Messages</span>
+      </nav>
+    </div>
+    <div class="flex items-center gap-2 cursor-pointer hover:opacity-80">
+      <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">J</div>
+      <span class="text-sm font-medium text-stone-700">Jane Doe</span>
+    </div>
+  </div>
+</div>
+
+<!-- Page -->
+<div class="max-w-5xl mx-auto px-4 py-10">
+  <div class="flex flex-col md:flex-row gap-8">
+
+    <!-- Sidebar -->
+    <div class="w-full md:w-56 flex-shrink-0">
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-4 md:sticky md:top-20">
+        <!-- User card -->
+        <div class="flex items-center gap-3 pb-4 mb-3 border-b border-stone-100">
+          <div class="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm border border-emerald-200">J</div>
+          <div class="min-w-0">
+            <p class="text-sm font-bold text-stone-900 truncate">Jane Doe</p>
+            <p class="text-[10px] text-stone-400">jane@example.com</p>
+          </div>
+        </div>
+
+        <!-- View toggle (like Stripe test/live) -->
+        <div class="mb-4">
+          <div class="bg-stone-100 rounded-lg p-1 flex" id="view-toggle">
+            <button onclick="switchView('owner')" id="toggle-owner" class="toggle-owner flex-1 py-1.5 rounded-md text-xs font-semibold text-center transition-all">
+              Owner
+            </button>
+            <button onclick="switchView('sitter')" id="toggle-sitter" class="toggle-inactive flex-1 py-1.5 rounded-md text-xs font-semibold text-center transition-all">
+              Sitter
+            </button>
+          </div>
+        </div>
+
+        <!-- Section anchors -->
+        <nav id="sidebar-nav" class="space-y-0.5">
+          <a href="#section-profile" class="sidebar-link active flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm border-l-3 border-emerald-600 text-emerald-700 font-semibold">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            Profile
+          </a>
+          <!-- Owner sections -->
+          <a href="#section-pets" id="nav-pets" class="sidebar-link flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-stone-500 border-l-3 border-transparent">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+            My Pets
+          </a>
+          <!-- Sitter sections -->
+          <a href="#section-services" id="nav-services" class="sidebar-link flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-stone-500 border-l-3 border-transparent" style="display:none">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/></svg>
+            Services
+          </a>
+          <a href="#section-photos" id="nav-photos" class="sidebar-link flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-stone-500 border-l-3 border-transparent" style="display:none">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Photos
+          </a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Content: stacked sections -->
+    <div class="flex-grow min-w-0 space-y-6">
+
+      <!-- Profile Section (always visible) -->
+      <div id="section-profile" class="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-20">
+        <h2 class="text-lg font-bold text-stone-900 mb-6 flex items-center gap-2">
+          <svg class="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          Profile
+        </h2>
+        <div class="max-w-lg space-y-5">
+          <div class="flex items-center gap-4">
+            <div class="relative group">
+              <div class="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-2xl border-4 border-emerald-50">J</div>
+              <div class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>
+              </div>
+            </div>
+            <div><p class="text-sm font-medium text-stone-700">Profile Photo</p><p class="text-xs text-stone-400">JPEG, PNG, WebP or GIF. Max 5MB.</p></div>
+          </div>
+          <div><label class="block text-sm font-medium text-stone-700 mb-1">Name</label><input type="text" value="Jane Doe" class="w-full p-2.5 border border-stone-200 rounded-lg text-sm"></div>
+          <div><label class="block text-sm font-medium text-stone-700 mb-1">Bio</label><textarea rows="3" class="w-full p-2.5 border border-stone-200 rounded-lg text-sm">Animal lover with 5 years of pet sitting experience. I treat every pet like my own!</textarea></div>
+          <button class="bg-emerald-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-700">Save Changes</button>
+        </div>
+      </div>
+
+      <!-- My Pets Section (owner view) -->
+      <div id="section-pets" class="owner-section bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-20">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-lg font-bold text-stone-900 flex items-center gap-2">
+            <svg class="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+            My Pets
+          </h2>
+          <button class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-700 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Add Pet
+          </button>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="border border-stone-100 rounded-xl overflow-hidden">
+            <div class="h-36 bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center"><span class="text-5xl">🐕</span></div>
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-1">
+                <h3 class="font-bold text-stone-900">Buddy</h3>
+                <div class="flex gap-1">
+                  <button class="p-1 text-stone-400 hover:text-emerald-600"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                  <button class="p-1 text-stone-400 hover:text-red-500"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                </div>
+              </div>
+              <p class="text-xs text-stone-500">Golden Retriever &middot; 3 years &middot; 65 lbs</p>
+            </div>
+          </div>
+          <div class="border border-stone-100 rounded-xl overflow-hidden">
+            <div class="h-36 bg-gradient-to-br from-gray-100 to-slate-100 flex items-center justify-center"><span class="text-5xl">🐈</span></div>
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-1">
+                <h3 class="font-bold text-stone-900">Whiskers</h3>
+                <div class="flex gap-1">
+                  <button class="p-1 text-stone-400 hover:text-emerald-600"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                  <button class="p-1 text-stone-400 hover:text-red-500"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                </div>
+              </div>
+              <p class="text-xs text-stone-500">Tabby Cat &middot; 5 years &middot; 10 lbs</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Services Section (sitter view) -->
+      <div id="section-services" class="sitter-section bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-20" style="display:none">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-lg font-bold text-stone-900 flex items-center gap-2">
+            <svg class="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/></svg>
+            Services
+          </h2>
+          <button class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-700 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Add Service
+          </button>
+        </div>
+        <div class="space-y-3 mb-8">
+          <div class="border border-stone-100 rounded-xl p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3"><span class="text-xl">🚶</span><div><h3 class="font-bold text-sm text-stone-900">Dog Walking</h3><p class="text-xs text-stone-500">30-min neighborhood walk</p></div></div>
+            <div class="flex items-center gap-3">
+              <div class="text-right"><span class="font-bold text-emerald-600">$25</span><span class="text-[10px] text-stone-400 block">per session</span></div>
+              <div class="flex gap-0.5">
+                <button class="p-1.5 text-stone-400 hover:text-emerald-600 rounded"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                <button class="p-1.5 text-stone-400 hover:text-red-500 rounded"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="border border-stone-100 rounded-xl p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3"><span class="text-xl">🏠</span><div><h3 class="font-bold text-sm text-stone-900">House Sitting</h3><p class="text-xs text-stone-500">Overnight care at your home</p></div></div>
+            <div class="flex items-center gap-3">
+              <div class="text-right"><span class="font-bold text-emerald-600">$50</span><span class="text-[10px] text-stone-400 block">per night</span></div>
+              <div class="flex gap-0.5">
+                <button class="p-1.5 text-stone-400 hover:text-emerald-600 rounded"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                <button class="p-1.5 text-stone-400 hover:text-red-500 rounded"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="border border-stone-100 rounded-xl p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3"><span class="text-xl">🤝</span><div><h3 class="font-bold text-sm text-stone-900">Meet & Greet</h3><p class="text-xs text-stone-500">Free intro session</p></div></div>
+            <div class="flex items-center gap-3">
+              <div class="text-right"><span class="font-bold text-emerald-600">Free</span></div>
+              <div class="flex gap-0.5">
+                <button class="p-1.5 text-stone-400 hover:text-emerald-600 rounded"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                <button class="p-1.5 text-stone-400 hover:text-red-500 rounded"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cancellation Policy (inline) -->
+        <div class="border-t border-stone-100 pt-6">
+          <div class="flex items-center gap-2 mb-4">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <h3 class="text-sm font-bold text-stone-900">Cancellation Policy</h3>
+            <span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">Flexible</span>
+          </div>
+          <div class="flex gap-2">
+            <button class="flex-1 p-3 rounded-xl border-2 border-emerald-500 bg-emerald-50 text-left">
+              <span class="text-sm font-semibold text-stone-900">Flexible</span>
+              <p class="text-[11px] text-stone-500 mt-0.5">Full refund 24h before</p>
+            </button>
+            <button class="flex-1 p-3 rounded-xl border-2 border-stone-200 bg-white text-left hover:border-stone-300">
+              <span class="text-sm font-semibold text-stone-900">Moderate</span>
+              <p class="text-[11px] text-stone-500 mt-0.5">50% refund 48h before</p>
+            </button>
+            <button class="flex-1 p-3 rounded-xl border-2 border-stone-200 bg-white text-left hover:border-stone-300">
+              <span class="text-sm font-semibold text-stone-900">Strict</span>
+              <p class="text-[11px] text-stone-500 mt-0.5">No refund within 7 days</p>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Photos Section (sitter view) -->
+      <div id="section-photos" class="sitter-section bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-20" style="display:none">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-lg font-bold text-stone-900 flex items-center gap-2">
+            <svg class="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Photos
+          </h2>
+          <button class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-700 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Upload
+          </button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div class="aspect-square rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center text-4xl relative group overflow-hidden">
+            <span>🐕</span>
+            <span class="absolute top-2 left-2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">Cover</span>
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <button class="p-2 bg-white/90 rounded-lg text-stone-700 hover:bg-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+            </div>
+          </div>
+          <div class="aspect-square rounded-xl bg-gradient-to-br from-amber-100 to-yellow-100 flex items-center justify-center text-4xl relative group overflow-hidden">
+            <span>🏡</span>
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <button class="p-2 bg-white/90 rounded-lg text-stone-700 hover:bg-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+            </div>
+          </div>
+          <div class="aspect-square rounded-xl bg-gradient-to-br from-blue-100 to-sky-100 flex items-center justify-center text-4xl relative group overflow-hidden">
+            <span>🌳</span>
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <button class="p-2 bg-white/90 rounded-lg text-stone-700 hover:bg-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+            </div>
+          </div>
+          <div class="aspect-square rounded-xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center text-stone-400 hover:border-emerald-400 hover:text-emerald-500 cursor-pointer transition-colors">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span class="text-[10px] font-medium">Add Photo</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let currentView = 'owner';
+
+function switchView(view) {
+  currentView = view;
+
+  // Toggle buttons
+  const ownerBtn = document.getElementById('toggle-owner');
+  const sitterBtn = document.getElementById('toggle-sitter');
+  if (view === 'owner') {
+    ownerBtn.className = 'toggle-owner flex-1 py-1.5 rounded-md text-xs font-semibold text-center transition-all';
+    sitterBtn.className = 'toggle-inactive flex-1 py-1.5 rounded-md text-xs font-semibold text-center transition-all';
+  } else {
+    ownerBtn.className = 'toggle-inactive flex-1 py-1.5 rounded-md text-xs font-semibold text-center transition-all';
+    sitterBtn.className = 'toggle-sitter flex-1 py-1.5 rounded-md text-xs font-semibold text-center transition-all';
+  }
+
+  // Show/hide sections
+  document.querySelectorAll('.owner-section').forEach(el => el.style.display = view === 'owner' ? '' : 'none');
+  document.querySelectorAll('.sitter-section').forEach(el => el.style.display = view === 'sitter' ? '' : 'none');
+
+  // Show/hide sidebar nav links
+  document.getElementById('nav-pets').style.display = view === 'owner' ? '' : 'none';
+  document.getElementById('nav-services').style.display = view === 'sitter' ? '' : 'none';
+  document.getElementById('nav-photos').style.display = view === 'sitter' ? '' : 'none';
+
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+
+</body>
+</html>

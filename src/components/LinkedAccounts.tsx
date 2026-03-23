@@ -137,9 +137,7 @@ export default function LinkedAccounts() {
                   </button>
                 </div>
               ) : (
-                <button className="text-xs text-emerald-600 hover:text-emerald-700 font-medium border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50">
-                  Connect
-                </button>
+                <span className="text-xs text-stone-400">Not linked</span>
               )}
             </div>
           );

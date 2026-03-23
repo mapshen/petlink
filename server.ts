@@ -68,11 +68,11 @@ async function startServer() {
       ? {
           directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'"],
+            scriptSrc: ["'self'", "https://accounts.google.com", "https://appleid.cdn-apple.com", "https://connect.facebook.net"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://i.pravatar.cc", "https://ui-avatars.com"],
-            connectSrc: ["'self'", "wss:", "https://api.stripe.com", "https://nominatim.openstreetmap.org"],
-            frameSrc: ["https://js.stripe.com"],
+            connectSrc: ["'self'", "wss:", "https://api.stripe.com", "https://nominatim.openstreetmap.org", "https://accounts.google.com", "https://appleid.apple.com", "https://graph.facebook.com"],
+            frameSrc: ["https://js.stripe.com", "https://accounts.google.com", "https://appleid.apple.com", "https://www.facebook.com"],
             fontSrc: ["'self'"],
           },
         }
@@ -169,7 +169,7 @@ async function startServer() {
     }
 
     if (!user.password_hash) {
-      res.status(401).json({ error: 'This account uses social login. Please sign in with Google, Apple, or Facebook.' });
+      res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
 
@@ -203,8 +203,8 @@ async function startServer() {
         return { user, isNewUser: false };
       }
 
-      // Check for existing user by email
-      if (profile.email) {
+      // Check for existing user by email (only auto-link if provider verified the email)
+      if (profile.email && profile.emailVerified) {
         const [existingUser] = await tx`
           SELECT id, email, name, role, bio, avatar_url FROM users WHERE email = ${profile.email}
         `;
@@ -218,10 +218,15 @@ async function startServer() {
         }
       }
 
+      // Require email for new account creation
+      if (!profile.email) {
+        throw new Error('Email is required. Please grant email permission and try again.');
+      }
+
       // Create new user
       const [newUser] = await tx`
         INSERT INTO users (email, password_hash, name, role, email_verified)
-        VALUES (${profile.email}, ${null}, ${profile.name || 'User'}, ${'owner'}, ${true})
+        VALUES (${profile.email}, ${null}, ${profile.name || 'User'}, ${'owner'}, ${profile.emailVerified})
         RETURNING id, email, name, role, bio, avatar_url
       `;
 
@@ -246,6 +251,11 @@ async function startServer() {
 
   v1.delete('/auth/linked-accounts/:provider', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const { provider } = req.params;
+    const validProviders = ['google', 'apple', 'facebook'];
+    if (!validProviders.includes(provider)) {
+      res.status(400).json({ error: 'Invalid provider' });
+      return;
+    }
 
     const [user] = await sql`SELECT password_hash FROM users WHERE id = ${req.userId}`;
     const otherAccounts = await sql`
@@ -271,8 +281,14 @@ async function startServer() {
 
   v1.post('/auth/set-password', authMiddleware, validate(setPasswordSchema), async (req: AuthenticatedRequest, res) => {
     const { password } = req.body;
-    const hashedPassword = hashPassword(password);
 
+    const [user] = await sql`SELECT password_hash FROM users WHERE id = ${req.userId}`;
+    if (user.password_hash) {
+      res.status(400).json({ error: 'Password already set. Use profile settings to change it.' });
+      return;
+    }
+
+    const hashedPassword = hashPassword(password);
     await sql`UPDATE users SET password_hash = ${hashedPassword} WHERE id = ${req.userId}`;
 
     res.json({ message: 'Password set successfully' });

@@ -28,6 +28,7 @@ describe('verifyGoogleToken', () => {
       getPayload: () => ({
         sub: 'google-user-123',
         email: 'user@gmail.com',
+        email_verified: true,
         name: 'Test User',
         picture: 'https://example.com/photo.jpg',
       }),
@@ -39,9 +40,22 @@ describe('verifyGoogleToken', () => {
       provider: 'google',
       providerId: 'google-user-123',
       email: 'user@gmail.com',
+      emailVerified: true,
       name: 'Test User',
       avatarUrl: 'https://example.com/photo.jpg',
     });
+  });
+
+  it('sets emailVerified false when not provided', async () => {
+    googleVerifyIdToken.mockResolvedValueOnce({
+      getPayload: () => ({
+        sub: 'google-user-123',
+        email: 'user@gmail.com',
+      }),
+    });
+
+    const result = await verifyGoogleToken('valid-google-token');
+    expect(result.emailVerified).toBe(false);
   });
 
   it('throws with invalid token', async () => {
@@ -61,6 +75,7 @@ describe('verifyAppleToken', () => {
     appleVerifyIdToken.mockResolvedValueOnce({
       sub: 'apple-user-456',
       email: 'user@icloud.com',
+      email_verified: 'true',
     });
 
     const result = await verifyAppleToken('valid-apple-token');
@@ -69,6 +84,7 @@ describe('verifyAppleToken', () => {
       provider: 'apple',
       providerId: 'apple-user-456',
       email: 'user@icloud.com',
+      emailVerified: true,
       name: null,
       avatarUrl: null,
     });
@@ -84,18 +100,29 @@ describe('verifyAppleToken', () => {
 describe('verifyFacebookToken', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.stubEnv('FACEBOOK_APP_ID', 'test-fb-app-id');
+    vi.stubEnv('FACEBOOK_APP_SECRET', 'test-fb-app-secret');
   });
 
   it('returns correct OAuthProfile with valid token', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: vi.fn().mockResolvedValueOnce({
-        id: 'fb-user-789',
-        name: 'FB User',
-        email: 'user@facebook.com',
-        picture: { data: { url: 'https://facebook.com/photo.jpg' } },
-      }),
-    } as any);
+    vi.spyOn(globalThis, 'fetch')
+      // debug_token call
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValueOnce({
+          data: { is_valid: true, app_id: 'test-fb-app-id' },
+        }),
+      } as any)
+      // profile call
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValueOnce({
+          id: 'fb-user-789',
+          name: 'FB User',
+          email: 'user@facebook.com',
+          picture: { data: { url: 'https://facebook.com/photo.jpg' } },
+        }),
+      } as any);
 
     const result = await verifyFacebookToken('valid-fb-token');
 
@@ -103,15 +130,29 @@ describe('verifyFacebookToken', () => {
       provider: 'facebook',
       providerId: 'fb-user-789',
       email: 'user@facebook.com',
+      emailVerified: false,
       name: 'FB User',
       avatarUrl: 'https://facebook.com/photo.jpg',
     });
   });
 
+  it('throws when token is for wrong app', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValueOnce({
+        data: { is_valid: true, app_id: 'wrong-app-id' },
+      }),
+    } as any);
+
+    await expect(verifyFacebookToken('stolen-token')).rejects.toThrow(
+      'Facebook token is not valid for this application'
+    );
+  });
+
   it('throws when Facebook API returns error', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: false,
-      text: vi.fn().mockResolvedValueOnce('{"error":{"message":"Invalid token"}}'),
+      text: vi.fn().mockResolvedValueOnce('error'),
     } as any);
 
     await expect(verifyFacebookToken('invalid-token')).rejects.toThrow(
@@ -124,6 +165,8 @@ describe('verifyOAuthToken', () => {
   beforeEach(() => {
     vi.stubEnv('GOOGLE_CLIENT_ID', 'test-google-client-id');
     vi.stubEnv('APPLE_CLIENT_ID', 'test-apple-client-id');
+    vi.stubEnv('FACEBOOK_APP_ID', 'test-fb-app-id');
+    vi.stubEnv('FACEBOOK_APP_SECRET', 'test-fb-app-secret');
     googleVerifyIdToken.mockReset();
     appleVerifyIdToken.mockReset();
   });
@@ -153,15 +196,22 @@ describe('verifyOAuthToken', () => {
   });
 
   it('routes to Facebook verifier', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: vi.fn().mockResolvedValueOnce({
-        id: 'fb-999',
-        name: 'FB Test',
-        email: 'test@fb.com',
-        picture: { data: { url: 'https://fb.com/pic.jpg' } },
-      }),
-    } as any);
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValueOnce({
+          data: { is_valid: true, app_id: 'test-fb-app-id' },
+        }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValueOnce({
+          id: 'fb-999',
+          name: 'FB Test',
+          email: 'test@fb.com',
+          picture: { data: { url: 'https://fb.com/pic.jpg' } },
+        }),
+      } as any);
 
     const result = await verifyOAuthToken('facebook', 'token');
     expect(result.provider).toBe('facebook');
