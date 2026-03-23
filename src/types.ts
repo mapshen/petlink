@@ -121,6 +121,14 @@ export interface FavoriteSitter {
   sitter_bio: string | null;
 }
 
+export type OAuthProvider = 'google' | 'apple' | 'facebook';
+
+export interface LinkedAccount {
+  provider: OAuthProvider;
+  email: string | null;
+  created_at: string;
+}
+
 export interface SitterPhoto {
   id: number;
   sitter_id: number;

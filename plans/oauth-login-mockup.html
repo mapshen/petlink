@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PetLink - OAuth Login Mockups</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        emerald: { 50: '#ecfdf5', 100: '#d1fae5', 500: '#10b981', 600: '#059669', 700: '#047857' },
+        stone: { 50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e3', 300: '#d6d3d1', 400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c', 800: '#292524', 900: '#1c1917' },
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { scroll-behavior: smooth; }
+  .option-label { display: inline-block; background: #ecfdf5; color: #047857; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px; margin-bottom: 8px; }
+</style>
+</head>
+<body class="bg-stone-100 min-h-screen font-sans text-stone-900">
+
+<!-- Jump nav -->
+<div class="sticky top-0 z-50 bg-white border-b border-stone-200 shadow-sm">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="bg-emerald-600 p-1.5 rounded-lg">
+        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+      </div>
+      <span class="font-bold">Login Page Mockups</span>
+    </div>
+    <div class="flex gap-3 text-sm">
+      <a href="#option-a" class="text-emerald-600 font-medium hover:underline">A. Social First</a>
+      <a href="#option-b" class="text-emerald-600 font-medium hover:underline">B. Side by Side</a>
+      <a href="#option-c" class="text-emerald-600 font-medium hover:underline">C. Compact</a>
+      <span class="text-stone-300">|</span>
+      <a href="#linked-accounts" class="text-emerald-600 font-medium hover:underline">Linked Accounts</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================= -->
+<!-- OPTION A: Social First (OAuth prominent)      -->
+<!-- ============================================= -->
+<section id="option-a" class="flex items-center justify-center py-16 px-4">
+  <div class="w-full max-w-md">
+    <span class="option-label">OPTION A — Social First</span>
+    <p class="text-xs text-stone-400 mb-6">OAuth buttons prominent at top, email/password below divider.</p>
+
+    <div class="bg-white p-8 rounded-2xl shadow-lg space-y-6">
+      <div class="text-center">
+        <h2 class="text-2xl font-extrabold text-stone-900">Sign in to PetLink</h2>
+        <p class="text-sm text-stone-500 mt-2">Book trusted pet care in your neighborhood</p>
+      </div>
+
+      <!-- OAuth Buttons -->
+      <div class="space-y-3">
+        <!-- Google -->
+        <button class="w-full flex items-center justify-center gap-3 px-4 py-3 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">
+          <svg class="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          <span class="text-sm font-medium text-stone-700">Continue with Google</span>
+        </button>
+
+        <!-- Apple -->
+        <button class="w-full flex items-center justify-center gap-3 px-4 py-3 bg-black text-white rounded-lg hover:bg-stone-800 transition-colors">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          <span class="text-sm font-medium">Continue with Apple</span>
+        </button>
+
+        <!-- Facebook -->
+        <button class="w-full flex items-center justify-center gap-3 px-4 py-3 bg-[#1877F2] text-white rounded-lg hover:bg-[#166FE5] transition-colors">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          <span class="text-sm font-medium">Continue with Facebook</span>
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="relative">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-stone-200"></div></div>
+        <div class="relative flex justify-center"><span class="bg-white px-4 text-xs text-stone-400 font-medium uppercase">or sign in with email</span></div>
+      </div>
+
+      <!-- Email/Password Form -->
+      <div class="space-y-3">
+        <input type="email" placeholder="Email address" value="owner@example.com" class="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:ring-emerald-500 focus:border-emerald-500">
+        <input type="password" placeholder="Password" value="password123" class="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:ring-emerald-500 focus:border-emerald-500">
+        <button class="w-full py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">Sign in</button>
+      </div>
+
+      <p class="text-center text-sm text-stone-500">
+        Don't have an account? <button class="text-emerald-600 font-medium hover:underline">Create account</button>
+      </p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================= -->
+<!-- OPTION B: Side by Side                        -->
+<!-- ============================================= -->
+<section id="option-b" class="flex items-center justify-center py-16 px-4 bg-stone-50">
+  <div class="w-full max-w-2xl">
+    <span class="option-label">OPTION B — Side by Side</span>
+    <p class="text-xs text-stone-400 mb-6">OAuth and email form side by side on desktop, stacked on mobile.</p>
+
+    <div class="bg-white p-8 rounded-2xl shadow-lg">
+      <div class="text-center mb-8">
+        <h2 class="text-2xl font-extrabold text-stone-900">Sign in to PetLink</h2>
+        <p class="text-sm text-stone-500 mt-2">Book trusted pet care in your neighborhood</p>
+      </div>
+
+      <div class="flex flex-col md:flex-row gap-8">
+        <!-- Left: OAuth -->
+        <div class="flex-1 space-y-3">
+          <p class="text-xs font-semibold text-stone-500 uppercase mb-3">Social login</p>
+          <button class="w-full flex items-center gap-3 px-4 py-3 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">
+            <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            <span class="text-sm font-medium text-stone-700">Continue with Google</span>
+          </button>
+          <button class="w-full flex items-center gap-3 px-4 py-3 bg-black text-white rounded-lg hover:bg-stone-800 transition-colors">
+            <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+            <span class="text-sm font-medium">Continue with Apple</span>
+          </button>
+          <button class="w-full flex items-center gap-3 px-4 py-3 bg-[#1877F2] text-white rounded-lg hover:bg-[#166FE5] transition-colors">
+            <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            <span class="text-sm font-medium">Continue with Facebook</span>
+          </button>
+        </div>
+
+        <!-- Divider -->
+        <div class="hidden md:flex flex-col items-center">
+          <div class="flex-1 w-px bg-stone-200"></div>
+          <span class="py-2 text-xs text-stone-400 font-medium">OR</span>
+          <div class="flex-1 w-px bg-stone-200"></div>
+        </div>
+        <div class="md:hidden relative">
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-stone-200"></div></div>
+          <div class="relative flex justify-center"><span class="bg-white px-4 text-xs text-stone-400 font-medium">OR</span></div>
+        </div>
+
+        <!-- Right: Email form -->
+        <div class="flex-1 space-y-3">
+          <p class="text-xs font-semibold text-stone-500 uppercase mb-3">Email</p>
+          <input type="email" placeholder="Email address" class="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-sm">
+          <input type="password" placeholder="Password" class="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-sm">
+          <button class="w-full py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">Sign in</button>
+          <p class="text-center text-xs text-stone-500">
+            Don't have an account? <button class="text-emerald-600 font-medium">Create account</button>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================= -->
+<!-- OPTION C: Compact (minimal, single column)    -->
+<!-- ============================================= -->
+<section id="option-c" class="flex items-center justify-center py-16 px-4">
+  <div class="w-full max-w-sm">
+    <span class="option-label">OPTION C — Compact</span>
+    <p class="text-xs text-stone-400 mb-6">Tight single column. OAuth icons + text. Minimal footprint.</p>
+
+    <div class="bg-white p-6 rounded-2xl shadow-lg space-y-5">
+      <div class="text-center">
+        <div class="bg-emerald-600 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+        </div>
+        <h2 class="text-xl font-bold text-stone-900">Welcome to PetLink</h2>
+      </div>
+
+      <!-- Compact OAuth buttons -->
+      <div class="space-y-2">
+        <button class="w-full flex items-center gap-3 px-4 py-2.5 border border-stone-200 rounded-lg hover:bg-stone-50 text-sm font-medium text-stone-700">
+          <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Google
+        </button>
+        <button class="w-full flex items-center gap-3 px-4 py-2.5 bg-black text-white rounded-lg hover:bg-stone-800 text-sm font-medium">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          Apple
+        </button>
+        <button class="w-full flex items-center gap-3 px-4 py-2.5 bg-[#1877F2] text-white rounded-lg hover:bg-[#166FE5] text-sm font-medium">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          Facebook
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="relative">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-stone-200"></div></div>
+        <div class="relative flex justify-center"><span class="bg-white px-3 text-[10px] text-stone-400 font-medium uppercase">or</span></div>
+      </div>
+
+      <!-- Email form -->
+      <div class="space-y-2">
+        <input type="email" placeholder="Email address" class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+        <input type="password" placeholder="Password" class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+        <button class="w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">Sign in</button>
+      </div>
+
+      <p class="text-center text-xs text-stone-500">
+        Don't have an account? <button class="text-emerald-600 font-medium">Create account</button>
+      </p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================= -->
+<!-- LINKED ACCOUNTS (Profile section mockup)      -->
+<!-- ============================================= -->
+<section id="linked-accounts" class="max-w-2xl mx-auto px-4 py-16">
+  <span class="option-label">PROFILE — Linked Accounts Section</span>
+  <p class="text-xs text-stone-400 mb-6">This section appears in the Profile page, inside the Profile settings card.</p>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-8">
+    <h2 class="text-lg font-bold text-stone-900 mb-6">Linked Accounts</h2>
+
+    <div class="space-y-4">
+      <!-- Google — connected -->
+      <div class="flex items-center justify-between p-4 border border-stone-100 rounded-xl">
+        <div class="flex items-center gap-3">
+          <svg class="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          <div>
+            <p class="text-sm font-medium text-stone-900">Google</p>
+            <p class="text-xs text-stone-400">jane@gmail.com</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">Connected</span>
+          <button class="text-xs text-stone-400 hover:text-red-500 font-medium">Unlink</button>
+        </div>
+      </div>
+
+      <!-- Apple — not connected -->
+      <div class="flex items-center justify-between p-4 border border-stone-100 rounded-xl">
+        <div class="flex items-center gap-3">
+          <svg class="w-5 h-5 text-stone-900" fill="currentColor" viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          <div>
+            <p class="text-sm font-medium text-stone-900">Apple</p>
+            <p class="text-xs text-stone-400">Not connected</p>
+          </div>
+        </div>
+        <button class="text-xs text-emerald-600 hover:text-emerald-700 font-medium border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50">Connect</button>
+      </div>
+
+      <!-- Facebook — not connected -->
+      <div class="flex items-center justify-between p-4 border border-stone-100 rounded-xl">
+        <div class="flex items-center gap-3">
+          <svg class="w-5 h-5 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          <div>
+            <p class="text-sm font-medium text-stone-900">Facebook</p>
+            <p class="text-xs text-stone-400">Not connected</p>
+          </div>
+        </div>
+        <button class="text-xs text-emerald-600 hover:text-emerald-700 font-medium border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50">Connect</button>
+      </div>
+    </div>
+
+    <!-- Password section for OAuth-only users -->
+    <div class="mt-8 pt-6 border-t border-stone-100">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-stone-900">Password</h3>
+          <p class="text-xs text-stone-400 mt-0.5">Add a password to also sign in with email</p>
+        </div>
+        <button class="text-xs text-emerald-600 hover:text-emerald-700 font-medium border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-50">Set Password</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

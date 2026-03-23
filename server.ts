@@ -15,7 +15,8 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema } from './src/validation.ts';
+import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail } from './src/email.ts';
@@ -67,11 +68,11 @@ async function startServer() {
       ? {
           directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'"],
+            scriptSrc: ["'self'", "https://accounts.google.com", "https://appleid.cdn-apple.com", "https://connect.facebook.net"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://i.pravatar.cc", "https://ui-avatars.com"],
-            connectSrc: ["'self'", "wss:", "https://api.stripe.com", "https://nominatim.openstreetmap.org"],
-            frameSrc: ["https://js.stripe.com"],
+            connectSrc: ["'self'", "wss:", "https://api.stripe.com", "https://nominatim.openstreetmap.org", "https://accounts.google.com", "https://appleid.apple.com", "https://graph.facebook.com"],
+            frameSrc: ["https://js.stripe.com", "https://accounts.google.com", "https://appleid.apple.com", "https://www.facebook.com"],
             fontSrc: ["'self'"],
           },
         }
@@ -167,6 +168,11 @@ async function startServer() {
       return;
     }
 
+    if (!user.password_hash) {
+      res.status(401).json({ error: 'Invalid email or password' });
+      return;
+    }
+
     if (!verifyPassword(password, user.password_hash)) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -175,6 +181,117 @@ async function startServer() {
     const token = signToken({ userId: user.id });
     const { password_hash: _, ...safeUser } = user;
     res.json({ user: safeUser, token });
+  });
+
+  v1.post('/auth/oauth', validate(oauthSchema), async (req, res) => {
+    const { provider, token } = req.body;
+
+    const profile = await verifyOAuthToken(provider, token);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await sql.begin(async (tx: any) => {
+      // Check for existing OAuth link
+      const [existingOAuth] = await tx`
+        SELECT user_id FROM oauth_accounts
+        WHERE provider = ${profile.provider} AND provider_id = ${profile.providerId}
+      `;
+
+      if (existingOAuth) {
+        const [user] = await tx`
+          SELECT id, email, name, role, bio, avatar_url FROM users WHERE id = ${existingOAuth.user_id}
+        `;
+        return { user, isNewUser: false };
+      }
+
+      // Check for existing user by email (only auto-link if provider verified the email)
+      if (profile.email && profile.emailVerified) {
+        const [existingUser] = await tx`
+          SELECT id, email, name, role, bio, avatar_url FROM users WHERE email = ${profile.email}
+        `;
+
+        if (existingUser) {
+          await tx`
+            INSERT INTO oauth_accounts (user_id, provider, provider_id, email, name, avatar_url)
+            VALUES (${existingUser.id}, ${profile.provider}, ${profile.providerId}, ${profile.email}, ${profile.name}, ${profile.avatarUrl})
+          `;
+          return { user: existingUser, isNewUser: false };
+        }
+      }
+
+      // Require email for new account creation
+      if (!profile.email) {
+        throw new Error('Email is required. Please grant email permission and try again.');
+      }
+
+      // Create new user
+      const [newUser] = await tx`
+        INSERT INTO users (email, password_hash, name, role, email_verified)
+        VALUES (${profile.email}, ${null}, ${profile.name || 'User'}, ${'owner'}, ${profile.emailVerified})
+        RETURNING id, email, name, role, bio, avatar_url
+      `;
+
+      await tx`
+        INSERT INTO oauth_accounts (user_id, provider, provider_id, email, name, avatar_url)
+        VALUES (${newUser.id}, ${profile.provider}, ${profile.providerId}, ${profile.email}, ${profile.name}, ${profile.avatarUrl})
+      `;
+
+      return { user: newUser, isNewUser: true };
+    });
+
+    const jwtToken = signToken({ userId: result.user.id });
+    res.json({ user: result.user, token: jwtToken, isNewUser: result.isNewUser });
+  });
+
+  v1.get('/auth/linked-accounts', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const accounts = await sql`
+      SELECT provider, email, created_at FROM oauth_accounts WHERE user_id = ${req.userId}
+    `;
+    res.json({ accounts });
+  });
+
+  v1.delete('/auth/linked-accounts/:provider', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const { provider } = req.params;
+    const validProviders = ['google', 'apple', 'facebook'];
+    if (!validProviders.includes(provider)) {
+      res.status(400).json({ error: 'Invalid provider' });
+      return;
+    }
+
+    const [user] = await sql`SELECT password_hash FROM users WHERE id = ${req.userId}`;
+    const otherAccounts = await sql`
+      SELECT id FROM oauth_accounts WHERE user_id = ${req.userId} AND provider != ${provider}
+    `;
+
+    if (!user.password_hash && otherAccounts.length === 0) {
+      res.status(400).json({ error: 'Cannot unlink the last authentication method. Set a password first.' });
+      return;
+    }
+
+    const result = await sql`
+      DELETE FROM oauth_accounts WHERE user_id = ${req.userId} AND provider = ${provider}
+    `;
+
+    if (result.count === 0) {
+      res.status(404).json({ error: 'Linked account not found' });
+      return;
+    }
+
+    res.json({ message: 'Account unlinked' });
+  });
+
+  v1.post('/auth/set-password', authMiddleware, validate(setPasswordSchema), async (req: AuthenticatedRequest, res) => {
+    const { password } = req.body;
+
+    const [user] = await sql`SELECT password_hash FROM users WHERE id = ${req.userId}`;
+    if (user.password_hash) {
+      res.status(400).json({ error: 'Password already set. Use profile settings to change it.' });
+      return;
+    }
+
+    const hashedPassword = hashPassword(password);
+    await sql`UPDATE users SET password_hash = ${hashedPassword} WHERE id = ${req.userId}`;
+
+    res.json({ message: 'Password set successfully' });
   });
 
   v1.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {

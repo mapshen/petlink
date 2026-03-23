@@ -18,6 +18,8 @@ A page-by-page guide to the PetLink web application.
 
 ### `/login` — Login / Signup
 
+- **OAuth buttons** at the top: Continue with Google, Apple, Facebook (branded buttons). Each button only renders when its env var is configured (`GOOGLE_CLIENT_ID`, `APPLE_CLIENT_ID`, `FACEBOOK_APP_ID`). First-time OAuth users redirect to `/onboarding`.
+- "or sign in with email" divider between OAuth and email form.
 - Toggle between Sign In and Create Account.
 - Fields: email, password (+ name for signup).
 - Dev mode shows demo credentials (`owner@example.com` / `password123`).
@@ -78,7 +80,7 @@ Single scrollable page with sidebar navigation and stacked sections. Content cha
 
 **Owner mode** — Profile section + My Pets section:
 
-- **Profile**: Avatar upload, name, bio, role toggle (Pet Parent / Sitter / Both)
+- **Profile**: Avatar upload, name, bio, role toggle (Pet Parent / Sitter / Both), linked accounts (view/unlink Google/Apple/Facebook)
 - **My Pets**: Grid of pet cards with photo, name, breed, age, weight, medical history. Add/Edit/Delete with photo upload (S3).
 
 **Sitter mode** — Profile section + Services section + Photos section:

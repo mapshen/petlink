@@ -24,7 +24,7 @@ npm run clean        # Remove dist/
 Single Express server serves both the API and Vite-powered frontend in dev mode. Socket.io attached to the same HTTP server for real-time messaging and notifications.
 
 - **Database**: PostgreSQL via `postgres` (porsager), schema in `src/db.ts`. PostGIS for geo queries.
-- **Auth**: JWT + bcrypt (`src/auth.ts`). Bearer tokens in `Authorization` header. Async middleware validates token + user existence.
+- **Auth**: JWT + bcrypt (`src/auth.ts`). Bearer tokens in `Authorization` header. Async middleware validates token + user existence. OAuth sign-in via Google, Apple, Facebook (`src/oauth.ts`). OAuth-only users have `password_hash = NULL`.
 - **Payments**: Stripe Connect escrow (`src/payments.ts`). Manual capture for hold/release flow.
 - **Notifications**: In-app + real-time via Socket.io (`src/notifications.ts`). Per-user preferences.
 - **Storage**: S3-compatible signed URL uploads (`src/storage.ts`). Supports AWS S3 and MinIO.
@@ -34,7 +34,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 
 | Domain | Endpoints |
 |--------|-----------|
-| Auth | `POST /auth/signup`, `POST /auth/login`, `GET /auth/me` |
+| Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/oauth`, `GET /auth/me`, `GET /auth/linked-accounts`, `DELETE /auth/linked-accounts/:provider`, `POST /auth/set-password` |
 | Users | `PUT /users/me` |
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id` |
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=`), `GET /sitters/:id` |
@@ -69,7 +69,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 
 ### Database Schema (`src/db.ts`)
 
-PostgreSQL with PostGIS. Tables: `users` (with `location` geography column), `pets`, `services` (with `additional_pet_price`), `bookings`, `booking_pets` (junction table for multi-pet bookings), `messages`, `reviews`, `availability`, `walk_events` (with optional `pet_id`), `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`, `favorites`.
+PostgreSQL with PostGIS. Tables: `users` (with `location` geography column, nullable `password_hash` for OAuth-only users, `email_verified` boolean), `pets`, `services` (with `additional_pet_price`), `bookings`, `booking_pets` (junction table for multi-pet bookings), `messages`, `reviews`, `availability`, `walk_events` (with optional `pet_id`), `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`, `favorites`, `oauth_accounts` (provider links with `provider`, `provider_id`, unique constraints).
 
 PostgreSQL enums: `user_role`, `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`.
 
