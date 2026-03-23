@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
@@ -95,13 +96,16 @@ async function startServer() {
   app.use(express.json());
   app.use(cookieParser());
 
-  // Rate limiting
+  // Rate limiting (skip in development)
+  const isDev = process.env.NODE_ENV !== 'production';
+
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later' },
+    skip: () => isDev,
   });
 
   const authLimiter = rateLimit({
@@ -110,6 +114,7 @@ async function startServer() {
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many auth attempts, please try again later' },
+    skip: () => isDev,
   });
 
   // Health check (before rate limiting, no auth)
