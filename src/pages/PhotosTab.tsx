@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { SitterPhoto } from '../types';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { Trash2, ArrowUp, ArrowDown, Camera, Loader2, AlertCircle } from 'lucide-react';
@@ -17,9 +16,8 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 
-export default function Photos() {
+export default function PhotosTab() {
   const { user, token } = useAuth();
-  const navigate = useNavigate();
   const [photos, setPhotos] = useState<SitterPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,10 +30,9 @@ export default function Photos() {
   const { uploading, progress, error: uploadError, upload, clearError } = useImageUpload(token);
 
   useEffect(() => {
-    if (!user) { navigate('/login'); return; }
-    if (user.role === 'owner') { navigate('/dashboard'); return; }
+    if (!user) return;
     fetchPhotos();
-  }, [user, navigate]);
+  }, [user]);
 
   const fetchPhotos = async () => {
     if (!user) return;
@@ -111,7 +108,6 @@ export default function Photos() {
     const updated = reordered.map((p, i) => ({ ...p, sort_order: i }));
     setPhotos(updated);
 
-    // Persist both sort_order changes
     try {
       const results = await Promise.all([
         fetch(`${API_BASE}/sitter-photos/${updated[idx].id}`, {
@@ -127,7 +123,6 @@ export default function Photos() {
       ]);
       if (results.some((r) => !r.ok)) throw new Error('Server rejected reorder');
     } catch {
-      // Rollback on failure
       setPhotos(photos);
       setError('Failed to reorder photos');
     }
@@ -152,8 +147,8 @@ export default function Photos() {
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="text-3xl font-bold text-stone-900 mb-8">My Photos</h1>
+    <div>
+      <h2 className="text-lg font-bold text-stone-900 mb-6">Photos</h2>
 
       {error && (
         <Alert variant="destructive" className="mb-6">
@@ -166,8 +161,8 @@ export default function Photos() {
 
       {/* Upload Section */}
       {photos.length < 10 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-8">
-          <h2 className="text-lg font-bold text-stone-900 mb-4">Add Photo</h2>
+        <div className="bg-stone-50 rounded-xl border border-stone-200 p-6 mb-6">
+          <h3 className="text-sm font-bold text-stone-900 mb-4">Add Photo</h3>
           <div className="space-y-3">
             <input
               type="text"
@@ -212,7 +207,7 @@ export default function Photos() {
       {/* Photo List */}
       <div className="space-y-4">
         {photos.map((photo, idx) => (
-          <div key={photo.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden flex">
+          <div key={photo.id} className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden flex">
             <img
               src={photo.photo_url}
               alt={photo.caption || `Photo ${idx + 1}`}
@@ -280,7 +275,7 @@ export default function Photos() {
         ))}
 
         {photos.length === 0 && (
-          <div className="text-center py-12 bg-stone-50 rounded-2xl">
+          <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
             <Camera className="w-12 h-12 mx-auto mb-4 text-stone-300" />
             <p className="text-stone-500 mb-2">No photos yet.</p>
             <p className="text-sm text-stone-400">Add photos of your home, yard, and walking areas to attract more bookings.</p>

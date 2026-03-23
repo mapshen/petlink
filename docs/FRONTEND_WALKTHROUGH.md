@@ -4,7 +4,8 @@ A page-by-page guide to the PetLink web application.
 
 ## Global Shell (Layout)
 
-- **Header**: PetLink logo (emerald paw icon), nav links (Search, Dashboard, Messages). Sitters also see Services and Photos. User avatar + logout on the right; "Log In" button when unauthenticated.
+- **Header**: PetLink logo (emerald paw icon), nav links (Search, Dashboard, Messages). For users with role "both", a Stripe-style Owner/Sitter mode toggle appears in the header. User avatar + logout on the right; "Log In" button when unauthenticated.
+- **Mode toggle**: Switches between Owner and Sitter views globally. Affects Dashboard (which bookings and actions are shown), Profile page (which sections are visible), and onboarding checklist visibility. Persisted in localStorage.
 - **Footer**: Privacy, Terms, Sitemap links.
 
 ## Pages
@@ -67,29 +68,24 @@ Split-pane layout:
 - Real-time updates via Socket.io.
 - Mobile-responsive: toggles between list view and thread view with a back button.
 
-### `/profile` — Edit Profile
+### `/profile` — My Account (Sidebar Layout)
 
-- Avatar upload with hover overlay (S3 signed URL upload, progress bar)
-- Name and bio text fields
-- Role toggle: Pet Parent / Sitter / Both
+Single scrollable page with sidebar navigation and stacked sections. Content changes based on the global Owner/Sitter mode. Old routes `/pets`, `/services`, `/photos` redirect here.
 
-### `/pets` — My Pets
+**Sidebar** (vertical on desktop, horizontal on mobile):
+- User mini-card (avatar, name, current mode label)
+- Anchor links to scroll to each section on the page
 
-- Grid of pet cards showing photo, name, breed, age, weight, medical history.
-- Add/Edit form: name, breed, age, weight, medical history, photo upload (S3).
-- Delete with confirmation dialog.
+**Owner mode** — Profile section + My Pets section:
 
-### `/services` — My Services (sitter only)
+- **Profile**: Avatar upload, name, bio, role toggle (Pet Parent / Sitter / Both)
+- **My Pets**: Grid of pet cards with photo, name, breed, age, weight, medical history. Add/Edit/Delete with photo upload (S3).
 
-- List of services with type icon/label, description, base price, extra pet price.
-- Add/Edit/Delete services. Available types: Walking, Sitting, Drop-in, Grooming, Meet & Greet.
-- Meet & Greet is always free (price locked to $0).
-- **Cancellation policy** section at the bottom: Flexible / Moderate / Strict radio selector with auto-save.
+**Sitter mode** — Profile section + Services section + Photos section:
 
-### `/photos` — Sitter Photos (sitter only)
-
-- Photo gallery management for the sitter's profile page.
-- Upload, reorder, and delete photos.
+- **Profile**: Same as owner mode
+- **Services**: Service listing with type, description, pricing, extra pet price. Add/Edit/Delete. Cancellation policy selector (Flexible/Moderate/Strict).
+- **Photos**: Photo gallery management. Upload, reorder, delete photos.
 
 ### `/track/:bookingId` — Track Walk
 

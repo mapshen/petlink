@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { Pet } from '../types';
 import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle, Camera, Loader2 } from 'lucide-react';
 import { API_BASE } from '../config';
@@ -29,9 +28,8 @@ interface PetFormData {
 
 const emptyForm: PetFormData = { name: '', breed: '', age: '', weight: '', medical_history: '', photo_url: '' };
 
-export default function Pets() {
+export default function PetsTab() {
   const { user, token } = useAuth();
-  const navigate = useNavigate();
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -52,7 +50,7 @@ export default function Pets() {
   };
 
   useEffect(() => {
-    if (!user) { navigate('/login'); return; }
+    if (!user) return;
     fetchPets();
   }, [user]);
 
@@ -138,9 +136,9 @@ export default function Pets() {
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-stone-900">My Pets</h1>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-bold text-stone-900">My Pets</h2>
         {!showForm && (
           <button
             onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true); }}
@@ -161,9 +159,9 @@ export default function Pets() {
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-8 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-stone-50 rounded-xl border border-stone-200 p-6 mb-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-stone-900">{editingId ? 'Edit Pet' : 'Add New Pet'}</h2>
+            <h3 className="text-sm font-bold text-stone-900">{editingId ? 'Edit Pet' : 'Add New Pet'}</h3>
             <button type="button" onClick={cancelForm} className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
           </div>
 
@@ -235,14 +233,14 @@ export default function Pets() {
       )}
 
       {pets.length === 0 && !showForm ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-12 text-center">
+        <div className="bg-stone-50 rounded-xl border border-stone-200 p-12 text-center">
           <PawPrint className="w-12 h-12 mx-auto mb-4 text-stone-300" />
           <p className="text-stone-500">No pets yet. Add your first pet!</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {pets.map(pet => (
-            <div key={pet.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+            <div key={pet.id} className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">
               {pet.photo_url && (
                 <img src={pet.photo_url} alt={pet.name} className="w-full h-48 object-cover" />
               )}

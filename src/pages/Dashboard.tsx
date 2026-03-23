@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
+import { useMode } from '../context/ModeContext';
 import { Booking } from '../types';
 import { Calendar, MapPin, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
@@ -35,7 +36,8 @@ export default function Dashboard() {
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
-  const isSitter = user?.role === 'sitter' || user?.role === 'both';
+  const { mode } = useMode();
+  const isSitterMode = mode === 'sitter';
   const onboarding = useOnboardingStatus();
   const { favorites, toggleFavorite } = useFavorites();
 
@@ -113,7 +115,7 @@ export default function Dashboard() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-3xl font-bold text-stone-900 mb-8">Dashboard</h1>
 
-      {isSitter && !onboarding.loading && !onboarding.isComplete && !checklistDismissed && (
+      {isSitterMode && !onboarding.loading && !onboarding.isComplete && !checklistDismissed && (
         <OnboardingChecklist
           status={onboarding}
           onDismiss={() => {
@@ -132,7 +134,7 @@ export default function Dashboard() {
         </Alert>
       )}
 
-      {favorites.length > 0 && (
+      {!isSitterMode && favorites.length > 0 && (
         <div className="mb-6">
           <FavoriteSitters favorites={favorites} onToggle={toggleFavorite} />
         </div>
@@ -143,17 +145,16 @@ export default function Dashboard() {
           <h2 className="font-bold text-stone-700">Your Bookings</h2>
         </div>
 
-        {bookings.length === 0 ? (
+        {bookings.filter((b) => isSitterMode ? user?.id === b.sitter_id : user?.id === b.owner_id).length === 0 ? (
           <div className="p-12 text-center text-stone-500">
             <Calendar className="w-12 h-12 mx-auto mb-4 text-stone-300" />
             <p>No bookings yet.</p>
           </div>
         ) : (
           <div className="divide-y divide-stone-100">
-            {bookings.map((booking) => {
-              const isSitter = user?.id === booking.sitter_id;
-              const otherPersonName = isSitter ? booking.owner_name : booking.sitter_name;
-              const otherPersonAvatar = isSitter ? booking.owner_avatar : booking.sitter_avatar;
+            {bookings.filter((b) => isSitterMode ? user?.id === b.sitter_id : user?.id === b.owner_id).map((booking) => {
+              const otherPersonName = isSitterMode ? booking.owner_name : booking.sitter_name;
+              const otherPersonAvatar = isSitterMode ? booking.owner_avatar : booking.sitter_avatar;
 
               return (
                 <div key={booking.id} className="p-6 hover:bg-stone-50 transition-colors">
@@ -190,7 +191,7 @@ export default function Dashboard() {
                     </Badge>
 
                     <div className="flex items-center gap-2">
-                      {isSitter && booking.status === 'pending' && (
+                      {isSitterMode && booking.status === 'pending' && (
                         <>
                           <Button
                             size="xs"
@@ -212,7 +213,7 @@ export default function Dashboard() {
                         </>
                       )}
 
-                      {!isSitter && (booking.status === 'pending' || booking.status === 'confirmed') && (
+                      {!isSitterMode && (booking.status === 'pending' || booking.status === 'confirmed') && (
                         <Button
                           size="xs"
                           variant="outline"
@@ -234,7 +235,7 @@ export default function Dashboard() {
                         </Button>
                       )}
 
-                      {!isSitter && booking.status === 'completed' && (
+                      {!isSitterMode && booking.status === 'completed' && (
                         <Button size="xs" variant="outline" asChild>
                           <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
                             <RefreshCw className="w-3.5 h-3.5" />

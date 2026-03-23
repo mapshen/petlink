@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { Service } from '../types';
 import { Plus, Pencil, Trash2, DollarSign, Save, X, ShieldCheck, Check } from 'lucide-react';
 import { API_BASE } from '../config';
@@ -37,9 +36,8 @@ interface ServiceForm {
 
 const EMPTY_FORM: ServiceForm = { type: 'walking', price: '', description: '', additional_pet_price: '' };
 
-export default function Services() {
+export default function ServicesTab() {
   const { user, token } = useAuth();
-  const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +52,10 @@ export default function Services() {
   const [policySaved, setPolicySaved] = useState(false);
 
   useEffect(() => {
-    if (!user) { navigate('/login'); return; }
-    if (user.role === 'owner') { navigate('/dashboard'); return; }
+    if (!user) return;
     fetchServices();
     fetchPolicy();
-  }, [user, navigate]);
+  }, [user]);
 
   const fetchServices = async () => {
     try {
@@ -221,9 +218,9 @@ export default function Services() {
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-stone-900">My Services</h1>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-bold text-stone-900">Services</h2>
         {availableTypesForAdd.length > 0 && !showAddForm && !editingId && (
           <button
             onClick={startAdd}
@@ -246,8 +243,8 @@ export default function Services() {
 
       {/* Add Form */}
       {showAddForm && (
-        <div className="bg-white rounded-2xl shadow-sm border border-emerald-200 p-6 mb-6">
-          <h2 className="text-lg font-bold text-stone-900 mb-4">Add New Service</h2>
+        <div className="bg-stone-50 rounded-xl border border-stone-200 p-6 mb-6">
+          <h3 className="text-sm font-bold text-stone-900 mb-4">Add New Service</h3>
           <ServiceFormFields
             form={form}
             setForm={setForm}
@@ -266,10 +263,10 @@ export default function Services() {
           const isEditing = editingId === service.id;
 
           return (
-            <div key={service.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+            <div key={service.id} className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">
               {isEditing ? (
                 <div className="p-6">
-                  <h2 className="text-lg font-bold text-stone-900 mb-4">Edit Service</h2>
+                  <h3 className="text-sm font-bold text-stone-900 mb-4">Edit Service</h3>
                   <ServiceFormFields
                     form={form}
                     setForm={setForm}
@@ -323,7 +320,7 @@ export default function Services() {
         })}
 
         {services.length === 0 && !showAddForm && (
-          <div className="text-center py-12 bg-stone-50 rounded-2xl">
+          <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
             <DollarSign className="w-12 h-12 mx-auto mb-4 text-stone-300" />
             <p className="text-stone-500 mb-4">No services yet. Add your first service to start getting bookings.</p>
             <button
@@ -341,7 +338,7 @@ export default function Services() {
       <div className="mt-10">
         <div className="flex items-center gap-2 mb-4">
           <ShieldCheck className="w-5 h-5 text-emerald-600" />
-          <h2 className="text-xl font-bold text-stone-900">Cancellation Policy</h2>
+          <h2 className="text-lg font-bold text-stone-900">Cancellation Policy</h2>
           {policySaving && <span className="text-xs text-stone-400">Saving...</span>}
           {policySaved && <span className="text-xs text-emerald-600 flex items-center gap-1"><Check className="w-3 h-3" /> Saved</span>}
         </div>

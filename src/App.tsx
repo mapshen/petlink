@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ModeProvider } from './context/ModeContext';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -9,33 +10,32 @@ import SitterProfile from './pages/SitterProfile';
 import Dashboard from './pages/Dashboard';
 import Messages from './pages/Messages';
 import TrackWalk from './pages/TrackWalk';
-import Profile from './pages/Profile';
-import Pets from './pages/Pets';
-import Services from './pages/Services';
+import ProfilePage from './pages/ProfilePage';
 import Onboarding from './pages/Onboarding';
-import Photos from './pages/Photos';
 
 export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/sitter/:id" element={<SitterProfile />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/pets" element={<Pets />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/photos" element={<Photos />} />
-            <Route path="/track/:bookingId" element={<TrackWalk />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
+        <ModeProvider>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/sitter/:id" element={<SitterProfile />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/pets" element={<Navigate to="/profile" replace />} />
+              <Route path="/services" element={<Navigate to="/profile" replace />} />
+              <Route path="/photos" element={<Navigate to="/profile" replace />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/track/:bookingId" element={<TrackWalk />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Layout>
+        </ModeProvider>
       </Router>
     </AuthProvider>
   );
