@@ -60,7 +60,8 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 
 - **Entry**: `src/main.tsx` → `src/App.tsx` (router) → `src/components/Layout.tsx` (shell)
 - **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`petlink_token`, `petlink_user`)
-- **Pages**: Home, Login, Search, SitterProfile, Dashboard, Messages, TrackWalk, Profile, Pets, Services, Onboarding, Photos
+- **Pages**: Home, Login, Search, SitterProfile, Dashboard (mode-aware booking filtering), Messages, TrackWalk, ProfilePage (sidebar + stacked sections: owner mode shows ProfileTab+PetsTab, sitter mode shows ProfileTab+ServicesTab+PhotosTab), Onboarding. Old routes `/pets`, `/services`, `/photos` redirect to `/profile`.
+- **Mode system**: `ModeContext` provides global owner/sitter toggle for "both" role users. Persisted in localStorage (`petlink_mode`). Affects Dashboard filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
 - **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows), `PhotoGallery` (lightbox viewer), `FavoriteButton` (heart toggle), `FavoriteSitters` (dashboard favorites section), `PetSelector` (multi-pet checkbox selection for bookings)
 - **Hooks**: `useFavorites` (favorites state + optimistic toggle), `useOnboardingStatus`, `useImageUpload`
 - **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review, Availability, WalkEvent, SitterPhoto, Favorite, CancellationPolicy
