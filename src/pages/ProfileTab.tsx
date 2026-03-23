@@ -3,6 +3,7 @@ import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Save, Camera, Loader2, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../config';
 import { useImageUpload } from '../hooks/useImageUpload';
+import LinkedAccounts from '../components/LinkedAccounts';
 
 export default function ProfileTab() {
   const { user, token, updateUser } = useAuth();
@@ -194,6 +195,8 @@ export default function ProfileTab() {
         <Save className="w-4 h-4" />
         {saving ? 'Saving...' : 'Save Changes'}
       </button>
+
+      <LinkedAccounts />
     </form>
   );
 }

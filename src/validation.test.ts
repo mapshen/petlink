@@ -11,6 +11,8 @@ import {
   createSitterPhotoSchema,
   updateSitterPhotoSchema,
   cancellationPolicySchema,
+  oauthSchema,
+  setPasswordSchema,
   validate,
 } from './validation.ts';
 
@@ -539,6 +541,54 @@ describe('cancellationPolicySchema', () => {
 
   it('rejects missing policy', () => {
     expect(cancellationPolicySchema.safeParse({}).success).toBe(false);
+  });
+});
+
+// --- OAuth Schema Tests ---
+
+describe('oauthSchema', () => {
+  it('accepts valid provider and token', () => {
+    for (const provider of ['google', 'apple', 'facebook']) {
+      const result = oauthSchema.safeParse({ provider, token: 'some-id-token' });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('rejects invalid provider', () => {
+    const result = oauthSchema.safeParse({ provider: 'twitter', token: 'some-token' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty token', () => {
+    const result = oauthSchema.safeParse({ provider: 'google', token: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing token', () => {
+    const result = oauthSchema.safeParse({ provider: 'google' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing provider', () => {
+    const result = oauthSchema.safeParse({ token: 'some-token' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('setPasswordSchema', () => {
+  it('accepts valid password', () => {
+    const result = setPasswordSchema.safeParse({ password: 'password123' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects short password', () => {
+    const result = setPasswordSchema.safeParse({ password: 'short' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects password over 72 chars', () => {
+    const result = setPasswordSchema.safeParse({ password: 'a'.repeat(73) });
+    expect(result.success).toBe(false);
   });
 });
 

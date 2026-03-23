@@ -17,7 +17,7 @@ export function validate<T extends z.ZodType>(schema: T) {
 
 // --- Shared refinements ---
 const emailSchema = z.string().trim().toLowerCase().email('A valid email address is required');
-const passwordSchema = z.string().min(8, 'Password must be at least 8 characters').max(72, 'Password must not exceed 72 characters');
+export const passwordSchema = z.string().min(8, 'Password must be at least 8 characters').max(72, 'Password must not exceed 72 characters');
 const roleSchema = z.enum(['owner', 'sitter', 'both']).optional().default('owner');
 const nameSchema = (msg: string) => z.string().transform((v) => v.trim()).pipe(z.string().min(1, msg));
 
@@ -106,4 +106,14 @@ export const cancellationPolicySchema = z.object({
   cancellation_policy: z.enum(['flexible', 'moderate', 'strict'], {
     message: 'Policy must be flexible, moderate, or strict',
   }),
+});
+
+// --- OAuth Schemas ---
+export const oauthSchema = z.object({
+  provider: z.enum(['google', 'apple', 'facebook']),
+  token: z.string().min(1, 'Token is required'),
+});
+
+export const setPasswordSchema = z.object({
+  password: passwordSchema,
 });

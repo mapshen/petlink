@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types';
+import { User, OAuthProvider } from '../types';
 import { API_BASE } from '../config';
 
 interface AuthContextType {
@@ -7,6 +7,7 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string, role?: string) => Promise<void>;
+  loginWithOAuth: (provider: OAuthProvider, token: string) => Promise<{ isNewUser: boolean }>;
   logout: () => void;
   updateUser: (user: User) => void;
   loading: boolean;
@@ -108,6 +109,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('petlink_token', data.token);
   };
 
+  const loginWithOAuth = async (provider: OAuthProvider, oauthToken: string): Promise<{ isNewUser: boolean }> => {
+    const res = await fetch(`${API_BASE}/auth/oauth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, token: oauthToken }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'OAuth login failed');
+    }
+
+    const data = await res.json();
+    setUser(data.user);
+    setToken(data.token);
+    localStorage.setItem('petlink_user', JSON.stringify(data.user));
+    localStorage.setItem('petlink_token', data.token);
+    return { isNewUser: data.isNewUser || false };
+  };
+
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
     localStorage.setItem('petlink_user', JSON.stringify(updatedUser));
@@ -122,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, signup, logout, updateUser, loading }}>
+    <AuthContext.Provider value={{ user, token, login, signup, loginWithOAuth, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   );
