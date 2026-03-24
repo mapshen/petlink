@@ -28,7 +28,8 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 - **Payments**: Stripe Connect escrow (`src/payments.ts`). Manual capture for hold/release flow.
 - **Notifications**: In-app + real-time via Socket.io (`src/notifications.ts`). Per-user preferences.
 - **Storage**: S3-compatible signed URL uploads (`src/storage.ts`). Supports AWS S3 and MinIO.
-- **Rate limiting**: 100 req/15min API, 20 req/15min auth endpoints.
+- **Rate limiting**: 100 req/15min API, 20 req/15min auth endpoints, 30 req/15min public endpoints. Rate limiters in `src/rate-limit.ts`.
+- **Bot protection**: `robots.txt` disallows `/api/`, `X-Robots-Tag` header on all API responses, bot UA detection middleware on public endpoints (`src/bot-detection.ts`). Public endpoints (sitter search/profile, reviews, availability, photos, verification) have stricter rate limits and bot blocking.
 
 ### API Routes (all under `/api/v1/`, also mounted at `/api/` for backwards compat)
 

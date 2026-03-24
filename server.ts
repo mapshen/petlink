@@ -8,7 +8,6 @@ import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
-import rateLimit from 'express-rate-limit';
 import { initDb } from './src/db.ts';
 import sql from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
@@ -19,6 +18,8 @@ import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, se
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
+import { botBlockMiddleware } from './src/bot-detection.ts';
+import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/rate-limit.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail } from './src/email.ts';
 import { format as formatDate } from 'date-fns';
 import type { ErrorRequestHandler } from 'express';
@@ -97,26 +98,15 @@ async function startServer() {
   app.use(express.json());
   app.use(cookieParser());
 
+  // robots.txt — block crawlers from API (before any middleware)
+  app.get('/robots.txt', (_req, res) => {
+    res.type('text/plain').send('User-agent: *\nDisallow: /api/\n');
+  });
+
   // Rate limiting (skip in development)
-  const isDev = process.env.NODE_ENV !== 'production';
-
-  const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many requests, please try again later' },
-    skip: () => isDev,
-  });
-
-  const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many auth attempts, please try again later' },
-    skip: () => isDev,
-  });
+  const apiLimiter = createApiLimiter();
+  const authLimiter = createAuthLimiter();
+  const publicLimiter = createPublicLimiter();
 
   // Health check (before rate limiting, no auth)
   app.get('/api/v1/health', async (_req, res) => {
@@ -127,6 +117,10 @@ async function startServer() {
       res.status(503).json({ status: 'error', message: 'Database unreachable' });
     }
   });
+
+  // X-Robots-Tag header for all API responses
+  app.use('/api/v1/', (_req, res, next) => { res.setHeader('X-Robots-Tag', 'noindex, nofollow'); next(); });
+  app.use('/api/', (_req, res, next) => { res.setHeader('X-Robots-Tag', 'noindex, nofollow'); next(); });
 
   app.use('/api/v1/', apiLimiter);
   app.use('/api/v1/auth/', authLimiter);
@@ -365,7 +359,7 @@ async function startServer() {
   });
 
   // --- Sitters ---
-  v1.get('/sitters', async (req, res) => {
+  v1.get('/sitters', botBlockMiddleware, publicLimiter, async (req, res) => {
     const serviceType = req.query.serviceType as string | undefined;
     const lat = req.query.lat as string | undefined;
     const lng = req.query.lng as string | undefined;
@@ -378,7 +372,8 @@ async function startServer() {
     const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography` : sql``;
 
     const sitters = await sql`
-      SELECT u.id, u.email, u.name, u.role, u.bio, u.avatar_url, u.lat, u.lng,
+      SELECT u.id, u.name, u.role, u.bio, u.avatar_url,
+             ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
              u.accepted_pet_sizes,
              s.price, s.type as service_type
              ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}
@@ -396,9 +391,9 @@ async function startServer() {
     res.json({ sitters });
   });
 
-  v1.get('/sitters/:id', async (req, res) => {
+  v1.get('/sitters/:id', botBlockMiddleware, publicLimiter, async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, cancellation_policy FROM users WHERE id = ${req.params.id}
+      SELECT id, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, cancellation_policy FROM users WHERE id = ${req.params.id}
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });
@@ -526,7 +521,7 @@ async function startServer() {
   });
 
   // Get reviews for a user (only published ones)
-  v1.get('/reviews/:userId', async (req, res) => {
+  v1.get('/reviews/:userId', botBlockMiddleware, publicLimiter, async (req, res) => {
     const reviews = await sql`
       SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
       FROM reviews r
@@ -617,7 +612,7 @@ async function startServer() {
   });
 
   // Get verification status for a sitter (public)
-  v1.get('/verification/:sitterId', async (req, res) => {
+  v1.get('/verification/:sitterId', botBlockMiddleware, publicLimiter, async (req, res) => {
     const [verification] = await sql`
       SELECT id_check_status, background_check_status, completed_at FROM verifications WHERE sitter_id = ${req.params.sitterId}
     `;
@@ -625,7 +620,7 @@ async function startServer() {
   });
 
   // --- Availability ---
-  v1.get('/availability/:sitterId', async (req, res) => {
+  v1.get('/availability/:sitterId', botBlockMiddleware, publicLimiter, async (req, res) => {
     const slots = await sql`
       SELECT * FROM availability WHERE sitter_id = ${req.params.sitterId} ORDER BY day_of_week, start_time
     `;
@@ -657,7 +652,7 @@ async function startServer() {
   });
 
   // --- Sitter Photos ---
-  v1.get('/sitter-photos/:sitterId', async (req, res) => {
+  v1.get('/sitter-photos/:sitterId', botBlockMiddleware, publicLimiter, async (req, res) => {
     const photos = await sql`
       SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.sitterId} ORDER BY sort_order, created_at
     `;
