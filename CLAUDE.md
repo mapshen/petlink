@@ -97,6 +97,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 - **Date/time handling**: `docs/DATETIME_GUIDE.md`
 - **Validation strategy**: `docs/VALIDATION_GUIDE.md`
 - **Development practices**: `DEVELOPMENT.md`
+- **Business docs** (confidential, separate repo): `/Users/mshen/repos/mapshen/petlink-business/docs/` — contains BUSINESS_PLAN.md, BUSINESS_CANVAS.md, COMPETITOR_ANALYSIS.md
 
 ## Design System
 
