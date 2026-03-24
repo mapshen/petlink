@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema } from './src/validation.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -290,7 +290,7 @@ async function startServer() {
 
   v1.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.userId}
     `;
     if (user) {
       res.json({ user });
@@ -301,16 +301,24 @@ async function startServer() {
 
   // --- Users ---
   v1.put('/users/me', authMiddleware, validate(updateProfileSchema), async (req: AuthenticatedRequest, res) => {
-    const { name, bio, avatar_url, role } = req.body;
+    const { name, bio, avatar_url, role, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills } = req.body;
 
     await sql`
       UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null},
-      role = COALESCE(${role || null}::user_role, role)
+      role = COALESCE(${role || null}::user_role, role),
+      accepted_species = COALESCE(${accepted_species || null}, accepted_species),
+      years_experience = COALESCE(${years_experience ?? null}, years_experience),
+      home_type = COALESCE(${home_type || null}, home_type),
+      has_yard = COALESCE(${has_yard ?? null}, has_yard),
+      has_fenced_yard = COALESCE(${has_fenced_yard ?? null}, has_fenced_yard),
+      has_own_pets = COALESCE(${has_own_pets ?? null}, has_own_pets),
+      own_pets_description = COALESCE(${own_pets_description || null}, own_pets_description),
+      skills = COALESCE(${skills || null}, skills)
       WHERE id = ${req.userId}
     `;
 
     const [user] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.userId}
     `;
 
     res.json({ user });
@@ -323,10 +331,10 @@ async function startServer() {
   });
 
   v1.post('/pets', authMiddleware, validate(petSchema), async (req: AuthenticatedRequest, res) => {
-    const { name, breed, age, weight, medical_history, photo_url } = req.body;
+    const { name, species, breed, age, weight, gender, spayed_neutered, energy_level, house_trained, temperament, special_needs, microchip_number, vet_name, vet_phone, emergency_contact_name, emergency_contact_phone, medical_history, photo_url } = req.body;
     const [pet] = await sql`
-      INSERT INTO pets (owner_id, name, breed, age, weight, medical_history, photo_url)
-      VALUES (${req.userId}, ${name}, ${breed || null}, ${age || null}, ${weight || null}, ${medical_history || null}, ${photo_url || null})
+      INSERT INTO pets (owner_id, name, species, breed, age, weight, gender, spayed_neutered, energy_level, house_trained, temperament, special_needs, microchip_number, vet_name, vet_phone, emergency_contact_name, emergency_contact_phone, medical_history, photo_url)
+      VALUES (${req.userId}, ${name}, ${species || 'dog'}, ${breed || null}, ${age ?? null}, ${weight ?? null}, ${gender || null}, ${spayed_neutered ?? null}, ${energy_level || null}, ${house_trained ?? null}, ${temperament || []}, ${special_needs || null}, ${microchip_number || null}, ${vet_name || null}, ${vet_phone || null}, ${emergency_contact_name || null}, ${emergency_contact_phone || null}, ${medical_history || null}, ${photo_url || null})
       RETURNING *
     `;
     res.status(201).json({ pet });
@@ -338,10 +346,15 @@ async function startServer() {
       res.status(404).json({ error: 'Pet not found' });
       return;
     }
-    const { name, breed, age, weight, medical_history, photo_url } = req.body;
+    const { name, species, breed, age, weight, gender, spayed_neutered, energy_level, house_trained, temperament, special_needs, microchip_number, vet_name, vet_phone, emergency_contact_name, emergency_contact_phone, medical_history, photo_url } = req.body;
     const [updated] = await sql`
-      UPDATE pets SET name = ${name}, breed = ${breed || null}, age = ${age || null},
-      weight = ${weight || null}, medical_history = ${medical_history || null}, photo_url = ${photo_url || null}
+      UPDATE pets SET name = ${name}, species = ${species || 'dog'}, breed = ${breed || null}, age = ${age ?? null},
+      weight = ${weight ?? null}, gender = ${gender || null}, spayed_neutered = ${spayed_neutered ?? null},
+      energy_level = ${energy_level || null}, house_trained = ${house_trained ?? null}, temperament = ${temperament || []},
+      special_needs = ${special_needs || null}, microchip_number = ${microchip_number || null},
+      vet_name = ${vet_name || null}, vet_phone = ${vet_phone || null},
+      emergency_contact_name = ${emergency_contact_name || null}, emergency_contact_phone = ${emergency_contact_phone || null},
+      medical_history = ${medical_history || null}, photo_url = ${photo_url || null}
       WHERE id = ${req.params.id} AND owner_id = ${req.userId}
       RETURNING *
     `;
@@ -358,6 +371,47 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // --- Pet Vaccinations ---
+  v1.get('/pets/:petId/vaccinations', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [pet] = await sql`SELECT id FROM pets WHERE id = ${req.params.petId} AND owner_id = ${req.userId}`;
+    if (!pet) {
+      res.status(404).json({ error: 'Pet not found' });
+      return;
+    }
+    const vaccinations = await sql`SELECT * FROM pet_vaccinations WHERE pet_id = ${req.params.petId} ORDER BY expires_at DESC NULLS LAST, created_at DESC`;
+    res.json({ vaccinations });
+  });
+
+  v1.post('/pets/:petId/vaccinations', authMiddleware, validate(petVaccinationSchema), async (req: AuthenticatedRequest, res) => {
+    const [pet] = await sql`SELECT id FROM pets WHERE id = ${req.params.petId} AND owner_id = ${req.userId}`;
+    if (!pet) {
+      res.status(404).json({ error: 'Pet not found' });
+      return;
+    }
+    const { vaccine_name, administered_date, expires_at, document_url } = req.body;
+    const [vaccination] = await sql`
+      INSERT INTO pet_vaccinations (pet_id, vaccine_name, administered_date, expires_at, document_url)
+      VALUES (${req.params.petId}, ${vaccine_name}, ${administered_date || null}, ${expires_at || null}, ${document_url || null})
+      RETURNING *
+    `;
+    res.status(201).json({ vaccination });
+  });
+
+  v1.delete('/pets/:petId/vaccinations/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [pet] = await sql`SELECT id FROM pets WHERE id = ${req.params.petId} AND owner_id = ${req.userId}`;
+    if (!pet) {
+      res.status(404).json({ error: 'Pet not found' });
+      return;
+    }
+    const [vacc] = await sql`SELECT id FROM pet_vaccinations WHERE id = ${req.params.id} AND pet_id = ${req.params.petId}`;
+    if (!vacc) {
+      res.status(404).json({ error: 'Vaccination record not found' });
+      return;
+    }
+    await sql`DELETE FROM pet_vaccinations WHERE id = ${req.params.id} AND pet_id = ${req.params.petId}`;
+    res.json({ success: true });
+  });
+
   // --- Sitters ---
   v1.get('/sitters', botBlockMiddleware, publicLimiter, async (req, res) => {
     const serviceType = req.query.serviceType as string | undefined;
@@ -367,6 +421,7 @@ async function startServer() {
     const minPrice = req.query.minPrice as string | undefined;
     const maxPrice = req.query.maxPrice as string | undefined;
     const petSize = req.query.petSize as string | undefined;
+    const species = req.query.species as string | undefined;
 
     const hasGeo = lat && lng && radius;
     const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography` : sql``;
@@ -374,8 +429,8 @@ async function startServer() {
     const sitters = await sql`
       SELECT u.id, u.name, u.role, u.bio, u.avatar_url,
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
-             u.accepted_pet_sizes,
-             s.price, s.type as service_type
+             u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills,
+             s.price, s.type as service_type, s.max_pets
              ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}
       FROM users u
       JOIN services s ON u.id = s.sitter_id
@@ -384,6 +439,7 @@ async function startServer() {
         ${minPrice ? sql`AND s.price >= ${Number(minPrice)}` : sql``}
         ${maxPrice ? sql`AND s.price <= ${Number(maxPrice)}` : sql``}
         ${petSize ? sql`AND ${petSize} = ANY(u.accepted_pet_sizes)` : sql``}
+        ${species ? sql`AND ${species} = ANY(u.accepted_species)` : sql``}
         ${hasGeo ? sql`AND ST_DWithin(u.location, ${geoPoint}, ${Number(radius)})` : sql``}
       ${hasGeo ? sql`ORDER BY distance_meters` : sql``}
     `;
@@ -393,7 +449,7 @@ async function startServer() {
 
   v1.get('/sitters/:id', botBlockMiddleware, publicLimiter, async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, cancellation_policy FROM users WHERE id = ${req.params.id}
+      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.params.id}
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });
@@ -425,15 +481,15 @@ async function startServer() {
       res.status(403).json({ error: 'Only sitters can manage services' });
       return;
     }
-    const { type, price, description, additional_pet_price } = req.body;
+    const { type, price, description, additional_pet_price, max_pets, service_details } = req.body;
     const [existing] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type}`;
     if (existing) {
       res.status(409).json({ error: `You already have a ${type} service. Edit it instead.` });
       return;
     }
     const [service] = await sql`
-      INSERT INTO services (sitter_id, type, price, description, additional_pet_price)
-      VALUES (${req.userId}, ${type}, ${price}, ${description || null}, ${additional_pet_price || 0})
+      INSERT INTO services (sitter_id, type, price, description, additional_pet_price, max_pets, service_details)
+      VALUES (${req.userId}, ${type}, ${price}, ${description || null}, ${additional_pet_price || 0}, ${max_pets || 1}, ${service_details ? sql.json(service_details) : null})
       RETURNING *
     `;
     res.status(201).json({ service });
@@ -450,9 +506,10 @@ async function startServer() {
       res.status(404).json({ error: 'Service not found' });
       return;
     }
-    const { type, price, description, additional_pet_price } = req.body;
+    const { type, price, description, additional_pet_price, max_pets, service_details } = req.body;
     const [updated] = await sql`
-      UPDATE services SET type = ${type}, price = ${price}, description = ${description || null}, additional_pet_price = ${additional_pet_price || 0}
+      UPDATE services SET type = ${type}, price = ${price}, description = ${description || null}, additional_pet_price = ${additional_pet_price || 0},
+      max_pets = ${max_pets || 1}, service_details = ${service_details ? sql.json(service_details) : null}
       WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
       RETURNING *
     `;

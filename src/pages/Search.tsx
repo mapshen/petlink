@@ -12,6 +12,9 @@ interface SitterWithService extends User {
   service_type: string;
   distance_meters?: number;
   accepted_pet_sizes?: string[];
+  accepted_species?: string[];
+  years_experience?: number;
+  max_pets?: number;
 }
 
 interface Coords {
@@ -39,6 +42,14 @@ const PET_SIZES = [
   { label: 'Medium', value: 'medium', description: '26-50 lbs' },
   { label: 'Large', value: 'large', description: '51-100 lbs' },
   { label: 'Giant', value: 'giant', description: '100+ lbs' },
+];
+
+const PET_SPECIES = [
+  { label: 'Dog', value: 'dog' },
+  { label: 'Cat', value: 'cat' },
+  { label: 'Bird', value: 'bird' },
+  { label: 'Reptile', value: 'reptile' },
+  { label: 'Small Animal', value: 'small_animal' },
 ];
 
 async function geocodeAddress(address: string): Promise<Coords | null> {
@@ -77,8 +88,9 @@ export default function Search() {
   const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
   const [petSize, setPetSize] = useState(searchParams.get('petSize') || '');
+  const [species, setSpecies] = useState(searchParams.get('species') || '');
 
-  const hasActiveFilters = minPrice || maxPrice || petSize;
+  const hasActiveFilters = minPrice || maxPrice || petSize || species;
 
   // Geocode on mount if location param provided
   useEffect(() => {
@@ -132,13 +144,15 @@ export default function Search() {
     if (minPrice) params.set('minPrice', minPrice); else params.delete('minPrice');
     if (maxPrice) params.set('maxPrice', maxPrice); else params.delete('maxPrice');
     if (petSize) params.set('petSize', petSize); else params.delete('petSize');
+    if (species) params.set('species', species); else params.delete('species');
     setSearchParams(params, { replace: true });
-  }, [minPrice, maxPrice, petSize]);
+  }, [minPrice, maxPrice, petSize, species]);
 
   const clearFilters = () => {
     setMinPrice('');
     setMaxPrice('');
     setPetSize('');
+    setSpecies('');
   };
 
   // Fetch sitters when coords, serviceType, radius, or filters change
@@ -156,6 +170,7 @@ export default function Search() {
         if (minPrice) params.set('minPrice', minPrice);
         if (maxPrice) params.set('maxPrice', maxPrice);
         if (petSize) params.set('petSize', petSize);
+        if (species) params.set('species', species);
         const res = await fetch(`${API_BASE}/sitters?${params}`);
         if (!res.ok) throw new Error('Failed to load sitters');
         const data = await res.json();
@@ -168,7 +183,7 @@ export default function Search() {
     };
 
     fetchSitters();
-  }, [serviceType, coords, radius, retryCount, minPrice, maxPrice, petSize]);
+  }, [serviceType, coords, radius, retryCount, minPrice, maxPrice, petSize, species]);
 
   const formatDistance = (meters?: number) => {
     if (!meters) return null;
@@ -318,6 +333,29 @@ export default function Search() {
                 </div>
               </div>
 
+              {/* Pet Species */}
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-2">
+                  Pet Type
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {PET_SPECIES.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => setSpecies(species === s.value ? '' : s.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        species === s.value
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Clear Filters */}
               <div className="flex items-end">
                 {hasActiveFilters && (
@@ -404,9 +442,12 @@ export default function Search() {
                         <ShieldCheck className="w-3 h-3" />
                         <span>Verified</span>
                       </div>
-                      {sitter.accepted_pet_sizes && sitter.accepted_pet_sizes.length > 0 && (
+                      {sitter.years_experience != null && sitter.years_experience > 0 && (
+                        <span className="text-stone-400">{sitter.years_experience}yr exp</span>
+                      )}
+                      {sitter.accepted_species && sitter.accepted_species.length > 0 && (
                         <span className="text-stone-400">
-                          {sitter.accepted_pet_sizes.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')}
+                          {sitter.accepted_species.map((s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ')).join(', ')}
                         </span>
                       )}
                     </div>

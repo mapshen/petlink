@@ -38,7 +38,8 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/oauth`, `GET /auth/me`, `GET /auth/linked-accounts`, `DELETE /auth/linked-accounts/:provider`, `POST /auth/set-password` |
 | Users | `PUT /users/me` |
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id` |
-| Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=`), `GET /sitters/:id` |
+| Pet Vaccinations | `GET /pets/:petId/vaccinations`, `POST /pets/:petId/vaccinations`, `DELETE /pets/:petId/vaccinations/:id` |
+| Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:id` |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
 | Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read) |
@@ -70,7 +71,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 
 ### Database Schema (`src/db.ts`)
 
-PostgreSQL with PostGIS. Tables: `users` (with `location` geography column, nullable `password_hash` for OAuth-only users, `email_verified` boolean), `pets`, `services` (with `additional_pet_price`), `bookings`, `booking_pets` (junction table for multi-pet bookings), `messages`, `reviews`, `availability`, `walk_events` (with optional `pet_id`), `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`, `favorites`, `oauth_accounts` (provider links with `provider`, `provider_id`, unique constraints).
+PostgreSQL with PostGIS. Tables: `users` (with `location` geography column, nullable `password_hash` for OAuth-only users, `email_verified` boolean, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`), `pets` (with `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, `vet_name`, `vet_phone`, `emergency_contact_name`, `emergency_contact_phone`), `pet_vaccinations` (vaccine records with expiration tracking), `services` (with `additional_pet_price`, `max_pets`, `service_details` JSONB), `bookings`, `booking_pets` (junction table for multi-pet bookings), `messages`, `reviews`, `availability`, `walk_events` (with optional `pet_id`), `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`, `favorites`, `oauth_accounts` (provider links with `provider`, `provider_id`, unique constraints).
 
 PostgreSQL enums: `user_role`, `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`.
 
@@ -90,7 +91,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 
 ## Testing
 
-216 tests across 19 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+330 tests across 25 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 

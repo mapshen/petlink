@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto } from '../types';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
+import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle, Home, Award, PawPrint } from 'lucide-react';
 import { API_BASE } from '../config';
 import BookingCalendar from '../components/BookingCalendar';
 import TimeSlotPicker from '../components/TimeSlotPicker';
@@ -178,12 +178,63 @@ export default function SitterProfile() {
             <div className="mt-8">
               <h2 className="text-xl font-bold mb-4 text-stone-900">About {sitter.name}</h2>
               <p className="text-stone-600 leading-relaxed">{sitter.bio}</p>
-              {sitter.accepted_pet_sizes && sitter.accepted_pet_sizes.length > 0 && (
-                <div className="mt-4 flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-stone-500">Accepts:</span>
-                  {sitter.accepted_pet_sizes.map((size) => (
-                    <span key={size} className="bg-stone-100 text-stone-600 text-xs px-2 py-1 rounded-full capitalize">{size}</span>
-                  ))}
+
+              {/* Accepted animals */}
+              <div className="mt-4 flex flex-wrap gap-3">
+                {sitter.accepted_species && sitter.accepted_species.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <PawPrint className="w-4 h-4 text-stone-400" />
+                    <span className="text-sm text-stone-500">Accepts:</span>
+                    {sitter.accepted_species.map((s: string) => (
+                      <span key={s} className="bg-emerald-50 text-emerald-700 text-xs px-2 py-1 rounded-full capitalize">{s.replace(/_/g, ' ')}</span>
+                    ))}
+                  </div>
+                )}
+                {sitter.accepted_pet_sizes && sitter.accepted_pet_sizes.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-stone-500">Sizes:</span>
+                    {sitter.accepted_pet_sizes.map((size: string) => (
+                      <span key={size} className="bg-stone-100 text-stone-600 text-xs px-2 py-1 rounded-full capitalize">{size}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Skills & Experience */}
+              {(sitter.years_experience || (sitter.skills && sitter.skills.length > 0)) && (
+                <div className="mt-4 flex items-start gap-2">
+                  <Award className="w-4 h-4 text-stone-400 mt-0.5" />
+                  <div>
+                    {sitter.years_experience != null && (
+                      <span className="text-sm text-stone-600">{sitter.years_experience} years experience</span>
+                    )}
+                    {sitter.skills && sitter.skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {sitter.skills.map((skill: string) => (
+                          <span key={skill} className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">
+                            {skill.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Home Environment */}
+              {(sitter.home_type || sitter.has_yard || sitter.has_own_pets) && (
+                <div className="mt-4 flex items-start gap-2">
+                  <Home className="w-4 h-4 text-stone-400 mt-0.5" />
+                  <div className="text-sm text-stone-600">
+                    <div className="flex flex-wrap gap-2">
+                      {sitter.home_type && <span className="capitalize">{sitter.home_type}</span>}
+                      {sitter.has_yard && <span>{sitter.has_fenced_yard ? 'Fenced yard' : 'Yard'}</span>}
+                      {sitter.has_own_pets && <span>Has own pets</span>}
+                    </div>
+                    {sitter.own_pets_description && (
+                      <p className="text-xs text-stone-400 mt-1">{sitter.own_pets_description}</p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
