@@ -7,13 +7,12 @@ export const KNOWN_BOT_PATTERNS: RegExp[] = [
   /wget\//i,
   /httpclient/i,
   /go-http-client/i,
-  /java\//i,
   /libwww-perl/i,
   /mechanize/i,
   /phantomjs/i,
-  /headless/i,
   /selenium/i,
   /puppeteer/i,
+  /playwright/i,
 ];
 
 export function isBotUserAgent(ua: string): boolean {
@@ -28,7 +27,7 @@ export function botBlockMiddleware(req: Request, res: Response, next: NextFuncti
 
   const ua = req.headers['user-agent'];
   if (!ua || ua.trim() === '') {
-    next();
+    res.status(403).json({ error: 'Automated access not permitted' });
     return;
   }
 

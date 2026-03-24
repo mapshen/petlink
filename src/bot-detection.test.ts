@@ -4,7 +4,7 @@ import type { Request, Response, NextFunction } from 'express';
 
 describe('KNOWN_BOT_PATTERNS', () => {
   it('contains patterns for common scrapers', () => {
-    expect(KNOWN_BOT_PATTERNS.length).toBeGreaterThanOrEqual(13);
+    expect(KNOWN_BOT_PATTERNS.length).toBeGreaterThanOrEqual(12);
   });
 });
 
@@ -39,6 +39,10 @@ describe('isBotUserAgent', () => {
 
   it('detects puppeteer', () => {
     expect(isBotUserAgent('puppeteer/19.0')).toBe(true);
+  });
+
+  it('detects playwright', () => {
+    expect(isBotUserAgent('playwright/1.40')).toBe(true);
   });
 
   it('is case insensitive', () => {
@@ -97,22 +101,24 @@ describe('botBlockMiddleware', () => {
     expect(mockRes.status).not.toHaveBeenCalled();
   });
 
-  it('allows missing user-agent in production', () => {
+  it('blocks missing user-agent in production', () => {
     process.env.NODE_ENV = 'production';
     mockReq.headers = {};
 
     botBlockMiddleware(mockReq as Request, mockRes as Response, mockNext);
 
-    expect(mockNext).toHaveBeenCalled();
+    expect(mockRes.status).toHaveBeenCalledWith(403);
+    expect(mockNext).not.toHaveBeenCalled();
   });
 
-  it('allows empty user-agent in production', () => {
+  it('blocks empty user-agent in production', () => {
     process.env.NODE_ENV = 'production';
     mockReq.headers = { 'user-agent': '' };
 
     botBlockMiddleware(mockReq as Request, mockRes as Response, mockNext);
 
-    expect(mockNext).toHaveBeenCalled();
+    expect(mockRes.status).toHaveBeenCalledWith(403);
+    expect(mockNext).not.toHaveBeenCalled();
   });
 
   it('blocks bot user-agents in production', () => {
