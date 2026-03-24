@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Pet, PetVaccination } from '../types';
 import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle, Camera, Loader2, Syringe, ChevronDown, ChevronUp } from 'lucide-react';
+import CareInstructionsEditor from '../components/CareInstructionsEditor';
 import { API_BASE } from '../config';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { Button } from '../components/ui/button';
@@ -428,6 +429,11 @@ export default function PetsTab() {
                 >
                   {expandedPetId === pet.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   {expandedPetId === pet.id ? 'Less details' : 'More details'}
+                  {pet.care_instructions && (pet.care_instructions as unknown[]).length > 0 && (
+                    <span className="bg-emerald-100 text-emerald-700 text-xs px-1.5 py-0.5 rounded-full ml-1">
+                      {(pet.care_instructions as unknown[]).length} care
+                    </span>
+                  )}
                 </button>
 
                 {expandedPetId === pet.id && (
@@ -436,6 +442,9 @@ export default function PetsTab() {
                     {pet.vet_name && <p><span className="font-medium">Vet:</span> {pet.vet_name} {pet.vet_phone && `(${pet.vet_phone})`}</p>}
                     {pet.emergency_contact_name && <p><span className="font-medium">Emergency:</span> {pet.emergency_contact_name} {pet.emergency_contact_phone && `(${pet.emergency_contact_phone})`}</p>}
                     <VaccinationSection petId={pet.id} token={token} />
+                    <div className="mt-3 border-t border-stone-100 pt-3">
+                      <CareInstructionsEditor petId={pet.id} petName={pet.name} token={token} />
+                    </div>
                   </div>
                 )}
               </div>

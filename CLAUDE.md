@@ -37,8 +37,9 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 |--------|-----------|
 | Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/oauth`, `GET /auth/me`, `GET /auth/linked-accounts`, `DELETE /auth/linked-accounts/:provider`, `POST /auth/set-password` |
 | Users | `PUT /users/me` |
-| Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id` |
+| Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id`, `GET/PUT /pets/:id/care-instructions` |
 | Pet Vaccinations | `GET /pets/:petId/vaccinations`, `POST /pets/:petId/vaccinations`, `DELETE /pets/:petId/vaccinations/:id` |
+| Booking Care Tasks | `GET /bookings/:bookingId/care-tasks`, `PUT /bookings/:bookingId/care-tasks/:taskId/complete`, `PUT /bookings/:bookingId/care-tasks/:taskId/uncomplete` |
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:id` |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
 | Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
@@ -64,14 +65,14 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 - **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`petlink_token`, `petlink_user`)
 - **Pages**: Home, Login, Search, SitterProfile, Dashboard (mode-aware booking filtering), Messages, TrackWalk, ProfilePage (sidebar + stacked sections: owner mode shows ProfileTab+PetsTab, sitter mode shows ProfileTab+ServicesTab+PhotosTab), Onboarding. Old routes `/pets`, `/services`, `/photos` redirect to `/profile`.
 - **Mode system**: `ModeContext` provides global owner/sitter toggle for "both" role users. Persisted in localStorage (`petlink_mode`). Affects Dashboard filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
-- **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows), `PhotoGallery` (lightbox viewer), `FavoriteButton` (heart toggle), `FavoriteSitters` (dashboard favorites section), `PetSelector` (multi-pet checkbox selection for bookings)
+- **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows), `PhotoGallery` (lightbox viewer), `FavoriteButton` (heart toggle), `FavoriteSitters` (dashboard favorites section), `PetSelector` (multi-pet checkbox selection for bookings), `CareInstructionsEditor` (per-pet care instruction management), `CareTasksChecklist` (sitter task completion with progress)
 - **Hooks**: `useFavorites` (favorites state + optimistic toggle), `useOnboardingStatus`, `useImageUpload`
 - **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review, Availability, WalkEvent, SitterPhoto, Favorite, CancellationPolicy
 - **Path alias**: `@/*` maps to project root
 
 ### Database Schema (`src/db.ts`)
 
-PostgreSQL with PostGIS. Tables: `users` (with `location` geography column, nullable `password_hash` for OAuth-only users, `email_verified` boolean, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`), `pets` (with `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, `vet_name`, `vet_phone`, `emergency_contact_name`, `emergency_contact_phone`), `pet_vaccinations` (vaccine records with expiration tracking), `services` (with `additional_pet_price`, `max_pets`, `service_details` JSONB), `bookings`, `booking_pets` (junction table for multi-pet bookings), `messages`, `reviews`, `availability`, `walk_events` (with optional `pet_id`), `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`, `favorites`, `oauth_accounts` (provider links with `provider`, `provider_id`, unique constraints).
+PostgreSQL with PostGIS. Tables: `users` (with `location` geography column, nullable `password_hash` for OAuth-only users, `email_verified` boolean, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`), `pets` (with `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, `vet_name`, `vet_phone`, `emergency_contact_name`, `emergency_contact_phone`, `care_instructions` JSONB for reusable per-pet care cards), `pet_vaccinations` (vaccine records with expiration tracking), `services` (with `additional_pet_price`, `max_pets`, `service_details` JSONB), `bookings`, `booking_pets` (junction table for multi-pet bookings), `booking_care_tasks` (checklist items auto-populated from pet care instructions), `messages`, `reviews`, `availability`, `walk_events` (with optional `pet_id`), `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`, `favorites`, `oauth_accounts` (provider links with `provider`, `provider_id`, unique constraints).
 
 PostgreSQL enums: `user_role`, `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`.
 

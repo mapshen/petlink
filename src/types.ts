@@ -48,6 +48,7 @@ export interface Pet {
   emergency_contact_phone?: string;
   medical_history?: string;
   photo_url?: string;
+  care_instructions?: CareInstruction[];
 }
 
 export interface PetVaccination {
@@ -69,6 +70,28 @@ export interface Service {
   additional_pet_price?: number;
   max_pets?: number;
   service_details?: Record<string, unknown>;
+}
+
+export interface CareInstruction {
+  id: string;
+  category: 'feeding' | 'medication' | 'exercise' | 'grooming' | 'behavioral' | 'other';
+  description: string;
+  time?: string;
+  notes?: string;
+}
+
+export interface BookingCareTask {
+  id: number;
+  booking_id: number;
+  pet_id: number;
+  pet_name?: string;
+  category: string;
+  description: string;
+  time?: string;
+  notes?: string;
+  completed: boolean;
+  completed_at?: string;
+  created_at: string;
 }
 
 export interface Booking {
