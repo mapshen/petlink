@@ -393,7 +393,7 @@ async function startServer() {
 
   v1.get('/sitters/:id', botBlockMiddleware, publicLimiter, async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, cancellation_policy FROM users WHERE id = ${req.params.id}
+      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, cancellation_policy FROM users WHERE id = ${req.params.id}
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });
