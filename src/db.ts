@@ -330,6 +330,9 @@ export async function initDb() {
   await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS additional_pet_price DOUBLE PRECISION DEFAULT 0`.catch(() => {});
   await sql`ALTER TABLE walk_events ADD COLUMN IF NOT EXISTS pet_id INTEGER REFERENCES pets(id)`.catch(() => {});
   await sql`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`.catch(() => {});
+
+  // Issue #88: Smart sitter ranking — track booking response time
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS responded_at TIMESTAMPTZ`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false`.catch(() => {});
 
   // Issue #109: Granular pet profiles
@@ -436,7 +439,32 @@ export async function initDb() {
     `;
     await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${dual.id}, ${'drop-in'}, ${20}, ${'Quick check-in and feeding.'})`;
 
-    console.log('Database seeded!');
+    // Seed 10 additional sitter profiles for testing ranking
+    const sitters = [
+      { email: 'sarah@example.com', name: 'Sarah Martinez', bio: 'Certified dog trainer with 10 years experience. I treat every pet like family.', avatar: 'https://i.pravatar.cc/150?u=sarah', lat: 37.7735, lng: -122.4165, species: ['dog', 'cat'], sizes: ['small', 'medium', 'large'], experience: 10, home: 'house', yard: true, fenced: true, skills: ['pet_first_aid', 'dog_training', 'behavioral_issues'], services: [{ type: 'walking', price: 35, desc: 'Professional 45-min training walk' }, { type: 'sitting', price: 65, desc: 'In-home overnight care with enrichment' }] },
+      { email: 'mike@example.com', name: 'Mike Chen', bio: 'College student who loves animals. Available weekdays!', avatar: 'https://i.pravatar.cc/150?u=mike', lat: 37.7742, lng: -122.4155, species: ['dog'], sizes: ['small', 'medium'], experience: 1, home: 'apartment', yard: false, fenced: false, skills: [], services: [{ type: 'walking', price: 15, desc: 'Budget-friendly 30-min walk' }] },
+      { email: 'emma@example.com', name: 'Emma Thompson', bio: 'Retired vet tech. Specializing in senior pets and pets with medical needs.', avatar: 'https://i.pravatar.cc/150?u=emma', lat: 37.7768, lng: -122.4210, species: ['dog', 'cat', 'bird', 'reptile', 'small_animal'], sizes: ['small', 'medium', 'large', 'giant'], experience: 15, home: 'house', yard: true, fenced: true, skills: ['pet_first_aid', 'medication_admin', 'senior_pet_care'], services: [{ type: 'sitting', price: 75, desc: 'Medical-grade overnight care' }, { type: 'drop-in', price: 30, desc: 'Med admin and wellness check' }] },
+      { email: 'james@example.com', name: 'James Wilson', bio: 'Professional dog walker. 5 star rating on Rover with 200+ walks completed.', avatar: 'https://i.pravatar.cc/150?u=james', lat: 37.7755, lng: -122.4175, species: ['dog'], sizes: ['medium', 'large', 'giant'], experience: 4, home: 'house', yard: true, fenced: false, skills: ['dog_training'], services: [{ type: 'walking', price: 28, desc: 'Energetic 1-hour adventure walk' }, { type: 'sitting', price: 55, desc: 'Comfortable home boarding' }] },
+      { email: 'lisa@example.com', name: 'Lisa Park', bio: 'Cat whisperer! Former shelter volunteer. Your kitty will be in great hands.', avatar: 'https://i.pravatar.cc/150?u=lisa', lat: 37.7740, lng: -122.4190, species: ['cat', 'small_animal'], sizes: ['small', 'medium'], experience: 6, home: 'condo', yard: false, fenced: false, skills: ['medication_admin', 'senior_pet_care'], services: [{ type: 'sitting', price: 40, desc: 'Cat-specialized in-home sitting' }, { type: 'drop-in', price: 18, desc: 'Quick visit with playtime' }] },
+      { email: 'david@example.com', name: 'David Rodriguez', bio: 'Dog lover and marathon runner. Your pup will get plenty of exercise!', avatar: 'https://i.pravatar.cc/150?u=david', lat: 37.7730, lng: -122.4145, species: ['dog'], sizes: ['medium', 'large'], experience: 3, home: 'apartment', yard: false, fenced: false, skills: ['dog_training', 'puppy_care'], services: [{ type: 'walking', price: 22, desc: 'High-energy running walk for active dogs' }] },
+      { email: 'nina@example.com', name: 'Nina Patel', bio: 'Grooming professional with 8 years in the industry. Gentle touch guaranteed.', avatar: 'https://i.pravatar.cc/150?u=nina', lat: 37.7762, lng: -122.4160, species: ['dog', 'cat'], sizes: ['small', 'medium', 'large'], experience: 8, home: 'house', yard: true, fenced: true, skills: ['grooming_basics', 'pet_first_aid'], services: [{ type: 'grooming', price: 45, desc: 'Full grooming: bath, nail trim, haircut' }, { type: 'walking', price: 20, desc: 'Gentle neighborhood stroll' }] },
+      { email: 'tom@example.com', name: 'Tom Baker', bio: 'New to pet sitting but passionate about animals. Great references available!', avatar: 'https://i.pravatar.cc/150?u=tom', lat: 37.7748, lng: -122.4185, species: ['dog', 'cat'], sizes: ['small', 'medium'], experience: 0, home: 'apartment', yard: false, fenced: false, skills: [], services: [{ type: 'walking', price: 12, desc: 'Affordable daily walks' }, { type: 'drop-in', price: 15, desc: 'Check-in and feeding visit' }] },
+      { email: 'rachel@example.com', name: 'Rachel Kim', bio: 'Experienced with anxious and reactive dogs. Calm, patient approach.', avatar: 'https://i.pravatar.cc/150?u=rachel', lat: 37.7758, lng: -122.4170, species: ['dog'], sizes: ['small', 'medium', 'large'], experience: 7, home: 'house', yard: true, fenced: true, skills: ['behavioral_issues', 'dog_training', 'medication_admin'], services: [{ type: 'walking', price: 32, desc: 'Reactive dog specialist walk' }, { type: 'sitting', price: 60, desc: 'Calm home environment for anxious pups' }] },
+      { email: 'alex@example.com', name: 'Alex Rivera', bio: 'Exotic pet specialist! Experienced with birds, reptiles, and small animals.', avatar: 'https://i.pravatar.cc/150?u=alex', lat: 37.7745, lng: -122.4200, species: ['bird', 'reptile', 'small_animal'], sizes: ['small'], experience: 5, home: 'house', yard: false, fenced: false, skills: ['medication_admin'], services: [{ type: 'sitting', price: 35, desc: 'Specialized exotic pet care' }, { type: 'drop-in', price: 22, desc: 'Feeding and habitat maintenance' }] },
+    ];
+
+    for (const s of sitters) {
+      const [u] = await sql`
+        INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, skills)
+        VALUES (${s.email}, ${demoPassword}, ${s.name}, ${'sitter'}, ${s.bio}, ${s.avatar}, ${s.lat}, ${s.lng}, ${s.sizes}, ${s.species}, ${s.experience}, ${s.home}, ${s.yard}, ${s.fenced}, ${s.skills})
+        RETURNING id
+      `;
+      for (const svc of s.services) {
+        await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${u.id}, ${svc.type}, ${svc.price}, ${svc.desc})`;
+      }
+    }
+
+    console.log('Database seeded with 13 users (1 owner, 12 sitters)!');
   }
 }
 

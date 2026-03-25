@@ -20,6 +20,7 @@ import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
 import { botBlockMiddleware } from './src/bot-detection.ts';
 import { createCandidate, createInvitation, verifyWebhookSignature, parseWebhookEvent, mapCheckrStatus, isCheckrConfigured } from './src/checkr.ts';
+import { calculateRankingScore, isNewSitter, type SitterStats } from './src/sitter-ranking.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/rate-limit.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail } from './src/email.ts';
 import { format as formatDate } from 'date-fns';
@@ -532,7 +533,7 @@ async function startServer() {
     const sitters = await sql`
       SELECT u.id, u.name, u.role, u.bio, u.avatar_url,
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
-             u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills,
+             u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at,
              s.price, s.type as service_type, s.max_pets
              ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}
       FROM users u
@@ -544,10 +545,81 @@ async function startServer() {
         ${petSize ? sql`AND ${petSize} = ANY(u.accepted_pet_sizes)` : sql``}
         ${species ? sql`AND ${species} = ANY(u.accepted_species)` : sql``}
         ${hasGeo ? sql`AND ST_DWithin(u.location, ${geoPoint}, ${Number(radius)})` : sql``}
-      ${hasGeo ? sql`ORDER BY distance_meters` : sql``}
     `;
 
-    res.json({ sitters });
+    // Compute ranking scores for each sitter
+    const sitterIds = sitters.map((s: { id: number }) => s.id);
+    const statsMap = new Map<number, Record<string, any>>();
+
+    if (sitterIds.length > 0) {
+      const stats = await sql`
+        SELECT
+          u.id as sitter_id,
+          COALESCE(rv.avg_rating, 0) as avg_rating,
+          COALESCE(rv.review_count, 0)::int as review_count,
+          COALESCE(bk.completed, 0)::int as completed,
+          COALESCE(bk.total, 0)::int as total,
+          COALESCE(bk.avg_response_hours, 0)::float as avg_response_hours,
+          COALESCE(bk.repeat_owners, 0)::int as repeat_owners,
+          COALESCE(bk.unique_owners, 0)::int as unique_owners,
+          COALESCE(sc.service_count, 0)::int as service_count,
+          COALESCE(av.has_avail, false) as has_availability
+        FROM users u
+        LEFT JOIN LATERAL (
+          SELECT AVG(r.rating)::float as avg_rating, COUNT(*)::int as review_count
+          FROM reviews r WHERE r.reviewee_id = u.id AND r.published_at IS NOT NULL
+        ) rv ON true
+        LEFT JOIN LATERAL (
+          SELECT
+            COUNT(*) FILTER (WHERE b.status = 'completed')::int as completed,
+            COUNT(*)::int as total,
+            AVG(EXTRACT(EPOCH FROM (b.responded_at - b.created_at)) / 3600) FILTER (WHERE b.responded_at IS NOT NULL)::float as avg_response_hours,
+            COUNT(DISTINCT b.owner_id) FILTER (WHERE b.status = 'completed' AND b.owner_id IN (SELECT b2.owner_id FROM bookings b2 WHERE b2.sitter_id = u.id AND b2.status = 'completed' GROUP BY b2.owner_id HAVING COUNT(*) > 1))::int as repeat_owners,
+            COUNT(DISTINCT b.owner_id) FILTER (WHERE b.status = 'completed')::int as unique_owners
+          FROM bookings b WHERE b.sitter_id = u.id
+        ) bk ON true
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int as service_count FROM services sv WHERE sv.sitter_id = u.id
+        ) sc ON true
+        LEFT JOIN LATERAL (
+          SELECT EXISTS(SELECT 1 FROM availability a WHERE a.sitter_id = u.id) as has_avail
+        ) av ON true
+        WHERE u.id = ANY(${sitterIds})
+      `;
+      for (const s of stats) {
+        statsMap.set(s.sitter_id, s);
+      }
+    }
+
+    const ranked = sitters.map((sitter: any) => {
+      const s = statsMap.get(sitter.id);
+      const sitterStats: SitterStats = {
+        avg_rating: s?.avg_rating || null,
+        review_count: s?.review_count || 0,
+        completed_bookings: s?.completed || 0,
+        total_bookings: s?.total || 0,
+        avg_response_hours: s?.avg_response_hours || null,
+        repeat_owner_count: s?.repeat_owners || 0,
+        unique_owner_count: s?.unique_owners || 0,
+        has_avatar: Boolean(sitter.avatar_url),
+        has_bio: Boolean(sitter.bio),
+        service_count: s?.service_count || 0,
+        has_availability: Boolean(s?.has_availability),
+        created_at: sitter.created_at,
+        distance_meters: sitter.distance_meters,
+      };
+      return {
+        ...sitter,
+        ranking_score: calculateRankingScore(sitterStats),
+        is_new: isNewSitter(sitter.created_at),
+        review_count: s?.review_count || 0,
+        avg_rating: s?.avg_rating ? Number(s.avg_rating.toFixed(1)) : null,
+      };
+    });
+
+    ranked.sort((a: any, b: any) => b.ranking_score - a.ranking_score);
+
+    res.json({ sitters: ranked });
   });
 
   v1.get('/sitters/:id', botBlockMiddleware, publicLimiter, async (req, res) => {
@@ -1201,14 +1273,14 @@ async function startServer() {
     let updated;
     if (status === 'confirmed') {
       [updated] = await sql`
-        UPDATE bookings SET status = 'confirmed'::booking_status
+        UPDATE bookings SET status = 'confirmed'::booking_status, responded_at = COALESCE(responded_at, NOW())
         WHERE id = ${bookingId} AND sitter_id = ${req.userId} AND status = 'pending'
         RETURNING *
       `;
     } else {
       // Cancelled — sitter can cancel pending, owner can cancel pending or confirmed
       [updated] = await sql`
-        UPDATE bookings SET status = 'cancelled'::booking_status
+        UPDATE bookings SET status = 'cancelled'::booking_status, responded_at = COALESCE(responded_at, NOW())
         WHERE id = ${bookingId}
           AND (
             (sitter_id = ${req.userId} AND status = 'pending')

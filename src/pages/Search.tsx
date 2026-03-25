@@ -15,6 +15,10 @@ interface SitterWithService extends User {
   accepted_species?: string[];
   years_experience?: number;
   max_pets?: number;
+  ranking_score?: number;
+  is_new?: boolean;
+  review_count?: number;
+  avg_rating?: number | null;
 }
 
 interface Coords {
@@ -434,16 +438,25 @@ export default function Search() {
                     <p className="text-stone-600 text-sm mt-3 line-clamp-2">{sitter.bio}</p>
 
                     <div className="mt-4 flex items-center gap-4 text-xs font-medium text-stone-500">
-                      <div className="flex items-center gap-1 text-amber-500">
-                        <Star className="w-3 h-3 fill-current" />
-                        <span>5.0 (12)</span>
-                      </div>
+                      {sitter.avg_rating ? (
+                        <div className="flex items-center gap-1 text-amber-500">
+                          <Star className="w-3 h-3 fill-current" />
+                          <span>{sitter.avg_rating} ({sitter.review_count})</span>
+                        </div>
+                      ) : (
+                        <span className="text-stone-400">No reviews</span>
+                      )}
                       <div className="flex items-center gap-1 text-emerald-600">
                         <ShieldCheck className="w-3 h-3" />
                         <span>Verified</span>
                       </div>
                       {sitter.years_experience != null && sitter.years_experience > 0 && (
                         <span className="text-stone-400">{sitter.years_experience}yr exp</span>
+                      )}
+                      {sitter.is_new && (
+                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                          New
+                        </span>
                       )}
                       {sitter.accepted_species && sitter.accepted_species.length > 0 && (
                         <span className="text-stone-400">
