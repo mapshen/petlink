@@ -156,6 +156,16 @@ export const createReviewSchema = z.object({
   comment: z.string().optional().nullable(),
 });
 
+// --- Quick-Tap Care Event Schemas ---
+export const quickTapEventSchema = z.object({
+  event_type: z.enum(['start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play']),
+  lat: z.number().min(-90).max(90).optional().nullable(),
+  lng: z.number().min(-180).max(180).optional().nullable(),
+  note: z.string().max(500).optional().nullable(),
+  photo_url: z.string().url().optional().nullable().or(z.literal('')),
+  pet_id: z.number().int().positive().optional().nullable(),
+});
+
 // --- Cancellation Policy Schemas ---
 export const cancellationPolicySchema = z.object({
   cancellation_policy: z.enum(['flexible', 'moderate', 'strict'], {

@@ -333,6 +333,14 @@ export async function initDb() {
 
   // Issue #88: Smart sitter ranking — track booking response time
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS responded_at TIMESTAMPTZ`.catch(() => {});
+
+  // Issue #112: Quick-tap care logging — extend walk_event_type enum
+  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'fed'`.catch(() => {});
+  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'water'`.catch(() => {});
+  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'medication'`.catch(() => {});
+  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'nap_start'`.catch(() => {});
+  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'nap_end'`.catch(() => {});
+  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'play'`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false`.catch(() => {});
 
   // Issue #109: Granular pet profiles
