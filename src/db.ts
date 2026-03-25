@@ -3,15 +3,66 @@ import bcrypt from 'bcryptjs';
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://localhost:5432/petlink';
 
+const SCHEMA = process.env.DB_SCHEMA || 'petlink';
+
 const sql = postgres(DATABASE_URL, {
   max: 20,
   idle_timeout: 20,
   connect_timeout: 10,
+  connection: {
+    search_path: SCHEMA,
+  },
 });
 
 export async function initDb() {
-  // Enable PostGIS if available (ignore error if extension not installed)
-  await sql`CREATE EXTENSION IF NOT EXISTS postgis`.catch(() => {});
+  // Create dedicated schema
+  await sql`CREATE SCHEMA IF NOT EXISTS ${sql(SCHEMA)}`;
+
+  // Migrate PostGIS: drop from public and recreate in our schema
+  // (CASCADE drops dependent columns like users.location — they get recreated below)
+  const [postgisSchema] = await sql`
+    SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON e.extnamespace = n.oid WHERE e.extname = 'postgis'
+  `.catch(() => [undefined]);
+  if (postgisSchema && postgisSchema.nspname !== SCHEMA) {
+    await sql`DROP EXTENSION IF EXISTS postgis CASCADE`.catch(() => {});
+  }
+  await sql`CREATE EXTENSION IF NOT EXISTS postgis SCHEMA ${sql(SCHEMA)}`.catch(() => {});
+
+  // Migrate existing tables from public to dedicated schema (one-time)
+  const publicTables = ['users', 'pets', 'services', 'bookings', 'booking_pets', 'messages',
+    'reviews', 'availability', 'walk_events', 'verifications', 'notifications',
+    'notification_preferences', 'push_subscriptions', 'sitter_photos', 'favorites',
+    'oauth_accounts', 'pet_vaccinations', 'booking_care_tasks', 'recurring_bookings'];
+  for (const table of publicTables) {
+    const [exists] = await sql`
+      SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ${table}
+    `.catch(() => [undefined]);
+    if (exists) {
+      await sql`ALTER TABLE public.${sql(table)} SET SCHEMA ${sql(SCHEMA)}`.catch(() => {});
+    }
+  }
+
+  // Migrate existing enums from public to dedicated schema
+  const publicEnums = ['user_role', 'booking_status', 'payment_status', 'service_type',
+    'walk_event_type', 'id_check_status', 'bg_check_status', 'notification_type',
+    'push_platform', 'cancellation_policy'];
+  for (const enumName of publicEnums) {
+    const [exists] = await sql`
+      SELECT 1 FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE t.typname = ${enumName} AND n.nspname = 'public'
+    `.catch(() => [undefined]);
+    if (exists) {
+      await sql`ALTER TYPE public.${sql(enumName)} SET SCHEMA ${sql(SCHEMA)}`.catch(() => {});
+    }
+  }
+
+  // Migrate functions and triggers
+  await sql`
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE p.proname = 'update_user_location' AND n.nspname = 'public') THEN
+        ALTER FUNCTION public.update_user_location() SET SCHEMA ${sql.unsafe(SCHEMA)};
+      END IF;
+    END $$
+  `.catch(() => {});
 
   await sql`
     DO $$ BEGIN
