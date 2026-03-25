@@ -94,6 +94,25 @@ export interface BookingCareTask {
   created_at: string;
 }
 
+export type RecurrenceFrequency = 'weekly' | 'biweekly' | 'monthly';
+
+export interface RecurringBooking {
+  id: number;
+  owner_id: number;
+  sitter_id: number;
+  service_id: number;
+  pet_ids: number[];
+  frequency: RecurrenceFrequency;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  active: boolean;
+  next_occurrence: string;
+  created_at: string;
+  sitter_name?: string;
+  service_type?: string;
+}
+
 export interface Booking {
   id: number;
   sitter_id: number;

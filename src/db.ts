@@ -341,6 +341,26 @@ export async function initDb() {
   await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'nap_start'`.catch(() => {});
   await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'nap_end'`.catch(() => {});
   await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'play'`.catch(() => {});
+
+  // Issue #98: Recurring bookings
+  await sql`
+    CREATE TABLE IF NOT EXISTS recurring_bookings (
+      id SERIAL PRIMARY KEY,
+      owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      sitter_id INTEGER NOT NULL REFERENCES users(id),
+      service_id INTEGER NOT NULL REFERENCES services(id),
+      pet_ids INTEGER[] NOT NULL DEFAULT '{}',
+      frequency TEXT NOT NULL DEFAULT 'weekly',
+      day_of_week INTEGER NOT NULL CHECK(day_of_week >= 0 AND day_of_week <= 6),
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      active BOOLEAN DEFAULT TRUE,
+      next_occurrence DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_recurring_bookings_owner ON recurring_bookings (owner_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_recurring_bookings_active ON recurring_bookings (active, next_occurrence)`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false`.catch(() => {});
 
   // Issue #109: Granular pet profiles

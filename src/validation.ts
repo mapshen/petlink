@@ -166,6 +166,17 @@ export const quickTapEventSchema = z.object({
   pet_id: z.number().int().positive().optional().nullable(),
 });
 
+// --- Recurring Booking Schemas ---
+export const createRecurringBookingSchema = z.object({
+  sitter_id: z.number().int().positive(),
+  service_id: z.number().int().positive(),
+  pet_ids: z.array(z.number().int().positive()).min(1).max(10),
+  frequency: z.enum(['weekly', 'biweekly', 'monthly']),
+  day_of_week: z.number().int().min(0).max(6),
+  start_time: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM format'),
+  end_time: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM format'),
+});
+
 // --- Cancellation Policy Schemas ---
 export const cancellationPolicySchema = z.object({
   cancellation_policy: z.enum(['flexible', 'moderate', 'strict'], {
