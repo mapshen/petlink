@@ -18,13 +18,22 @@ export async function initDb() {
   // Create dedicated schema
   await sql`CREATE SCHEMA IF NOT EXISTS ${sql(SCHEMA)}`;
 
-  // Migrate PostGIS: drop from public and recreate in our schema
-  // (CASCADE drops dependent columns like users.location — they get recreated below)
+  // Migrate PostGIS from public to dedicated schema
+  // PostGIS doesn't support ALTER EXTENSION SET SCHEMA, so we must:
+  // 1. Drop the location column (depends on geography type from PostGIS)
+  // 2. Drop PostGIS from public
+  // 3. Recreate PostGIS in our schema
+  // 4. Re-add location column + trigger + backfill from lat/lng
   const [postgisSchema] = await sql`
     SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON e.extnamespace = n.oid WHERE e.extname = 'postgis'
   `.catch(() => [undefined]);
   if (postgisSchema && postgisSchema.nspname !== SCHEMA) {
-    await sql`DROP EXTENSION IF EXISTS postgis CASCADE`.catch(() => {});
+    // Drop dependent objects explicitly before CASCADE
+    await sql`DROP TRIGGER IF EXISTS trg_update_user_location ON public.users`.catch(() => {});
+    await sql`DROP FUNCTION IF EXISTS public.update_user_location()`.catch(() => {});
+    await sql`DROP INDEX IF EXISTS public.idx_users_location`.catch(() => {});
+    await sql`ALTER TABLE public.users DROP COLUMN IF EXISTS location`.catch(() => {});
+    await sql`DROP EXTENSION IF EXISTS postgis`.catch(() => {});
   }
   await sql`CREATE EXTENSION IF NOT EXISTS postgis SCHEMA ${sql(SCHEMA)}`.catch(() => {});
 
@@ -345,6 +354,9 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_pets_booking_id ON booking_pets (booking_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user_id ON oauth_accounts (user_id)`;
 
+  // Ensure location column exists (may have been dropped during PostGIS schema migration)
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS location GEOGRAPHY(Point, 4326)`.catch(() => {});
+
   // Create spatial index on users.location if PostGIS is available
   await sql`
     CREATE INDEX IF NOT EXISTS idx_users_location ON users USING GIST (location)
@@ -372,6 +384,12 @@ export async function initDb() {
         FOR EACH ROW EXECUTE FUNCTION update_user_location();
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
+  `.catch(() => {});
+
+  // Backfill location from lat/lng for any rows missing it (e.g., after PostGIS migration)
+  await sql`
+    UPDATE users SET location = ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography
+    WHERE lat IS NOT NULL AND lng IS NOT NULL AND location IS NULL
   `.catch(() => {});
 
   // Schema migrations — add new columns/enums safely
