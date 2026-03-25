@@ -3,7 +3,11 @@ import bcrypt from 'bcryptjs';
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://localhost:5432/petlink';
 
-const SCHEMA = process.env.DB_SCHEMA || 'petlink';
+const SCHEMA_RAW = process.env.DB_SCHEMA || 'petlink';
+if (!/^[a-z_][a-z0-9_]*$/.test(SCHEMA_RAW)) {
+  throw new Error(`Invalid DB_SCHEMA: "${SCHEMA_RAW}" — must be a valid PostgreSQL identifier`);
+}
+const SCHEMA = SCHEMA_RAW;
 
 const sql = postgres(DATABASE_URL, {
   max: 20,
@@ -308,7 +312,7 @@ export async function initDb() {
   `.catch(() => {});
 
   // Auto-update location column when lat/lng change
-  await sql`
+  await sql.unsafe(`
     CREATE OR REPLACE FUNCTION update_user_location()
     RETURNS TRIGGER AS $$
     BEGIN
@@ -320,7 +324,8 @@ export async function initDb() {
       RETURN NEW;
     END;
     $$ LANGUAGE plpgsql
-  `.catch(() => {});
+    SET search_path = ${SCHEMA}
+  `).catch(() => {});
 
   await sql`
     DO $$ BEGIN
