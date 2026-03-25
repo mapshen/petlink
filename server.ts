@@ -305,15 +305,15 @@ async function startServer() {
 
     await sql`
       UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null},
-      role = COALESCE(${role || null}::user_role, role),
-      accepted_species = COALESCE(${accepted_species || null}, accepted_species),
-      years_experience = COALESCE(${years_experience ?? null}, years_experience),
-      home_type = COALESCE(${home_type || null}, home_type),
-      has_yard = COALESCE(${has_yard ?? null}, has_yard),
-      has_fenced_yard = COALESCE(${has_fenced_yard ?? null}, has_fenced_yard),
-      has_own_pets = COALESCE(${has_own_pets ?? null}, has_own_pets),
-      own_pets_description = COALESCE(${own_pets_description || null}, own_pets_description),
-      skills = COALESCE(${skills || null}, skills)
+      role = COALESCE(${role || null}::user_role, role)
+      ${accepted_species !== undefined ? sql`, accepted_species = ${accepted_species || []}` : sql``}
+      ${years_experience !== undefined ? sql`, years_experience = ${years_experience}` : sql``}
+      ${home_type !== undefined ? sql`, home_type = ${home_type || null}` : sql``}
+      ${has_yard !== undefined ? sql`, has_yard = ${has_yard ?? false}` : sql``}
+      ${has_fenced_yard !== undefined ? sql`, has_fenced_yard = ${has_fenced_yard ?? false}` : sql``}
+      ${has_own_pets !== undefined ? sql`, has_own_pets = ${has_own_pets ?? false}` : sql``}
+      ${own_pets_description !== undefined ? sql`, own_pets_description = ${own_pets_description || null}` : sql``}
+      ${skills !== undefined ? sql`, skills = ${skills || []}` : sql``}
       WHERE id = ${req.userId}
     `;
 
@@ -421,7 +421,9 @@ async function startServer() {
     const minPrice = req.query.minPrice as string | undefined;
     const maxPrice = req.query.maxPrice as string | undefined;
     const petSize = req.query.petSize as string | undefined;
-    const species = req.query.species as string | undefined;
+    const speciesParam = req.query.species as string | undefined;
+    const validSpecies = ['dog', 'cat', 'bird', 'reptile', 'small_animal'];
+    const species = speciesParam && validSpecies.includes(speciesParam) ? speciesParam : undefined;
 
     const hasGeo = lat && lng && radius;
     const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography` : sql``;
@@ -449,7 +451,7 @@ async function startServer() {
 
   v1.get('/sitters/:id', botBlockMiddleware, publicLimiter, async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.params.id}
+      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.params.id} AND role IN ('sitter', 'both')
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });

@@ -110,7 +110,10 @@ export const serviceSchema = z.object({
   description: z.string().max(1000, 'Description must be under 1000 characters').optional().nullable(),
   additional_pet_price: z.number().min(0, 'Additional pet price cannot be negative').max(500, 'Additional pet price must be under $500').optional().default(0),
   max_pets: z.number().int().min(1, 'Must accept at least 1 pet').max(20, 'Maximum 20 pets').optional().default(1),
-  service_details: z.record(z.string(), z.unknown()).optional().nullable(),
+  service_details: z.record(z.string(), z.unknown()).refine(
+    (obj) => JSON.stringify(obj).length <= 5000,
+    'Service details must be under 5KB'
+  ).optional().nullable(),
 }).refine(
   (data) => data.type === 'meet_greet' || data.price >= 1,
   { message: 'Price must be at least $1', path: ['price'] }
