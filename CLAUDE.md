@@ -23,7 +23,7 @@ npm run clean        # Remove dist/
 
 Single Express server serves both the API and Vite-powered frontend in dev mode. Socket.io attached to the same HTTP server for real-time messaging and notifications.
 
-- **Database**: PostgreSQL via `postgres` (porsager), schema in `src/db.ts`. PostGIS for geo queries.
+- **Database**: PostgreSQL via `postgres` (porsager), schema in `src/db.ts`. All tables live in a dedicated `petlink` schema (configurable via `DB_SCHEMA` env var). PostGIS extension also installed in the `petlink` schema. Connection `search_path` set to `petlink` only — no `public`.
 - **Auth**: JWT + bcrypt (`src/auth.ts`). Bearer tokens in `Authorization` header. Async middleware validates token + user existence. OAuth sign-in via Google, Apple, Facebook (`src/oauth.ts`). OAuth-only users have `password_hash = NULL`.
 - **Payments**: Stripe Connect escrow (`src/payments.ts`). Manual capture for hold/release flow.
 - **Notifications**: In-app + real-time via Socket.io (`src/notifications.ts`). Per-user preferences.
