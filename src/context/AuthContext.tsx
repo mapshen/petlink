@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    let aborted = false;
     fetch(`${API_BASE}/auth/me`, {
       headers: { Authorization: `Bearer ${storedToken}` },
       signal: controller.signal,
@@ -62,11 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('petlink_user', JSON.stringify(data.user));
       })
       .catch((err) => {
-        if (err.name === 'AbortError') return;
+        if (err.name === 'AbortError') { aborted = true; return; }
         localStorage.removeItem('petlink_user');
         localStorage.removeItem('petlink_token');
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!aborted) setLoading(false); });
 
     return () => controller.abort();
   }, []);
