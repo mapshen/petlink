@@ -305,6 +305,21 @@ export async function initDb() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS imported_profiles (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      platform TEXT NOT NULL,
+      profile_url TEXT NOT NULL,
+      display_name TEXT,
+      review_count INTEGER,
+      avg_rating DOUBLE PRECISION,
+      verified BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, platform)
+    )
+  `;
+
   // Performance indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_owner_id ON bookings (owner_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_sitter_id ON bookings (sitter_id)`;
@@ -319,6 +334,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_pets_booking_id ON booking_pets (booking_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user_id ON oauth_accounts (user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_expenses_sitter_id ON sitter_expenses (sitter_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_imported_profiles_user_id ON imported_profiles (user_id)`;
 
   // Create spatial index on users.location if PostGIS is available
   await sql`

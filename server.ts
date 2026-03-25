@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, cancelStripeSubscription } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, importedProfileSchema } from './src/validation.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -641,7 +641,9 @@ async function startServer() {
 
     const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.id} ORDER BY sort_order, created_at`;
 
-    res.json({ sitter, services, reviews, photos });
+    const imported_profiles = await sql`SELECT * FROM imported_profiles WHERE user_id = ${req.params.id} ORDER BY created_at DESC`;
+
+    res.json({ sitter, services, reviews, photos, imported_profiles });
   });
 
   // --- Services (sitter CRUD) ---
@@ -1303,7 +1305,6 @@ async function startServer() {
       res.json({ checkout_url: checkoutUrl });
     } catch (error: any) {
       if (error.message?.includes('STRIPE_PRO_PRICE_ID')) {
-        // Stripe not configured — activate directly (dev/beta mode)
         if (existing) {
           const [updated] = await sql.begin(async (tx: any) => {
             const [s] = await tx`
@@ -1343,8 +1344,6 @@ async function startServer() {
       res.status(404).json({ error: 'No active Pro subscription' });
       return;
     }
-
-    // Cancel via Stripe if subscription was created through Stripe
     if (sub.stripe_subscription_id) {
       try {
         await cancelStripeSubscription(sub.stripe_subscription_id);
@@ -1352,7 +1351,6 @@ async function startServer() {
         console.error('Stripe cancel error:', error);
       }
     }
-
     const [updated] = await sql.begin(async (tx: any) => {
       const [s] = await tx`
         UPDATE sitter_subscriptions SET status = 'cancelled', tier = 'free', updated_at = NOW()
@@ -1363,6 +1361,42 @@ async function startServer() {
       return [s];
     });
     res.json({ subscription: updated });
+  });
+
+  // --- Imported Profiles ---
+  v1.get('/imported-profiles', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const profiles = await sql`SELECT * FROM imported_profiles WHERE user_id = ${req.userId} ORDER BY created_at DESC`;
+    res.json({ imported_profiles: profiles });
+  });
+
+  v1.post('/imported-profiles', authMiddleware, validate(importedProfileSchema), async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can import profiles' });
+      return;
+    }
+    const { platform, profile_url, display_name, review_count, avg_rating } = req.body;
+    const [existing] = await sql`SELECT id FROM imported_profiles WHERE user_id = ${req.userId} AND platform = ${platform}`;
+    if (existing) {
+      res.status(409).json({ error: `You already have an imported profile for ${platform}. Delete it first to re-import.` });
+      return;
+    }
+    const [profile] = await sql`
+      INSERT INTO imported_profiles (user_id, platform, profile_url, display_name, review_count, avg_rating)
+      VALUES (${req.userId}, ${platform}, ${profile_url}, ${display_name ?? null}, ${review_count ?? null}, ${avg_rating ?? null})
+      RETURNING *
+    `;
+    res.status(201).json({ imported_profile: profile });
+  });
+
+  v1.delete('/imported-profiles/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [profile] = await sql`SELECT * FROM imported_profiles WHERE id = ${req.params.id} AND user_id = ${req.userId}`;
+    if (!profile) {
+      res.status(404).json({ error: 'Imported profile not found' });
+      return;
+    }
+    await sql`DELETE FROM imported_profiles WHERE id = ${req.params.id}`;
+    res.json({ success: true });
   });
 
   // --- Walk Events ---

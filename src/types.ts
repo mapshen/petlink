@@ -258,3 +258,17 @@ export interface SitterExpense {
   receipt_url?: string;
   created_at: string;
 }
+
+export type ImportedProfilePlatform = 'rover' | 'wag' | 'care_com' | 'other';
+
+export interface ImportedProfile {
+  id: number;
+  user_id: number;
+  platform: ImportedProfilePlatform;
+  profile_url: string;
+  display_name?: string;
+  review_count?: number;
+  avg_rating?: number;
+  verified: boolean;
+  created_at: string;
+}
