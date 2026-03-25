@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema } from './src/validation.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -1056,6 +1056,166 @@ async function startServer() {
       res.status(404).json({ error: 'Favorite not found' });
       return;
     }
+    res.json({ success: true });
+  });
+
+  // --- Recurring Bookings ---
+  v1.get('/recurring-bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const recurring = await sql`
+      SELECT rb.*, u.name as sitter_name, s.type as service_type
+      FROM recurring_bookings rb
+      JOIN users u ON rb.sitter_id = u.id
+      JOIN services s ON rb.service_id = s.id
+      WHERE rb.owner_id = ${req.userId}
+      ORDER BY rb.created_at DESC
+    `;
+    res.json({ recurring_bookings: recurring });
+  });
+
+  v1.post('/recurring-bookings', authMiddleware, validate(createRecurringBookingSchema), async (req: AuthenticatedRequest, res) => {
+    const { sitter_id, service_id, pet_ids, frequency, day_of_week, start_time, end_time } = req.body;
+
+    if (Number(sitter_id) === req.userId) {
+      res.status(400).json({ error: 'Cannot create recurring booking with yourself' });
+      return;
+    }
+
+    const [service] = await sql`SELECT id FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    if (!service) {
+      res.status(400).json({ error: 'Invalid service for this sitter' });
+      return;
+    }
+
+    const ownerPets = await sql`SELECT id FROM pets WHERE id = ANY(${pet_ids}) AND owner_id = ${req.userId}`;
+    if (ownerPets.length !== pet_ids.length) {
+      res.status(400).json({ error: 'One or more pets not found' });
+      return;
+    }
+
+    // Calculate next occurrence
+    const now = new Date();
+    const today = now.getDay();
+    let daysUntil = day_of_week - today;
+    if (daysUntil <= 0) daysUntil += 7;
+    const nextDate = new Date(now);
+    nextDate.setDate(now.getDate() + daysUntil);
+    const nextOccurrence = nextDate.toISOString().split('T')[0];
+
+    const [recurring] = await sql`
+      INSERT INTO recurring_bookings (owner_id, sitter_id, service_id, pet_ids, frequency, day_of_week, start_time, end_time, next_occurrence)
+      VALUES (${req.userId}, ${sitter_id}, ${service_id}, ${pet_ids}, ${frequency}, ${day_of_week}, ${start_time}, ${end_time}, ${nextOccurrence})
+      RETURNING *
+    `;
+    res.status(201).json({ recurring_booking: recurring });
+  });
+
+  v1.put('/recurring-bookings/:id/pause', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [rb] = await sql`SELECT id FROM recurring_bookings WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
+    if (!rb) {
+      res.status(404).json({ error: 'Recurring booking not found' });
+      return;
+    }
+    const [updated] = await sql`UPDATE recurring_bookings SET active = FALSE WHERE id = ${req.params.id} RETURNING *`;
+    res.json({ recurring_booking: updated });
+  });
+
+  v1.put('/recurring-bookings/:id/resume', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [rb] = await sql`SELECT id FROM recurring_bookings WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
+    if (!rb) {
+      res.status(404).json({ error: 'Recurring booking not found' });
+      return;
+    }
+    const [updated] = await sql`UPDATE recurring_bookings SET active = TRUE WHERE id = ${req.params.id} RETURNING *`;
+    res.json({ recurring_booking: updated });
+  });
+
+  v1.delete('/recurring-bookings/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [rb] = await sql`SELECT id FROM recurring_bookings WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
+    if (!rb) {
+      res.status(404).json({ error: 'Recurring booking not found' });
+      return;
+    }
+    await sql`DELETE FROM recurring_bookings WHERE id = ${req.params.id}`;
+    res.json({ success: true });
+  });
+
+  // --- Recurring Bookings ---
+  v1.get('/recurring-bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const recurring = await sql`
+      SELECT rb.*, u.name as sitter_name, s.type as service_type
+      FROM recurring_bookings rb
+      JOIN users u ON rb.sitter_id = u.id
+      JOIN services s ON rb.service_id = s.id
+      WHERE rb.owner_id = ${req.userId}
+      ORDER BY rb.created_at DESC
+    `;
+    res.json({ recurring_bookings: recurring });
+  });
+
+  v1.post('/recurring-bookings', authMiddleware, validate(createRecurringBookingSchema), async (req: AuthenticatedRequest, res) => {
+    const { sitter_id, service_id, pet_ids, frequency, day_of_week, start_time, end_time } = req.body;
+
+    if (Number(sitter_id) === req.userId) {
+      res.status(400).json({ error: 'Cannot create recurring booking with yourself' });
+      return;
+    }
+
+    const [service] = await sql`SELECT id FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    if (!service) {
+      res.status(400).json({ error: 'Invalid service for this sitter' });
+      return;
+    }
+
+    const ownerPets = await sql`SELECT id FROM pets WHERE id = ANY(${pet_ids}) AND owner_id = ${req.userId}`;
+    if (ownerPets.length !== pet_ids.length) {
+      res.status(400).json({ error: 'One or more pets not found' });
+      return;
+    }
+
+    // Calculate next occurrence
+    const now = new Date();
+    const today = now.getDay();
+    let daysUntil = day_of_week - today;
+    if (daysUntil <= 0) daysUntil += 7;
+    const nextDate = new Date(now);
+    nextDate.setDate(now.getDate() + daysUntil);
+    const nextOccurrence = nextDate.toISOString().split('T')[0];
+
+    const [recurring] = await sql`
+      INSERT INTO recurring_bookings (owner_id, sitter_id, service_id, pet_ids, frequency, day_of_week, start_time, end_time, next_occurrence)
+      VALUES (${req.userId}, ${sitter_id}, ${service_id}, ${pet_ids}, ${frequency}, ${day_of_week}, ${start_time}, ${end_time}, ${nextOccurrence})
+      RETURNING *
+    `;
+    res.status(201).json({ recurring_booking: recurring });
+  });
+
+  v1.put('/recurring-bookings/:id/pause', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [rb] = await sql`SELECT id FROM recurring_bookings WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
+    if (!rb) {
+      res.status(404).json({ error: 'Recurring booking not found' });
+      return;
+    }
+    const [updated] = await sql`UPDATE recurring_bookings SET active = FALSE WHERE id = ${req.params.id} RETURNING *`;
+    res.json({ recurring_booking: updated });
+  });
+
+  v1.put('/recurring-bookings/:id/resume', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [rb] = await sql`SELECT id FROM recurring_bookings WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
+    if (!rb) {
+      res.status(404).json({ error: 'Recurring booking not found' });
+      return;
+    }
+    const [updated] = await sql`UPDATE recurring_bookings SET active = TRUE WHERE id = ${req.params.id} RETURNING *`;
+    res.json({ recurring_booking: updated });
+  });
+
+  v1.delete('/recurring-bookings/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [rb] = await sql`SELECT id FROM recurring_bookings WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
+    if (!rb) {
+      res.status(404).json({ error: 'Recurring booking not found' });
+      return;
+    }
+    await sql`DELETE FROM recurring_bookings WHERE id = ${req.params.id}`;
     res.json({ success: true });
   });
 
