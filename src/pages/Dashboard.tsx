@@ -10,6 +10,7 @@ import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import { useFavorites } from '../hooks/useFavorites';
 import FavoriteSitters from '../components/FavoriteSitters';
+import CareTasksChecklist from '../components/CareTasksChecklist';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
@@ -249,6 +250,12 @@ export default function Dashboard() {
                       )}
                     </div>
                   </div>
+
+                  {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
+                    <div className="mt-4">
+                      <CareTasksChecklist bookingId={booking.id} token={token} isSitter={isSitterMode} />
+                    </div>
+                  )}
                 </div>
               );
             })}

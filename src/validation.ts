@@ -87,6 +87,21 @@ export const petVaccinationSchema = z.object({
   document_url: z.string().url().optional().nullable().or(z.literal('')),
 });
 
+// --- Care Instruction Schemas ---
+const careCategory = ['feeding', 'medication', 'exercise', 'grooming', 'behavioral', 'other'] as const;
+
+export const careInstructionSchema = z.object({
+  id: z.string().min(1),
+  category: z.enum(careCategory),
+  description: z.string().trim().min(1, 'Description is required').max(500),
+  time: z.string().max(50).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+});
+
+export const updateCareInstructionsSchema = z.object({
+  care_instructions: z.array(careInstructionSchema).max(50, 'Maximum 50 care instructions per pet'),
+});
+
 // --- Booking Schemas ---
 export const createBookingSchema = z.object({
   sitter_id: z.number().int().positive('Invalid sitter ID'),

@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema } from './src/validation.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -410,6 +410,106 @@ async function startServer() {
     }
     await sql`DELETE FROM pet_vaccinations WHERE id = ${req.params.id} AND pet_id = ${req.params.petId}`;
     res.json({ success: true });
+  });
+
+  // --- Pet Care Instructions ---
+  v1.put('/pets/:id/care-instructions', authMiddleware, validate(updateCareInstructionsSchema), async (req: AuthenticatedRequest, res) => {
+    const [pet] = await sql`SELECT id FROM pets WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
+    if (!pet) {
+      res.status(404).json({ error: 'Pet not found' });
+      return;
+    }
+    const { care_instructions } = req.body;
+    const [updated] = await sql`
+      UPDATE pets SET care_instructions = ${sql.json(care_instructions)}
+      WHERE id = ${req.params.id} AND owner_id = ${req.userId}
+      RETURNING id, care_instructions
+    `;
+    res.json({ pet: updated });
+  });
+
+  v1.get('/pets/:id/care-instructions', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [pet] = await sql`SELECT id, name, care_instructions FROM pets WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
+    if (!pet) {
+      res.status(404).json({ error: 'Pet not found' });
+      return;
+    }
+    res.json({ pet_id: pet.id, pet_name: pet.name, care_instructions: pet.care_instructions || [] });
+  });
+
+  // --- Booking Care Tasks ---
+  v1.get('/bookings/:bookingId/care-tasks', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [booking] = await sql`SELECT id, owner_id, sitter_id FROM bookings WHERE id = ${req.params.bookingId}`;
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+    if (booking.owner_id !== req.userId && booking.sitter_id !== req.userId) {
+      res.status(403).json({ error: 'Not part of this booking' });
+      return;
+    }
+    const tasks = await sql`
+      SELECT bct.*, p.name as pet_name
+      FROM booking_care_tasks bct
+      JOIN pets p ON bct.pet_id = p.id
+      WHERE bct.booking_id = ${req.params.bookingId}
+      ORDER BY bct.pet_id, bct.time NULLS LAST, bct.created_at
+    `;
+    res.json({ tasks });
+  });
+
+  v1.put('/bookings/:bookingId/care-tasks/:taskId/complete', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [booking] = await sql`SELECT id, sitter_id, status FROM bookings WHERE id = ${req.params.bookingId}`;
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+    if (booking.status !== 'confirmed' && booking.status !== 'in_progress') {
+      res.status(400).json({ error: 'Tasks can only be updated on active bookings' });
+      return;
+    }
+    if (booking.sitter_id !== req.userId) {
+      res.status(403).json({ error: 'Only the sitter can complete tasks' });
+      return;
+    }
+    const [task] = await sql`SELECT id FROM booking_care_tasks WHERE id = ${req.params.taskId} AND booking_id = ${req.params.bookingId}`;
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+    const [updated] = await sql`
+      UPDATE booking_care_tasks SET completed = TRUE, completed_at = NOW()
+      WHERE id = ${req.params.taskId}
+      RETURNING *
+    `;
+    res.json({ task: updated });
+  });
+
+  v1.put('/bookings/:bookingId/care-tasks/:taskId/uncomplete', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [booking] = await sql`SELECT id, sitter_id, status FROM bookings WHERE id = ${req.params.bookingId}`;
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+    if (booking.status !== 'confirmed' && booking.status !== 'in_progress') {
+      res.status(400).json({ error: 'Tasks can only be updated on active bookings' });
+      return;
+    }
+    if (booking.sitter_id !== req.userId) {
+      res.status(403).json({ error: 'Only the sitter can update tasks' });
+      return;
+    }
+    const [task] = await sql`SELECT id FROM booking_care_tasks WHERE id = ${req.params.taskId} AND booking_id = ${req.params.bookingId}`;
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+    const [updated] = await sql`
+      UPDATE booking_care_tasks SET completed = FALSE, completed_at = NULL
+      WHERE id = ${req.params.taskId}
+      RETURNING *
+    `;
+    res.json({ task: updated });
   });
 
   // --- Sitters ---
@@ -939,7 +1039,7 @@ async function startServer() {
 
     const totalPrice = calculateBookingPrice(service.price, service.additional_pet_price || 0, pet_ids.length);
 
-    // Use transaction for booking + booking_pets
+    // Use transaction for booking + booking_pets + care tasks
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const booking = await sql.begin(async (tx: any) => {
       const [b] = await tx`
@@ -949,6 +1049,22 @@ async function startServer() {
       `;
       const petRows = pet_ids.map((petId: number) => ({ booking_id: b.id, pet_id: petId }));
       await tx`INSERT INTO booking_pets ${tx(petRows, 'booking_id', 'pet_id')}`;
+
+      // Auto-populate care tasks from pet care instructions (inside transaction)
+      const petsWithCare = await tx`SELECT id, care_instructions FROM pets WHERE id = ANY(${pet_ids}) AND care_instructions IS NOT NULL AND care_instructions != '[]'::jsonb`;
+      const taskRows: { booking_id: number; pet_id: number; category: string; description: string; time: string | null; notes: string | null }[] = [];
+      for (const pet of petsWithCare) {
+        const raw = pet.care_instructions as unknown[];
+        for (const item of raw) {
+          if (typeof item !== 'object' || !item || !('category' in item) || !('description' in item)) continue;
+          const instr = item as { category: string; description: string; time?: string; notes?: string };
+          taskRows.push({ booking_id: b.id, pet_id: pet.id, category: instr.category, description: instr.description, time: instr.time || null, notes: instr.notes || null });
+        }
+      }
+      if (taskRows.length > 0) {
+        await tx`INSERT INTO booking_care_tasks ${tx(taskRows, 'booking_id', 'pet_id', 'category', 'description', 'time', 'notes')}`;
+      }
+
       return b;
     });
 

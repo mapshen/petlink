@@ -374,6 +374,27 @@ export async function initDb() {
   await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS max_pets INTEGER DEFAULT 1`.catch(() => {});
   await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS service_details JSONB`.catch(() => {});
 
+  // Issue #100: Pet care instructions
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS care_instructions JSONB DEFAULT '[]'`.catch(() => {});
+
+  // Issue #100: Booking care tasks (checklist items derived from pet care instructions)
+  await sql`
+    CREATE TABLE IF NOT EXISTS booking_care_tasks (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      category TEXT NOT NULL,
+      description TEXT NOT NULL,
+      time TEXT,
+      notes TEXT,
+      completed BOOLEAN DEFAULT FALSE,
+      completed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_booking_id ON booking_care_tasks (booking_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_pet_id ON booking_care_tasks (pet_id)`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
