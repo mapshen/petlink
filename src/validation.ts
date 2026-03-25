@@ -35,21 +35,56 @@ export const loginSchema = z.object({
 });
 
 // --- User Schemas ---
+const homeTypes = ['house', 'apartment', 'condo', 'other'] as const;
+const sitterSkills = ['pet_first_aid', 'dog_training', 'medication_admin', 'puppy_care', 'senior_pet_care', 'behavioral_issues', 'grooming_basics'] as const;
+
 export const updateProfileSchema = z.object({
   name: nameSchema('Name is required'),
   bio: z.string().optional().nullable(),
   avatar_url: z.string().url().optional().nullable().or(z.literal('')),
   role: z.enum(['owner', 'sitter', 'both']).optional(),
+  accepted_species: z.array(z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal'])).optional(),
+  years_experience: z.number().int().min(0).max(50).optional().nullable(),
+  home_type: z.enum(homeTypes).optional().nullable(),
+  has_yard: z.boolean().optional().nullable(),
+  has_fenced_yard: z.boolean().optional().nullable(),
+  has_own_pets: z.boolean().optional().nullable(),
+  own_pets_description: z.string().max(500).optional().nullable(),
+  skills: z.array(z.enum(sitterSkills)).max(10).optional(),
 });
 
 // --- Pet Schemas ---
+const petSpecies = ['dog', 'cat', 'bird', 'reptile', 'small_animal'] as const;
+const petGender = ['male', 'female'] as const;
+const energyLevel = ['low', 'medium', 'high'] as const;
+const temperamentTags = ['friendly', 'shy', 'anxious', 'reactive', 'good_with_kids', 'good_with_dogs', 'good_with_cats', 'playful', 'calm', 'independent'] as const;
+
 export const petSchema = z.object({
   name: nameSchema('Pet name is required'),
+  species: z.enum(petSpecies).optional().default('dog'),
   breed: z.string().optional().nullable(),
   age: z.number().int().min(0).max(50).optional().nullable(),
   weight: z.number().min(0).max(500).optional().nullable(),
+  gender: z.enum(petGender).optional().nullable(),
+  spayed_neutered: z.boolean().optional().nullable(),
+  energy_level: z.enum(energyLevel).optional().nullable(),
+  house_trained: z.boolean().optional().nullable(),
+  temperament: z.array(z.enum(temperamentTags)).max(10, 'Maximum 10 temperament tags').optional().default([]),
+  special_needs: z.string().max(2000, 'Special needs must be under 2000 characters').optional().nullable(),
+  microchip_number: z.string().max(50, 'Microchip number must be under 50 characters').optional().nullable(),
+  vet_name: z.string().max(200).optional().nullable(),
+  vet_phone: z.string().max(20).optional().nullable(),
+  emergency_contact_name: z.string().max(200).optional().nullable(),
+  emergency_contact_phone: z.string().max(20).optional().nullable(),
   medical_history: z.string().optional().nullable(),
   photo_url: z.string().url().optional().nullable().or(z.literal('')),
+});
+
+export const petVaccinationSchema = z.object({
+  vaccine_name: z.string().trim().min(1, 'Vaccine name is required').max(100, 'Vaccine name must be under 100 characters'),
+  administered_date: z.string().refine((v) => !v || !isNaN(new Date(v).getTime()), 'Must be a valid date').optional().nullable(),
+  expires_at: z.string().refine((v) => !v || !isNaN(new Date(v).getTime()), 'Must be a valid date').optional().nullable(),
+  document_url: z.string().url().optional().nullable().or(z.literal('')),
 });
 
 // --- Booking Schemas ---
@@ -74,6 +109,11 @@ export const serviceSchema = z.object({
   price: z.number().min(0, 'Price cannot be negative').max(9999, 'Price must be under $10,000'),
   description: z.string().max(1000, 'Description must be under 1000 characters').optional().nullable(),
   additional_pet_price: z.number().min(0, 'Additional pet price cannot be negative').max(500, 'Additional pet price must be under $500').optional().default(0),
+  max_pets: z.number().int().min(1, 'Must accept at least 1 pet').max(20, 'Maximum 20 pets').optional().default(1),
+  service_details: z.record(z.string(), z.unknown()).refine(
+    (obj) => JSON.stringify(obj).length <= 5000,
+    'Service details must be under 5KB'
+  ).optional().nullable(),
 }).refine(
   (data) => data.type === 'meet_greet' || data.price >= 1,
   { message: 'Price must be at least $1', path: ['price'] }

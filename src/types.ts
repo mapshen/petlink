@@ -1,5 +1,7 @@
 export type CancellationPolicy = 'flexible' | 'moderate' | 'strict';
 
+export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
+
 export interface User {
   id: number;
   email: string;
@@ -10,18 +12,52 @@ export interface User {
   lat?: number;
   lng?: number;
   accepted_pet_sizes?: string[];
+  accepted_species?: string[];
   cancellation_policy?: CancellationPolicy;
+  years_experience?: number;
+  home_type?: HomeType;
+  has_yard?: boolean;
+  has_fenced_yard?: boolean;
+  has_own_pets?: boolean;
+  own_pets_description?: string;
+  skills?: string[];
 }
+
+export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';
+export type PetGender = 'male' | 'female';
+export type EnergyLevel = 'low' | 'medium' | 'high';
 
 export interface Pet {
   id: number;
   owner_id: number;
   name: string;
+  species: PetSpecies;
   breed?: string;
   age?: number;
   weight?: number;
+  gender?: PetGender;
+  spayed_neutered?: boolean;
+  energy_level?: EnergyLevel;
+  house_trained?: boolean;
+  temperament?: string[];
+  special_needs?: string;
+  microchip_number?: string;
+  vet_name?: string;
+  vet_phone?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
   medical_history?: string;
   photo_url?: string;
+}
+
+export interface PetVaccination {
+  id: number;
+  pet_id: number;
+  vaccine_name: string;
+  administered_date?: string;
+  expires_at?: string;
+  document_url?: string;
+  created_at: string;
 }
 
 export interface Service {
@@ -31,6 +67,8 @@ export interface Service {
   price: number;
   description?: string;
   additional_pet_price?: number;
+  max_pets?: number;
+  service_details?: Record<string, unknown>;
 }
 
 export interface Booking {

@@ -4,6 +4,7 @@ import {
   loginSchema,
   updateProfileSchema,
   petSchema,
+  petVaccinationSchema,
   serviceSchema,
   createBookingSchema,
   updateBookingStatusSchema,
@@ -175,6 +176,36 @@ describe('updateProfileSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts sitter profile fields', () => {
+    const result = updateProfileSchema.safeParse({
+      name: 'Bob',
+      accepted_species: ['dog', 'cat'],
+      years_experience: 5,
+      home_type: 'house',
+      has_yard: true,
+      has_fenced_yard: true,
+      has_own_pets: false,
+      skills: ['pet_first_aid', 'dog_training'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid species in accepted_species', () => {
+    expect(updateProfileSchema.safeParse({ name: 'Bob', accepted_species: ['fish'] }).success).toBe(false);
+  });
+
+  it('rejects invalid home_type', () => {
+    expect(updateProfileSchema.safeParse({ name: 'Bob', home_type: 'tent' }).success).toBe(false);
+  });
+
+  it('rejects invalid skills', () => {
+    expect(updateProfileSchema.safeParse({ name: 'Bob', skills: ['sword_fighting'] }).success).toBe(false);
+  });
+
+  it('rejects years_experience over 50', () => {
+    expect(updateProfileSchema.safeParse({ name: 'Bob', years_experience: 51 }).success).toBe(false);
+  });
 });
 
 describe('petSchema', () => {
@@ -189,6 +220,103 @@ describe('petSchema', () => {
     if (result.success) {
       expect(result.data.name).toBe('Buddy');
     }
+  });
+
+  it('defaults species to dog', () => {
+    const result = petSchema.safeParse({ name: 'Buddy' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.species).toBe('dog');
+    }
+  });
+
+  it('accepts all valid species', () => {
+    for (const species of ['dog', 'cat', 'bird', 'reptile', 'small_animal']) {
+      expect(petSchema.safeParse({ name: 'Pet', species }).success).toBe(true);
+    }
+  });
+
+  it('rejects invalid species', () => {
+    expect(petSchema.safeParse({ name: 'Pet', species: 'fish' }).success).toBe(false);
+  });
+
+  it('accepts gender values', () => {
+    expect(petSchema.safeParse({ name: 'Pet', gender: 'male' }).success).toBe(true);
+    expect(petSchema.safeParse({ name: 'Pet', gender: 'female' }).success).toBe(true);
+    expect(petSchema.safeParse({ name: 'Pet', gender: 'other' }).success).toBe(false);
+  });
+
+  it('accepts energy level values', () => {
+    for (const level of ['low', 'medium', 'high']) {
+      expect(petSchema.safeParse({ name: 'Pet', energy_level: level }).success).toBe(true);
+    }
+    expect(petSchema.safeParse({ name: 'Pet', energy_level: 'extreme' }).success).toBe(false);
+  });
+
+  it('accepts boolean fields', () => {
+    const result = petSchema.safeParse({
+      name: 'Buddy',
+      spayed_neutered: true,
+      house_trained: false,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.spayed_neutered).toBe(true);
+      expect(result.data.house_trained).toBe(false);
+    }
+  });
+
+  it('accepts temperament tags', () => {
+    const result = petSchema.safeParse({
+      name: 'Buddy',
+      temperament: ['friendly', 'playful', 'good_with_kids'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.temperament).toEqual(['friendly', 'playful', 'good_with_kids']);
+    }
+  });
+
+  it('rejects invalid temperament tags', () => {
+    expect(petSchema.safeParse({ name: 'Pet', temperament: ['aggressive'] }).success).toBe(false);
+  });
+
+  it('rejects more than 10 temperament tags', () => {
+    const tags = ['friendly', 'shy', 'anxious', 'reactive', 'good_with_kids', 'good_with_dogs', 'good_with_cats', 'playful', 'calm', 'independent', 'friendly'];
+    expect(petSchema.safeParse({ name: 'Pet', temperament: tags }).success).toBe(false);
+  });
+
+  it('defaults temperament to empty array', () => {
+    const result = petSchema.safeParse({ name: 'Buddy' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.temperament).toEqual([]);
+    }
+  });
+
+  it('accepts vet and emergency contact info', () => {
+    const result = petSchema.safeParse({
+      name: 'Buddy',
+      vet_name: 'Dr. Smith',
+      vet_phone: '555-0100',
+      emergency_contact_name: 'Jane Doe',
+      emergency_contact_phone: '555-0200',
+      microchip_number: 'ABC123456',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects microchip number over 50 chars', () => {
+    expect(petSchema.safeParse({ name: 'Pet', microchip_number: 'a'.repeat(51) }).success).toBe(false);
+  });
+
+  it('accepts special needs text', () => {
+    const result = petSchema.safeParse({ name: 'Buddy', special_needs: 'Needs insulin injection twice daily' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects special needs over 2000 chars', () => {
+    expect(petSchema.safeParse({ name: 'Pet', special_needs: 'a'.repeat(2001) }).success).toBe(false);
   });
 
   it('rejects age over 50', () => {
@@ -214,6 +342,61 @@ describe('petSchema', () => {
       weight: null,
       medical_history: null,
       photo_url: null,
+      gender: null,
+      spayed_neutered: null,
+      energy_level: null,
+      house_trained: null,
+      special_needs: null,
+      microchip_number: null,
+      vet_name: null,
+      vet_phone: null,
+      emergency_contact_name: null,
+      emergency_contact_phone: null,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('petVaccinationSchema', () => {
+  it('accepts valid vaccination data', () => {
+    const result = petVaccinationSchema.safeParse({
+      vaccine_name: 'Rabies',
+      administered_date: '2025-01-15',
+      expires_at: '2026-01-15',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('requires vaccine name', () => {
+    expect(petVaccinationSchema.safeParse({}).success).toBe(false);
+    expect(petVaccinationSchema.safeParse({ vaccine_name: '' }).success).toBe(false);
+  });
+
+  it('trims vaccine name', () => {
+    const result = petVaccinationSchema.safeParse({ vaccine_name: '  Rabies  ' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.vaccine_name).toBe('Rabies');
+    }
+  });
+
+  it('rejects vaccine name over 100 chars', () => {
+    expect(petVaccinationSchema.safeParse({ vaccine_name: 'a'.repeat(101) }).success).toBe(false);
+  });
+
+  it('accepts optional dates', () => {
+    const result = petVaccinationSchema.safeParse({ vaccine_name: 'DHPP' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid date strings', () => {
+    expect(petVaccinationSchema.safeParse({ vaccine_name: 'Rabies', administered_date: 'not-a-date' }).success).toBe(false);
+  });
+
+  it('accepts document URL', () => {
+    const result = petVaccinationSchema.safeParse({
+      vaccine_name: 'Bordetella',
+      document_url: 'https://example.com/cert.pdf',
     });
     expect(result.success).toBe(true);
   });
@@ -461,6 +644,39 @@ describe('serviceSchema', () => {
   it('rejects additional_pet_price over 500', () => {
     const result = serviceSchema.safeParse({ type: 'walking', price: 25, additional_pet_price: 501 });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts max_pets', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 25, max_pets: 5 });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.max_pets).toBe(5);
+    }
+  });
+
+  it('defaults max_pets to 1', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price: 25 });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.max_pets).toBe(1);
+    }
+  });
+
+  it('rejects max_pets of 0', () => {
+    expect(serviceSchema.safeParse({ type: 'walking', price: 25, max_pets: 0 }).success).toBe(false);
+  });
+
+  it('rejects max_pets over 20', () => {
+    expect(serviceSchema.safeParse({ type: 'walking', price: 25, max_pets: 21 }).success).toBe(false);
+  });
+
+  it('accepts service_details object', () => {
+    const result = serviceSchema.safeParse({
+      type: 'walking',
+      price: 25,
+      service_details: { duration_minutes: 30, solo_walk: true },
+    });
+    expect(result.success).toBe(true);
   });
 });
 

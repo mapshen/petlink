@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { Pet } from '../types';
-import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle, Camera, Loader2 } from 'lucide-react';
+import { Pet, PetVaccination } from '../types';
+import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle, Camera, Loader2, Syringe, ChevronDown, ChevronUp } from 'lucide-react';
 import { API_BASE } from '../config';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { Button } from '../components/ui/button';
@@ -17,16 +17,64 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 
+const SPECIES_OPTIONS = [
+  { value: 'dog', label: 'Dog' },
+  { value: 'cat', label: 'Cat' },
+  { value: 'bird', label: 'Bird' },
+  { value: 'reptile', label: 'Reptile' },
+  { value: 'small_animal', label: 'Small Animal' },
+] as const;
+
+const GENDER_OPTIONS = [
+  { value: '', label: 'Not specified' },
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+] as const;
+
+const ENERGY_LEVELS = [
+  { value: '', label: 'Not specified' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+] as const;
+
+const TEMPERAMENT_TAGS = [
+  'friendly', 'shy', 'anxious', 'reactive', 'good_with_kids',
+  'good_with_dogs', 'good_with_cats', 'playful', 'calm', 'independent',
+] as const;
+
 interface PetFormData {
   name: string;
+  species: string;
   breed: string;
   age: string;
   weight: string;
+  gender: string;
+  spayed_neutered: boolean | null;
+  energy_level: string;
+  house_trained: boolean | null;
+  temperament: string[];
+  special_needs: string;
+  microchip_number: string;
+  vet_name: string;
+  vet_phone: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
   medical_history: string;
   photo_url: string;
 }
 
-const emptyForm: PetFormData = { name: '', breed: '', age: '', weight: '', medical_history: '', photo_url: '' };
+const emptyForm: PetFormData = {
+  name: '', species: 'dog', breed: '', age: '', weight: '',
+  gender: '', spayed_neutered: null, energy_level: '', house_trained: null,
+  temperament: [], special_needs: '', microchip_number: '',
+  vet_name: '', vet_phone: '', emergency_contact_name: '', emergency_contact_phone: '',
+  medical_history: '', photo_url: '',
+};
+
+function formatTag(tag: string): string {
+  return tag.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 export default function PetsTab() {
   const { user, token } = useAuth();
@@ -37,6 +85,7 @@ export default function PetsTab() {
   const [form, setForm] = useState<PetFormData>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [deleteDialogPetId, setDeleteDialogPetId] = useState<number | null>(null);
+  const [expandedPetId, setExpandedPetId] = useState<number | null>(null);
   const petFileInputRef = useRef<HTMLInputElement>(null);
   const { uploading, progress, error: uploadError, upload, clearError } = useImageUpload(token);
 
@@ -74,6 +123,8 @@ export default function PetsTab() {
       ...form,
       age: form.age ? Number(form.age) : null,
       weight: form.weight ? Number(form.weight) : null,
+      gender: form.gender || null,
+      energy_level: form.energy_level || null,
     };
 
     const url = editingId ? `${API_BASE}/pets/${editingId}` : `${API_BASE}/pets`;
@@ -103,9 +154,21 @@ export default function PetsTab() {
   const handleEdit = (pet: Pet) => {
     setForm({
       name: pet.name,
+      species: pet.species || 'dog',
       breed: pet.breed || '',
       age: pet.age?.toString() || '',
       weight: pet.weight?.toString() || '',
+      gender: pet.gender || '',
+      spayed_neutered: pet.spayed_neutered ?? null,
+      energy_level: pet.energy_level || '',
+      house_trained: pet.house_trained ?? null,
+      temperament: pet.temperament || [],
+      special_needs: pet.special_needs || '',
+      microchip_number: pet.microchip_number || '',
+      vet_name: pet.vet_name || '',
+      vet_phone: pet.vet_phone || '',
+      emergency_contact_name: pet.emergency_contact_name || '',
+      emergency_contact_phone: pet.emergency_contact_phone || '',
       medical_history: pet.medical_history || '',
       photo_url: pet.photo_url || '',
     });
@@ -131,6 +194,15 @@ export default function PetsTab() {
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm);
+  };
+
+  const toggleTemperament = (tag: string) => {
+    setForm(prev => ({
+      ...prev,
+      temperament: prev.temperament.includes(tag)
+        ? prev.temperament.filter(t => t !== tag)
+        : [...prev.temperament, tag],
+    }));
   };
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
@@ -165,19 +237,85 @@ export default function PetsTab() {
             <button type="button" onClick={cancelForm} className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
           </div>
 
+          {/* Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input required placeholder="Name *" value={form.name} onChange={e => setForm({...form, name: e.target.value})}
               className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+            <select value={form.species} onChange={e => setForm({...form, species: e.target.value})}
+              className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+              {SPECIES_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
             <input placeholder="Breed" value={form.breed} onChange={e => setForm({...form, breed: e.target.value})}
               className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+            <select value={form.gender} onChange={e => setForm({...form, gender: e.target.value})}
+              className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+              {GENDER_OPTIONS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+            </select>
             <input type="number" placeholder="Age (years)" value={form.age} onChange={e => setForm({...form, age: e.target.value})}
               className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
             <input type="number" step="0.1" placeholder="Weight (lbs)" value={form.weight} onChange={e => setForm({...form, weight: e.target.value})}
               className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
           </div>
-          <textarea rows={3} placeholder="Medical history / vaccination records" value={form.medical_history}
+
+          {/* Status Toggles */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <label className="flex items-center gap-2 p-3 border border-stone-200 rounded-lg cursor-pointer hover:bg-white">
+              <input type="checkbox" checked={form.spayed_neutered === true}
+                onChange={e => setForm({...form, spayed_neutered: e.target.checked})}
+                className="rounded text-emerald-600 focus:ring-emerald-500" />
+              <span className="text-sm text-stone-700">Spayed/Neutered</span>
+            </label>
+            <label className="flex items-center gap-2 p-3 border border-stone-200 rounded-lg cursor-pointer hover:bg-white">
+              <input type="checkbox" checked={form.house_trained === true}
+                onChange={e => setForm({...form, house_trained: e.target.checked})}
+                className="rounded text-emerald-600 focus:ring-emerald-500" />
+              <span className="text-sm text-stone-700">House Trained</span>
+            </label>
+            <select value={form.energy_level} onChange={e => setForm({...form, energy_level: e.target.value})}
+              className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm">
+              {ENERGY_LEVELS.map(l => <option key={l.value} value={l.value}>{l.value ? `Energy: ${l.label}` : 'Energy Level'}</option>)}
+            </select>
+          </div>
+
+          {/* Temperament Tags */}
+          <div>
+            <label className="block text-sm font-medium text-stone-700 mb-2">Temperament</label>
+            <div className="flex flex-wrap gap-2">
+              {TEMPERAMENT_TAGS.map(tag => (
+                <button key={tag} type="button" onClick={() => toggleTemperament(tag)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    form.temperament.includes(tag) ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}>
+                  {formatTag(tag)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Health & Safety */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input placeholder="Microchip Number" value={form.microchip_number} onChange={e => setForm({...form, microchip_number: e.target.value})}
+              className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+          </div>
+          <textarea rows={2} placeholder="Special needs (medications, dietary restrictions, mobility issues)" value={form.special_needs}
+            onChange={e => setForm({...form, special_needs: e.target.value})}
+            className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+          <textarea rows={2} placeholder="Medical history / notes" value={form.medical_history}
             onChange={e => setForm({...form, medical_history: e.target.value})}
             className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+
+          {/* Vet & Emergency Contact */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input placeholder="Vet Name" value={form.vet_name} onChange={e => setForm({...form, vet_name: e.target.value})}
+              className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+            <input placeholder="Vet Phone" value={form.vet_phone} onChange={e => setForm({...form, vet_phone: e.target.value})}
+              className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+            <input placeholder="Emergency Contact Name" value={form.emergency_contact_name} onChange={e => setForm({...form, emergency_contact_name: e.target.value})}
+              className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+            <input placeholder="Emergency Contact Phone" value={form.emergency_contact_phone} onChange={e => setForm({...form, emergency_contact_phone: e.target.value})}
+              className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
+          </div>
+
           {/* Pet Photo Upload */}
           <div className="flex items-center gap-4">
             <div className="relative group flex-shrink-0">
@@ -246,7 +384,10 @@ export default function PetsTab() {
               )}
               <div className="p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xl font-bold text-stone-900">{pet.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-bold text-stone-900">{pet.name}</h3>
+                    <span className="text-xs bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full capitalize">{pet.species || 'dog'}</span>
+                  </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleEdit(pet)} className="p-1.5 text-stone-400 hover:text-emerald-600 transition-colors">
                       <Pencil className="w-4 h-4" />
@@ -257,12 +398,45 @@ export default function PetsTab() {
                   </div>
                 </div>
                 {pet.breed && <p className="text-sm text-stone-500 mb-2">{pet.breed}</p>}
-                <div className="flex gap-4 text-sm text-stone-500">
+                <div className="flex gap-4 text-sm text-stone-500 flex-wrap">
                   {pet.age != null && <span>{pet.age} years</span>}
                   {pet.weight != null && <span>{pet.weight} lbs</span>}
+                  {pet.gender && <span className="capitalize">{pet.gender}</span>}
+                  {pet.spayed_neutered && <span>Spayed/Neutered</span>}
+                  {pet.energy_level && <span>Energy: {pet.energy_level}</span>}
+                  {pet.house_trained && <span>House trained</span>}
                 </div>
+                {pet.temperament && pet.temperament.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {pet.temperament.map(tag => (
+                      <span key={tag} className="bg-emerald-50 text-emerald-700 text-xs px-2 py-0.5 rounded-full">{formatTag(tag)}</span>
+                    ))}
+                  </div>
+                )}
+                {pet.special_needs && (
+                  <p className="mt-3 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">{pet.special_needs}</p>
+                )}
                 {pet.medical_history && (
                   <p className="mt-3 text-sm text-stone-600 bg-stone-50 p-3 rounded-lg">{pet.medical_history}</p>
+                )}
+
+                {/* Expandable details */}
+                <button
+                  type="button"
+                  onClick={() => setExpandedPetId(expandedPetId === pet.id ? null : pet.id)}
+                  className="mt-3 text-xs text-stone-400 hover:text-stone-600 flex items-center gap-1"
+                >
+                  {expandedPetId === pet.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  {expandedPetId === pet.id ? 'Less details' : 'More details'}
+                </button>
+
+                {expandedPetId === pet.id && (
+                  <div className="mt-3 space-y-2 text-sm text-stone-600">
+                    {pet.microchip_number && <p><span className="font-medium">Microchip:</span> {pet.microchip_number}</p>}
+                    {pet.vet_name && <p><span className="font-medium">Vet:</span> {pet.vet_name} {pet.vet_phone && `(${pet.vet_phone})`}</p>}
+                    {pet.emergency_contact_name && <p><span className="font-medium">Emergency:</span> {pet.emergency_contact_name} {pet.emergency_contact_phone && `(${pet.emergency_contact_phone})`}</p>}
+                    <VaccinationSection petId={pet.id} token={token} />
+                  </div>
                 )}
               </div>
             </div>
@@ -286,6 +460,118 @@ export default function PetsTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function VaccinationSection({ petId, token }: { petId: number; token: string | null }) {
+  const [vaccinations, setVaccinations] = useState<PetVaccination[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [vaccineName, setVaccineName] = useState('');
+  const [administeredDate, setAdministeredDate] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchVaccinations();
+  }, [petId]);
+
+  const fetchVaccinations = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/pets/${petId}/vaccinations`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setVaccinations(data.vaccinations);
+      }
+    } catch {
+      // Non-critical
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!vaccineName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/pets/${petId}/vaccinations`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({
+          vaccine_name: vaccineName,
+          administered_date: administeredDate || null,
+          expires_at: expiresAt || null,
+        }),
+      });
+      if (res.ok) {
+        setVaccineName('');
+        setAdministeredDate('');
+        setExpiresAt('');
+        setShowAdd(false);
+        fetchVaccinations();
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (vaccId: number) => {
+    try {
+      await fetch(`${API_BASE}/pets/${petId}/vaccinations/${vaccId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(token),
+      });
+      fetchVaccinations();
+    } catch {
+      // Silently fail
+    }
+  };
+
+  return (
+    <div className="mt-3 border-t border-stone-100 pt-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-medium text-stone-700 flex items-center gap-1.5">
+          <Syringe className="w-3.5 h-3.5" /> Vaccinations
+        </span>
+        <button type="button" onClick={() => setShowAdd(!showAdd)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+          {showAdd ? 'Cancel' : '+ Add'}
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="space-y-2 mb-3">
+          <input placeholder="Vaccine name *" value={vaccineName} onChange={e => setVaccineName(e.target.value)}
+            className="w-full p-2 text-sm border border-stone-200 rounded-lg" />
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" placeholder="Date given" value={administeredDate} onChange={e => setAdministeredDate(e.target.value)}
+              className="p-2 text-sm border border-stone-200 rounded-lg" />
+            <input type="date" placeholder="Expires" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
+              className="p-2 text-sm border border-stone-200 rounded-lg" />
+          </div>
+          <Button size="sm" onClick={handleAdd} disabled={saving || !vaccineName.trim()}>
+            {saving ? 'Saving...' : 'Add Vaccination'}
+          </Button>
+        </div>
+      )}
+
+      {vaccinations.length === 0 && !showAdd && (
+        <p className="text-xs text-stone-400 italic">No vaccination records</p>
+      )}
+
+      {vaccinations.map(v => (
+        <div key={v.id} className="flex items-center justify-between py-1.5 border-b border-stone-50 last:border-0">
+          <div>
+            <span className="text-sm font-medium">{v.vaccine_name}</span>
+            <span className="text-xs text-stone-400 ml-2">
+              {v.administered_date && `Given: ${new Date(v.administered_date).toLocaleDateString()}`}
+              {v.expires_at && ` | Expires: ${new Date(v.expires_at).toLocaleDateString()}`}
+            </span>
+          </div>
+          <button onClick={() => handleDelete(v.id)} className="text-stone-300 hover:text-red-500 p-1">
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

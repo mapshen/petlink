@@ -32,9 +32,10 @@ interface ServiceForm {
   price: string;
   description: string;
   additional_pet_price: string;
+  max_pets: string;
 }
 
-const EMPTY_FORM: ServiceForm = { type: 'walking', price: '', description: '', additional_pet_price: '' };
+const EMPTY_FORM: ServiceForm = { type: 'walking', price: '', description: '', additional_pet_price: '', max_pets: '1' };
 
 export default function ServicesTab() {
   const { user, token } = useAuth();
@@ -119,6 +120,7 @@ export default function ServicesTab() {
           price,
           description: form.description || null,
           additional_pet_price: Number(form.additional_pet_price) || 0,
+          max_pets: Number(form.max_pets) || 1,
         }),
       });
       if (!res.ok) {
@@ -151,6 +153,7 @@ export default function ServicesTab() {
           price: editPrice,
           description: form.description || null,
           additional_pet_price: Number(form.additional_pet_price) || 0,
+          max_pets: Number(form.max_pets) || 1,
         }),
       });
       if (!res.ok) {
@@ -193,6 +196,7 @@ export default function ServicesTab() {
       price: service.price.toString(),
       description: service.description || '',
       additional_pet_price: (service.additional_pet_price || 0).toString(),
+      max_pets: (service.max_pets || 1).toString(),
     });
   };
 
@@ -293,6 +297,9 @@ export default function ServicesTab() {
                       {service.price > 0 && <span className="text-xs text-stone-400 block">per session</span>}
                       {(service.additional_pet_price || 0) > 0 && (
                         <span className="text-xs text-stone-400 block">+${service.additional_pet_price}/extra pet</span>
+                      )}
+                      {(service.max_pets || 1) > 1 && (
+                        <span className="text-xs text-stone-400 block">Up to {service.max_pets} pets</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1">
@@ -445,18 +452,32 @@ function ServiceFormFields({
       </div>
 
       {form.type !== 'meet_greet' && (
-        <div>
-          <label className="block text-sm font-medium text-stone-700 mb-1">Additional pet price ($)</label>
-          <Input
-            type="number"
-            min={0}
-            max={500}
-            value={form.additional_pet_price}
-            onChange={(e) => setForm((prev) => ({ ...prev, additional_pet_price: e.target.value }))}
-            placeholder="0"
-          />
-          <p className="text-xs text-stone-400 mt-1">Extra charge per additional pet (first pet included in base price)</p>
-        </div>
+        <>
+          <div>
+            <label className="block text-sm font-medium text-stone-700 mb-1">Additional pet price ($)</label>
+            <Input
+              type="number"
+              min={0}
+              max={500}
+              value={form.additional_pet_price}
+              onChange={(e) => setForm((prev) => ({ ...prev, additional_pet_price: e.target.value }))}
+              placeholder="0"
+            />
+            <p className="text-xs text-stone-400 mt-1">Extra charge per additional pet (first pet included in base price)</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-stone-700 mb-1">Max pets at once</label>
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={form.max_pets}
+              onChange={(e) => setForm((prev) => ({ ...prev, max_pets: e.target.value }))}
+              placeholder="1"
+            />
+            <p className="text-xs text-stone-400 mt-1">Maximum number of pets you can handle per booking</p>
+          </div>
+        </>
       )}
 
       <div>

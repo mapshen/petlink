@@ -332,6 +332,48 @@ export async function initDb() {
   await sql`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false`.catch(() => {});
 
+  // Issue #109: Granular pet profiles
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS species TEXT DEFAULT 'dog'`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS gender TEXT`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS spayed_neutered BOOLEAN`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS energy_level TEXT`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS house_trained BOOLEAN`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS temperament TEXT[] DEFAULT '{}'`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS special_needs TEXT`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS microchip_number TEXT`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS vet_name TEXT`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS vet_phone TEXT`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT`.catch(() => {});
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT`.catch(() => {});
+
+  // Issue #109: Pet vaccinations table
+  await sql`
+    CREATE TABLE IF NOT EXISTS pet_vaccinations (
+      id SERIAL PRIMARY KEY,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      vaccine_name TEXT NOT NULL,
+      administered_date DATE,
+      expires_at DATE,
+      document_url TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_pet_vaccinations_pet_id ON pet_vaccinations (pet_id)`.catch(() => {});
+
+  // Issue #109: Sitter profile details
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_species TEXT[] DEFAULT '{}'`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS years_experience INTEGER`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS home_type TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_yard BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_fenced_yard BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_own_pets BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS own_pets_description TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS skills TEXT[] DEFAULT '{}'`.catch(() => {});
+
+  // Issue #109: Service details
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS max_pets INTEGER DEFAULT 1`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS service_details JSONB`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
@@ -345,13 +387,13 @@ export async function initDb() {
       RETURNING id
     `;
     await sql`
-      INSERT INTO pets (owner_id, name, breed, age, weight, medical_history, photo_url)
-      VALUES (${owner.id}, ${'Buddy'}, ${'Golden Retriever'}, ${3}, ${30}, ${'None'}, ${'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=150&q=80'})
+      INSERT INTO pets (owner_id, name, species, breed, age, weight, gender, spayed_neutered, energy_level, house_trained, temperament, medical_history, photo_url)
+      VALUES (${owner.id}, ${'Buddy'}, ${'dog'}, ${'Golden Retriever'}, ${3}, ${30}, ${'male'}, ${true}, ${'high'}, ${true}, ${['friendly', 'playful', 'good_with_dogs']}, ${'None'}, ${'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=150&q=80'})
     `;
 
     const [sitter] = await sql`
-      INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes)
-      VALUES (${'sitter@example.com'}, ${demoPassword}, ${'Bob Sitter'}, ${'sitter'}, ${'Experienced dog walker and sitter.'}, ${'https://i.pravatar.cc/150?u=bob'}, ${37.7750}, ${-122.4180}, ${['small', 'medium', 'large']})
+      INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, skills)
+      VALUES (${'sitter@example.com'}, ${demoPassword}, ${'Bob Sitter'}, ${'sitter'}, ${'Experienced dog walker and sitter.'}, ${'https://i.pravatar.cc/150?u=bob'}, ${37.7750}, ${-122.4180}, ${['small', 'medium', 'large']}, ${['dog', 'cat']}, ${5}, ${'house'}, ${true}, ${true}, ${['pet_first_aid', 'dog_training']})
       RETURNING id
     `;
     await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${sitter.id}, ${'walking'}, ${25}, ${'30 minute walk around the neighborhood.'})`;
@@ -363,8 +405,8 @@ export async function initDb() {
       RETURNING id
     `;
     await sql`
-      INSERT INTO pets (owner_id, name, breed, age, weight, medical_history, photo_url)
-      VALUES (${dual.id}, ${'Mittens'}, ${'Tabby Cat'}, ${5}, ${5}, ${'Allergic to fish'}, ${'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=150&q=80'})
+      INSERT INTO pets (owner_id, name, species, breed, age, weight, gender, spayed_neutered, energy_level, house_trained, temperament, special_needs, medical_history, photo_url)
+      VALUES (${dual.id}, ${'Mittens'}, ${'cat'}, ${'Tabby Cat'}, ${5}, ${5}, ${'female'}, ${true}, ${'low'}, ${true}, ${['calm', 'independent']}, ${'Allergic to fish-based foods'}, ${'Allergic to fish'}, ${'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=150&q=80'})
     `;
     await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${dual.id}, ${'drop-in'}, ${20}, ${'Quick check-in and feeding.'})`;
 
