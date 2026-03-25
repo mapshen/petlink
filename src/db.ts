@@ -393,6 +393,7 @@ export async function initDb() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_booking_id ON booking_care_tasks (booking_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_pet_id ON booking_care_tasks (pet_id)`.catch(() => {});
 
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;

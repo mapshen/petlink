@@ -459,9 +459,13 @@ async function startServer() {
   });
 
   v1.put('/bookings/:bookingId/care-tasks/:taskId/complete', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [booking] = await sql`SELECT id, sitter_id FROM bookings WHERE id = ${req.params.bookingId}`;
+    const [booking] = await sql`SELECT id, sitter_id, status FROM bookings WHERE id = ${req.params.bookingId}`;
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+    if (booking.status !== 'confirmed' && booking.status !== 'in_progress') {
+      res.status(400).json({ error: 'Tasks can only be updated on active bookings' });
       return;
     }
     if (booking.sitter_id !== req.userId) {
@@ -482,9 +486,13 @@ async function startServer() {
   });
 
   v1.put('/bookings/:bookingId/care-tasks/:taskId/uncomplete', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [booking] = await sql`SELECT id, sitter_id FROM bookings WHERE id = ${req.params.bookingId}`;
+    const [booking] = await sql`SELECT id, sitter_id, status FROM bookings WHERE id = ${req.params.bookingId}`;
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+    if (booking.status !== 'confirmed' && booking.status !== 'in_progress') {
+      res.status(400).json({ error: 'Tasks can only be updated on active bookings' });
       return;
     }
     if (booking.sitter_id !== req.userId) {
@@ -1031,7 +1039,7 @@ async function startServer() {
 
     const totalPrice = calculateBookingPrice(service.price, service.additional_pet_price || 0, pet_ids.length);
 
-    // Use transaction for booking + booking_pets
+    // Use transaction for booking + booking_pets + care tasks
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const booking = await sql.begin(async (tx: any) => {
       const [b] = await tx`
@@ -1041,20 +1049,24 @@ async function startServer() {
       `;
       const petRows = pet_ids.map((petId: number) => ({ booking_id: b.id, pet_id: petId }));
       await tx`INSERT INTO booking_pets ${tx(petRows, 'booking_id', 'pet_id')}`;
+
+      // Auto-populate care tasks from pet care instructions (inside transaction)
+      const petsWithCare = await tx`SELECT id, care_instructions FROM pets WHERE id = ANY(${pet_ids}) AND care_instructions IS NOT NULL AND care_instructions != '[]'::jsonb`;
+      const taskRows: { booking_id: number; pet_id: number; category: string; description: string; time: string | null; notes: string | null }[] = [];
+      for (const pet of petsWithCare) {
+        const raw = pet.care_instructions as unknown[];
+        for (const item of raw) {
+          if (typeof item !== 'object' || !item || !('category' in item) || !('description' in item)) continue;
+          const instr = item as { category: string; description: string; time?: string; notes?: string };
+          taskRows.push({ booking_id: b.id, pet_id: pet.id, category: instr.category, description: instr.description, time: instr.time || null, notes: instr.notes || null });
+        }
+      }
+      if (taskRows.length > 0) {
+        await tx`INSERT INTO booking_care_tasks ${tx(taskRows, 'booking_id', 'pet_id', 'category', 'description', 'time', 'notes')}`;
+      }
+
       return b;
     });
-
-    // Auto-populate care tasks from pet care instructions
-    const petsWithCare = await sql`SELECT id, care_instructions FROM pets WHERE id = ANY(${pet_ids}) AND care_instructions IS NOT NULL AND care_instructions != '[]'::jsonb`;
-    for (const pet of petsWithCare) {
-      const instructions = pet.care_instructions as Array<{ category: string; description: string; time?: string; notes?: string }>;
-      for (const instr of instructions) {
-        await sql`
-          INSERT INTO booking_care_tasks (booking_id, pet_id, category, description, time, notes)
-          VALUES (${booking.id}, ${pet.id}, ${instr.category}, ${instr.description}, ${instr.time || null}, ${instr.notes || null})
-        `;
-      }
-    }
 
     // Notify sitter of new booking
     const [owner] = await sql`SELECT name, email FROM users WHERE id = ${req.userId}`;
