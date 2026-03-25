@@ -305,6 +305,20 @@ export async function initDb() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS sitter_payouts (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id),
+      sitter_id INTEGER NOT NULL REFERENCES users(id),
+      amount DOUBLE PRECISION NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      scheduled_at TIMESTAMPTZ NOT NULL,
+      processed_at TIMESTAMPTZ,
+      stripe_transfer_id TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
   // Performance indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_owner_id ON bookings (owner_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_sitter_id ON bookings (sitter_id)`;
@@ -319,6 +333,8 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_pets_booking_id ON booking_pets (booking_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user_id ON oauth_accounts (user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_expenses_sitter_id ON sitter_expenses (sitter_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_payouts_sitter_id ON sitter_payouts (sitter_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_payouts_status ON sitter_payouts (status)`;
 
   // Create spatial index on users.location if PostGIS is available
   await sql`
@@ -389,6 +405,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_recurring_bookings_owner ON recurring_bookings (owner_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_recurring_bookings_active ON recurring_bookings (active, next_occurrence)`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro BOOLEAN DEFAULT false`.catch(() => {});
 
   // Issue #109: Granular pet profiles
   await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS species TEXT DEFAULT 'dog'`.catch(() => {});
