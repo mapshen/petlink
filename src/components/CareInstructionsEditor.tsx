@@ -115,9 +115,9 @@ export default function CareInstructionsEditor({ petId, petName, token }: Props)
               {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
             </select>
             <input
+              type="time"
               value={instr.time || ''}
               onChange={e => updateInstruction(instr.id, 'time', e.target.value)}
-              placeholder="Time (e.g., 8:00 AM)"
               className="p-1.5 text-xs border border-stone-200 rounded-lg flex-shrink-0 w-32"
             />
             <button type="button" onClick={() => removeInstruction(instr.id)}
