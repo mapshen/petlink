@@ -19,6 +19,7 @@ import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
 import { botBlockMiddleware } from './src/bot-detection.ts';
+import { createCandidate, createInvitation, verifyWebhookSignature, parseWebhookEvent, mapCheckrStatus, isCheckrConfigured } from './src/checkr.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/rate-limit.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail } from './src/email.ts';
 import { format as formatDate } from 'date-fns';
@@ -699,7 +700,7 @@ async function startServer() {
   });
 
   v1.post('/verification/start', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    const [user] = await sql`SELECT role, email, name FROM users WHERE id = ${req.userId}`;
     if (user.role !== 'sitter' && user.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can start verification' });
       return;
@@ -711,8 +712,28 @@ async function startServer() {
       return;
     }
 
+    let checkrCandidateId: string | null = null;
+    let checkrInvitationUrl: string | null = null;
+
+    if (isCheckrConfigured()) {
+      try {
+        const nameParts = (user.name || '').trim().split(/\s+/);
+        const firstName = nameParts[0] || 'Unknown';
+        const lastName = nameParts.slice(1).join(' ') || 'Unknown';
+        const candidate = await createCandidate(user.email, firstName, lastName);
+        checkrCandidateId = candidate.id;
+
+        const invitation = await createInvitation(candidate.id);
+        checkrInvitationUrl = invitation.invitation_url;
+      } catch (err) {
+        console.error('Checkr integration error:', err);
+        // Fall through — create verification record without Checkr
+      }
+    }
+
     const [verification] = await sql`
-      INSERT INTO verifications (sitter_id, submitted_at) VALUES (${req.userId}, NOW())
+      INSERT INTO verifications (sitter_id, submitted_at, checkr_candidate_id, checkr_invitation_url, background_check_status)
+      VALUES (${req.userId}, NOW(), ${checkrCandidateId}, ${checkrInvitationUrl}, ${checkrCandidateId ? 'submitted' : 'pending'}::bg_check_status)
       RETURNING *
     `;
     res.status(201).json({ verification });
@@ -732,8 +753,48 @@ async function startServer() {
     res.json({ verification: updated });
   });
 
-  // Webhook endpoint for background check results
+  // Webhook endpoint for background check results (supports both Checkr and legacy format)
   v1.post('/webhooks/background-check', async (req, res) => {
+    // Checkr webhook format detection
+    const event = parseWebhookEvent(req.body);
+    if (event && event.type && event.data?.object?.candidate_id) {
+      // Checkr webhook — verify signature if secret configured
+      const checkrSecret = process.env.CHECKR_WEBHOOK_SECRET;
+      if (checkrSecret) {
+        const signature = req.headers['x-checkr-signature'] as string || '';
+        const rawBody = JSON.stringify(req.body);
+        if (!verifyWebhookSignature(rawBody, signature, checkrSecret)) {
+          res.status(401).json({ error: 'Invalid webhook signature' });
+          return;
+        }
+      }
+
+      // Only process report.completed events
+      if (event.type !== 'report.completed') {
+        res.json({ received: true, ignored: true });
+        return;
+      }
+
+      const report = event.data.object;
+      const [verification] = await sql`SELECT * FROM verifications WHERE checkr_candidate_id = ${report.candidate_id}`;
+      if (!verification) {
+        res.status(404).json({ error: 'Verification not found for candidate' });
+        return;
+      }
+
+      const bgStatus = mapCheckrStatus(report.status, report.result, report.adjudication);
+      await sql`UPDATE verifications SET background_check_status = ${bgStatus}::bg_check_status, checkr_report_id = ${report.id} WHERE checkr_candidate_id = ${report.candidate_id}`;
+
+      const [updated] = await sql`SELECT * FROM verifications WHERE checkr_candidate_id = ${report.candidate_id}`;
+      if (updated.background_check_status === 'passed' && updated.id_check_status === 'approved') {
+        await sql`UPDATE verifications SET completed_at = NOW() WHERE id = ${updated.id}`;
+      }
+
+      res.json({ success: true });
+      return;
+    }
+
+    // Legacy webhook format (sitter_id + status)
     const webhookSecret = process.env.BG_CHECK_WEBHOOK_SECRET;
     if (webhookSecret) {
       const signature = req.headers['x-webhook-signature'];

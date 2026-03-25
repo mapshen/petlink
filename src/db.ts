@@ -395,6 +395,11 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_booking_id ON booking_care_tasks (booking_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_pet_id ON booking_care_tasks (pet_id)`.catch(() => {});
 
+  // Issue #111: Checkr background check integration
+  await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_candidate_id TEXT`.catch(() => {});
+  await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_invitation_url TEXT`.catch(() => {});
+  await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_report_id TEXT`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
