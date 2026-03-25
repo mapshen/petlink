@@ -21,10 +21,11 @@ npm run dev             # Express + Vite HMR on http://localhost:3000
 
 ```bash
 createdb petlink
-psql petlink -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 ```
 
-The app auto-creates tables and seeds demo data on first run. Demo accounts (password: `password123`):
+PostGIS is installed automatically on first run inside the `petlink` schema. No manual extension setup needed.
+
+All tables live in a dedicated `petlink` PostgreSQL schema (not `public`). This is configured via the `DB_SCHEMA` env var (default: `petlink`). The app auto-creates the schema, tables, and seeds demo data on first run. Demo accounts (password: `password123`):
 - `owner@example.com` (owner role)
 - `sitter@example.com` (sitter role)
 - `dual@example.com` (both roles)

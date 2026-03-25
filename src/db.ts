@@ -3,15 +3,75 @@ import bcrypt from 'bcryptjs';
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://localhost:5432/petlink';
 
+const SCHEMA = process.env.DB_SCHEMA || 'petlink';
+
 const sql = postgres(DATABASE_URL, {
   max: 20,
   idle_timeout: 20,
   connect_timeout: 10,
+  connection: {
+    search_path: SCHEMA,
+  },
 });
 
 export async function initDb() {
-  // Enable PostGIS if available (ignore error if extension not installed)
-  await sql`CREATE EXTENSION IF NOT EXISTS postgis`.catch(() => {});
+  // Create dedicated schema
+  await sql`CREATE SCHEMA IF NOT EXISTS ${sql(SCHEMA)}`;
+
+  // Migrate PostGIS from public to dedicated schema
+  // PostGIS doesn't support ALTER EXTENSION SET SCHEMA, so we must:
+  // 1. Drop the location column (depends on geography type from PostGIS)
+  // 2. Drop PostGIS from public
+  // 3. Recreate PostGIS in our schema
+  // 4. Re-add location column + trigger + backfill from lat/lng
+  const [postgisSchema] = await sql`
+    SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON e.extnamespace = n.oid WHERE e.extname = 'postgis'
+  `.catch(() => [undefined]);
+  if (postgisSchema && postgisSchema.nspname !== SCHEMA) {
+    // Drop dependent objects explicitly before CASCADE
+    await sql`DROP TRIGGER IF EXISTS trg_update_user_location ON public.users`.catch(() => {});
+    await sql`DROP FUNCTION IF EXISTS public.update_user_location()`.catch(() => {});
+    await sql`DROP INDEX IF EXISTS public.idx_users_location`.catch(() => {});
+    await sql`ALTER TABLE public.users DROP COLUMN IF EXISTS location`.catch(() => {});
+    await sql`DROP EXTENSION IF EXISTS postgis`.catch(() => {});
+  }
+  await sql`CREATE EXTENSION IF NOT EXISTS postgis SCHEMA ${sql(SCHEMA)}`.catch(() => {});
+
+  // Migrate existing tables from public to dedicated schema (one-time)
+  const publicTables = ['users', 'pets', 'services', 'bookings', 'booking_pets', 'messages',
+    'reviews', 'availability', 'walk_events', 'verifications', 'notifications',
+    'notification_preferences', 'push_subscriptions', 'sitter_photos', 'favorites',
+    'oauth_accounts', 'pet_vaccinations', 'booking_care_tasks', 'recurring_bookings'];
+  for (const table of publicTables) {
+    const [exists] = await sql`
+      SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ${table}
+    `.catch(() => [undefined]);
+    if (exists) {
+      await sql`ALTER TABLE public.${sql(table)} SET SCHEMA ${sql(SCHEMA)}`.catch(() => {});
+    }
+  }
+
+  // Migrate existing enums from public to dedicated schema
+  const publicEnums = ['user_role', 'booking_status', 'payment_status', 'service_type',
+    'walk_event_type', 'id_check_status', 'bg_check_status', 'notification_type',
+    'push_platform', 'cancellation_policy'];
+  for (const enumName of publicEnums) {
+    const [exists] = await sql`
+      SELECT 1 FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE t.typname = ${enumName} AND n.nspname = 'public'
+    `.catch(() => [undefined]);
+    if (exists) {
+      await sql`ALTER TYPE public.${sql(enumName)} SET SCHEMA ${sql(SCHEMA)}`.catch(() => {});
+    }
+  }
+
+  // Migrate functions and triggers
+  await sql`
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE p.proname = 'update_user_location' AND n.nspname = 'public') THEN
+        ALTER FUNCTION public.update_user_location() SET SCHEMA ${sql.unsafe(SCHEMA)};
+      END IF;
+    END $$
+  `.catch(() => {});
 
   await sql`
     DO $$ BEGIN
@@ -294,6 +354,9 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_pets_booking_id ON booking_pets (booking_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user_id ON oauth_accounts (user_id)`;
 
+  // Ensure location column exists (may have been dropped during PostGIS schema migration)
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS location GEOGRAPHY(Point, 4326)`.catch(() => {});
+
   // Create spatial index on users.location if PostGIS is available
   await sql`
     CREATE INDEX IF NOT EXISTS idx_users_location ON users USING GIST (location)
@@ -321,6 +384,12 @@ export async function initDb() {
         FOR EACH ROW EXECUTE FUNCTION update_user_location();
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
+  `.catch(() => {});
+
+  // Backfill location from lat/lng for any rows missing it (e.g., after PostGIS migration)
+  await sql`
+    UPDATE users SET location = ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography
+    WHERE lat IS NOT NULL AND lng IS NOT NULL AND location IS NULL
   `.catch(() => {});
 
   // Schema migrations — add new columns/enums safely
