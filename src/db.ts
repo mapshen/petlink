@@ -458,6 +458,24 @@ export async function initDb() {
   await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_invitation_url TEXT`.catch(() => {});
   await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_report_id TEXT`.catch(() => {});
 
+  // Issue #90: Featured/sponsored sitter listings
+  await sql`
+    CREATE TABLE IF NOT EXISTS featured_listings (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      service_type TEXT,
+      budget_cents INTEGER NOT NULL DEFAULT 0,
+      daily_budget_cents INTEGER NOT NULL DEFAULT 500,
+      spent_cents INTEGER NOT NULL DEFAULT 0,
+      active BOOLEAN DEFAULT TRUE,
+      starts_at TIMESTAMPTZ DEFAULT NOW(),
+      ends_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(sitter_id, service_type)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_featured_listings_active ON featured_listings (active, service_type)`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;

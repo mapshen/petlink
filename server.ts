@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema } from './src/validation.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -1216,6 +1216,57 @@ async function startServer() {
       return;
     }
     await sql`DELETE FROM recurring_bookings WHERE id = ${req.params.id}`;
+    res.json({ success: true });
+  });
+
+  // --- Featured Listings ---
+  v1.get('/featured-listings/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const listings = await sql`SELECT * FROM featured_listings WHERE sitter_id = ${req.userId} ORDER BY created_at DESC`;
+    res.json({ listings });
+  });
+
+  v1.post('/featured-listings', authMiddleware, validate(featuredListingSchema), async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (user.role !== 'sitter' && user.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can create featured listings' });
+      return;
+    }
+    const { service_type, daily_budget_cents, ends_at } = req.body;
+
+    if (service_type) {
+      const [existing] = await sql`SELECT id FROM featured_listings WHERE sitter_id = ${req.userId} AND service_type = ${service_type} AND active = TRUE`;
+      if (existing) {
+        res.status(409).json({ error: 'You already have an active featured listing for this service type' });
+        return;
+      }
+    }
+
+    const [listing] = await sql`
+      INSERT INTO featured_listings (sitter_id, service_type, daily_budget_cents, ends_at)
+      VALUES (${req.userId}, ${service_type || null}, ${daily_budget_cents}, ${ends_at || null})
+      RETURNING *
+    `;
+    res.status(201).json({ listing });
+  });
+
+  v1.put('/featured-listings/:id/pause', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [listing] = await sql`SELECT id FROM featured_listings WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!listing) { res.status(404).json({ error: 'Listing not found' }); return; }
+    const [updated] = await sql`UPDATE featured_listings SET active = FALSE WHERE id = ${req.params.id} RETURNING *`;
+    res.json({ listing: updated });
+  });
+
+  v1.put('/featured-listings/:id/resume', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [listing] = await sql`SELECT id FROM featured_listings WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!listing) { res.status(404).json({ error: 'Listing not found' }); return; }
+    const [updated] = await sql`UPDATE featured_listings SET active = TRUE WHERE id = ${req.params.id} RETURNING *`;
+    res.json({ listing: updated });
+  });
+
+  v1.delete('/featured-listings/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [listing] = await sql`SELECT id FROM featured_listings WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!listing) { res.status(404).json({ error: 'Listing not found' }); return; }
+    await sql`DELETE FROM featured_listings WHERE id = ${req.params.id}`;
     res.json({ success: true });
   });
 

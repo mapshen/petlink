@@ -113,6 +113,19 @@ export interface RecurringBooking {
   service_type?: string;
 }
 
+export interface FeaturedListing {
+  id: number;
+  sitter_id: number;
+  service_type?: string;
+  budget_cents: number;
+  daily_budget_cents: number;
+  spent_cents: number;
+  active: boolean;
+  starts_at: string;
+  ends_at?: string;
+  created_at: string;
+}
+
 export interface Booking {
   id: number;
   sitter_id: number;
