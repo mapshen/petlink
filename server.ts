@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema } from './src/validation.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -1070,7 +1070,13 @@ async function startServer() {
       res.status(403).json({ error: 'Not part of this booking' });
       return;
     }
-    const events = await sql`SELECT * FROM walk_events WHERE booking_id = ${req.params.bookingId} ORDER BY created_at ASC`;
+    const events = await sql`
+      SELECT we.*, p.name as pet_name
+      FROM walk_events we
+      LEFT JOIN pets p ON we.pet_id = p.id
+      WHERE we.booking_id = ${req.params.bookingId}
+      ORDER BY we.created_at ASC
+    `;
     res.json({ events });
   });
 
@@ -1118,6 +1124,54 @@ async function startServer() {
     }
 
     res.status(201).json({ event });
+  });
+
+  // --- Care Summary (auto-generated from events) ---
+  v1.get('/walks/:bookingId/summary', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [booking] = await sql`SELECT * FROM bookings WHERE id = ${req.params.bookingId}`;
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+    if (booking.owner_id !== req.userId && booking.sitter_id !== req.userId) {
+      res.status(403).json({ error: 'Not part of this booking' });
+      return;
+    }
+
+    const events = await sql`
+      SELECT we.event_type, we.note, we.created_at, p.name as pet_name
+      FROM walk_events we
+      LEFT JOIN pets p ON we.pet_id = p.id
+      WHERE we.booking_id = ${req.params.bookingId}
+      ORDER BY we.created_at ASC
+    `;
+
+    // Build summary counts
+    const counts: Record<string, number> = {};
+    const notes: string[] = [];
+    let startTime: string | null = null;
+    let endTime: string | null = null;
+
+    for (const e of events) {
+      counts[e.event_type] = (counts[e.event_type] || 0) + 1;
+      if (e.note) notes.push(e.note);
+      if (e.event_type === 'start') startTime = e.created_at;
+      if (e.event_type === 'end') endTime = e.created_at;
+    }
+
+    const duration = startTime && endTime
+      ? Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000)
+      : null;
+
+    res.json({
+      summary: {
+        total_events: events.length,
+        duration_minutes: duration,
+        counts,
+        notes,
+        events,
+      },
+    });
   });
 
   // --- Cancellation Policy ---

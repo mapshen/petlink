@@ -156,7 +156,7 @@ export interface Availability {
 export interface WalkEvent {
   id: number;
   booking_id: number;
-  event_type: 'start' | 'pee' | 'poop' | 'photo' | 'end';
+  event_type: 'start' | 'pee' | 'poop' | 'photo' | 'end' | 'fed' | 'water' | 'medication' | 'nap_start' | 'nap_end' | 'play';
   lat?: number;
   lng?: number;
   note?: string;
