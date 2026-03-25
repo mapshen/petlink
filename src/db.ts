@@ -330,6 +330,9 @@ export async function initDb() {
   await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS additional_pet_price DOUBLE PRECISION DEFAULT 0`.catch(() => {});
   await sql`ALTER TABLE walk_events ADD COLUMN IF NOT EXISTS pet_id INTEGER REFERENCES pets(id)`.catch(() => {});
   await sql`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`.catch(() => {});
+
+  // Issue #88: Smart sitter ranking — track booking response time
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS responded_at TIMESTAMPTZ`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false`.catch(() => {});
 
   // Issue #109: Granular pet profiles
