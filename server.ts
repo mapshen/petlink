@@ -1270,6 +1270,58 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // --- Sitter Subscription ---
+  v1.get('/subscription', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [sub] = await sql`SELECT * FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
+    res.json({ subscription: sub || null });
+  });
+
+  v1.post('/subscription/upgrade', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (user.role !== 'sitter' && user.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can subscribe' });
+      return;
+    }
+
+    const [existing] = await sql`SELECT id, tier FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
+    if (existing && existing.tier === 'pro') {
+      res.status(409).json({ error: 'Already subscribed to Pro' });
+      return;
+    }
+
+    // In production, this would create a Stripe subscription
+    // For now, we directly activate Pro
+    if (existing) {
+      const [updated] = await sql`
+        UPDATE sitter_subscriptions SET tier = 'pro', status = 'active', current_period_start = NOW(), current_period_end = NOW() + INTERVAL '30 days'
+        WHERE sitter_id = ${req.userId}
+        RETURNING *
+      `;
+      await sql`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
+      res.json({ subscription: updated });
+    } else {
+      const [sub] = await sql`
+        INSERT INTO sitter_subscriptions (sitter_id, tier, status, current_period_start, current_period_end)
+        VALUES (${req.userId}, 'pro', 'active', NOW(), NOW() + INTERVAL '30 days')
+        RETURNING *
+      `;
+      await sql`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
+      res.status(201).json({ subscription: sub });
+    }
+  });
+
+  v1.post('/subscription/cancel', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [sub] = await sql`SELECT id FROM sitter_subscriptions WHERE sitter_id = ${req.userId} AND tier = 'pro'`;
+    if (!sub) {
+      res.status(404).json({ error: 'No active Pro subscription' });
+      return;
+    }
+    await sql`UPDATE sitter_subscriptions SET status = 'cancelled', tier = 'free' WHERE sitter_id = ${req.userId}`;
+    await sql`UPDATE users SET subscription_tier = 'free' WHERE id = ${req.userId}`;
+    const [updated] = await sql`SELECT * FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
+    res.json({ subscription: updated });
+  });
+
   // --- Walk Events ---
   v1.get('/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [booking] = await sql`SELECT * FROM bookings WHERE id = ${req.params.bookingId}`;
