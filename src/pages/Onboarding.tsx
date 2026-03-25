@@ -22,7 +22,7 @@ const SERVICE_TYPES = [
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { user, token, updateUser } = useAuth();
+  const { user, token, updateUser, loading: authLoading } = useAuth();
   const onboarding = useOnboardingStatus();
   const [step, setStep] = useState(0);
   const [initialized, setInitialized] = useState(false);
@@ -48,9 +48,10 @@ export default function Onboarding() {
 
   // Redirect non-sitter users
   useEffect(() => {
+    if (authLoading) return;
     if (!user) { navigate('/login'); return; }
     if (user.role === 'owner') { navigate('/dashboard'); return; }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   // Initialize form state from user data + determine starting step
   useEffect(() => {
