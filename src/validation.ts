@@ -193,3 +193,14 @@ export const oauthSchema = z.object({
 export const setPasswordSchema = z.object({
   password: passwordSchema,
 });
+
+// --- Expense Schemas ---
+export const expenseSchema = z.object({
+  category: z.enum(['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other'], {
+    message: 'Category must be supplies, transportation, insurance, marketing, equipment, training, or other',
+  }),
+  amount: z.number().positive('Amount must be positive').max(99999, 'Amount must be under $100,000'),
+  description: z.string().max(500, 'Description must be under 500 characters').optional().nullable(),
+  date: z.string().refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v).getTime()), 'Date must be a valid YYYY-MM-DD date'),
+  receipt_url: z.string().url('Receipt URL must be a valid URL').optional().nullable().or(z.literal('')),
+});
