@@ -1,0 +1,428 @@
+import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth, getAuthHeaders } from '../context/AuthContext';
+import { useMode } from '../context/ModeContext';
+import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock } from 'lucide-react';
+import { API_BASE } from '../config';
+import { Booking } from '../types';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+
+const EXPENSE_CATEGORIES = [
+  { value: 'supplies', label: 'Supplies', icon: '🛒' },
+  { value: 'transportation', label: 'Transportation', icon: '🚗' },
+  { value: 'insurance', label: 'Insurance', icon: '🛡️' },
+  { value: 'marketing', label: 'Marketing', icon: '📣' },
+  { value: 'equipment', label: 'Equipment', icon: '🔧' },
+  { value: 'training', label: 'Training', icon: '📚' },
+  { value: 'other', label: 'Other', icon: '📝' },
+] as const;
+
+type WalletTab = 'earnings' | 'expenses' | 'tax';
+
+interface Expense {
+  id: number;
+  category: string;
+  amount: number;
+  description?: string;
+  date: string;
+}
+
+interface TaxSummary {
+  year: number;
+  total_income: number;
+  total_expenses: number;
+  net_income: number;
+  expense_by_category: Record<string, number>;
+}
+
+interface ExpenseForm {
+  category: string;
+  amount: string;
+  description: string;
+  date: string;
+}
+
+const EMPTY_FORM: ExpenseForm = { category: 'supplies', amount: '', description: '', date: new Date().toISOString().split('T')[0] };
+
+function formatCurrency(n: number) {
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export default function WalletPage() {
+  const { user, token, loading: authLoading } = useAuth();
+  const { mode } = useMode();
+  const isSitter = mode === 'sitter' || user?.role === 'sitter';
+
+  const [tab, setTab] = useState<WalletTab>('earnings');
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [summary, setSummary] = useState<TaxSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Expense form
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<ExpenseForm>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchAll();
+  }, [user, year]);
+
+  const fetchAll = async () => {
+    setLoading(true);
+    await Promise.all([fetchBookings(), fetchExpenses(), fetchSummary()]);
+    setLoading(false);
+  };
+
+  const fetchBookings = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/bookings`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setBookings(data.bookings);
+      }
+    } catch {
+      // Non-critical
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/expenses?year=${year}`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setExpenses(data.expenses);
+      }
+    } catch {
+      setError('Failed to load expenses.');
+    }
+  };
+
+  const fetchSummary = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/expenses/tax-summary?year=${year}`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setSummary(data.summary);
+      }
+    } catch {
+      // Non-critical
+    }
+  };
+
+  const handleExpenseSubmit = async () => {
+    if (!form.amount || !form.date) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const url = editingId ? `${API_BASE}/expenses/${editingId}` : `${API_BASE}/expenses`;
+      const method = editingId ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({ category: form.category, amount: Number(form.amount), description: form.description || null, date: form.date }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to save');
+      }
+      setShowForm(false);
+      setEditingId(null);
+      setForm(EMPTY_FORM);
+      fetchExpenses();
+      fetchSummary();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save expense');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await fetch(`${API_BASE}/expenses/${id}`, { method: 'DELETE', headers: getAuthHeaders(token) });
+      fetchExpenses();
+      fetchSummary();
+    } catch {
+      setError('Failed to delete expense.');
+    }
+  };
+
+  if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+  if (!user) return <Navigate to="/login" replace />;
+
+  // Earnings: completed bookings where user is sitter (sitter mode) or owner (owner mode)
+  const completedBookings = bookings.filter(b => b.status === 'completed');
+  const earnings = isSitter
+    ? completedBookings.filter(b => b.sitter_id === user.id)
+    : completedBookings.filter(b => b.owner_id === user.id);
+  const earningsThisYear = earnings.filter(b => new Date(b.start_time).getFullYear() === year);
+  const totalEarnings = earningsThisYear.reduce((sum, b) => sum + (b.total_price || 0), 0);
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Wallet className="w-6 h-6 text-emerald-600" />
+          <h1 className="text-2xl font-bold text-stone-900">Wallet</h1>
+          <select value={year} onChange={e => setYear(Number(e.target.value))}
+            className="text-sm border border-stone-200 rounded-lg px-3 py-1.5 ml-2">
+            {[2026, 2025, 2024].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      {summary && isSitter && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
+            <div className="flex items-center gap-2 text-emerald-700 text-sm font-medium mb-1">
+              <TrendingUp className="w-4 h-4" /> Earnings
+            </div>
+            <div className="text-2xl font-bold text-emerald-700">{formatCurrency(summary.total_income)}</div>
+          </div>
+          <div className="bg-red-50 rounded-xl p-5 border border-red-100">
+            <div className="flex items-center gap-2 text-red-700 text-sm font-medium mb-1">
+              <TrendingDown className="w-4 h-4" /> Expenses
+            </div>
+            <div className="text-2xl font-bold text-red-700">{formatCurrency(summary.total_expenses)}</div>
+          </div>
+          <div className="bg-stone-50 rounded-xl p-5 border border-stone-200">
+            <div className="flex items-center gap-2 text-stone-700 text-sm font-medium mb-1">
+              <DollarSign className="w-4 h-4" /> Net Income
+            </div>
+            <div className={`text-2xl font-bold ${summary.net_income >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              {formatCurrency(summary.net_income)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-stone-200 mb-6">
+        <button onClick={() => setTab('earnings')}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors ${tab === 'earnings' ? 'text-emerald-700 border-b-2 border-emerald-600' : 'text-stone-500 hover:text-stone-700'}`}>
+          {isSitter ? 'Earnings' : 'Payments'}
+        </button>
+        {isSitter && (
+          <>
+            <button onClick={() => setTab('expenses')}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors ${tab === 'expenses' ? 'text-emerald-700 border-b-2 border-emerald-600' : 'text-stone-500 hover:text-stone-700'}`}>
+              Expenses
+            </button>
+            <button onClick={() => setTab('tax')}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors ${tab === 'tax' ? 'text-emerald-700 border-b-2 border-emerald-600' : 'text-stone-500 hover:text-stone-700'}`}>
+              Tax Summary
+            </button>
+          </>
+        )}
+      </div>
+
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>
+      ) : (
+        <>
+          {/* Earnings / Payments Tab */}
+          {tab === 'earnings' && (
+            <div>
+              {earningsThisYear.length === 0 ? (
+                <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
+                  <DollarSign className="w-12 h-12 mx-auto mb-4 text-stone-300" />
+                  <p className="text-stone-500">No {isSitter ? 'earnings' : 'payments'} for {year}.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {earningsThisYear.map(booking => (
+                    <div key={booking.id} className="bg-white rounded-xl border border-stone-100 p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-xs font-bold">
+                          {(isSitter ? booking.owner_name : booking.sitter_name)?.charAt(0)?.toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-stone-900 capitalize">{booking.service_type?.replace(/[-_]/g, ' ')}</div>
+                          <div className="text-xs text-stone-400">
+                            {isSitter ? booking.owner_name : booking.sitter_name} &middot; {new Date(booking.start_time).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`text-sm font-bold ${isSitter ? 'text-emerald-600' : 'text-stone-900'}`}>
+                        {isSitter ? '+' : '-'}{formatCurrency(booking.total_price || 0)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="mt-4 p-4 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between">
+                    <span className="text-sm font-medium text-stone-700">Total ({year})</span>
+                    <span className="text-lg font-bold text-emerald-700">{formatCurrency(totalEarnings)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Expenses Tab */}
+          {tab === 'expenses' && isSitter && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-stone-900">Expenses</h2>
+                {!showForm && (
+                  <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setEditingId(null); setShowForm(true); }}>
+                    <Plus className="w-4 h-4" /> Add Expense
+                  </Button>
+                )}
+              </div>
+
+              {showForm && (
+                <div className="bg-stone-50 rounded-xl border border-stone-200 p-6 mb-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-stone-900">{editingId ? 'Edit Expense' : 'Add Expense'}</h3>
+                    <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }} className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+                      className="p-3 border border-stone-200 rounded-lg text-sm">
+                      {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
+                    </select>
+                    <Input type="number" min="0.01" step="0.01" placeholder="Amount ($)" value={form.amount}
+                      onChange={e => setForm({ ...form, amount: e.target.value })} />
+                    <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+                    <Input placeholder="Description (optional)" value={form.description}
+                      onChange={e => setForm({ ...form, description: e.target.value })} />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleExpenseSubmit} disabled={saving || !form.amount}>
+                      <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }}>
+                      <X className="w-4 h-4" /> Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {expenses.length === 0 && !showForm ? (
+                <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
+                  <Receipt className="w-12 h-12 mx-auto mb-4 text-stone-300" />
+                  <p className="text-stone-500 mb-4">No expenses for {year}.</p>
+                  <Button size="sm" onClick={() => setShowForm(true)}><Plus className="w-4 h-4" /> Add Expense</Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {expenses.map(expense => {
+                    const info = EXPENSE_CATEGORIES.find(c => c.value === expense.category);
+                    return (
+                      <div key={expense.id} className="bg-white rounded-xl border border-stone-100 p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{info?.icon || '📝'}</span>
+                          <div>
+                            <div className="text-sm font-medium text-stone-900">{info?.label || expense.category}</div>
+                            {expense.description && <div className="text-xs text-stone-500">{expense.description}</div>}
+                            <div className="text-xs text-stone-400">{new Date(expense.date).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-bold text-red-600">-{formatCurrency(expense.amount)}</span>
+                          <button onClick={() => { setForm({ category: expense.category, amount: expense.amount.toString(), description: expense.description || '', date: expense.date.split('T')[0] }); setEditingId(expense.id); setShowForm(true); }}
+                            className="p-1.5 text-stone-400 hover:text-emerald-600"><Pencil className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setDeleteDialogId(expense.id)}
+                            className="p-1.5 text-stone-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tax Summary Tab */}
+          {tab === 'tax' && isSitter && summary && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border border-stone-100 p-6">
+                <h3 className="font-bold text-stone-900 mb-4">Tax Summary — {year}</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between py-2">
+                    <span className="text-stone-600">Gross Income (completed bookings)</span>
+                    <span className="font-bold text-emerald-700">{formatCurrency(summary.total_income)}</span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-stone-600">Total Expenses</span>
+                    <span className="font-bold text-red-600">-{formatCurrency(summary.total_expenses)}</span>
+                  </div>
+                  <div className="border-t border-stone-200 pt-3 flex justify-between">
+                    <span className="font-bold text-stone-900">Net Income (Tax Basis)</span>
+                    <span className={`text-xl font-bold ${summary.net_income >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {formatCurrency(summary.net_income)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {Object.keys(summary.expense_by_category).length > 0 && (
+                <div className="bg-white rounded-xl border border-stone-100 p-6">
+                  <h3 className="font-bold text-stone-900 mb-4">Expenses by Category</h3>
+                  <div className="space-y-3">
+                    {Object.entries(summary.expense_by_category).map(([cat, amount]) => {
+                      const info = EXPENSE_CATEGORIES.find(c => c.value === cat);
+                      const pct = summary.total_expenses > 0 ? (amount / summary.total_expenses) * 100 : 0;
+                      return (
+                        <div key={cat} className="flex items-center gap-3">
+                          <span className="text-sm w-6">{info?.icon || '📝'}</span>
+                          <span className="text-sm text-stone-700 w-28">{info?.label || cat}</span>
+                          <div className="flex-grow bg-stone-100 rounded-full h-2.5">
+                            <div className="bg-emerald-500 h-2.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-sm font-medium text-stone-900 w-24 text-right">{formatCurrency(amount)}</span>
+                          <span className="text-xs text-stone-400 w-12 text-right">{pct.toFixed(0)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      <AlertDialog open={deleteDialogId !== null} onOpenChange={(open) => { if (!open) setDeleteDialogId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Expense</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure? This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { if (deleteDialogId !== null) handleDelete(deleteDialogId); }}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

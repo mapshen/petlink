@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { PawPrint, MapPin, Calendar, MessageSquare, LogOut } from 'lucide-react';
+import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, LogOut } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -18,6 +18,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Search', path: '/search', icon: MapPin },
     { name: 'Dashboard', path: '/dashboard', icon: Calendar },
     { name: 'Messages', path: '/messages', icon: MessageSquare },
+    ...(user ? [{ name: 'Wallet', path: '/wallet', icon: Wallet }] : []),
   ];
 
   return (

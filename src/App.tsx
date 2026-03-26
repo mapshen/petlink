@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import Messages from './pages/Messages';
 import TrackWalk from './pages/TrackWalk';
 import ProfilePage from './pages/ProfilePage';
+import WalletPage from './pages/WalletPage';
 import Onboarding from './pages/Onboarding';
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/wallet" element={<WalletPage />} />
               <Route path="/pets" element={<Navigate to="/profile" replace />} />
               <Route path="/services" element={<Navigate to="/profile" replace />} />
               <Route path="/photos" element={<Navigate to="/profile" replace />} />
