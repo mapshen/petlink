@@ -55,6 +55,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Subscriptions | `GET /subscription`, `POST /subscription/upgrade`, `POST /subscription/cancel` |
 | Payouts | `GET /payouts` (paginated: `?limit=&offset=`), `GET /payouts/pending` |
 | Payments | `POST /stripe/connect`, `POST /stripe/account-link`, `POST /payments/create-intent`, `POST /payments/capture`, `POST /payments/cancel` |
+| Analytics | `GET /analytics/overview` (sitter stats by year), `GET /analytics/clients` (client list with pets, paginated), `GET /analytics/clients/:clientId` (client booking history), `GET /analytics/revenue` (weekly/monthly revenue breakdown) |
 | Uploads | `POST /uploads/signed-url` |
 | Webhooks | `POST /webhooks/stripe`, `POST /webhooks/background-check` |
 | Health | `GET /health` (no auth, returns DB connectivity status) |
