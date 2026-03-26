@@ -1430,18 +1430,16 @@ async function startServer() {
       io.to(String(booking.owner_id)).emit('notification', endNotif);
 
       // Schedule delayed payout for sitter
+      // NOTE: Payouts are currently only triggered for walk-type bookings (via walk end event).
+      // This is acceptable for now since walks are the only booking type with a completion path.
       if (booking.total_price && booking.total_price > 0) {
-        try {
-          const delayDays = await getPayoutDelay(booking.sitter_id);
-          await schedulePayoutForBooking(
-            Number(req.params.bookingId),
-            booking.sitter_id,
-            booking.total_price,
-            delayDays
-          );
-        } catch (err) {
-          console.error(`Failed to schedule payout for booking ${req.params.bookingId}:`, err);
-        }
+        const delayDays = await getPayoutDelay(booking.sitter_id);
+        await schedulePayoutForBooking(
+          Number(req.params.bookingId),
+          booking.sitter_id,
+          booking.total_price,
+          delayDays
+        );
       }
     }
 
@@ -2147,7 +2145,9 @@ async function startServer() {
       res.status(403).json({ error: 'Only sitters can view payouts' });
       return;
     }
-    const payouts = await getPayoutsForSitter(req.userId!);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const payouts = await getPayoutsForSitter(req.userId!, limit, offset);
     res.json({ payouts });
   });
 

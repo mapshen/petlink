@@ -308,10 +308,10 @@ export async function initDb() {
   await sql`
     CREATE TABLE IF NOT EXISTS sitter_payouts (
       id SERIAL PRIMARY KEY,
-      booking_id INTEGER NOT NULL REFERENCES bookings(id),
+      booking_id INTEGER NOT NULL UNIQUE REFERENCES bookings(id),
       sitter_id INTEGER NOT NULL REFERENCES users(id),
-      amount DOUBLE PRECISION NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
+      amount_cents INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'completed', 'failed')),
       scheduled_at TIMESTAMPTZ NOT NULL,
       processed_at TIMESTAMPTZ,
       stripe_transfer_id TEXT,
@@ -335,6 +335,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_expenses_sitter_id ON sitter_expenses (sitter_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_payouts_sitter_id ON sitter_payouts (sitter_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_payouts_status ON sitter_payouts (status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_payouts_pending_scheduled ON sitter_payouts (status, scheduled_at) WHERE status = 'pending'`;
 
   // Create spatial index on users.location if PostGIS is available
   await sql`
@@ -405,6 +406,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_recurring_bookings_owner ON recurring_bookings (owner_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_recurring_bookings_active ON recurring_bookings (active, next_occurrence)`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false`.catch(() => {});
+  // is_pro: admin-only flag for now — no public API surface to set this
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro BOOLEAN DEFAULT false`.catch(() => {});
 
   // Issue #109: Granular pet profiles
