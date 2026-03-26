@@ -641,7 +641,7 @@ async function startServer() {
 
     const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.id} ORDER BY sort_order, created_at`;
 
-    const imported_profiles = await sql`SELECT * FROM imported_profiles WHERE user_id = ${req.params.id} ORDER BY created_at DESC`;
+    const imported_profiles = await sql`SELECT id, user_id, platform, profile_url, display_name, review_count, avg_rating, created_at FROM imported_profiles WHERE user_id = ${req.params.id} ORDER BY created_at DESC`;
 
     res.json({ sitter, services, reviews, photos, imported_profiles });
   });
@@ -1365,7 +1365,12 @@ async function startServer() {
 
   // --- Imported Profiles ---
   v1.get('/imported-profiles', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const profiles = await sql`SELECT * FROM imported_profiles WHERE user_id = ${req.userId} ORDER BY created_at DESC`;
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can view imported profiles' });
+      return;
+    }
+    const profiles = await sql`SELECT id, user_id, platform, profile_url, display_name, review_count, avg_rating, verified, created_at FROM imported_profiles WHERE user_id = ${req.userId} ORDER BY created_at DESC`;
     res.json({ imported_profiles: profiles });
   });
 
@@ -1376,10 +1381,20 @@ async function startServer() {
       return;
     }
     const { platform, profile_url, display_name, review_count, avg_rating } = req.body;
-    const [existing] = await sql`SELECT id FROM imported_profiles WHERE user_id = ${req.userId} AND platform = ${platform}`;
-    if (existing) {
-      res.status(409).json({ error: `You already have an imported profile for ${platform}. Delete it first to re-import.` });
-      return;
+    try {
+      const [profile] = await sql`
+        INSERT INTO imported_profiles (user_id, platform, profile_url, display_name, review_count, avg_rating)
+        VALUES (${req.userId}, ${platform}, ${profile_url}, ${display_name ?? null}, ${review_count ?? null}, ${avg_rating ?? null})
+        RETURNING *
+      `;
+      res.status(201).json({ imported_profile: profile });
+    } catch (err: unknown) {
+      const pgError = err as { code?: string };
+      if (pgError.code === '23505') {
+        res.status(409).json({ error: `You already have an imported profile for ${platform}. Delete it first to re-import.` });
+        return;
+      }
+      throw err;
     }
     const [profile] = await sql`
       INSERT INTO imported_profiles (user_id, platform, profile_url, display_name, review_count, avg_rating)
@@ -1390,7 +1405,7 @@ async function startServer() {
   });
 
   v1.delete('/imported-profiles/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [profile] = await sql`SELECT * FROM imported_profiles WHERE id = ${req.params.id} AND user_id = ${req.userId}`;
+    const [profile] = await sql`SELECT id FROM imported_profiles WHERE id = ${req.params.id} AND user_id = ${req.userId}`;
     if (!profile) {
       res.status(404).json({ error: 'Imported profile not found' });
       return;

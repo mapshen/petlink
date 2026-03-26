@@ -218,7 +218,7 @@ export const importedProfileSchema = z.object({
   platform: z.enum(['rover', 'wag', 'care_com', 'other'], {
     message: 'Platform must be rover, wag, care_com, or other',
   }),
-  profile_url: z.string().max(2048).url('A valid profile URL is required').refine((url) => url.startsWith('https://'), 'Profile URL must use HTTPS'),
+  profile_url: z.string().max(2048, 'Profile URL must be under 2048 characters').url('A valid profile URL is required').refine((url) => url.startsWith('https://'), 'Profile URL must use HTTPS'),
   display_name: z.string().max(100, 'Display name must be under 100 characters').optional().nullable(),
   review_count: z.number().int().min(0, 'Review count cannot be negative').max(9999, 'Review count must be under 10,000').optional().nullable(),
   avg_rating: z.number().min(0, 'Rating cannot be negative').max(5, 'Rating must be 5 or less').optional().nullable(),

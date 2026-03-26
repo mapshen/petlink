@@ -309,7 +309,7 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS imported_profiles (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      platform TEXT NOT NULL,
+      platform TEXT NOT NULL CHECK(platform IN ('rover', 'wag', 'care_com', 'other')),
       profile_url TEXT NOT NULL,
       display_name TEXT,
       review_count INTEGER,

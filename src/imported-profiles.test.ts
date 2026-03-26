@@ -20,7 +20,7 @@ function createTestDb() {
     CREATE TABLE imported_profiles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      platform TEXT NOT NULL,
+      platform TEXT NOT NULL CHECK(platform IN ('rover', 'wag', 'care_com', 'other')),
       profile_url TEXT NOT NULL,
       display_name TEXT,
       review_count INTEGER,
@@ -192,6 +192,38 @@ describe('importedProfileSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects non-HTTPS profile_url', () => {
+    const result = importedProfileSchema.safeParse({
+      platform: 'rover',
+      profile_url: 'http://www.rover.com/members/john/',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects javascript: protocol in profile_url', () => {
+    const result = importedProfileSchema.safeParse({
+      platform: 'rover',
+      profile_url: 'javascript:alert(1)',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects data: protocol in profile_url', () => {
+    const result = importedProfileSchema.safeParse({
+      platform: 'rover',
+      profile_url: 'data:text/html,<h1>hi</h1>',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects profile_url over 2048 characters', () => {
+    const result = importedProfileSchema.safeParse({
+      platform: 'rover',
+      profile_url: 'https://example.com/' + 'a'.repeat(2030),
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('strips unknown fields', () => {
     const result = importedProfileSchema.safeParse({
       platform: 'rover',
@@ -276,6 +308,19 @@ describe('imported_profiles table', () => {
     expect(profile.display_name).toBeNull();
     expect(profile.review_count).toBeNull();
     expect(profile.avg_rating).toBeNull();
+  });
+
+  it('should reject invalid platform values via CHECK constraint', () => {
+    expect(() => {
+      db.prepare('INSERT INTO imported_profiles (user_id, platform, profile_url) VALUES (?, ?, ?)').run(1, 'yelp', 'https://yelp.com/biz/jane');
+    }).toThrow();
+  });
+
+  it('should accept all valid platform values via CHECK constraint', () => {
+    for (const platform of ['rover', 'wag', 'care_com', 'other']) {
+      db.prepare('INSERT INTO imported_profiles (user_id, platform, profile_url) VALUES (?, ?, ?)').run(1, platform, `https://example.com/${platform}`);
+      db.prepare('DELETE FROM imported_profiles WHERE user_id = 1 AND platform = ?').run(platform);
+    }
   });
 
   it('should list profiles for a user', () => {
