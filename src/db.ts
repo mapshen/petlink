@@ -386,6 +386,10 @@ export async function initDb() {
   await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'nap_end'`.catch(() => {});
   await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'play'`.catch(() => {});
 
+  // Issue #129: Video clip support for care updates
+  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'video'`.catch(() => {});
+  await sql`ALTER TABLE walk_events ADD COLUMN IF NOT EXISTS video_url TEXT`.catch(() => {});
+
   // Issue #98: Recurring bookings
   await sql`
     CREATE TABLE IF NOT EXISTS recurring_bookings (

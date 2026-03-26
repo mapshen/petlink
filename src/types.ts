@@ -203,11 +203,12 @@ export interface Availability {
 export interface WalkEvent {
   id: number;
   booking_id: number;
-  event_type: 'start' | 'pee' | 'poop' | 'photo' | 'end' | 'fed' | 'water' | 'medication' | 'nap_start' | 'nap_end' | 'play';
+  event_type: 'start' | 'pee' | 'poop' | 'photo' | 'end' | 'fed' | 'water' | 'medication' | 'nap_start' | 'nap_end' | 'play' | 'video';
   lat?: number;
   lng?: number;
   note?: string;
   photo_url?: string;
+  video_url?: string;
   pet_id?: number;
   pet_name?: string;
   created_at: string;

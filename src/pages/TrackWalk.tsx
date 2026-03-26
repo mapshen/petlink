@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapPin, Camera, CheckCircle, XCircle } from 'lucide-react';
+import { MapPin, Camera, Video } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function TrackWalk() {
@@ -9,8 +9,8 @@ export default function TrackWalk() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [distance, setDistance] = useState(0);
   const [isTracking, setIsTracking] = useState(false);
-  const [events, setEvents] = useState<{ type: 'pee' | 'poop' | 'photo', time: string, lat: number, lng: number }[]>([]);
-  
+  const [events, setEvents] = useState<{ type: 'pee' | 'poop' | 'photo' | 'video', time: string, lat: number, lng: number, video_url?: string }[]>([]);
+
   // Mock GPS tracking
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -23,12 +23,13 @@ export default function TrackWalk() {
     return () => clearInterval(interval);
   }, [isTracking]);
 
-  const handleEvent = (type: 'pee' | 'poop' | 'photo') => {
+  const handleEvent = (type: 'pee' | 'poop' | 'photo' | 'video', video_url?: string) => {
     setEvents(prev => [...prev, {
       type,
       time: new Date().toLocaleTimeString(),
       lat: 37.7749 + (Math.random() * 0.01), // Mock lat
-      lng: -122.4194 + (Math.random() * 0.01) // Mock lng
+      lng: -122.4194 + (Math.random() * 0.01), // Mock lng
+      video_url,
     }]);
   };
 
@@ -70,18 +71,19 @@ export default function TrackWalk() {
         {events.map((event, i) => (
           <div key={i} className="absolute transform -translate-x-1/2 -translate-y-1/2" style={{ top: `${50 + (Math.random() * 40 - 20)}%`, left: `${50 + (Math.random() * 40 - 20)}%` }}>
             <div className={`p-2 rounded-full shadow-md ${
-              event.type === 'pee' ? 'bg-yellow-400 text-white' : 
-              event.type === 'poop' ? 'bg-amber-700 text-white' : 
+              event.type === 'pee' ? 'bg-yellow-400 text-white' :
+              event.type === 'poop' ? 'bg-amber-700 text-white' :
+              event.type === 'video' ? 'bg-rose-500 text-white' :
               'bg-blue-500 text-white'
             }`}>
-              {event.type === 'pee' ? '💧' : event.type === 'poop' ? '💩' : <Camera className="w-4 h-4" />}
+              {event.type === 'pee' ? '💧' : event.type === 'poop' ? '💩' : event.type === 'video' ? <Video className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <button 
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        <button
           onClick={() => handleEvent('pee')}
           disabled={!isTracking}
           className="bg-yellow-100 text-yellow-700 p-4 rounded-xl flex flex-col items-center gap-2 hover:bg-yellow-200 transition-colors disabled:opacity-50"
@@ -89,7 +91,7 @@ export default function TrackWalk() {
           <span className="text-2xl">💧</span>
           <span className="text-xs font-bold">Pee</span>
         </button>
-        <button 
+        <button
           onClick={() => handleEvent('poop')}
           disabled={!isTracking}
           className="bg-amber-100 text-amber-800 p-4 rounded-xl flex flex-col items-center gap-2 hover:bg-amber-200 transition-colors disabled:opacity-50"
@@ -97,7 +99,7 @@ export default function TrackWalk() {
           <span className="text-2xl">💩</span>
           <span className="text-xs font-bold">Poop</span>
         </button>
-        <button 
+        <button
           onClick={() => handleEvent('photo')}
           disabled={!isTracking}
           className="bg-blue-100 text-blue-700 p-4 rounded-xl flex flex-col items-center gap-2 hover:bg-blue-200 transition-colors disabled:opacity-50"
@@ -105,7 +107,35 @@ export default function TrackWalk() {
           <Camera className="w-6 h-6" />
           <span className="text-xs font-bold">Photo</span>
         </button>
+        <button
+          onClick={() => handleEvent('video')}
+          disabled={!isTracking}
+          className="bg-rose-100 text-rose-700 p-4 rounded-xl flex flex-col items-center gap-2 hover:bg-rose-200 transition-colors disabled:opacity-50"
+        >
+          <Video className="w-6 h-6" />
+          <span className="text-xs font-bold">Video</span>
+        </button>
       </div>
+
+      {/* Video player for video events */}
+      {events.filter(e => e.type === 'video' && e.video_url).length > 0 && (
+        <div className="mb-6 space-y-3">
+          <h3 className="text-sm font-bold text-stone-700">Video Clips</h3>
+          {events.filter(e => e.type === 'video' && e.video_url).map((event, i) => (
+            <div key={i} className="rounded-xl overflow-hidden border border-stone-200 bg-stone-50">
+              <video
+                src={event.video_url}
+                controls
+                playsInline
+                muted
+                preload="metadata"
+                className="w-full max-h-48 object-contain bg-black"
+              />
+              <div className="px-3 py-1.5 text-xs text-stone-500">{event.time}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <button 
         onClick={() => setIsTracking(!isTracking)}

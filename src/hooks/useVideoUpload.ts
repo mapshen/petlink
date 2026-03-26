@@ -2,8 +2,9 @@ import { useState, useCallback } from 'react';
 import { getAuthHeaders } from '../context/AuthContext';
 import { API_BASE } from '../config';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+const MAX_DURATION_SECONDS = 60;
 
 interface UploadState {
   uploading: boolean;
@@ -11,7 +12,23 @@ interface UploadState {
   error: string | null;
 }
 
-export function useImageUpload(token: string | null) {
+function getVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(video.duration);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      reject(new Error('Failed to read video metadata'));
+    };
+    video.src = URL.createObjectURL(file);
+  });
+}
+
+export function useVideoUpload(token: string | null) {
   const [state, setState] = useState<UploadState>({
     uploading: false,
     progress: 0,
@@ -19,14 +36,25 @@ export function useImageUpload(token: string | null) {
   });
 
   const upload = useCallback(
-    async (file: File, folder: 'pets' | 'avatars' | 'verifications' | 'walks' | 'sitter-photos' | 'videos'): Promise<string | null> => {
+    async (file: File): Promise<string | null> => {
       if (!ALLOWED_TYPES.includes(file.type)) {
-        setState((s) => ({ ...s, error: 'Please select a JPEG, PNG, WebP, or GIF image.' }));
+        setState((s) => ({ ...s, error: 'Please select an MP4, MOV, or WebM video.' }));
         return null;
       }
       if (file.size > MAX_FILE_SIZE) {
-        setState((s) => ({ ...s, error: 'File size must be under 5MB.' }));
+        setState((s) => ({ ...s, error: 'Video file must be under 50MB.' }));
         return null;
+      }
+
+      // Check duration client-side
+      try {
+        const duration = await getVideoDuration(file);
+        if (duration > MAX_DURATION_SECONDS) {
+          setState((s) => ({ ...s, error: `Video must be ${MAX_DURATION_SECONDS} seconds or shorter.` }));
+          return null;
+        }
+      } catch {
+        // If we can't read duration, allow upload and let server handle it
       }
 
       setState({ uploading: true, progress: 0, error: null });
@@ -36,7 +64,7 @@ export function useImageUpload(token: string | null) {
         const signedRes = await fetch(`${API_BASE}/uploads/signed-url`, {
           method: 'POST',
           headers: getAuthHeaders(token),
-          body: JSON.stringify({ folder, contentType: file.type }),
+          body: JSON.stringify({ folder: 'videos', contentType: file.type }),
         });
 
         if (!signedRes.ok) {
@@ -45,7 +73,7 @@ export function useImageUpload(token: string | null) {
         }
 
         const { uploadUrl, publicUrl } = await signedRes.json();
-        setState((s) => ({ ...s, progress: 30 }));
+        setState((s) => ({ ...s, progress: 20 }));
 
         // Step 2: Upload directly to S3
         const uploadRes = await fetch(uploadUrl, {

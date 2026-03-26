@@ -1394,7 +1394,7 @@ async function startServer() {
       res.status(403).json({ error: 'Only the sitter can log walk events' });
       return;
     }
-    const { event_type, lat, lng, note, photo_url, pet_id } = req.body;
+    const { event_type, lat, lng, note, photo_url, video_url, pet_id } = req.body;
     if (!event_type) {
       res.status(400).json({ error: 'event_type is required' });
       return;
@@ -1411,8 +1411,8 @@ async function startServer() {
       }
     }
     const [event] = await sql`
-      INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url, pet_id)
-      VALUES (${req.params.bookingId}, ${event_type}, ${lat || null}, ${lng || null}, ${note || null}, ${photo_url || null}, ${pet_id || null})
+      INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url, video_url, pet_id)
+      VALUES (${req.params.bookingId}, ${event_type}, ${lat || null}, ${lng || null}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${pet_id || null})
       RETURNING *
     `;
 
@@ -2250,14 +2250,16 @@ async function startServer() {
   v1.post('/uploads/signed-url', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const { folder, contentType } = req.body;
-      const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos'] as const;
+      const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos'] as const;
       if (!folder || !validFolders.includes(folder)) {
-        res.status(400).json({ error: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos' });
+        res.status(400).json({ error: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos' });
         return;
       }
-      const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const allowedVideoTypes = ['video/mp4', 'video/quicktime', 'video/webm'];
+      const allowedContentTypes = [...allowedImageTypes, ...allowedVideoTypes];
       if (!contentType || !allowedContentTypes.includes(contentType)) {
-        res.status(400).json({ error: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif' });
+        res.status(400).json({ error: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/quicktime, video/webm' });
         return;
       }
       const result = await generateUploadUrl(folder, contentType, req.userId!);
