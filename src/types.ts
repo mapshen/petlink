@@ -272,3 +272,47 @@ export interface SitterPayout {
   stripe_transfer_id?: string | null;
   created_at: string;
 }
+
+export interface AnalyticsOverview {
+  total_bookings: number;
+  completed_bookings: number;
+  cancelled_bookings: number;
+  total_revenue: number;
+  avg_rating: number | null;
+  review_count: number;
+  avg_response_hours: number | null;
+  completion_rate: number;
+  cancellation_rate: number;
+  repeat_client_pct: number;
+  unique_clients: number;
+  monthly_revenue: { month: number; revenue: number }[];
+}
+
+export interface ClientSummary {
+  client_id: number;
+  client_name: string;
+  client_avatar: string | null;
+  total_bookings: number;
+  completed_bookings: number;
+  total_spent: number;
+  first_booking_date: string;
+  last_booking_date: string;
+  pets: { id: number; name: string; species?: string; photo_url?: string }[];
+}
+
+export interface ClientBookingDetail {
+  id: number;
+  status: string;
+  service_type: string | null;
+  start_time: string;
+  end_time: string;
+  total_price: number | null;
+  pets: { id: number; name: string }[];
+  created_at: string;
+}
+
+export interface RevenueDataPoint {
+  period: string;
+  revenue: number;
+  booking_count: number;
+}

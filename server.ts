@@ -2267,6 +2267,234 @@ async function startServer() {
     }
   });
 
+  // --- Sitter Analytics ---
+  v1.get('/analytics/overview', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can access analytics' });
+      return;
+    }
+    const year = Number(req.query.year) || new Date().getFullYear();
+
+    const [bookingStats] = await sql`
+      SELECT
+        COUNT(*)::int AS total_bookings,
+        COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_bookings,
+        COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled_bookings,
+        COALESCE(SUM(total_price) FILTER (WHERE status = 'completed'), 0)::float AS total_revenue,
+        COUNT(DISTINCT owner_id)::int AS unique_clients,
+        COUNT(DISTINCT owner_id) FILTER (
+          WHERE owner_id IN (
+            SELECT owner_id FROM bookings b2
+            WHERE b2.sitter_id = ${req.userId}
+              AND b2.status = 'completed'
+            GROUP BY owner_id HAVING COUNT(*) > 1
+          )
+        )::int AS repeat_clients
+      FROM bookings
+      WHERE sitter_id = ${req.userId}
+        AND EXTRACT(YEAR FROM start_time) = ${year}
+    `;
+
+    const [reviewStats] = await sql`
+      SELECT
+        AVG(rating)::float AS avg_rating,
+        COUNT(*)::int AS review_count
+      FROM reviews
+      WHERE reviewee_id = ${req.userId}
+    `;
+
+    const [responseStats] = await sql`
+      SELECT
+        AVG(EXTRACT(EPOCH FROM (responded_at - created_at)) / 3600)::float AS avg_response_hours
+      FROM bookings
+      WHERE sitter_id = ${req.userId}
+        AND responded_at IS NOT NULL
+        AND EXTRACT(YEAR FROM start_time) = ${year}
+    `;
+
+    const monthlyRevenue = await sql`
+      SELECT
+        EXTRACT(MONTH FROM start_time)::int AS month,
+        COALESCE(SUM(total_price), 0)::float AS revenue
+      FROM bookings
+      WHERE sitter_id = ${req.userId}
+        AND status = 'completed'
+        AND EXTRACT(YEAR FROM start_time) = ${year}
+      GROUP BY EXTRACT(MONTH FROM start_time)
+      ORDER BY month
+    `;
+
+    const totalBookings = bookingStats.total_bookings;
+    const completedBookings = bookingStats.completed_bookings;
+    const uniqueClients = bookingStats.unique_clients;
+    const repeatClients = bookingStats.repeat_clients;
+
+    res.json({
+      total_bookings: totalBookings,
+      completed_bookings: completedBookings,
+      cancelled_bookings: bookingStats.cancelled_bookings,
+      total_revenue: bookingStats.total_revenue,
+      avg_rating: reviewStats.avg_rating ? Math.round(reviewStats.avg_rating * 10) / 10 : null,
+      review_count: reviewStats.review_count,
+      avg_response_hours: responseStats.avg_response_hours
+        ? Math.round(responseStats.avg_response_hours * 10) / 10
+        : null,
+      completion_rate: totalBookings > 0 ? Math.round((completedBookings / totalBookings) * 100) : 0,
+      cancellation_rate: totalBookings > 0 ? Math.round((bookingStats.cancelled_bookings / totalBookings) * 100) : 0,
+      repeat_client_pct: uniqueClients > 0 ? Math.round((repeatClients / uniqueClients) * 100) : 0,
+      unique_clients: uniqueClients,
+      monthly_revenue: monthlyRevenue.map((r: { month: number; revenue: number }) => ({
+        month: r.month,
+        revenue: r.revenue,
+      })),
+    });
+  });
+
+  v1.get('/analytics/clients', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can access analytics' });
+      return;
+    }
+
+    const clients = await sql`
+      SELECT
+        u.id AS client_id,
+        u.name AS client_name,
+        u.avatar_url AS client_avatar,
+        COUNT(b.id)::int AS total_bookings,
+        COUNT(b.id) FILTER (WHERE b.status = 'completed')::int AS completed_bookings,
+        COALESCE(SUM(b.total_price) FILTER (WHERE b.status = 'completed'), 0)::float AS total_spent,
+        MIN(b.start_time) AS first_booking_date,
+        MAX(b.start_time) AS last_booking_date
+      FROM bookings b
+      JOIN users u ON u.id = b.owner_id
+      WHERE b.sitter_id = ${req.userId}
+      GROUP BY u.id, u.name, u.avatar_url
+      ORDER BY MAX(b.start_time) DESC
+    `;
+
+    // Fetch pets for each client
+    const clientIds = clients.map((c: { client_id: number }) => c.client_id);
+    const pets = clientIds.length > 0
+      ? await sql`
+        SELECT DISTINCT p.id, p.name, p.species, p.photo_url, p.owner_id
+        FROM pets p
+        WHERE p.owner_id = ANY(${clientIds})
+      `
+      : [];
+
+    const petsByOwner: Record<number, { id: number; name: string; species?: string; photo_url?: string }[]> = {};
+    for (const pet of pets) {
+      if (!petsByOwner[pet.owner_id]) petsByOwner[pet.owner_id] = [];
+      petsByOwner[pet.owner_id].push({ id: pet.id, name: pet.name, species: pet.species, photo_url: pet.photo_url });
+    }
+
+    const result = clients.map((c: Record<string, unknown>) => ({
+      ...c,
+      pets: petsByOwner[(c as { client_id: number }).client_id] || [],
+    }));
+
+    res.json({ clients: result });
+  });
+
+  v1.get('/analytics/clients/:clientId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can access analytics' });
+      return;
+    }
+
+    const clientId = Number(req.params.clientId);
+    if (!clientId || isNaN(clientId)) {
+      res.status(400).json({ error: 'Invalid client ID' });
+      return;
+    }
+
+    const bookings = await sql`
+      SELECT
+        b.id, b.status, s.type AS service_type, b.start_time, b.end_time,
+        b.total_price, b.created_at
+      FROM bookings b
+      LEFT JOIN services s ON s.id = b.service_id
+      WHERE b.sitter_id = ${req.userId} AND b.owner_id = ${clientId}
+      ORDER BY b.start_time DESC
+    `;
+
+    if (bookings.length === 0) {
+      res.status(404).json({ error: 'No bookings found with this client' });
+      return;
+    }
+
+    // Fetch pets per booking
+    const bookingIds = bookings.map((b: { id: number }) => b.id);
+    const bookingPets = await sql`
+      SELECT bp.booking_id, p.id, p.name
+      FROM booking_pets bp
+      JOIN pets p ON p.id = bp.pet_id
+      WHERE bp.booking_id = ANY(${bookingIds})
+    `;
+
+    const petsByBooking: Record<number, { id: number; name: string }[]> = {};
+    for (const bp of bookingPets) {
+      if (!petsByBooking[bp.booking_id]) petsByBooking[bp.booking_id] = [];
+      petsByBooking[bp.booking_id].push({ id: bp.id, name: bp.name });
+    }
+
+    const [client] = await sql`SELECT id, name, avatar_url FROM users WHERE id = ${clientId}`;
+
+    res.json({
+      client: { id: client.id, name: client.name, avatar_url: client.avatar_url },
+      bookings: bookings.map((b: Record<string, unknown>) => ({
+        ...b,
+        pets: petsByBooking[(b as { id: number }).id] || [],
+      })),
+    });
+  });
+
+  v1.get('/analytics/revenue', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can access analytics' });
+      return;
+    }
+
+    const period = req.query.period === 'weekly' ? 'weekly' : 'monthly';
+    const year = Number(req.query.year) || new Date().getFullYear();
+
+    let data;
+    if (period === 'monthly') {
+      data = await sql`
+        SELECT
+          TO_CHAR(start_time, 'YYYY-MM') AS period,
+          COALESCE(SUM(total_price), 0)::float AS revenue,
+          COUNT(*)::int AS booking_count
+        FROM bookings
+        WHERE sitter_id = ${req.userId}
+          AND status = 'completed'
+          AND EXTRACT(YEAR FROM start_time) = ${year}
+        GROUP BY TO_CHAR(start_time, 'YYYY-MM')
+        ORDER BY period
+      `;
+    } else {
+      data = await sql`
+        SELECT
+          TO_CHAR(DATE_TRUNC('week', start_time), 'YYYY-"W"IW') AS period,
+          COALESCE(SUM(total_price), 0)::float AS revenue,
+          COUNT(*)::int AS booking_count
+        FROM bookings
+        WHERE sitter_id = ${req.userId}
+          AND status = 'completed'
+          AND EXTRACT(YEAR FROM start_time) = ${year}
+        GROUP BY DATE_TRUNC('week', start_time)
+        ORDER BY period
+      `;
+    }
+
+    res.json({ period, year, data });
+  });
+
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
   app.use('/api/v1', v1);
   app.use('/api', v1);
