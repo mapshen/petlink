@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema } from './src/validation.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -1272,11 +1272,19 @@ async function startServer() {
 
   // --- Sitter Subscription ---
   v1.get('/subscription', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [sub] = await sql`SELECT * FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
+    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (user.role !== 'sitter' && user.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can view subscriptions' });
+      return;
+    }
+    const [sub] = await sql`
+      SELECT id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
+      FROM sitter_subscriptions WHERE sitter_id = ${req.userId}
+    `;
     res.json({ subscription: sub || null });
   });
 
-  v1.post('/subscription/upgrade', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/subscription/upgrade', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
     if (user.role !== 'sitter' && user.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can subscribe' });
@@ -1289,36 +1297,47 @@ async function startServer() {
       return;
     }
 
-    // In production, this would create a Stripe subscription
-    // For now, we directly activate Pro
     if (existing) {
-      const [updated] = await sql`
-        UPDATE sitter_subscriptions SET tier = 'pro', status = 'active', current_period_start = NOW(), current_period_end = NOW() + INTERVAL '30 days'
-        WHERE sitter_id = ${req.userId}
-        RETURNING *
-      `;
-      await sql`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
+      const [updated] = await sql.begin(async (tx: any) => {
+        const [s] = await tx`
+          UPDATE sitter_subscriptions SET tier = 'pro', status = 'active',
+            current_period_start = NOW(), current_period_end = NOW() + INTERVAL '30 days', updated_at = NOW()
+          WHERE sitter_id = ${req.userId}
+          RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
+        `;
+        await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
+        return [s];
+      });
       res.json({ subscription: updated });
     } else {
-      const [sub] = await sql`
-        INSERT INTO sitter_subscriptions (sitter_id, tier, status, current_period_start, current_period_end)
-        VALUES (${req.userId}, 'pro', 'active', NOW(), NOW() + INTERVAL '30 days')
-        RETURNING *
-      `;
-      await sql`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
+      const [sub] = await sql.begin(async (tx: any) => {
+        const [s] = await tx`
+          INSERT INTO sitter_subscriptions (sitter_id, tier, status, current_period_start, current_period_end)
+          VALUES (${req.userId}, 'pro', 'active', NOW(), NOW() + INTERVAL '30 days')
+          RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
+        `;
+        await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
+        return [s];
+      });
       res.status(201).json({ subscription: sub });
     }
   });
 
-  v1.post('/subscription/cancel', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [sub] = await sql`SELECT id FROM sitter_subscriptions WHERE sitter_id = ${req.userId} AND tier = 'pro'`;
+  v1.post('/subscription/cancel', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {
+    const [sub] = await sql`SELECT id FROM sitter_subscriptions WHERE sitter_id = ${req.userId} AND tier = 'pro' AND status = 'active'`;
     if (!sub) {
       res.status(404).json({ error: 'No active Pro subscription' });
       return;
     }
-    await sql`UPDATE sitter_subscriptions SET status = 'cancelled', tier = 'free' WHERE sitter_id = ${req.userId}`;
-    await sql`UPDATE users SET subscription_tier = 'free' WHERE id = ${req.userId}`;
-    const [updated] = await sql`SELECT * FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
+    const [updated] = await sql.begin(async (tx: any) => {
+      const [s] = await tx`
+        UPDATE sitter_subscriptions SET status = 'cancelled', tier = 'free', updated_at = NOW()
+        WHERE sitter_id = ${req.userId}
+        RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
+      `;
+      await tx`UPDATE users SET subscription_tier = 'free' WHERE id = ${req.userId}`;
+      return [s];
+    });
     res.json({ subscription: updated });
   });
 

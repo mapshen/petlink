@@ -13,6 +13,7 @@ export interface SitterSubscription {
   current_period_start?: string;
   current_period_end?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface User {

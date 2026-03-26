@@ -488,12 +488,13 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS sitter_subscriptions (
       id SERIAL PRIMARY KEY,
       sitter_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-      tier TEXT NOT NULL DEFAULT 'free',
+      tier TEXT NOT NULL DEFAULT 'free' CHECK(tier IN ('free', 'pro')),
       stripe_subscription_id TEXT,
-      status TEXT NOT NULL DEFAULT 'active',
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'past_due', 'cancelled')),
       current_period_start TIMESTAMPTZ,
       current_period_end TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'free'`.catch(() => {});
