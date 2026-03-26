@@ -180,8 +180,6 @@ export const createRecurringBookingSchema = z.object({
 // --- Featured Listing Schemas ---
 export const featuredListingSchema = z.object({
   service_type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet']).optional().nullable(),
-  daily_budget_cents: z.number().int().min(100, 'Minimum budget is $1/day').max(100000, 'Maximum budget is $1,000/day'),
-  ends_at: z.string().refine((v) => !v || !isNaN(new Date(v).getTime()), 'Must be a valid date').optional().nullable(),
 });
 
 // --- Cancellation Policy Schemas ---

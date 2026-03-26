@@ -1219,7 +1219,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // --- Featured Listings ---
+  // --- Featured Listings (per-booking commission model) ---
   v1.get('/featured-listings/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const listings = await sql`SELECT * FROM featured_listings WHERE sitter_id = ${req.userId} ORDER BY created_at DESC`;
     res.json({ listings });
@@ -1231,19 +1231,19 @@ async function startServer() {
       res.status(403).json({ error: 'Only sitters can create featured listings' });
       return;
     }
-    const { service_type, daily_budget_cents, ends_at } = req.body;
+    const { service_type } = req.body;
 
     if (service_type) {
-      const [existing] = await sql`SELECT id FROM featured_listings WHERE sitter_id = ${req.userId} AND service_type = ${service_type} AND active = TRUE`;
+      const [existing] = await sql`SELECT id FROM featured_listings WHERE sitter_id = ${req.userId} AND service_type = ${service_type}`;
       if (existing) {
-        res.status(409).json({ error: 'You already have an active featured listing for this service type' });
+        res.status(409).json({ error: 'You already have a featured listing for this service type' });
         return;
       }
     }
 
     const [listing] = await sql`
-      INSERT INTO featured_listings (sitter_id, service_type, daily_budget_cents, ends_at)
-      VALUES (${req.userId}, ${service_type || null}, ${daily_budget_cents}, ${ends_at || null})
+      INSERT INTO featured_listings (sitter_id, service_type)
+      VALUES (${req.userId}, ${service_type || null})
       RETURNING *
     `;
     res.status(201).json({ listing });

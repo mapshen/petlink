@@ -4,7 +4,6 @@ import { Service } from '../types';
 import { Plus, Pencil, Trash2, DollarSign, Save, X, ShieldCheck, Check } from 'lucide-react';
 import { API_BASE } from '../config';
 import type { CancellationPolicy } from '../types';
-import FeaturedListings from '../components/FeaturedListings';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Input } from '../components/ui/input';
@@ -341,9 +340,6 @@ export default function ServicesTab() {
           </div>
         )}
       </div>
-
-      {/* Featured Listings */}
-      <FeaturedListings />
 
       {/* Cancellation Policy */}
       <div className="mt-10">

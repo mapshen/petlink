@@ -458,23 +458,30 @@ export async function initDb() {
   await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_invitation_url TEXT`.catch(() => {});
   await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_report_id TEXT`.catch(() => {});
 
-  // Issue #90: Featured/sponsored sitter listings
+  // Issue #90: Featured/sponsored sitter listings (per-booking commission model)
   await sql`
     CREATE TABLE IF NOT EXISTS featured_listings (
       id SERIAL PRIMARY KEY,
       sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       service_type TEXT,
-      budget_cents INTEGER NOT NULL DEFAULT 0,
-      daily_budget_cents INTEGER NOT NULL DEFAULT 500,
-      spent_cents INTEGER NOT NULL DEFAULT 0,
+      commission_rate DOUBLE PRECISION NOT NULL DEFAULT 0.15,
       active BOOLEAN DEFAULT TRUE,
-      starts_at TIMESTAMPTZ DEFAULT NOW(),
-      ends_at TIMESTAMPTZ,
+      impressions INTEGER NOT NULL DEFAULT 0,
+      clicks INTEGER NOT NULL DEFAULT 0,
+      bookings_from_promotion INTEGER NOT NULL DEFAULT 0,
+      commission_earned_cents INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(sitter_id, service_type)
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_featured_listings_active ON featured_listings (active, service_type)`.catch(() => {});
+
+  // Migration: drop old budget columns if they exist, add new commission columns
+  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS commission_rate DOUBLE PRECISION DEFAULT 0.15`.catch(() => {});
+  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS impressions INTEGER DEFAULT 0`.catch(() => {});
+  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS clicks INTEGER DEFAULT 0`.catch(() => {});
+  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS bookings_from_promotion INTEGER DEFAULT 0`.catch(() => {});
+  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS commission_earned_cents INTEGER DEFAULT 0`.catch(() => {});
 
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;

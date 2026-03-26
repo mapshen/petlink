@@ -117,12 +117,12 @@ export interface FeaturedListing {
   id: number;
   sitter_id: number;
   service_type?: string;
-  budget_cents: number;
-  daily_budget_cents: number;
-  spent_cents: number;
+  commission_rate: number;
   active: boolean;
-  starts_at: string;
-  ends_at?: string;
+  impressions: number;
+  clicks: number;
+  bookings_from_promotion: number;
+  commission_earned_cents: number;
   created_at: string;
 }
 
