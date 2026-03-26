@@ -199,6 +199,12 @@ export const setPasswordSchema = z.object({
   password: passwordSchema,
 });
 
+// --- Admin Approval Schemas ---
+export const approvalActionSchema = z.object({
+  action: z.enum(['approve', 'reject'], { message: 'Action must be "approve" or "reject"' }),
+  reason: z.string().max(1000, 'Reason must be under 1000 characters').optional().nullable(),
+});
+
 // --- Expense Schemas ---
 export const expenseSchema = z.object({
   category: z.enum(['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other'], {

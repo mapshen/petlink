@@ -16,6 +16,8 @@ export interface SitterSubscription {
   updated_at: string;
 }
 
+export type ApprovalStatus = 'pending_approval' | 'approved' | 'rejected';
+
 export interface User {
   id: number;
   email: string;
@@ -36,6 +38,7 @@ export interface User {
   own_pets_description?: string;
   skills?: string[];
   subscription_tier?: SubscriptionTier;
+  approval_status?: ApprovalStatus;
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';
