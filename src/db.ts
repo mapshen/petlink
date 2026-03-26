@@ -521,6 +521,12 @@ export async function initDb() {
   // Issue #110: Sitter approval workflow — existing sitters grandfathered as 'approved'
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approval_status TEXT DEFAULT 'approved'`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approval_rejected_reason TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES users(id)`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`.catch(() => {});
+  await sql`DO $$ BEGIN
+    ALTER TABLE users ADD CONSTRAINT chk_approval_status CHECK (approval_status IN ('pending_approval', 'approved', 'rejected'));
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users (approval_status) WHERE role IN ('sitter', 'both')`.catch(() => {});
 
   // Seed data if empty (dev/test only)

@@ -60,7 +60,7 @@ async function adminMiddleware(req: AuthenticatedRequest, res: express.Response,
     return;
   }
   const [user] = await sql`SELECT email FROM users WHERE id = ${req.userId}`;
-  if (!user || user.email !== adminEmail) {
+  if (!user || user.email.toLowerCase() !== adminEmail.toLowerCase()) {
     res.status(403).json({ error: 'Admin access required' });
     return;
   }
@@ -142,10 +142,12 @@ async function startServer() {
 
   app.use('/api/v1/', apiLimiter);
   app.use('/api/v1/auth/', authLimiter);
+  app.use('/api/v1/admin/', apiLimiter);
 
   // Backwards compatibility: /api/* also works (same routes)
   app.use('/api/', apiLimiter);
   app.use('/api/auth/', authLimiter);
+  app.use('/api/admin/', apiLimiter);
 
   // All versioned API routes — async handlers auto-wrapped with error catching
   const v1 = createAsyncRouter();
@@ -323,13 +325,9 @@ async function startServer() {
     const { name, bio, avatar_url, role, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills } = req.body;
 
     // Check if user is switching to sitter/both from owner — needs approval
-    let approvalFragment = sql``;
-    if (role === 'sitter' || role === 'both') {
-      const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
-      if (currentUser.role === 'owner') {
-        approvalFragment = sql`, approval_status = 'pending_approval'`;
-      }
-    }
+    const needsApproval = (role === 'sitter' || role === 'both')
+      && (await sql`SELECT role FROM users WHERE id = ${req.userId}`)[0]?.role === 'owner';
+    const approvalFragment = needsApproval ? sql`, approval_status = 'pending_approval'` : sql``;
 
     await sql`
       UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null},
@@ -652,7 +650,7 @@ async function startServer() {
 
   v1.get('/sitters/:id', botBlockMiddleware, publicLimiter, async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, approval_status FROM users WHERE id = ${req.params.id} AND role IN ('sitter', 'both') AND approval_status = 'approved'
+      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.params.id} AND role IN ('sitter', 'both') AND approval_status = 'approved'
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });
@@ -679,9 +677,13 @@ async function startServer() {
   });
 
   v1.post('/services', authMiddleware, validate(serviceSchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
     if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can manage services' });
+      return;
+    }
+    if (currentUser.approval_status !== 'approved') {
+      res.status(403).json({ error: 'Only approved sitters can create services' });
       return;
     }
     const { type, price, description, additional_pet_price, max_pets, service_details } = req.body;
@@ -1680,9 +1682,14 @@ async function startServer() {
       res.status(400).json({ error: 'Cannot book yourself' });
       return;
     }
-    const [service] = await sql`SELECT id, price, type, additional_pet_price FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    const [service] = await sql`
+      SELECT s.id, s.price, s.type, s.additional_pet_price
+      FROM services s
+      JOIN users u ON u.id = s.sitter_id
+      WHERE s.id = ${service_id} AND s.sitter_id = ${sitter_id} AND u.approval_status = 'approved'
+    `;
     if (!service) {
-      res.status(400).json({ error: 'Invalid service for this sitter' });
+      res.status(404).json({ error: 'Service not found' });
       return;
     }
 
@@ -2273,12 +2280,15 @@ async function startServer() {
   });
 
   // --- Admin: Sitter Approval Workflow ---
-  v1.get('/admin/pending-sitters', authMiddleware, adminMiddleware, async (_req: AuthenticatedRequest, res) => {
+  v1.get('/admin/pending-sitters', authMiddleware, adminMiddleware, async (req: AuthenticatedRequest, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
     const sitters = await sql`
       SELECT id, email, name, role, bio, avatar_url, created_at, approval_status
       FROM users
       WHERE role IN ('sitter', 'both') AND approval_status = 'pending_approval'
       ORDER BY created_at ASC
+      LIMIT ${limit} OFFSET ${offset}
     `;
     res.json({ sitters });
   });
@@ -2287,6 +2297,8 @@ async function startServer() {
     const status = req.query.status as string | undefined;
     const validStatuses = ['pending_approval', 'approved', 'rejected'];
     const statusFilter = status && validStatuses.includes(status) ? status : undefined;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
 
     const sitters = await sql`
       SELECT id, email, name, role, bio, avatar_url, created_at, approval_status, approval_rejected_reason
@@ -2294,12 +2306,17 @@ async function startServer() {
       WHERE role IN ('sitter', 'both')
         ${statusFilter ? sql`AND approval_status = ${statusFilter}` : sql``}
       ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `;
     res.json({ sitters });
   });
 
   v1.put('/admin/sitters/:id/approval', authMiddleware, adminMiddleware, validate(approvalActionSchema), async (req: AuthenticatedRequest, res) => {
     const sitterId = Number(req.params.id);
+    if (!Number.isInteger(sitterId) || sitterId <= 0) {
+      res.status(400).json({ error: 'Invalid sitter ID' });
+      return;
+    }
     const { action, reason } = req.body;
 
     const [sitter] = await sql`SELECT id, role, approval_status FROM users WHERE id = ${sitterId}`;
@@ -2317,11 +2334,14 @@ async function startServer() {
     const [updated] = await sql`
       UPDATE users
       SET approval_status = ${newStatus},
-          approval_rejected_reason = ${action === 'reject' ? (reason || null) : null}
+          approval_rejected_reason = ${action === 'reject' ? (reason || null) : null},
+          approved_by = ${req.userId},
+          approved_at = NOW()
       WHERE id = ${sitterId}
-      RETURNING id, email, name, role, approval_status, approval_rejected_reason
+      RETURNING id, email, name, role, approval_status, approval_rejected_reason, approved_by, approved_at
     `;
 
+    // TODO: Send notification to sitter on approval/rejection
     res.json({ sitter: updated });
   });
 

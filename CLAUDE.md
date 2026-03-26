@@ -57,6 +57,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Payments | `POST /stripe/connect`, `POST /stripe/account-link`, `POST /payments/create-intent`, `POST /payments/capture`, `POST /payments/cancel` |
 | Uploads | `POST /uploads/signed-url` |
 | Webhooks | `POST /webhooks/stripe`, `POST /webhooks/background-check` |
+| Admin | `GET /admin/pending-sitters`, `GET /admin/sitters` (with optional `?status=&limit=&offset=`), `PUT /admin/sitters/:id/approval` |
 | Health | `GET /health` (no auth, returns DB connectivity status) |
 
 ### Frontend (`src/`)

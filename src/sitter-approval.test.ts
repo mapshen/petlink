@@ -56,8 +56,10 @@ describe('users approval_status column', () => {
         role TEXT DEFAULT 'owner',
         bio TEXT,
         avatar_url TEXT,
-        approval_status TEXT DEFAULT 'approved',
+        approval_status TEXT DEFAULT 'approved' CHECK(approval_status IN ('pending_approval', 'approved', 'rejected')),
         approval_rejected_reason TEXT,
+        approved_by INTEGER REFERENCES users(id),
+        approved_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
       CREATE TABLE services (
@@ -178,5 +180,48 @@ describe('users approval_status column', () => {
     db.prepare("UPDATE users SET name = 'Updated Name' WHERE id = ?").run(2);
     const user = db.prepare("SELECT approval_status FROM users WHERE id = ?").get(2) as Record<string, unknown>;
     expect(user.approval_status).toBe('approved');
+  });
+
+  it('CHECK constraint rejects invalid approval_status values', () => {
+    expect(() => {
+      db.prepare("INSERT INTO users (email, password_hash, name, role, approval_status) VALUES (?, ?, ?, ?, ?)").run('bad@test.com', 'hash', 'Bad', 'sitter', 'suspended');
+    }).toThrow();
+  });
+
+  it('CHECK constraint allows all valid approval_status values', () => {
+    const hash = bcrypt.hashSync('pass', 10);
+    db.prepare("INSERT INTO users (email, password_hash, name, role, approval_status) VALUES (?, ?, ?, ?, ?)").run('a@test.com', hash, 'A', 'sitter', 'pending_approval');
+    db.prepare("INSERT INTO users (email, password_hash, name, role, approval_status) VALUES (?, ?, ?, ?, ?)").run('b@test.com', hash, 'B', 'sitter', 'approved');
+    db.prepare("INSERT INTO users (email, password_hash, name, role, approval_status) VALUES (?, ?, ?, ?, ?)").run('c@test.com', hash, 'C', 'sitter', 'rejected');
+    expect(db.prepare("SELECT COUNT(*) as cnt FROM users").get()).toEqual({ cnt: 7 });
+  });
+
+  it('booking query only finds services from approved sitters', () => {
+    // Service from approved sitter (id=2) should be found
+    const approved = db.prepare(`
+      SELECT s.id, s.price, s.type
+      FROM services s
+      JOIN users u ON u.id = s.sitter_id
+      WHERE s.id = 1 AND s.sitter_id = 2 AND u.approval_status = 'approved'
+    `).get() as Record<string, unknown> | undefined;
+    expect(approved).toBeDefined();
+
+    // Service from pending sitter (id=3) should not be found
+    const pending = db.prepare(`
+      SELECT s.id, s.price, s.type
+      FROM services s
+      JOIN users u ON u.id = s.sitter_id
+      WHERE s.id = 2 AND s.sitter_id = 3 AND u.approval_status = 'approved'
+    `).get() as Record<string, unknown> | undefined;
+    expect(pending).toBeUndefined();
+  });
+
+  it('approval stores approved_by and approved_at', () => {
+    const adminId = 1; // owner acts as admin
+    db.prepare("UPDATE users SET approval_status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?").run(adminId, 3);
+    const user = db.prepare("SELECT approval_status, approved_by, approved_at FROM users WHERE id = ?").get(3) as Record<string, unknown>;
+    expect(user.approval_status).toBe('approved');
+    expect(user.approved_by).toBe(adminId);
+    expect(user.approved_at).toBeDefined();
   });
 });
