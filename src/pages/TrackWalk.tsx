@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { MapPin, Camera, Video } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useVideoUpload } from '../hooks/useVideoUpload';
 
 export default function TrackWalk() {
   const { bookingId } = useParams();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [elapsedTime, setElapsedTime] = useState(0);
   const [distance, setDistance] = useState(0);
   const [isTracking, setIsTracking] = useState(false);
   const [events, setEvents] = useState<{ type: 'pee' | 'poop' | 'photo' | 'video', time: string, lat: number, lng: number, video_url?: string }[]>([]);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const { uploading: videoUploading, upload: uploadVideo, error: videoError, clearError: clearVideoError } = useVideoUpload(token);
 
   // Mock GPS tracking
   useEffect(() => {
@@ -108,14 +111,42 @@ export default function TrackWalk() {
           <span className="text-xs font-bold">Photo</span>
         </button>
         <button
-          onClick={() => handleEvent('video')}
-          disabled={!isTracking}
+          onClick={() => videoInputRef.current?.click()}
+          disabled={!isTracking || videoUploading}
           className="bg-rose-100 text-rose-700 p-4 rounded-xl flex flex-col items-center gap-2 hover:bg-rose-200 transition-colors disabled:opacity-50"
         >
           <Video className="w-6 h-6" />
-          <span className="text-xs font-bold">Video</span>
+          <span className="text-xs font-bold">{videoUploading ? 'Uploading...' : 'Video'}</span>
         </button>
       </div>
+
+      {/* Hidden video file input */}
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/mp4,video/quicktime,video/webm"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          clearVideoError();
+          const publicUrl = await uploadVideo(file);
+          if (publicUrl) {
+            handleEvent('video', publicUrl);
+          }
+          if (videoInputRef.current) {
+            videoInputRef.current.value = '';
+          }
+        }}
+        className="hidden"
+      />
+
+      {/* Video upload error */}
+      {videoError && (
+        <div className="mb-4 text-xs text-red-600 bg-red-50 rounded-lg p-2 flex justify-between items-center">
+          <span>{videoError}</span>
+          <button type="button" onClick={clearVideoError} className="text-red-400 hover:text-red-600 ml-2">Dismiss</button>
+        </div>
+      )}
 
       {/* Video player for video events */}
       {events.filter(e => e.type === 'video' && e.video_url).length > 0 && (

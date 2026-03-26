@@ -84,11 +84,27 @@ describe('quickTapEventSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('accepts video_url as empty string', () => {
+  it('rejects video_url as empty string', () => {
     const result = quickTapEventSchema.safeParse({
       event_type: 'video',
       video_url: '',
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-HTTPS video_url', () => {
+    const result = quickTapEventSchema.safeParse({
+      event_type: 'video',
+      video_url: 'http://bucket.s3.us-east-1.amazonaws.com/videos/123/abc.mp4',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-HTTPS photo_url', () => {
+    const result = quickTapEventSchema.safeParse({
+      event_type: 'photo',
+      photo_url: 'http://bucket.s3.us-east-1.amazonaws.com/walks/123/abc.jpg',
+    });
+    expect(result.success).toBe(false);
   });
 });

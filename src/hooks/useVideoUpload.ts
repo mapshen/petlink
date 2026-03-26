@@ -54,7 +54,8 @@ export function useVideoUpload(token: string | null) {
           return null;
         }
       } catch {
-        // If we can't read duration, allow upload and let server handle it
+        setState((s) => ({ ...s, error: 'Could not read video metadata. Please try a different file.' }));
+        return null;
       }
 
       setState({ uploading: true, progress: 0, error: null });
@@ -64,7 +65,7 @@ export function useVideoUpload(token: string | null) {
         const signedRes = await fetch(`${API_BASE}/uploads/signed-url`, {
           method: 'POST',
           headers: getAuthHeaders(token),
-          body: JSON.stringify({ folder: 'videos', contentType: file.type }),
+          body: JSON.stringify({ folder: 'videos', contentType: file.type, fileSize: file.size }),
         });
 
         if (!signedRes.ok) {
