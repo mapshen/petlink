@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema } from './src/validation.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -1349,6 +1349,128 @@ async function startServer() {
     const { cancellation_policy } = req.body;
     await sql`UPDATE users SET cancellation_policy = ${cancellation_policy} WHERE id = ${req.userId}`;
     res.json({ cancellation_policy });
+  });
+
+  // --- Expenses ---
+  v1.get('/expenses', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can access expenses' });
+      return;
+    }
+    const year = req.query.year ? Number(req.query.year) : null;
+    const month = req.query.month ? Number(req.query.month) : null;
+
+    let expenses;
+    if (year && month) {
+      expenses = await sql`
+        SELECT * FROM sitter_expenses
+        WHERE sitter_id = ${req.userId}
+          AND EXTRACT(YEAR FROM date) = ${year}
+          AND EXTRACT(MONTH FROM date) = ${month}
+        ORDER BY date DESC
+      `;
+    } else if (year) {
+      expenses = await sql`
+        SELECT * FROM sitter_expenses
+        WHERE sitter_id = ${req.userId}
+          AND EXTRACT(YEAR FROM date) = ${year}
+        ORDER BY date DESC
+      `;
+    } else {
+      expenses = await sql`
+        SELECT * FROM sitter_expenses
+        WHERE sitter_id = ${req.userId}
+        ORDER BY date DESC
+      `;
+    }
+
+    const total = expenses.reduce((sum: number, e: { amount: number }) => sum + e.amount, 0);
+    res.json({ expenses, total });
+  });
+
+  v1.get('/expenses/tax-summary', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can access tax summary' });
+      return;
+    }
+    const year = Number(req.query.year) || new Date().getFullYear();
+
+    const [incomeRow] = await sql`
+      SELECT COALESCE(SUM(total_price), 0)::float AS total_income
+      FROM bookings
+      WHERE sitter_id = ${req.userId}
+        AND status = 'completed'
+        AND EXTRACT(YEAR FROM start_time) = ${year}
+    `;
+
+    const expenseRows = await sql`
+      SELECT category, SUM(amount)::float AS total
+      FROM sitter_expenses
+      WHERE sitter_id = ${req.userId}
+        AND EXTRACT(YEAR FROM date) = ${year}
+      GROUP BY category
+    `;
+
+    const total_expenses = expenseRows.reduce((sum: number, r: { total: number }) => sum + r.total, 0);
+    const expense_by_category: Record<string, number> = {};
+    for (const row of expenseRows) {
+      expense_by_category[row.category] = row.total;
+    }
+
+    res.json({
+      year,
+      total_income: incomeRow.total_income,
+      total_expenses,
+      net_income: incomeRow.total_income - total_expenses,
+      expense_by_category,
+    });
+  });
+
+  v1.post('/expenses', authMiddleware, validate(expenseSchema), async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can create expenses' });
+      return;
+    }
+    const { category, amount, description, date, receipt_url } = req.body;
+    const [expense] = await sql`
+      INSERT INTO sitter_expenses (sitter_id, category, amount, description, date, receipt_url)
+      VALUES (${req.userId}, ${category}, ${amount}, ${description ?? null}, ${date}, ${receipt_url ?? null})
+      RETURNING *
+    `;
+    res.status(201).json({ expense });
+  });
+
+  v1.put('/expenses/:id', authMiddleware, validate(expenseSchema), async (req: AuthenticatedRequest, res) => {
+    const [existing] = await sql`SELECT id FROM sitter_expenses WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!existing) {
+      res.status(404).json({ error: 'Expense not found' });
+      return;
+    }
+    const { category, amount, description, date, receipt_url } = req.body;
+    const [expense] = await sql`
+      UPDATE sitter_expenses SET
+        category = ${category},
+        amount = ${amount},
+        description = ${description ?? null},
+        date = ${date},
+        receipt_url = ${receipt_url ?? null}
+      WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
+      RETURNING *
+    `;
+    res.json({ expense });
+  });
+
+  v1.delete('/expenses/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [existing] = await sql`SELECT id FROM sitter_expenses WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!existing) {
+      res.status(404).json({ error: 'Expense not found' });
+      return;
+    }
+    await sql`DELETE FROM sitter_expenses WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    res.json({ success: true });
   });
 
   // --- Bookings ---

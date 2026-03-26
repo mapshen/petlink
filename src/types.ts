@@ -217,3 +217,16 @@ export interface SitterPhoto {
   sort_order: number;
   created_at: string;
 }
+
+export type ExpenseCategory = 'supplies' | 'transportation' | 'insurance' | 'marketing' | 'equipment' | 'training' | 'other';
+
+export interface SitterExpense {
+  id: number;
+  sitter_id: number;
+  category: ExpenseCategory;
+  amount: number;
+  description?: string;
+  date: string;
+  receipt_url?: string;
+  created_at: string;
+}
