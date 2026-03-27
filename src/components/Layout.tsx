@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useMode } from '../context/ModeContext';
 import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Megaphone, Crown, LogOut } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import { clsx } from 'clsx';
@@ -12,6 +13,7 @@ function cn(...inputs: (string | undefined | null | false)[]) {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { mode } = useMode();
   const location = useLocation();
 
   const navItems = [
@@ -21,7 +23,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ...(user ? [
       { name: 'Wallet', path: '/wallet', icon: Wallet },
     ] : []),
-    ...(user && user.role !== 'owner' ? [
+    ...(user && mode === 'sitter' ? [
       { name: 'Promote', path: '/promote', icon: Megaphone },
       { name: 'Pro', path: '/subscription', icon: Crown },
     ] : []),
