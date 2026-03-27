@@ -11,7 +11,7 @@ import cookieParser from 'cookie-parser';
 import { initDb } from './src/db.ts';
 import sql from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
-import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent } from './src/payments.ts';
+import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, cancelStripeSubscription } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
 import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema } from './src/validation.ts';
@@ -1285,7 +1285,7 @@ async function startServer() {
   });
 
   v1.post('/subscription/upgrade', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    const [user] = await sql`SELECT role, email FROM users WHERE id = ${req.userId}`;
     if (user.role !== 'sitter' && user.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can subscribe' });
       return;
@@ -1297,38 +1297,62 @@ async function startServer() {
       return;
     }
 
-    if (existing) {
-      const [updated] = await sql.begin(async (tx: any) => {
-        const [s] = await tx`
-          UPDATE sitter_subscriptions SET tier = 'pro', status = 'active',
-            current_period_start = NOW(), current_period_end = NOW() + INTERVAL '30 days', updated_at = NOW()
-          WHERE sitter_id = ${req.userId}
-          RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
-        `;
-        await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
-        return [s];
-      });
-      res.json({ subscription: updated });
-    } else {
-      const [sub] = await sql.begin(async (tx: any) => {
-        const [s] = await tx`
-          INSERT INTO sitter_subscriptions (sitter_id, tier, status, current_period_start, current_period_end)
-          VALUES (${req.userId}, 'pro', 'active', NOW(), NOW() + INTERVAL '30 days')
-          RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
-        `;
-        await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
-        return [s];
-      });
-      res.status(201).json({ subscription: sub });
+    try {
+      const origin = `${req.protocol}://${req.get('host')}`;
+      const checkoutUrl = await createSubscriptionCheckout(req.userId!, user.email, origin);
+      res.json({ checkout_url: checkoutUrl });
+    } catch (error: any) {
+      if (error.message?.includes('STRIPE_PRO_PRICE_ID')) {
+        // Stripe not configured — activate directly (dev/beta mode)
+        if (existing) {
+          const [updated] = await sql.begin(async (tx: any) => {
+            const [s] = await tx`
+              UPDATE sitter_subscriptions SET tier = 'pro', status = 'active',
+                current_period_start = NOW(), current_period_end = NOW() + INTERVAL '30 days', updated_at = NOW()
+              WHERE sitter_id = ${req.userId}
+              RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
+            `;
+            await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
+            return [s];
+          });
+          res.json({ subscription: updated });
+        } else {
+          const [sub] = await sql.begin(async (tx: any) => {
+            const [s] = await tx`
+              INSERT INTO sitter_subscriptions (sitter_id, tier, status, current_period_start, current_period_end)
+              VALUES (${req.userId}, 'pro', 'active', NOW(), NOW() + INTERVAL '30 days')
+              RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
+            `;
+            await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
+            return [s];
+          });
+          res.status(201).json({ subscription: sub });
+        }
+        return;
+      }
+      throw error;
     }
   });
 
   v1.post('/subscription/cancel', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {
-    const [sub] = await sql`SELECT id FROM sitter_subscriptions WHERE sitter_id = ${req.userId} AND tier = 'pro' AND status = 'active'`;
+    const [sub] = await sql`
+      SELECT id, stripe_subscription_id
+      FROM sitter_subscriptions WHERE sitter_id = ${req.userId} AND tier = 'pro' AND status = 'active'
+    `;
     if (!sub) {
       res.status(404).json({ error: 'No active Pro subscription' });
       return;
     }
+
+    // Cancel via Stripe if subscription was created through Stripe
+    if (sub.stripe_subscription_id) {
+      try {
+        await cancelStripeSubscription(sub.stripe_subscription_id);
+      } catch (error) {
+        console.error('Stripe cancel error:', error);
+      }
+    }
+
     const [updated] = await sql.begin(async (tx: any) => {
       const [s] = await tx`
         UPDATE sitter_subscriptions SET status = 'cancelled', tier = 'free', updated_at = NOW()
@@ -2118,6 +2142,62 @@ async function startServer() {
         case 'payment_intent.canceled': {
           const pi = event.data.object as { id: string };
           await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE payment_intent_id = ${pi.id}`;
+          break;
+        }
+        case 'checkout.session.completed': {
+          const session = event.data.object as {
+            mode: string;
+            subscription: string;
+            metadata: { petlink_user_id?: string };
+          };
+          if (session.mode === 'subscription' && session.metadata?.petlink_user_id) {
+            const userId = Number(session.metadata.petlink_user_id);
+            const stripeSubId = session.subscription;
+            const [existing] = await sql`SELECT id FROM sitter_subscriptions WHERE sitter_id = ${userId}`;
+            if (existing) {
+              await sql.begin(async (tx: any) => {
+                await tx`
+                  UPDATE sitter_subscriptions SET tier = 'pro', status = 'active',
+                    stripe_subscription_id = ${stripeSubId},
+                    current_period_start = NOW(), current_period_end = NOW() + INTERVAL '30 days', updated_at = NOW()
+                  WHERE sitter_id = ${userId}
+                `;
+                await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${userId}`;
+              });
+            } else {
+              await sql.begin(async (tx: any) => {
+                await tx`
+                  INSERT INTO sitter_subscriptions (sitter_id, tier, status, stripe_subscription_id, current_period_start, current_period_end)
+                  VALUES (${userId}, 'pro', 'active', ${stripeSubId}, NOW(), NOW() + INTERVAL '30 days')
+                `;
+                await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${userId}`;
+              });
+            }
+          }
+          break;
+        }
+        case 'customer.subscription.deleted': {
+          const sub = event.data.object as { id: string };
+          const [existing] = await sql`SELECT sitter_id FROM sitter_subscriptions WHERE stripe_subscription_id = ${sub.id}`;
+          if (existing) {
+            await sql.begin(async (tx: any) => {
+              await tx`
+                UPDATE sitter_subscriptions SET status = 'cancelled', tier = 'free', updated_at = NOW()
+                WHERE stripe_subscription_id = ${sub.id}
+              `;
+              await tx`UPDATE users SET subscription_tier = 'free' WHERE id = ${existing.sitter_id}`;
+            });
+          }
+          break;
+        }
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as unknown as { subscription: string };
+          if (invoice.subscription) {
+            await sql`
+              UPDATE sitter_subscriptions SET status = 'past_due', updated_at = NOW()
+              WHERE stripe_subscription_id = ${invoice.subscription}
+            `;
+          }
           break;
         }
       }

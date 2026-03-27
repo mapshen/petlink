@@ -20,6 +20,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Messages', path: '/messages', icon: MessageSquare },
     ...(user ? [
       { name: 'Wallet', path: '/wallet', icon: Wallet },
+    ] : []),
+    ...(user && user.role !== 'owner' ? [
       { name: 'Promote', path: '/promote', icon: Megaphone },
       { name: 'Pro', path: '/subscription', icon: Crown },
     ] : []),

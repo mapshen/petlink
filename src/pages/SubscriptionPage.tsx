@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Crown, Check, Zap, Shield, Clock, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../config';
@@ -31,6 +31,18 @@ export default function SubscriptionPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('success') === 'true') {
+      setSuccessMessage('Welcome to Pro! Your subscription is now active.');
+      setSearchParams({}, { replace: true });
+    }
+    if (searchParams.get('cancelled') === 'true') {
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!user) return;
@@ -63,6 +75,11 @@ export default function SubscriptionPage() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to upgrade');
+      }
+      const data = await res.json();
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
       }
       fetchSubscription();
     } catch (err) {
@@ -108,6 +125,15 @@ export default function SubscriptionPage() {
         <Crown className={`w-6 h-6 ${isPro ? 'text-amber-500' : 'text-stone-400'}`} />
         <h1 className="text-2xl font-bold text-stone-900">Subscription</h1>
       </div>
+
+      {successMessage && (
+        <Alert className="mb-4 border-emerald-200 bg-emerald-50">
+          <AlertDescription className="flex items-center justify-between text-emerald-800">
+            <span>{successMessage}</span>
+            <button onClick={() => setSuccessMessage(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Alert variant="destructive" className="mb-4">
@@ -200,7 +226,7 @@ export default function SubscriptionPage() {
           <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-stone-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm text-stone-600">Pro is free during beta. Stripe Billing will be integrated for production subscriptions.</p>
+              <p className="text-sm text-stone-600">You'll be redirected to Stripe to complete payment. Cancel anytime from this page.</p>
             </div>
           </div>
         </div>
