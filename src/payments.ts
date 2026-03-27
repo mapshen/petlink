@@ -51,8 +51,11 @@ export async function createPaymentIntent(
     capture_method: 'manual',
   });
 
+  if (!paymentIntent.client_secret) {
+    throw new Error('Payment intent created without client secret');
+  }
   return {
-    clientSecret: paymentIntent.client_secret!,
+    clientSecret: paymentIntent.client_secret,
     paymentIntentId: paymentIntent.id,
   };
 }

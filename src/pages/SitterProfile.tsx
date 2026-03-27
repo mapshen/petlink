@@ -46,7 +46,6 @@ export default function SitterProfile() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [selectedPetIds, setSelectedPetIds] = useState<number[]>([]);
   const [showPayment, setShowPayment] = useState(false);
-  const [paymentBookingId, setPaymentBookingId] = useState<number | null>(null);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const { clientSecret, loading: paymentLoading, error: paymentError, createIntent } = usePaymentIntent();
 
@@ -144,7 +143,6 @@ export default function SitterProfile() {
       const bookingId = bookingData.booking?.id;
       if (bookingId) {
         const totalCents = Math.round((bookingData.booking.total_price || 0) * 100);
-        setPaymentBookingId(bookingId);
         setPaymentAmount(totalCents);
         const secret = await createIntent(bookingId);
         if (secret) {

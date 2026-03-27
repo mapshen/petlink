@@ -26,16 +26,6 @@ export default function PaymentHistoryPage() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  if (authLoading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;
-  }
-  if (!user) return <Navigate to="/login" replace />;
-
-  useEffect(() => {
-    if (tab !== 'history') return;
-    fetchHistory();
-  }, [tab, token]);
-
   const fetchHistory = async () => {
     setHistoryLoading(true);
     try {
@@ -57,6 +47,16 @@ export default function PaymentHistoryPage() {
       setHistoryLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (tab !== 'history') return;
+    fetchHistory();
+  }, [tab, token]);
+
+  if (authLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;
+  }
+  if (!user) return <Navigate to="/login" replace />;
 
   const statusBadge = (status: string) => {
     switch (status) {

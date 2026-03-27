@@ -2498,41 +2498,60 @@ async function startServer() {
 
   // --- Payment Management ---
   v1.get('/payment-methods', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
-    if (!user?.stripe_customer_id) {
-      res.json({ payment_methods: [] });
-      return;
+    try {
+      const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+      if (!user?.stripe_customer_id) {
+        res.json({ payment_methods: [] });
+        return;
+      }
+      const methods = await listPaymentMethods(user.stripe_customer_id);
+      res.json({ payment_methods: methods });
+    } catch (error) {
+      console.error('Payment methods error:', error);
+      res.status(500).json({ error: 'Failed to load payment methods' });
     }
-    const methods = await listPaymentMethods(user.stripe_customer_id);
-    res.json({ payment_methods: methods });
   });
 
   v1.delete('/payment-methods/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
-    if (!user?.stripe_customer_id) {
-      res.status(404).json({ error: 'No payment methods found' });
-      return;
+    try {
+      if (!req.params.id || !/^pm_/.test(req.params.id)) {
+        res.status(400).json({ error: 'Invalid payment method ID' });
+        return;
+      }
+      const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+      if (!user?.stripe_customer_id) {
+        res.status(404).json({ error: 'No payment methods found' });
+        return;
+      }
+      // Verify ownership by retrieving the specific payment method
+      const methods = await listPaymentMethods(user.stripe_customer_id);
+      const owns = methods.some((m) => m.id === req.params.id);
+      if (!owns) {
+        res.status(404).json({ error: 'Payment method not found' });
+        return;
+      }
+      await detachPaymentMethod(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete payment method error:', error);
+      res.status(500).json({ error: 'Failed to remove payment method' });
     }
-    // Verify the payment method belongs to this customer
-    const methods = await listPaymentMethods(user.stripe_customer_id);
-    const owns = methods.some((m) => m.id === req.params.id);
-    if (!owns) {
-      res.status(404).json({ error: 'Payment method not found' });
-      return;
-    }
-    await detachPaymentMethod(req.params.id);
-    res.json({ success: true });
   });
 
   v1.get('/payment-history', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
-    if (!user?.stripe_customer_id) {
-      res.json({ payments: [] });
-      return;
+    try {
+      const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+      if (!user?.stripe_customer_id) {
+        res.json({ payments: [] });
+        return;
+      }
+      const limit = Math.min(Number(req.query.limit) || 20, 100);
+      const payments = await listCharges(user.stripe_customer_id, limit);
+      res.json({ payments });
+    } catch (error) {
+      console.error('Payment history error:', error);
+      res.status(500).json({ error: 'Failed to load payment history' });
     }
-    const limit = Math.min(Number(req.query.limit) || 20, 100);
-    const payments = await listCharges(user.stripe_customer_id, limit);
-    res.json({ payments });
   });
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
