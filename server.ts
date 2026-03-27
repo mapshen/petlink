@@ -22,6 +22,7 @@ import { schedulePayoutForBooking, getPayoutDelay, getPayoutsForSitter, getPendi
 import { botBlockMiddleware } from './src/bot-detection.ts';
 import { createCandidate, createInvitation, verifyWebhookSignature, parseWebhookEvent, mapCheckrStatus, isCheckrConfigured } from './src/checkr.ts';
 import { calculateRankingScore, isNewSitter, type SitterStats } from './src/sitter-ranking.ts';
+import { requireSitterRole, validateYear, validateRevenuePeriod, getOverview, getClients, getClientDetail, getRevenue } from './src/analytics.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/rate-limit.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail } from './src/email.ts';
 import { format as formatDate } from 'date-fns';
@@ -2265,6 +2266,53 @@ async function startServer() {
       console.error('Upload URL error:', error);
       res.status(500).json({ error: 'Failed to generate upload URL. Is S3 configured?' });
     }
+  });
+
+  // --- Sitter Analytics ---
+  v1.get('/analytics/overview', authMiddleware, requireSitterRole, async (req: AuthenticatedRequest, res) => {
+    const yearResult = validateYear(req.query.year);
+    if (yearResult.valid === false) {
+      res.status(400).json({ error: yearResult.error });
+      return;
+    }
+    const result = await getOverview(req.userId!, yearResult.year);
+    res.json(result);
+  });
+
+  v1.get('/analytics/clients', authMiddleware, requireSitterRole, async (req: AuthenticatedRequest, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const clients = await getClients(req.userId!, limit, offset);
+    res.json({ clients });
+  });
+
+  v1.get('/analytics/clients/:clientId', authMiddleware, requireSitterRole, async (req: AuthenticatedRequest, res) => {
+    const clientId = Number(req.params.clientId);
+    if (!clientId || isNaN(clientId)) {
+      res.status(400).json({ error: 'Invalid client ID' });
+      return;
+    }
+    const result = await getClientDetail(req.userId!, clientId);
+    if (!result) {
+      res.status(404).json({ error: 'Client not found' });
+      return;
+    }
+    if (result.bookings.length === 0) {
+      res.status(404).json({ error: 'No bookings found with this client' });
+      return;
+    }
+    res.json(result);
+  });
+
+  v1.get('/analytics/revenue', authMiddleware, requireSitterRole, async (req: AuthenticatedRequest, res) => {
+    const yearResult = validateYear(req.query.year);
+    if (yearResult.valid === false) {
+      res.status(400).json({ error: yearResult.error });
+      return;
+    }
+    const period = validateRevenuePeriod(req.query.period);
+    const result = await getRevenue(req.userId!, period, yearResult.year);
+    res.json(result);
   });
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)

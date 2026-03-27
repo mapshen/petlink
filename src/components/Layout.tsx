@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMode } from '../context/ModeContext';
-import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Megaphone, Crown, LogOut } from 'lucide-react';
+import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Megaphone, Crown, BarChart3, LogOut } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -16,6 +16,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { mode } = useMode();
   const location = useLocation();
 
+  const isSitter = mode === 'sitter' || user?.role === 'sitter';
+
   const navItems = [
     { name: 'Search', path: '/search', icon: MapPin },
     { name: 'Dashboard', path: '/dashboard', icon: Calendar },
@@ -26,6 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ...(user && mode === 'sitter' ? [
       { name: 'Promote', path: '/promote', icon: Megaphone },
       { name: 'Pro', path: '/subscription', icon: Crown },
+      ...(isSitter ? [{ name: 'Analytics', path: '/analytics', icon: BarChart3 }] : []),
     ] : []),
   ];
 
