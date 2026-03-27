@@ -13,9 +13,9 @@ export async function adminMiddleware(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  await new Promise<void>((resolve) => {
-    authMiddleware(req, res, () => resolve());
-  });
+  // authMiddleware is async — await it directly instead of wrapping in a Promise
+  // When auth fails, it sends a response and doesn't call next, so req.userId stays unset
+  await authMiddleware(req, res, () => {});
 
   if (!req.userId) return;
 

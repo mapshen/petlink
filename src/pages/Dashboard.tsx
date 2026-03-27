@@ -161,8 +161,8 @@ export default function Dashboard() {
         <Alert variant="destructive" className="mb-6">
           <AlertDescription>
             Your sitter application was not approved.
-            {(user as any).approval_rejected_reason && (
-              <span className="block mt-1 text-sm opacity-80">Reason: {(user as any).approval_rejected_reason}</span>
+            {user?.approval_rejected_reason && (
+              <span className="block mt-1 text-sm opacity-80">Reason: {user?.approval_rejected_reason}</span>
             )}
           </AlertDescription>
         </Alert>

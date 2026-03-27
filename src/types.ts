@@ -37,6 +37,7 @@ export interface User {
   skills?: string[];
   subscription_tier?: SubscriptionTier;
   approval_status?: 'approved' | 'pending_approval' | 'rejected';
+  approval_rejected_reason?: string;
   is_admin?: boolean;
 }
 

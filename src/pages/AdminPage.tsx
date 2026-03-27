@@ -47,15 +47,6 @@ export default function AdminPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  if (!user?.is_admin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  useEffect(() => {
-    fetchPending();
-    fetchAll();
-  }, [token]);
-
   const fetchPending = async () => {
     try {
       const res = await fetch(`${API_BASE}/admin/pending-sitters`, {
@@ -89,6 +80,16 @@ export default function AdminPage() {
   useEffect(() => {
     fetchAll();
   }, [statusFilter]);
+
+  useEffect(() => {
+    if (!user?.is_admin) return;
+    fetchPending();
+    fetchAll();
+  }, [token]);
+
+  if (!user?.is_admin) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleApprove = async (sitterId: number) => {
     setProcessingId(sitterId);

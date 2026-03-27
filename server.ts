@@ -25,8 +25,7 @@ import { calculateRankingScore, isNewSitter, type SitterStats } from './src/sitt
 import { requireSitterRole, validateYear, validateRevenuePeriod, getOverview, getClients, getClientDetail, getRevenue } from './src/analytics.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/rate-limit.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail, buildApprovalStatusEmail } from './src/email.ts';
-import { adminMiddleware } from './src/admin.ts';
-import { isAdminUser } from './src/admin.ts';
+import { adminMiddleware, isAdminUser } from './src/admin.ts';
 import { format as formatDate } from 'date-fns';
 import type { ErrorRequestHandler } from 'express';
 
@@ -298,7 +297,7 @@ async function startServer() {
 
   v1.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, approval_status FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
     `;
     if (user) {
       res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
@@ -331,7 +330,7 @@ async function startServer() {
     `;
 
     const [user] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, approval_status FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
     `;
 
     res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
