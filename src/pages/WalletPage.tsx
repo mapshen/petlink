@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useMode } from '../context/ModeContext';
-import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown } from 'lucide-react';
 import { API_BASE } from '../config';
-import { Booking } from '../types';
+import { Booking, SitterPayout, PayoutStatus } from '../types';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -29,7 +29,7 @@ const EXPENSE_CATEGORIES = [
   { value: 'other', label: 'Other', icon: '📝' },
 ] as const;
 
-type WalletTab = 'earnings' | 'expenses' | 'tax';
+type WalletTab = 'earnings' | 'expenses' | 'tax' | 'payouts';
 
 interface Expense {
   id: number;
@@ -60,6 +60,19 @@ function formatCurrency(n: number) {
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatCents(cents: number) {
+  return formatCurrency(cents / 100);
+}
+
+const PAYOUT_STATUS_STYLES: Record<PayoutStatus, { bg: string; text: string; label: string }> = {
+  pending: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pending' },
+  processing: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Processing' },
+  completed: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Completed' },
+  failed: { bg: 'bg-red-100', text: 'text-red-700', label: 'Failed' },
+};
+
+const PAYOUTS_PAGE_SIZE = 20;
+
 export default function WalletPage() {
   const { user, token, loading: authLoading } = useAuth();
   const { mode } = useMode();
@@ -72,6 +85,13 @@ export default function WalletPage() {
   const [summary, setSummary] = useState<TaxSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Payouts
+  const [payouts, setPayouts] = useState<SitterPayout[]>([]);
+  const [pendingPayouts, setPendingPayouts] = useState<SitterPayout[]>([]);
+  const [payoutsOffset, setPayoutsOffset] = useState(0);
+  const [hasMorePayouts, setHasMorePayouts] = useState(true);
+  const [payoutsLoading, setPayoutsLoading] = useState(false);
 
   // Expense form
   const [showForm, setShowForm] = useState(false);
@@ -87,7 +107,7 @@ export default function WalletPage() {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchBookings(), fetchExpenses(), fetchSummary()]);
+    await Promise.all([fetchBookings(), fetchExpenses(), fetchSummary(), fetchPayoutsInitial()]);
     setLoading(false);
   };
 
@@ -124,6 +144,44 @@ export default function WalletPage() {
       }
     } catch {
       // Non-critical
+    }
+  };
+
+  const fetchPayoutsInitial = async () => {
+    try {
+      const [payoutsRes, pendingRes] = await Promise.all([
+        fetch(`${API_BASE}/payouts?limit=${PAYOUTS_PAGE_SIZE}&offset=0`, { headers: getAuthHeaders(token) }),
+        fetch(`${API_BASE}/payouts/pending`, { headers: getAuthHeaders(token) }),
+      ]);
+      if (payoutsRes.ok) {
+        const data = await payoutsRes.json();
+        setPayouts(data.payouts);
+        setPayoutsOffset(data.payouts.length);
+        setHasMorePayouts(data.payouts.length >= PAYOUTS_PAGE_SIZE);
+      }
+      if (pendingRes.ok) {
+        const data = await pendingRes.json();
+        setPendingPayouts(data.payouts);
+      }
+    } catch {
+      // Non-critical — payouts tab will show empty
+    }
+  };
+
+  const fetchMorePayouts = async () => {
+    setPayoutsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/payouts?limit=${PAYOUTS_PAGE_SIZE}&offset=${payoutsOffset}`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setPayouts(prev => [...prev, ...data.payouts]);
+        setPayoutsOffset(prev => prev + data.payouts.length);
+        setHasMorePayouts(data.payouts.length >= PAYOUTS_PAGE_SIZE);
+      }
+    } catch {
+      setError('Failed to load more payouts.');
+    } finally {
+      setPayoutsLoading(false);
     }
   };
 
@@ -224,6 +282,10 @@ export default function WalletPage() {
         </button>
         {isSitter && (
           <>
+            <button onClick={() => setTab('payouts')}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors ${tab === 'payouts' ? 'text-emerald-700 border-b-2 border-emerald-600' : 'text-stone-500 hover:text-stone-700'}`}>
+              Payouts
+            </button>
             <button onClick={() => setTab('expenses')}
               className={`px-4 py-2.5 text-sm font-medium transition-colors ${tab === 'expenses' ? 'text-emerald-700 border-b-2 border-emerald-600' : 'text-stone-500 hover:text-stone-700'}`}>
               Expenses
@@ -281,6 +343,91 @@ export default function WalletPage() {
                     <span className="text-sm font-medium text-stone-700">Total ({year})</span>
                     <span className="text-lg font-bold text-emerald-700">{formatCurrency(totalEarnings)}</span>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Payouts Tab */}
+          {tab === 'payouts' && isSitter && (
+            <div className="space-y-6">
+              {/* Summary Card */}
+              {pendingPayouts.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+                    <div className="flex items-center gap-2 text-amber-700 text-sm font-medium mb-1">
+                      <Clock className="w-4 h-4" /> Pending Total
+                    </div>
+                    <div className="text-2xl font-bold text-amber-700">
+                      {formatCents(pendingPayouts.reduce((sum, p) => sum + p.amount_cents, 0))}
+                    </div>
+                    <div className="text-xs text-amber-600 mt-1">
+                      {pendingPayouts.length} payout{pendingPayouts.length !== 1 ? 's' : ''} pending
+                    </div>
+                  </div>
+                  <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
+                    <div className="flex items-center gap-2 text-blue-700 text-sm font-medium mb-1">
+                      <CreditCard className="w-4 h-4" /> Next Payout
+                    </div>
+                    <div className="text-2xl font-bold text-blue-700">
+                      {formatCents(pendingPayouts[0].amount_cents)}
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">
+                      Scheduled {new Date(pendingPayouts[0].scheduled_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Payouts List */}
+              {payouts.length === 0 ? (
+                <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
+                  <CreditCard className="w-12 h-12 mx-auto mb-4 text-stone-300" />
+                  <p className="text-stone-500">No payouts yet.</p>
+                  <p className="text-xs text-stone-400 mt-1">Payouts are scheduled after bookings are completed.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {payouts.map(payout => {
+                    const style = PAYOUT_STATUS_STYLES[payout.status];
+                    return (
+                      <div key={payout.id} className="bg-white rounded-xl border border-stone-100 p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full ${style.bg} flex items-center justify-center`}>
+                            <CreditCard className={`w-4 h-4 ${style.text}`} />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-stone-900">
+                              Booking #{payout.booking_id}
+                            </div>
+                            <div className="text-xs text-stone-400">
+                              Scheduled {new Date(payout.scheduled_at).toLocaleDateString()}
+                              {payout.processed_at && (
+                                <> &middot; Processed {new Date(payout.processed_at).toLocaleDateString()}</>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${style.bg} ${style.text}`}>
+                            {style.label}
+                          </span>
+                          <span className="text-sm font-bold text-emerald-600">
+                            {formatCents(payout.amount_cents)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {hasMorePayouts && (
+                    <div className="flex justify-center pt-4">
+                      <Button variant="outline" size="sm" onClick={fetchMorePayouts} disabled={payoutsLoading}>
+                        <ChevronDown className="w-4 h-4" />
+                        {payoutsLoading ? 'Loading...' : 'Load More'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

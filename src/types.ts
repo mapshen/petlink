@@ -265,7 +265,7 @@ export interface SitterPayout {
   id: number;
   booking_id: number;
   sitter_id: number;
-  amount: number;
+  amount_cents: number;
   status: PayoutStatus;
   scheduled_at: string;
   processed_at?: string | null;
