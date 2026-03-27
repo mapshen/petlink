@@ -20,7 +20,6 @@ export default function ImportProfilePage() {
   const [preview, setPreview] = useState<ScrapedProfile | null>(null);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [verificationCode, setVerificationCode] = useState<string | null>(null);
-  const [verified, setVerified] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
   const [copied, setCopied] = useState(false);
 
@@ -90,7 +89,6 @@ export default function ImportProfilePage() {
       }
       const data = await res.json();
       if (data.verified) {
-        setVerified(true);
         setStep('confirm');
       } else {
         setError('Verification code not found in your Rover bio. Please make sure you added it and try again.');

@@ -1,11 +1,16 @@
 import * as cheerio from 'cheerio';
 import crypto from 'crypto';
 
+const ALLOWED_HOSTS = new Set(['rover.com', 'www.rover.com']);
+
 export function parseRoverUrl(url: string): { valid: true; username: string } | { valid: false; error: string } {
   try {
     const parsed = new URL(url);
-    if (!parsed.hostname.endsWith('rover.com')) {
+    if (!ALLOWED_HOSTS.has(parsed.hostname)) {
       return { valid: false, error: 'URL must be from rover.com' };
+    }
+    if (parsed.protocol !== 'https:') {
+      return { valid: false, error: 'URL must use HTTPS' };
     }
     const match = parsed.pathname.match(/^\/members\/([a-zA-Z0-9_-]+)/);
     if (!match) {
@@ -68,6 +73,12 @@ export async function scrapeRoverProfile(url: string): Promise<{
   reviews: { reviewerName: string; rating: number; comment: string; date?: string }[];
   rawHtml: string;
 }> {
+  // Defense in depth: validate URL even if caller should have already validated
+  const parsed = parseRoverUrl(url);
+  if (!parsed.valid) {
+    throw new Error('Invalid Rover URL');
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
 

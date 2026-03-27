@@ -27,6 +27,21 @@ describe('parseRoverUrl', () => {
     expect(result).toEqual({ valid: false, error: 'URL must be from rover.com' });
   });
 
+  it('rejects subdomain spoofing (evil-rover.com)', () => {
+    const result = parseRoverUrl('https://evil-rover.com/members/johndoe/');
+    expect(result).toEqual({ valid: false, error: 'URL must be from rover.com' });
+  });
+
+  it('rejects subdomain spoofing (notrover.com)', () => {
+    const result = parseRoverUrl('https://notrover.com/members/johndoe/');
+    expect(result).toEqual({ valid: false, error: 'URL must be from rover.com' });
+  });
+
+  it('rejects HTTP URLs (requires HTTPS)', () => {
+    const result = parseRoverUrl('http://www.rover.com/members/johndoe/');
+    expect(result).toEqual({ valid: false, error: 'URL must use HTTPS' });
+  });
+
   it('rejects Rover URL without members path', () => {
     const result = parseRoverUrl('https://www.rover.com/search/');
     expect(result).toEqual({ valid: false, error: expect.stringContaining('Invalid Rover profile URL') });

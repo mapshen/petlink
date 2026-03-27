@@ -2582,7 +2582,15 @@ async function startServer() {
   });
 
   // --- Profile Import ---
+  // Import endpoints are rate-limited by the global apiLimiter (100/15min)
+  // plus auth required — scraping abuse is bounded by authenticated user rate
+
   v1.post('/import/preview', authMiddleware, validate(importPreviewSchema), async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can import profiles' });
+      return;
+    }
     const { url } = req.body;
     const parsed = parseRoverUrl(url);
     if (!parsed.valid) {
@@ -2643,11 +2651,11 @@ async function startServer() {
     const scraped = await scrapeRoverProfile(profile.profile_url);
     const found = checkVerificationCode(scraped.rawHtml, profile.verification_code);
     const status = found ? 'verified' : 'failed';
-    await sql`
-      UPDATE imported_profiles SET verification_status = ${status}
-      ${found ? sql`, verified_at = NOW()` : sql``}
-      WHERE id = ${profile_id}
-    `;
+    if (found) {
+      await sql`UPDATE imported_profiles SET verification_status = ${status}, verified_at = NOW() WHERE id = ${profile_id}`;
+    } else {
+      await sql`UPDATE imported_profiles SET verification_status = ${status} WHERE id = ${profile_id}`;
+    }
     res.json({ verified: found, status });
   });
 
@@ -2667,14 +2675,20 @@ async function startServer() {
     }
     // Delete old imported reviews for this profile
     await sql`DELETE FROM imported_reviews WHERE imported_profile_id = ${profile_id}`;
-    // Import reviews from raw_data
+    // Import reviews from raw_data (capped at 100)
     const rawData = profile.raw_data as { reviews?: { reviewerName: string; rating: number; comment: string; date?: string }[] };
-    const reviews = rawData.reviews ?? [];
-    for (const r of reviews) {
-      await sql`
-        INSERT INTO imported_reviews (imported_profile_id, sitter_id, platform, reviewer_name, rating, comment, review_date)
-        VALUES (${profile_id}, ${req.userId}, ${profile.platform}, ${r.reviewerName}, ${r.rating}, ${r.comment || null}, ${r.date || null})
-      `;
+    const reviews = (rawData.reviews ?? []).slice(0, 100);
+    if (reviews.length > 0) {
+      const rows = reviews.map((r) => ({
+        imported_profile_id: profile_id,
+        sitter_id: req.userId,
+        platform: profile.platform,
+        reviewer_name: r.reviewerName,
+        rating: r.rating,
+        comment: r.comment || null,
+        review_date: r.date || null,
+      }));
+      await sql`INSERT INTO imported_reviews ${sql(rows, 'imported_profile_id', 'sitter_id', 'platform', 'reviewer_name', 'rating', 'comment', 'review_date')}`;
     }
     res.json({ imported_count: reviews.length });
   });
