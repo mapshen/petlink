@@ -522,6 +522,13 @@ export async function initDb() {
   `;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'free'`.catch(() => {});
 
+  // Issue #110: Sitter approval workflow
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approval_status TEXT DEFAULT 'approved'`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approval_rejected_reason TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES users(id)`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users (approval_status)`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;

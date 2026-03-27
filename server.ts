@@ -14,7 +14,7 @@ import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, t
 import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, cancelStripeSubscription } from './src/payments.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema } from './src/validation.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -24,7 +24,9 @@ import { createCandidate, createInvitation, verifyWebhookSignature, parseWebhook
 import { calculateRankingScore, isNewSitter, type SitterStats } from './src/sitter-ranking.ts';
 import { requireSitterRole, validateYear, validateRevenuePeriod, getOverview, getClients, getClientDetail, getRevenue } from './src/analytics.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/rate-limit.ts';
-import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail } from './src/email.ts';
+import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail, buildApprovalStatusEmail } from './src/email.ts';
+import { adminMiddleware } from './src/admin.ts';
+import { isAdminUser } from './src/admin.ts';
 import { format as formatDate } from 'date-fns';
 import type { ErrorRequestHandler } from 'express';
 
@@ -147,10 +149,12 @@ async function startServer() {
     }
 
     const passwordHash = hashPassword(password);
+    const isSitterRole = role === 'sitter' || role === 'both';
+    const approvalStatus = isSitterRole ? 'pending_approval' : 'approved';
     const [user] = await sql`
-      INSERT INTO users (email, password_hash, name, role)
-      VALUES (${email}, ${passwordHash}, ${name}, ${role})
-      RETURNING id, email, name, role, bio, avatar_url, lat, lng
+      INSERT INTO users (email, password_hash, name, role, approval_status)
+      VALUES (${email}, ${passwordHash}, ${name}, ${role}, ${approvalStatus})
+      RETURNING id, email, name, role, bio, avatar_url, lat, lng, approval_status
     `;
     const token = signToken({ userId: user.id });
 
@@ -294,10 +298,10 @@ async function startServer() {
 
   v1.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, approval_status FROM users WHERE id = ${req.userId}
     `;
     if (user) {
-      res.json({ user });
+      res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
     } else {
       res.status(401).json({ error: 'User not found' });
     }
@@ -307,9 +311,14 @@ async function startServer() {
   v1.put('/users/me', authMiddleware, validate(updateProfileSchema), async (req: AuthenticatedRequest, res) => {
     const { name, bio, avatar_url, role, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills } = req.body;
 
+    // Check if user is switching from owner to sitter/both
+    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
+    const becomingSitter = role && (role === 'sitter' || role === 'both') && currentUser.role === 'owner';
+
     await sql`
       UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null},
       role = COALESCE(${role || null}::user_role, role)
+      ${becomingSitter ? sql`, approval_status = 'pending_approval'` : sql``}
       ${accepted_species !== undefined ? sql`, accepted_species = ${accepted_species || []}` : sql``}
       ${years_experience !== undefined ? sql`, years_experience = ${years_experience}` : sql``}
       ${home_type !== undefined ? sql`, home_type = ${home_type || null}` : sql``}
@@ -322,10 +331,10 @@ async function startServer() {
     `;
 
     const [user] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, approval_status FROM users WHERE id = ${req.userId}
     `;
 
-    res.json({ user });
+    res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
   });
 
   // --- Pets ---
@@ -541,6 +550,7 @@ async function startServer() {
       FROM users u
       JOIN services s ON u.id = s.sitter_id
       WHERE u.role IN ('sitter', 'both')
+        AND u.approval_status = 'approved'
         ${serviceType ? sql`AND s.type = ${serviceType}` : sql``}
         ${minPrice ? sql`AND s.price >= ${Number(minPrice)}` : sql``}
         ${maxPrice ? sql`AND s.price <= ${Number(maxPrice)}` : sql``}
@@ -626,7 +636,7 @@ async function startServer() {
 
   v1.get('/sitters/:id', botBlockMiddleware, publicLimiter, async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.params.id} AND role IN ('sitter', 'both')
+      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.params.id} AND role IN ('sitter', 'both') AND approval_status = 'approved'
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });
@@ -659,9 +669,13 @@ async function startServer() {
   });
 
   v1.post('/services', authMiddleware, validate(serviceSchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
     if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can manage services' });
+      return;
+    }
+    if (currentUser.approval_status !== 'approved') {
+      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot manage services yet.' });
       return;
     }
     const { type, price, description, additional_pet_price, max_pets, service_details } = req.body;
@@ -679,9 +693,13 @@ async function startServer() {
   });
 
   v1.put('/services/:id', authMiddleware, validate(serviceSchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
     if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can manage services' });
+      return;
+    }
+    if (currentUser.approval_status !== 'approved') {
+      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot manage services yet.' });
       return;
     }
     const [service] = await sql`SELECT * FROM services WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
@@ -700,9 +718,13 @@ async function startServer() {
   });
 
   v1.delete('/services/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
     if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can manage services' });
+      return;
+    }
+    if (currentUser.approval_status !== 'approved') {
+      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot manage services yet.' });
       return;
     }
     const [service] = await sql`SELECT * FROM services WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
@@ -1669,6 +1691,11 @@ async function startServer() {
       res.status(400).json({ error: 'Cannot book yourself' });
       return;
     }
+    const [sitterUser] = await sql`SELECT approval_status FROM users WHERE id = ${sitter_id}`;
+    if (!sitterUser || sitterUser.approval_status !== 'approved') {
+      res.status(400).json({ error: 'This sitter is not currently available for bookings' });
+      return;
+    }
     const [service] = await sql`SELECT id, price, type, additional_pet_price FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
     if (!service) {
       res.status(400).json({ error: 'Invalid service for this sitter' });
@@ -2335,6 +2362,77 @@ async function startServer() {
     const period = validateRevenuePeriod(req.query.period);
     const result = await getRevenue(req.userId!, period, yearResult.year);
     res.json(result);
+  });
+
+  // --- Admin: Sitter Approval ---
+  v1.get('/admin/pending-sitters', adminMiddleware, async (req: AuthenticatedRequest, res) => {
+    const sitters = await sql`
+      SELECT id, email, name, role, bio, avatar_url, created_at, approval_status
+      FROM users
+      WHERE approval_status = 'pending_approval' AND role IN ('sitter', 'both')
+      ORDER BY created_at ASC
+    `;
+    res.json({ sitters });
+  });
+
+  v1.get('/admin/sitters', adminMiddleware, async (req: AuthenticatedRequest, res) => {
+    const status = req.query.status as string | undefined;
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const validStatuses = ['approved', 'pending_approval', 'rejected'];
+    const statusFilter = status && validStatuses.includes(status) ? status : undefined;
+
+    const sitters = await sql`
+      SELECT id, email, name, role, bio, avatar_url, created_at, approval_status, approved_at, approval_rejected_reason
+      FROM users
+      WHERE role IN ('sitter', 'both')
+      ${statusFilter ? sql`AND approval_status = ${statusFilter}` : sql``}
+      ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    const [{ total }] = await sql`
+      SELECT count(*)::int as total FROM users
+      WHERE role IN ('sitter', 'both')
+      ${statusFilter ? sql`AND approval_status = ${statusFilter}` : sql``}
+    `;
+    res.json({ sitters, total });
+  });
+
+  v1.put('/admin/sitters/:id/approval', adminMiddleware, validate(approvalDecisionSchema), async (req: AuthenticatedRequest, res) => {
+    const sitterId = Number(req.params.id);
+    const { status, reason } = req.body;
+
+    const [sitter] = await sql`SELECT id, email, name, role, approval_status FROM users WHERE id = ${sitterId} AND role IN ('sitter', 'both')`;
+    if (!sitter) {
+      res.status(404).json({ error: 'Sitter not found' });
+      return;
+    }
+
+    if (status === 'approved') {
+      await sql`
+        UPDATE users SET approval_status = 'approved', approved_by = ${req.userId}, approved_at = NOW(), approval_rejected_reason = NULL
+        WHERE id = ${sitterId}
+      `;
+    } else {
+      await sql`
+        UPDATE users SET approval_status = 'rejected', approval_rejected_reason = ${reason || null}, approved_by = ${req.userId}, approved_at = NOW()
+        WHERE id = ${sitterId}
+      `;
+    }
+
+    // Send email notification
+    const email = buildApprovalStatusEmail({
+      sitterName: sitter.name,
+      status,
+      reason,
+    });
+    await sendEmail({ to: sitter.email, ...email }).catch(() => {});
+
+    const [updated] = await sql`
+      SELECT id, email, name, role, approval_status, approved_at, approval_rejected_reason
+      FROM users WHERE id = ${sitterId}
+    `;
+    res.json({ sitter: updated });
   });
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)

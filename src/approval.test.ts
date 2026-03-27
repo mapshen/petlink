@@ -1,0 +1,116 @@
+import { describe, it, expect } from 'vitest';
+import { approvalDecisionSchema } from './validation.ts';
+
+describe('approvalDecisionSchema', () => {
+  it('accepts valid approved status', () => {
+    const result = approvalDecisionSchema.safeParse({ status: 'approved' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts valid rejected status with reason', () => {
+    const result = approvalDecisionSchema.safeParse({
+      status: 'rejected',
+      reason: 'Incomplete profile',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid status', () => {
+    const result = approvalDecisionSchema.safeParse({ status: 'pending' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing status', () => {
+    const result = approvalDecisionSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects reason over 500 characters', () => {
+    const result = approvalDecisionSchema.safeParse({
+      status: 'rejected',
+      reason: 'x'.repeat(501),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts rejected without reason', () => {
+    const result = approvalDecisionSchema.safeParse({ status: 'rejected' });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('approval status logic', () => {
+  type ApprovalStatus = 'approved' | 'pending_approval' | 'rejected';
+
+  function getInitialApprovalStatus(role: string): ApprovalStatus {
+    return role === 'sitter' || role === 'both' ? 'pending_approval' : 'approved';
+  }
+
+  function shouldSetPending(currentRole: string, newRole: string): boolean {
+    return currentRole === 'owner' && (newRole === 'sitter' || newRole === 'both');
+  }
+
+  it('sitter signup gets pending_approval', () => {
+    expect(getInitialApprovalStatus('sitter')).toBe('pending_approval');
+  });
+
+  it('both role signup gets pending_approval', () => {
+    expect(getInitialApprovalStatus('both')).toBe('pending_approval');
+  });
+
+  it('owner signup gets approved', () => {
+    expect(getInitialApprovalStatus('owner')).toBe('approved');
+  });
+
+  it('owner switching to sitter sets pending', () => {
+    expect(shouldSetPending('owner', 'sitter')).toBe(true);
+  });
+
+  it('owner switching to both sets pending', () => {
+    expect(shouldSetPending('owner', 'both')).toBe(true);
+  });
+
+  it('sitter switching to both does not set pending', () => {
+    expect(shouldSetPending('sitter', 'both')).toBe(false);
+  });
+
+  it('sitter staying sitter does not set pending', () => {
+    expect(shouldSetPending('sitter', 'sitter')).toBe(false);
+  });
+});
+
+describe('approval email builder', () => {
+  // Dynamic import to avoid top-level import issues with Resend
+  it('builds approved email', async () => {
+    const { buildApprovalStatusEmail } = await import('./email.ts');
+    const result = buildApprovalStatusEmail({
+      sitterName: 'Bob',
+      status: 'approved',
+    });
+    expect(result.subject).toContain('Approved');
+    expect(result.html).toContain('Bob');
+    expect(result.html).toContain('approved');
+  });
+
+  it('builds rejected email with reason', async () => {
+    const { buildApprovalStatusEmail } = await import('./email.ts');
+    const result = buildApprovalStatusEmail({
+      sitterName: 'Alice',
+      status: 'rejected',
+      reason: 'Profile incomplete',
+    });
+    expect(result.subject).toContain('Not Approved');
+    expect(result.html).toContain('Alice');
+    expect(result.html).toContain('Profile incomplete');
+  });
+
+  it('escapes HTML in sitter name', async () => {
+    const { buildApprovalStatusEmail } = await import('./email.ts');
+    const result = buildApprovalStatusEmail({
+      sitterName: '<script>alert("xss")</script>',
+      status: 'approved',
+    });
+    expect(result.html).not.toContain('<script>');
+    expect(result.html).toContain('&lt;script&gt;');
+  });
+});

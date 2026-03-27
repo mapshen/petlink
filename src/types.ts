@@ -36,6 +36,8 @@ export interface User {
   own_pets_description?: string;
   skills?: string[];
   subscription_tier?: SubscriptionTier;
+  approval_status?: 'approved' | 'pending_approval' | 'rejected';
+  is_admin?: boolean;
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';

@@ -213,3 +213,9 @@ export const expenseSchema = z.object({
 
 // --- Subscription Schemas ---
 export const emptyBodySchema = z.object({});
+
+// --- Admin Schemas ---
+export const approvalDecisionSchema = z.object({
+  status: z.enum(['approved', 'rejected'], { message: 'Status must be "approved" or "rejected"' }),
+  reason: z.string().max(500, 'Reason must be under 500 characters').optional(),
+});
