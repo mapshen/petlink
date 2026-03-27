@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useMode } from '../context/ModeContext';
 import { Booking } from '../types';
-import { Calendar, MapPin, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, XCircle, RefreshCw, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { API_BASE } from '../config';
 import { Link } from 'react-router-dom';
@@ -115,6 +115,13 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-3xl font-bold text-stone-900 mb-8">Dashboard</h1>
+
+      {isSitterMode && user?.approval_status === 'pending_approval' && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <Clock className="w-5 h-5 mt-0.5 shrink-0 text-amber-500" />
+          <p>Your account is pending approval. You'll be able to accept bookings once approved.</p>
+        </div>
+      )}
 
       {isSitterMode && !onboarding.loading && !onboarding.isComplete && !checklistDismissed && (
         <OnboardingChecklist

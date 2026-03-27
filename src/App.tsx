@@ -15,6 +15,7 @@ import WalletPage from './pages/WalletPage';
 import PromotePage from './pages/PromotePage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import Onboarding from './pages/Onboarding';
+import AdminPage from './pages/AdminPage';
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/services" element={<Navigate to="/profile" replace />} />
               <Route path="/photos" element={<Navigate to="/profile" replace />} />
               <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/admin" element={<AdminPage />} />
               <Route path="/track/:bookingId" element={<TrackWalk />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
