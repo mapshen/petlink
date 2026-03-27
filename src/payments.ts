@@ -60,6 +60,60 @@ export async function createPaymentIntent(
   };
 }
 
+export async function createACHPaymentIntent(
+  amount: number,
+  customerId: string,
+  sitterStripeAccountId: string,
+  platformFeePercent: number = 15
+): Promise<{ clientSecret: string; paymentIntentId: string }> {
+  const stripe = getStripe();
+  const platformFee = Math.round(amount * (platformFeePercent / 100));
+
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount,
+    currency: 'usd',
+    customer: customerId,
+    payment_method_types: ['us_bank_account'],
+    application_fee_amount: platformFee,
+    transfer_data: {
+      destination: sitterStripeAccountId,
+    },
+    // ACH does not support manual capture — payment processed immediately
+    // Escrow safety comes from the delayed payout system
+  });
+
+  return {
+    clientSecret: paymentIntent.client_secret!,
+    paymentIntentId: paymentIntent.id,
+  };
+}
+
+export async function createFinancialConnectionsSession(
+  customerId: string
+): Promise<{ clientSecret: string }> {
+  const stripe = getStripe();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const session = await (stripe as any).financialConnections.sessions.create({
+    account_holder: { type: 'customer', customer: customerId },
+    permissions: ['payment_method'],
+  });
+  return { clientSecret: session.client_secret };
+}
+
+export async function listBankAccounts(customerId: string): Promise<{ id: string; bank_name: string; last4: string; status: string }[]> {
+  const stripe = getStripe();
+  const methods = await stripe.paymentMethods.list({ customer: customerId, type: 'us_bank_account' });
+  return methods.data.map((m) => ({
+    id: m.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bank_name: (m as any).us_bank_account?.bank_name ?? 'Bank',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    last4: (m as any).us_bank_account?.last4 ?? '****',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    status: (m as any).us_bank_account?.status ?? 'unknown',
+  }));
+}
+
 export async function capturePayment(paymentIntentId: string): Promise<void> {
   const stripe = getStripe();
   await stripe.paymentIntents.capture(paymentIntentId);
