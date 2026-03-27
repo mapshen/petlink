@@ -957,6 +957,11 @@ async function startServer() {
   });
 
   v1.post('/availability', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
+    if (currentUser.approval_status !== 'approved') {
+      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot set availability yet.' });
+      return;
+    }
     const { day_of_week, specific_date, start_time, end_time, recurring } = req.body;
     if (start_time == null || end_time == null) {
       res.status(400).json({ error: 'start_time and end_time are required' });
@@ -989,9 +994,13 @@ async function startServer() {
   });
 
   v1.post('/sitter-photos', authMiddleware, validate(createSitterPhotoSchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
     if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
       res.status(403).json({ error: 'Only sitters can upload photos' });
+      return;
+    }
+    if (currentUser.approval_status !== 'approved') {
+      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot upload photos yet.' });
       return;
     }
     const { photo_url, caption, sort_order } = req.body;
