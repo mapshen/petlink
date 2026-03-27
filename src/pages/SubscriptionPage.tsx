@@ -200,7 +200,7 @@ export default function SubscriptionPage() {
           <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-stone-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm text-stone-600">Stripe integration coming soon. Upgrade is currently free during beta.</p>
+              <p className="text-sm text-stone-600">Pro is free during beta. Stripe Billing will be integrated for production subscriptions.</p>
             </div>
           </div>
         </div>
