@@ -158,11 +158,12 @@ export const createReviewSchema = z.object({
 
 // --- Quick-Tap Care Event Schemas ---
 export const quickTapEventSchema = z.object({
-  event_type: z.enum(['start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play']),
+  event_type: z.enum(['start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play', 'video']),
   lat: z.number().min(-90).max(90).optional().nullable(),
   lng: z.number().min(-180).max(180).optional().nullable(),
   note: z.string().max(500).optional().nullable(),
-  photo_url: z.string().url().optional().nullable().or(z.literal('')),
+  photo_url: z.string().url().refine((url) => url.startsWith('https://'), 'Photo URL must use HTTPS').optional().nullable(),
+  video_url: z.string().url().refine((url) => url.startsWith('https://'), 'Video URL must use HTTPS').optional().nullable(),
   pet_id: z.number().int().positive().optional().nullable(),
 });
 

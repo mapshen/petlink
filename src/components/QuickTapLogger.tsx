@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { API_BASE } from '../config';
 import { getAuthHeaders } from '../context/AuthContext';
+import { useVideoUpload } from '../hooks/useVideoUpload';
 
 const QUICK_ACTIONS = [
   { type: 'fed', label: 'Fed', icon: '🍽️', color: 'bg-amber-100 text-amber-700 hover:bg-amber-200' },
@@ -11,6 +12,7 @@ const QUICK_ACTIONS = [
   { type: 'play', label: 'Play', icon: '🎾', color: 'bg-green-100 text-green-700 hover:bg-green-200' },
   { type: 'nap_start', label: 'Nap', icon: '😴', color: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' },
   { type: 'photo', label: 'Photo', icon: '📸', color: 'bg-pink-100 text-pink-700 hover:bg-pink-200' },
+  { type: 'video', label: 'Video', icon: '🎥', color: 'bg-rose-100 text-rose-700 hover:bg-rose-200' },
 ] as const;
 
 interface Props {
@@ -26,8 +28,10 @@ export default function QuickTapLogger({ bookingId, token, pets, onEventLogged }
   const [note, setNote] = useState('');
   const [showNote, setShowNote] = useState(false);
   const [lastLogged, setLastLogged] = useState<{ type: string; time: string } | null>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const { uploading: videoUploading, upload: uploadVideo, error: videoError, clearError: clearVideoError } = useVideoUpload(token);
 
-  const logEvent = async (eventType: string) => {
+  const logEvent = async (eventType: string, videoUrl?: string) => {
     setLogging(eventType);
     try {
       let lat: number | null = null;
@@ -55,6 +59,7 @@ export default function QuickTapLogger({ bookingId, token, pets, onEventLogged }
           lng,
           note: note || null,
           pet_id: selectedPetId,
+          video_url: videoUrl || null,
         }),
       });
 
@@ -69,6 +74,25 @@ export default function QuickTapLogger({ bookingId, token, pets, onEventLogged }
       // Silently fail
     } finally {
       setLogging(null);
+    }
+  };
+
+  const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    clearVideoError();
+    setLogging('video');
+
+    const publicUrl = await uploadVideo(file);
+    if (publicUrl) {
+      await logEvent('video', publicUrl);
+    }
+    setLogging(null);
+
+    // Reset file input so the same file can be selected again
+    if (videoInputRef.current) {
+      videoInputRef.current.value = '';
     }
   };
 
@@ -104,22 +128,47 @@ export default function QuickTapLogger({ bookingId, token, pets, onEventLogged }
       )}
 
       {/* Quick-tap buttons */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
         {QUICK_ACTIONS.map(action => (
           <button
             key={action.type}
             type="button"
-            onClick={() => logEvent(action.type)}
-            disabled={logging !== null}
+            onClick={() => {
+              if (action.type === 'video') {
+                videoInputRef.current?.click();
+              } else {
+                logEvent(action.type);
+              }
+            }}
+            disabled={logging !== null || videoUploading}
             className={`flex flex-col items-center justify-center p-3 rounded-xl text-center transition-all ${action.color} ${
-              logging === action.type ? 'scale-95 opacity-70' : ''
+              logging === action.type || (action.type === 'video' && videoUploading) ? 'scale-95 opacity-70' : ''
             } disabled:opacity-50`}
           >
             <span className="text-xl">{action.icon}</span>
-            <span className="text-xs font-medium mt-1">{action.label}</span>
+            <span className="text-xs font-medium mt-1">
+              {action.type === 'video' && videoUploading ? 'Uploading...' : action.label}
+            </span>
           </button>
         ))}
       </div>
+
+      {/* Hidden video file input */}
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/mp4,video/quicktime,video/webm"
+        onChange={handleVideoSelect}
+        className="hidden"
+      />
+
+      {/* Video upload error */}
+      {videoError && (
+        <div className="mt-2 text-xs text-red-600 bg-red-50 rounded-lg p-2 flex justify-between items-center">
+          <span>{videoError}</span>
+          <button type="button" onClick={clearVideoError} className="text-red-400 hover:text-red-600 ml-2">Dismiss</button>
+        </div>
+      )}
 
       {/* Optional note */}
       <div className="mt-3">

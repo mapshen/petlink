@@ -1388,22 +1388,24 @@ async function startServer() {
     res.json({ events });
   });
 
-  v1.post('/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/walks/:bookingId/events', authMiddleware, validate(quickTapEventSchema), async (req: AuthenticatedRequest, res) => {
     const [booking] = await sql`SELECT * FROM bookings WHERE id = ${req.params.bookingId}`;
     if (!booking || booking.sitter_id !== req.userId) {
       res.status(403).json({ error: 'Only the sitter can log walk events' });
       return;
     }
-    const { event_type, lat, lng, note, photo_url, pet_id } = req.body;
-    if (!event_type) {
-      res.status(400).json({ error: 'event_type is required' });
-      return;
-    }
-    if (pet_id != null) {
-      if (!Number.isInteger(pet_id) || pet_id <= 0) {
-        res.status(400).json({ error: 'Invalid pet_id' });
+    const { event_type, lat, lng, note, photo_url, video_url, pet_id } = req.body;
+
+    // Limit video clips to 5 per booking
+    if (event_type === 'video') {
+      const [{ count }] = await sql`SELECT count(*)::int as count FROM walk_events WHERE booking_id = ${req.params.bookingId} AND event_type = 'video'`;
+      if (count >= 5) {
+        res.status(400).json({ error: 'Maximum 5 video clips per booking' });
         return;
       }
+    }
+
+    if (pet_id != null) {
       const [validPet] = await sql`SELECT 1 FROM booking_pets WHERE booking_id = ${req.params.bookingId} AND pet_id = ${pet_id}`;
       if (!validPet) {
         res.status(400).json({ error: 'Pet is not part of this booking' });
@@ -1411,8 +1413,8 @@ async function startServer() {
       }
     }
     const [event] = await sql`
-      INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url, pet_id)
-      VALUES (${req.params.bookingId}, ${event_type}, ${lat || null}, ${lng || null}, ${note || null}, ${photo_url || null}, ${pet_id || null})
+      INSERT INTO walk_events (booking_id, event_type, lat, lng, note, photo_url, video_url, pet_id)
+      VALUES (${req.params.bookingId}, ${event_type}, ${lat || null}, ${lng || null}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${pet_id || null})
       RETURNING *
     `;
 
@@ -2249,15 +2251,22 @@ async function startServer() {
   // --- Media Upload (S3 signed URLs) ---
   v1.post('/uploads/signed-url', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
-      const { folder, contentType } = req.body;
-      const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos'] as const;
+      const { folder, contentType, fileSize } = req.body;
+      const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos'] as const;
       if (!folder || !validFolders.includes(folder)) {
-        res.status(400).json({ error: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos' });
+        res.status(400).json({ error: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos' });
         return;
       }
-      const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const allowedVideoTypes = ['video/mp4', 'video/quicktime', 'video/webm'];
+      const allowedContentTypes = [...allowedImageTypes, ...allowedVideoTypes];
       if (!contentType || !allowedContentTypes.includes(contentType)) {
-        res.status(400).json({ error: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif' });
+        res.status(400).json({ error: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/quicktime, video/webm' });
+        return;
+      }
+      const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB
+      if (folder === 'videos' && typeof fileSize === 'number' && fileSize > MAX_VIDEO_SIZE) {
+        res.status(400).json({ error: 'Video file must be under 10MB' });
         return;
       }
       const result = await generateUploadUrl(folder, contentType, req.userId!);

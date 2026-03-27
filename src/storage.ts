@@ -33,12 +33,13 @@ export interface SignedUploadUrl {
 }
 
 export async function generateUploadUrl(
-  folder: 'pets' | 'avatars' | 'verifications' | 'walks' | 'sitter-photos',
+  folder: 'pets' | 'avatars' | 'verifications' | 'walks' | 'sitter-photos' | 'videos',
   contentType: string,
   userId: number
 ): Promise<SignedUploadUrl> {
   const client = getS3Client();
-  const ext = contentType.split('/')[1] || 'bin';
+  const MIME_EXT_MAP: Record<string, string> = { 'video/quicktime': 'mov', 'image/jpeg': 'jpg' };
+  const ext = MIME_EXT_MAP[contentType] || contentType.split('/')[1] || 'bin';
   const key = `${folder}/${userId}/${crypto.randomUUID()}.${ext}`;
 
   const command = new PutObjectCommand({

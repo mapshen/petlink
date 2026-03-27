@@ -3,7 +3,7 @@ import { quickTapEventSchema } from './validation.ts';
 
 describe('quickTapEventSchema', () => {
   it('accepts all valid event types', () => {
-    const types = ['start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play'];
+    const types = ['start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play', 'video'];
     for (const event_type of types) {
       expect(quickTapEventSchema.safeParse({ event_type }).success).toBe(true);
     }
@@ -51,8 +51,60 @@ describe('quickTapEventSchema', () => {
       lng: null,
       note: null,
       photo_url: null,
+      video_url: null,
       pet_id: null,
     });
     expect(result.success).toBe(true);
+  });
+
+  it('accepts video event type', () => {
+    const result = quickTapEventSchema.safeParse({
+      event_type: 'video',
+      video_url: 'https://s3.example.com/videos/1/clip.mp4',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts video_url as valid URL', () => {
+    const result = quickTapEventSchema.safeParse({
+      event_type: 'video',
+      video_url: 'https://bucket.s3.us-east-1.amazonaws.com/videos/123/abc.mp4',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.video_url).toBe('https://bucket.s3.us-east-1.amazonaws.com/videos/123/abc.mp4');
+    }
+  });
+
+  it('rejects invalid video_url', () => {
+    const result = quickTapEventSchema.safeParse({
+      event_type: 'video',
+      video_url: 'not-a-url',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects video_url as empty string', () => {
+    const result = quickTapEventSchema.safeParse({
+      event_type: 'video',
+      video_url: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-HTTPS video_url', () => {
+    const result = quickTapEventSchema.safeParse({
+      event_type: 'video',
+      video_url: 'http://bucket.s3.us-east-1.amazonaws.com/videos/123/abc.mp4',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-HTTPS photo_url', () => {
+    const result = quickTapEventSchema.safeParse({
+      event_type: 'photo',
+      photo_url: 'http://bucket.s3.us-east-1.amazonaws.com/walks/123/abc.jpg',
+    });
+    expect(result.success).toBe(false);
   });
 });
