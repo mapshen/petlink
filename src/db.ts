@@ -539,6 +539,43 @@ export async function initDb() {
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_failure_reason TEXT`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`.catch(() => {});
 
+  // Issue #97: Imported profiles and reviews
+  await sql`
+    CREATE TABLE IF NOT EXISTS imported_profiles (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      platform TEXT NOT NULL,
+      profile_url TEXT NOT NULL,
+      username TEXT,
+      display_name TEXT,
+      bio TEXT,
+      rating DOUBLE PRECISION,
+      review_count INTEGER,
+      verification_code TEXT,
+      verification_status TEXT NOT NULL DEFAULT 'pending' CHECK(verification_status IN ('pending', 'verified', 'failed')),
+      verified_at TIMESTAMPTZ,
+      scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      raw_data JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(sitter_id, platform)
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS imported_reviews (
+      id SERIAL PRIMARY KEY,
+      imported_profile_id INTEGER NOT NULL REFERENCES imported_profiles(id) ON DELETE CASCADE,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      platform TEXT NOT NULL,
+      reviewer_name TEXT NOT NULL,
+      rating INTEGER CHECK(rating >= 1 AND rating <= 5),
+      comment TEXT,
+      review_date DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_imported_profiles_sitter_id ON imported_profiles (sitter_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_imported_reviews_sitter_id ON imported_reviews (sitter_id)`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;

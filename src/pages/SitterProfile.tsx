@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { User, Pet, Service, Review, Availability, SitterPhoto } from '../types';
+import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview } from '../types';
+import ImportedReviewBadge from '../components/ImportedReviewBadge';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle, Home, Award, PawPrint, CreditCard } from 'lucide-react';
 import { API_BASE } from '../config';
@@ -36,6 +37,7 @@ export default function SitterProfile() {
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [photos, setPhotos] = useState<SitterPhoto[]>([]);
+  const [importedReviews, setImportedReviews] = useState<ImportedReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -68,6 +70,7 @@ export default function SitterProfile() {
         setServices(data.services);
         setReviews(data.reviews);
         setPhotos(data.photos || []);
+        setImportedReviews(data.imported_reviews || []);
         const rebookServiceId = Number(serviceIdParam);
         const matchedService = rebookServiceId && data.services.find((s: Service) => s.id === rebookServiceId);
         setSelectedService(matchedService ? matchedService.id : data.services.length > 0 ? data.services[0].id : null);
@@ -313,12 +316,39 @@ export default function SitterProfile() {
                   <p className="text-stone-600 text-sm">{review.comment}</p>
                 </div>
               ))}
-              {reviews.length === 0 && (
+              {reviews.length === 0 && importedReviews.length === 0 && (
                 <p className="text-stone-500 italic">
                   {user ? 'No reviews yet.' : 'Log in to see reviews.'}
                 </p>
               )}
             </div>
+
+            {importedReviews.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-stone-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-lg font-bold text-stone-900">Imported Reviews</h3>
+                  <ImportedReviewBadge platform={importedReviews[0].platform} />
+                </div>
+                <div className="space-y-4">
+                  {importedReviews.map((review) => (
+                    <div key={review.id} className="border-b border-stone-100 pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-sm text-stone-900">{review.reviewer_name}</span>
+                        <div className="flex text-amber-400 text-xs">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={`w-3 h-3 ${i < (review.rating ?? 5) ? 'fill-current' : 'text-stone-200'}`} />
+                          ))}
+                        </div>
+                        {review.review_date && (
+                          <span className="text-xs text-stone-400 ml-auto">{review.review_date}</span>
+                        )}
+                      </div>
+                      {review.comment && <p className="text-sm text-stone-600">{review.comment}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

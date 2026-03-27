@@ -316,6 +316,53 @@ export interface ClientBookingDetail {
   created_at: string;
 }
 
+export type ImportPlatform = 'rover' | 'wag' | 'care_com';
+export type ImportVerificationStatus = 'pending' | 'verified' | 'failed';
+
+export interface ImportedProfile {
+  id: number;
+  sitter_id: number;
+  platform: ImportPlatform;
+  profile_url: string;
+  username?: string;
+  display_name?: string;
+  bio?: string;
+  rating?: number;
+  review_count?: number;
+  verification_code?: string;
+  verification_status: ImportVerificationStatus;
+  verified_at?: string;
+  scraped_at: string;
+  created_at: string;
+}
+
+export interface ImportedReview {
+  id: number;
+  imported_profile_id: number;
+  sitter_id: number;
+  platform: ImportPlatform;
+  reviewer_name: string;
+  rating?: number;
+  comment?: string;
+  review_date?: string;
+  created_at: string;
+}
+
+export interface ScrapedProfile {
+  name: string;
+  bio: string;
+  rating: number;
+  reviewCount: number;
+  reviews: ScrapedReview[];
+}
+
+export interface ScrapedReview {
+  reviewerName: string;
+  rating: number;
+  comment: string;
+  date?: string;
+}
+
 export interface RevenueDataPoint {
   period: string;
   revenue: number;
