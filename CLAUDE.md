@@ -75,7 +75,30 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 
 ### Database Schema (`src/db.ts`)
 
-PostgreSQL with PostGIS. Tables: `users` (with `location` geography column, nullable `password_hash` for OAuth-only users, `email_verified` boolean, `is_pro` boolean (admin-only), sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`), `pets` (with `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, `vet_name`, `vet_phone`, `emergency_contact_name`, `emergency_contact_phone`, `care_instructions` JSONB for reusable per-pet care cards), `pet_vaccinations` (vaccine records with expiration tracking), `services` (with `additional_pet_price`, `max_pets`, `service_details` JSONB), `bookings`, `booking_pets` (junction table for multi-pet bookings), `booking_care_tasks` (checklist items auto-populated from pet care instructions), `messages`, `reviews`, `availability`, `walk_events` (with optional `pet_id`, `video_url` for video clips, and `video` event type), `verifications`, `notifications`, `notification_preferences`, `push_subscriptions`, `sitter_photos`, `favorites`, `oauth_accounts` (provider links with `provider`, `provider_id`, unique constraints), `sitter_subscriptions` (Pro tier with status tracking and billing period), `sitter_payouts` (delayed payout scheduling with `amount_cents` INTEGER, `status` CHECK constraint, unique `booking_id`).
+PostgreSQL with PostGIS.
+
+| Table | Key Columns / Notes |
+|-------|-------------------|
+| `users` | `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills` |
+| `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
+| `pet_vaccinations` | Vaccine records with expiration tracking |
+| `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB |
+| `bookings` | Links owner, sitter, service with status/payment tracking |
+| `booking_pets` | Junction table for multi-pet bookings |
+| `booking_care_tasks` | Checklist items auto-populated from pet care instructions |
+| `messages` | sender_id, receiver_id, content |
+| `reviews` | Double-blind reviews with `published_at` gating |
+| `availability` | Sitter availability windows |
+| `walk_events` | GPS tracking, `photo_url`, `video_url`, `video` event type (max 5 clips/booking, 15s/10MB limit) |
+| `verifications` | ID check, background check (Checkr integration) |
+| `notifications` | In-app notifications with type system |
+| `notification_preferences` | Per-user notification settings |
+| `push_subscriptions` | Web push subscription storage |
+| `sitter_photos` | Portfolio photos with ordering |
+| `favorites` | Owner favorite sitters |
+| `oauth_accounts` | Provider links (`provider`, `provider_id`, unique constraints) |
+| `sitter_subscriptions` | Pro tier with status tracking, Stripe billing, billing period |
+| `sitter_payouts` | Delayed payout scheduling, `amount_cents` INTEGER, `status` CHECK, unique `booking_id` |
 
 PostgreSQL enums: `user_role`, `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`.
 
