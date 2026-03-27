@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAuth, getAuthHeaders } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import type { Review } from '../types';
 import { Star, Loader2 } from 'lucide-react';
 import { API_BASE } from '../config';
@@ -29,7 +29,7 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default function ReviewsTab() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +38,7 @@ export default function ReviewsTab() {
     if (!user) return;
     const fetchReviews = async () => {
       try {
-        const res = await fetch(`${API_BASE}/reviews/${user.id}`, {
-          headers: getAuthHeaders(token),
-        });
+        const res = await fetch(`${API_BASE}/reviews/${user.id}`);
         if (!res.ok) throw new Error('Failed to load reviews');
         const data = await res.json();
         setReviews(data.reviews ?? []);
@@ -51,7 +49,7 @@ export default function ReviewsTab() {
       }
     };
     fetchReviews();
-  }, [user, token]);
+  }, [user]);
 
   if (loading) {
     return (
