@@ -14,6 +14,7 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'pets', label: 'My Pets', mode: 'owner' },
   { id: 'services', label: 'Services', mode: 'sitter' },
   { id: 'photos', label: 'Photos', mode: 'sitter' },
+  { id: 'reviews', label: 'Reviews', mode: 'sitter' },
 ];
 
 function getVisibleSections(mode: 'owner' | 'sitter'): SectionDef[] {
@@ -29,8 +30,8 @@ describe('ProfilePage section visibility', () => {
     expect(getVisibleSectionIds('owner')).toEqual(['profile', 'pets']);
   });
 
-  it('sitter mode shows profile, services, and photos', () => {
-    expect(getVisibleSectionIds('sitter')).toEqual(['profile', 'services', 'photos']);
+  it('sitter mode shows profile, services, photos, and reviews', () => {
+    expect(getVisibleSectionIds('sitter')).toEqual(['profile', 'services', 'photos', 'reviews']);
   });
 
   it('profile section is always visible', () => {
@@ -51,6 +52,11 @@ describe('ProfilePage section visibility', () => {
   it('photos section is only visible in sitter mode', () => {
     expect(getVisibleSectionIds('sitter')).toContain('photos');
     expect(getVisibleSectionIds('owner')).not.toContain('photos');
+  });
+
+  it('reviews section is only visible in sitter mode', () => {
+    expect(getVisibleSectionIds('sitter')).toContain('reviews');
+    expect(getVisibleSectionIds('owner')).not.toContain('reviews');
   });
 });
 
