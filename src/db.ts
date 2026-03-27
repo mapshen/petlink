@@ -534,6 +534,8 @@ export async function initDb() {
 
   // Issue #99: ACH bank transfer payment option
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'card'`.catch(() => {});
+  await sql`ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_payment_method_check`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD CONSTRAINT bookings_payment_method_check CHECK(payment_method IN ('card', 'ach_debit'))`.catch(() => {});
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_failure_reason TEXT`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`.catch(() => {});
 

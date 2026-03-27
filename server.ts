@@ -2561,43 +2561,58 @@ async function startServer() {
 
   // --- ACH Bank Transfer Payment ---
   v1.post('/payments/link-bank', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT email, stripe_customer_id FROM users WHERE id = ${req.userId}`;
-    let customerId = user.stripe_customer_id;
-    if (!customerId) {
-      // Create Stripe Customer inline (will also be created by stripe-customers.ts in #136)
-      res.status(503).json({ error: 'Bank linking requires Stripe Customer setup. Please make a card payment first.' });
-      return;
+    try {
+      const [user] = await sql`SELECT email, stripe_customer_id FROM users WHERE id = ${req.userId}`;
+      if (!user.stripe_customer_id) {
+        res.status(503).json({ error: 'Bank linking requires Stripe Customer setup. Please make a card payment first.' });
+        return;
+      }
+      const result = await createFinancialConnectionsSession(user.stripe_customer_id);
+      res.json(result);
+    } catch (error) {
+      console.error('Bank linking error:', error);
+      res.status(500).json({ error: 'Failed to start bank linking' });
     }
-    const result = await createFinancialConnectionsSession(customerId);
-    res.json(result);
   });
 
   v1.get('/payments/bank-accounts', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
-    if (!user?.stripe_customer_id) {
-      res.json({ bank_accounts: [] });
-      return;
+    try {
+      const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+      if (!user?.stripe_customer_id) {
+        res.json({ bank_accounts: [] });
+        return;
+      }
+      const accounts = await listBankAccounts(user.stripe_customer_id);
+      res.json({ bank_accounts: accounts });
+    } catch (error) {
+      console.error('Bank accounts error:', error);
+      res.status(500).json({ error: 'Failed to load bank accounts' });
     }
-    const accounts = await listBankAccounts(user.stripe_customer_id);
-    res.json({ bank_accounts: accounts });
   });
 
   v1.delete('/payments/bank-accounts/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
-    if (!user?.stripe_customer_id) {
-      res.status(404).json({ error: 'No bank accounts found' });
-      return;
+    try {
+      if (!req.params.id || !/^pm_/.test(req.params.id)) {
+        res.status(400).json({ error: 'Invalid payment method ID' });
+        return;
+      }
+      const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+      if (!user?.stripe_customer_id) {
+        res.status(404).json({ error: 'No bank accounts found' });
+        return;
+      }
+      const accounts = await listBankAccounts(user.stripe_customer_id);
+      const owns = accounts.some((a) => a.id === req.params.id);
+      if (!owns) {
+        res.status(404).json({ error: 'Bank account not found' });
+        return;
+      }
+      await detachBankAccount(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Bank account deletion error:', error);
+      res.status(500).json({ error: 'Failed to remove bank account' });
     }
-    const accounts = await listBankAccounts(user.stripe_customer_id);
-    const owns = accounts.some((a) => a.id === req.params.id);
-    if (!owns) {
-      res.status(404).json({ error: 'Bank account not found' });
-      return;
-    }
-    const Stripe = (await import('stripe')).default;
-    const s = new Stripe(process.env.STRIPE_SECRET_KEY!);
-    await s.paymentMethods.detach(req.params.id);
-    res.json({ success: true });
   });
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)

@@ -105,13 +105,17 @@ export async function listBankAccounts(customerId: string): Promise<{ id: string
   const methods = await stripe.paymentMethods.list({ customer: customerId, type: 'us_bank_account' });
   return methods.data.map((m) => ({
     id: m.id,
+    bank_name: m.us_bank_account?.bank_name ?? 'Bank',
+    last4: m.us_bank_account?.last4 ?? '****',
+    // status is not in the standard Stripe PaymentMethod type
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bank_name: (m as any).us_bank_account?.bank_name ?? 'Bank',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    last4: (m as any).us_bank_account?.last4 ?? '****',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    status: (m as any).us_bank_account?.status ?? 'unknown',
+    status: (m.us_bank_account as any)?.status ?? 'unknown',
   }));
+}
+
+export async function detachBankAccount(paymentMethodId: string): Promise<void> {
+  const stripe = getStripe();
+  await stripe.paymentMethods.detach(paymentMethodId);
 }
 
 export async function capturePayment(paymentIntentId: string): Promise<void> {
