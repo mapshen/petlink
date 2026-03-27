@@ -483,6 +483,22 @@ export async function initDb() {
   await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS bookings_from_promotion INTEGER DEFAULT 0`.catch(() => {});
   await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS commission_earned_cents INTEGER DEFAULT 0`.catch(() => {});
 
+  // Issue #89: Sitter Pro membership
+  await sql`
+    CREATE TABLE IF NOT EXISTS sitter_subscriptions (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      tier TEXT NOT NULL DEFAULT 'free' CHECK(tier IN ('free', 'pro')),
+      stripe_subscription_id TEXT,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'past_due', 'cancelled')),
+      current_period_start TIMESTAMPTZ,
+      current_period_end TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'free'`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;

@@ -83,3 +83,39 @@ export function constructWebhookEvent(body: string | Buffer, signature: string):
   }
   return stripe.webhooks.constructEvent(body, signature, webhookSecret);
 }
+
+// --- Stripe Billing (Subscriptions) ---
+
+const PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID;
+
+export async function createSubscriptionCheckout(
+  userId: number,
+  email: string,
+  returnUrl: string
+): Promise<string> {
+  const stripe = getStripe();
+  if (!PRO_PRICE_ID) {
+    throw new Error('STRIPE_PRO_PRICE_ID is not configured');
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'subscription',
+    customer_email: email,
+    line_items: [{ price: PRO_PRICE_ID, quantity: 1 }],
+    success_url: `${returnUrl}/subscription?success=true`,
+    cancel_url: `${returnUrl}/subscription?cancelled=true`,
+    metadata: { petlink_user_id: String(userId) },
+  });
+
+  return session.url!;
+}
+
+export async function cancelStripeSubscription(stripeSubscriptionId: string): Promise<void> {
+  const stripe = getStripe();
+  await stripe.subscriptions.cancel(stripeSubscriptionId);
+}
+
+export async function getStripeSubscription(stripeSubscriptionId: string): Promise<Stripe.Subscription> {
+  const stripe = getStripe();
+  return stripe.subscriptions.retrieve(stripeSubscriptionId);
+}

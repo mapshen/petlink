@@ -13,6 +13,7 @@ import TrackWalk from './pages/TrackWalk';
 import ProfilePage from './pages/ProfilePage';
 import WalletPage from './pages/WalletPage';
 import PromotePage from './pages/PromotePage';
+import SubscriptionPage from './pages/SubscriptionPage';
 import Onboarding from './pages/Onboarding';
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/wallet" element={<WalletPage />} />
               <Route path="/promote" element={<PromotePage />} />
+              <Route path="/subscription" element={<SubscriptionPage />} />
               <Route path="/pets" element={<Navigate to="/profile" replace />} />
               <Route path="/services" element={<Navigate to="/profile" replace />} />
               <Route path="/photos" element={<Navigate to="/profile" replace />} />

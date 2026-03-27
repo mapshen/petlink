@@ -2,6 +2,20 @@ export type CancellationPolicy = 'flexible' | 'moderate' | 'strict';
 
 export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
 
+export type SubscriptionTier = 'free' | 'pro';
+
+export interface SitterSubscription {
+  id: number;
+  sitter_id: number;
+  tier: SubscriptionTier;
+  stripe_subscription_id?: string;
+  status: 'active' | 'past_due' | 'cancelled';
+  current_period_start?: string;
+  current_period_end?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -21,6 +35,7 @@ export interface User {
   has_own_pets?: boolean;
   own_pets_description?: string;
   skills?: string[];
+  subscription_tier?: SubscriptionTier;
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';
