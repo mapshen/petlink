@@ -1344,24 +1344,29 @@ async function startServer() {
   });
 
   v1.post('/subscription/create-intent', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT role, email FROM users WHERE id = ${req.userId}`;
-    if (user.role !== 'sitter' && user.role !== 'both') {
-      res.status(403).json({ error: 'Only sitters can subscribe' });
-      return;
+    try {
+      const [user] = await sql`SELECT role, email FROM users WHERE id = ${req.userId}`;
+      if (user.role !== 'sitter' && user.role !== 'both') {
+        res.status(403).json({ error: 'Only sitters can subscribe' });
+        return;
+      }
+      const [existing] = await sql`SELECT tier FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
+      if (existing && existing.tier === 'pro') {
+        res.status(409).json({ error: 'Already subscribed to Pro' });
+        return;
+      }
+      const priceId = process.env.STRIPE_PRO_PRICE_ID;
+      if (!priceId) {
+        res.status(503).json({ error: 'Subscription payments not configured' });
+        return;
+      }
+      const customerId = await getOrCreateStripeCustomer(req.userId!, user.email);
+      const result = await createSubscriptionIntent(customerId, priceId);
+      res.json(result);
+    } catch (error) {
+      console.error('Subscription intent error:', error);
+      res.status(500).json({ error: 'Failed to create subscription' });
     }
-    const [existing] = await sql`SELECT tier FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
-    if (existing && existing.tier === 'pro') {
-      res.status(409).json({ error: 'Already subscribed to Pro' });
-      return;
-    }
-    const priceId = process.env.STRIPE_PRO_PRICE_ID;
-    if (!priceId) {
-      res.status(503).json({ error: 'Subscription payments not configured' });
-      return;
-    }
-    const customerId = await getOrCreateStripeCustomer(req.userId!, user.email);
-    const result = await createSubscriptionIntent(customerId, priceId);
-    res.json(result);
   });
 
   v1.post('/subscription/upgrade', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {

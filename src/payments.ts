@@ -126,12 +126,18 @@ export async function createSubscriptionIntent(
     expand: ['latest_invoice.payment_intent'],
   });
 
+  const invoice = subscription.latest_invoice;
+  if (!invoice || typeof invoice === 'string') {
+    throw new Error('Subscription invoice not expanded');
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const invoice = subscription.latest_invoice as any;
-  const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+  const paymentIntent = (invoice as any).payment_intent as Stripe.PaymentIntent;
+  if (!paymentIntent?.client_secret) {
+    throw new Error('Subscription payment intent created without client secret');
+  }
 
   return {
-    clientSecret: paymentIntent.client_secret!,
+    clientSecret: paymentIntent.client_secret,
     subscriptionId: subscription.id,
   };
 }
