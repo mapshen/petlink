@@ -18,6 +18,7 @@ import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, pe
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
+import { schedulePayoutForBooking, getPayoutDelay, getPayoutsForSitter, getPendingPayoutsForSitter } from './src/payouts.ts';
 import { botBlockMiddleware } from './src/bot-detection.ts';
 import { createCandidate, createInvitation, verifyWebhookSignature, parseWebhookEvent, mapCheckrStatus, isCheckrConfigured } from './src/checkr.ts';
 import { calculateRankingScore, isNewSitter, type SitterStats } from './src/sitter-ranking.ts';
@@ -1421,12 +1422,25 @@ async function startServer() {
       const startNotif = await createNotification(booking.owner_id, 'walk_started', 'Walk Started', `${sitterUser.name} has started the walk.`, { booking_id: Number(req.params.bookingId) });
       io.to(String(booking.owner_id)).emit('notification', startNotif);
     }
-    // If event is 'end', update booking to completed and notify owner
+    // If event is 'end', update booking to completed, schedule payout, and notify owner
     if (event_type === 'end') {
       await sql`UPDATE bookings SET status = 'completed' WHERE id = ${req.params.bookingId}`;
       const [sitterUser] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
       const endNotif = await createNotification(booking.owner_id, 'walk_completed', 'Walk Completed', `${sitterUser.name} has completed the walk.`, { booking_id: Number(req.params.bookingId) });
       io.to(String(booking.owner_id)).emit('notification', endNotif);
+
+      // Schedule delayed payout for sitter
+      // NOTE: Payouts are currently only triggered for walk-type bookings (via walk end event).
+      // This is acceptable for now since walks are the only booking type with a completion path.
+      if (booking.total_price && booking.total_price > 0) {
+        const delayDays = await getPayoutDelay(booking.sitter_id);
+        await schedulePayoutForBooking(
+          Number(req.params.bookingId),
+          booking.sitter_id,
+          booking.total_price,
+          delayDays
+        );
+      }
     }
 
     res.status(201).json({ event });
@@ -2122,6 +2136,29 @@ async function startServer() {
       console.error('Payment cancel error:', error);
       res.status(500).json({ error: 'Failed to cancel payment' });
     }
+  });
+
+  // --- Payouts ---
+  v1.get('/payouts', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (user.role !== 'sitter' && user.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can view payouts' });
+      return;
+    }
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const payouts = await getPayoutsForSitter(req.userId!, limit, offset);
+    res.json({ payouts });
+  });
+
+  v1.get('/payouts/pending', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (user.role !== 'sitter' && user.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can view payouts' });
+      return;
+    }
+    const payouts = await getPendingPayoutsForSitter(req.userId!);
+    res.json({ payouts });
   });
 
   // --- Stripe Webhook ---

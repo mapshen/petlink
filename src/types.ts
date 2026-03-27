@@ -258,3 +258,17 @@ export interface SitterExpense {
   receipt_url?: string;
   created_at: string;
 }
+
+export type PayoutStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface SitterPayout {
+  id: number;
+  booking_id: number;
+  sitter_id: number;
+  amount_cents: number;
+  status: PayoutStatus;
+  scheduled_at: string;
+  processed_at?: string | null;
+  stripe_transfer_id?: string | null;
+  created_at: string;
+}
