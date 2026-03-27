@@ -11,7 +11,8 @@ import cookieParser from 'cookie-parser';
 import { initDb } from './src/db.ts';
 import sql from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
-import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, cancelStripeSubscription } from './src/payments.ts';
+import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, createSubscriptionIntent, cancelStripeSubscription, listPaymentMethods, detachPaymentMethod, listCharges } from './src/payments.ts';
+import { getOrCreateStripeCustomer } from './src/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
 import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema } from './src/validation.ts';
@@ -74,7 +75,7 @@ async function startServer() {
       ? {
           directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "https://accounts.google.com", "https://appleid.cdn-apple.com", "https://connect.facebook.net"],
+            scriptSrc: ["'self'", "https://js.stripe.com", "https://accounts.google.com", "https://appleid.cdn-apple.com", "https://connect.facebook.net"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://i.pravatar.cc", "https://ui-avatars.com"],
             connectSrc: ["'self'", "wss:", "https://api.stripe.com", "https://nominatim.openstreetmap.org", "https://accounts.google.com", "https://appleid.apple.com", "https://graph.facebook.com"],
@@ -1342,6 +1343,27 @@ async function startServer() {
     res.json({ subscription: sub || null });
   });
 
+  v1.post('/subscription/create-intent', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT role, email FROM users WHERE id = ${req.userId}`;
+    if (user.role !== 'sitter' && user.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can subscribe' });
+      return;
+    }
+    const [existing] = await sql`SELECT tier FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
+    if (existing && existing.tier === 'pro') {
+      res.status(409).json({ error: 'Already subscribed to Pro' });
+      return;
+    }
+    const priceId = process.env.STRIPE_PRO_PRICE_ID;
+    if (!priceId) {
+      res.status(503).json({ error: 'Subscription payments not configured' });
+      return;
+    }
+    const customerId = await getOrCreateStripeCustomer(req.userId!, user.email);
+    const result = await createSubscriptionIntent(customerId, priceId);
+    res.json(result);
+  });
+
   v1.post('/subscription/upgrade', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`SELECT role, email FROM users WHERE id = ${req.userId}`;
     if (user.role !== 'sitter' && user.role !== 'both') {
@@ -2472,6 +2494,45 @@ async function startServer() {
       FROM users WHERE id = ${sitterId}
     `;
     res.json({ sitter: updated });
+  });
+
+  // --- Payment Management ---
+  v1.get('/payment-methods', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+    if (!user?.stripe_customer_id) {
+      res.json({ payment_methods: [] });
+      return;
+    }
+    const methods = await listPaymentMethods(user.stripe_customer_id);
+    res.json({ payment_methods: methods });
+  });
+
+  v1.delete('/payment-methods/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+    if (!user?.stripe_customer_id) {
+      res.status(404).json({ error: 'No payment methods found' });
+      return;
+    }
+    // Verify the payment method belongs to this customer
+    const methods = await listPaymentMethods(user.stripe_customer_id);
+    const owns = methods.some((m) => m.id === req.params.id);
+    if (!owns) {
+      res.status(404).json({ error: 'Payment method not found' });
+      return;
+    }
+    await detachPaymentMethod(req.params.id);
+    res.json({ success: true });
+  });
+
+  v1.get('/payment-history', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+    if (!user?.stripe_customer_id) {
+      res.json({ payments: [] });
+      return;
+    }
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const payments = await listCharges(user.stripe_customer_id, limit);
+    res.json({ payments });
   });
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)

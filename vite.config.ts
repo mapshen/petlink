@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID || ''),
       'import.meta.env.VITE_APPLE_CLIENT_ID': JSON.stringify(env.APPLE_CLIENT_ID || ''),
       'import.meta.env.VITE_FACEBOOK_APP_ID': JSON.stringify(env.FACEBOOK_APP_ID || ''),
+      'import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY': JSON.stringify(env.STRIPE_PUBLISHABLE_KEY || ''),
     },
     resolve: {
       alias: {
