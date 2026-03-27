@@ -2,11 +2,12 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMode } from '../context/ModeContext';
-import { User as UserIcon, PawPrint, DollarSign, Camera } from 'lucide-react';
+import { User as UserIcon, PawPrint, DollarSign, Camera, Globe } from 'lucide-react';
 import ProfileTab from './ProfileTab';
 import PetsTab from './PetsTab';
 import ServicesTab from './ServicesTab';
 import PhotosTab from './PhotosTab';
+import ImportedProfiles from '../components/ImportedProfiles';
 
 interface SectionDef {
   id: string;
@@ -20,6 +21,7 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'pets', label: 'My Pets', icon: PawPrint, mode: 'owner' },
   { id: 'services', label: 'Services', icon: DollarSign, mode: 'sitter' },
   { id: 'photos', label: 'Photos', icon: Camera, mode: 'sitter' },
+  { id: 'imported-profiles', label: 'Imported Profiles', icon: Globe, mode: 'sitter' },
 ];
 
 export default function ProfilePage() {
@@ -97,6 +99,9 @@ export default function ProfilePage() {
               </div>
               <div id="section-photos" className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24">
                 <PhotosTab />
+              </div>
+              <div id="section-imported-profiles" className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24">
+                <ImportedProfiles />
               </div>
             </>
           )}
