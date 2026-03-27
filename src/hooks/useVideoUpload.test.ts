@@ -7,17 +7,17 @@ import { describe, it, expect } from 'vitest';
  */
 
 // Re-declare constants to test against (mirrors useVideoUpload.ts)
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
-const MAX_DURATION_SECONDS = 60;
+const MAX_DURATION_SECONDS = 15;
 
 describe('useVideoUpload constants', () => {
-  it('MAX_FILE_SIZE is 50MB', () => {
-    expect(MAX_FILE_SIZE).toBe(52428800);
+  it('MAX_FILE_SIZE is 10MB', () => {
+    expect(MAX_FILE_SIZE).toBe(10485760);
   });
 
-  it('MAX_DURATION_SECONDS is 60', () => {
-    expect(MAX_DURATION_SECONDS).toBe(60);
+  it('MAX_DURATION_SECONDS is 15', () => {
+    expect(MAX_DURATION_SECONDS).toBe(15);
   });
 
   it('allows MP4 type', () => {
@@ -79,24 +79,24 @@ describe('useVideoUpload type validation logic', () => {
     expect(isAllowedType('')).toBe(false);
   });
 
-  it('accepts file exactly at 50MB', () => {
-    expect(isWithinSizeLimit(50 * 1024 * 1024)).toBe(true);
+  it('accepts file exactly at 10MB', () => {
+    expect(isWithinSizeLimit(10 * 1024 * 1024)).toBe(true);
   });
 
-  it('rejects file at 50MB + 1 byte', () => {
-    expect(isWithinSizeLimit(50 * 1024 * 1024 + 1)).toBe(false);
+  it('rejects file at 10MB + 1 byte', () => {
+    expect(isWithinSizeLimit(10 * 1024 * 1024 + 1)).toBe(false);
   });
 
   it('accepts small file', () => {
     expect(isWithinSizeLimit(1024)).toBe(true);
   });
 
-  it('accepts duration at exactly 60 seconds', () => {
-    expect(isWithinDurationLimit(60)).toBe(true);
+  it('accepts duration at exactly 15 seconds', () => {
+    expect(isWithinDurationLimit(15)).toBe(true);
   });
 
-  it('rejects duration at 61 seconds', () => {
-    expect(isWithinDurationLimit(61)).toBe(false);
+  it('rejects duration at 16 seconds', () => {
+    expect(isWithinDurationLimit(16)).toBe(false);
   });
 
   it('accepts short 5-second clip', () => {

@@ -1395,6 +1395,16 @@ async function startServer() {
       return;
     }
     const { event_type, lat, lng, note, photo_url, video_url, pet_id } = req.body;
+
+    // Limit video clips to 5 per booking
+    if (event_type === 'video') {
+      const [{ count }] = await sql`SELECT count(*)::int as count FROM walk_events WHERE booking_id = ${req.params.bookingId} AND event_type = 'video'`;
+      if (count >= 5) {
+        res.status(400).json({ error: 'Maximum 5 video clips per booking' });
+        return;
+      }
+    }
+
     if (pet_id != null) {
       const [validPet] = await sql`SELECT 1 FROM booking_pets WHERE booking_id = ${req.params.bookingId} AND pet_id = ${pet_id}`;
       if (!validPet) {
@@ -2254,9 +2264,9 @@ async function startServer() {
         res.status(400).json({ error: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/quicktime, video/webm' });
         return;
       }
-      const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
+      const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB
       if (folder === 'videos' && typeof fileSize === 'number' && fileSize > MAX_VIDEO_SIZE) {
-        res.status(400).json({ error: 'Video file must be under 50MB' });
+        res.status(400).json({ error: 'Video file must be under 10MB' });
         return;
       }
       const result = await generateUploadUrl(folder, contentType, req.userId!);

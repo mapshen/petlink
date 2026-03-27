@@ -2,9 +2,9 @@ import { useState, useCallback } from 'react';
 import { getAuthHeaders } from '../context/AuthContext';
 import { API_BASE } from '../config';
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
-const MAX_DURATION_SECONDS = 60;
+const MAX_DURATION_SECONDS = 15;
 
 interface UploadState {
   uploading: boolean;
