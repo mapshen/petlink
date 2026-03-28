@@ -634,14 +634,20 @@ async function startServer() {
     }
 
     const services = await sql`SELECT * FROM services WHERE sitter_id = ${req.params.id}`;
-    const reviews = await sql`
-      SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
-      FROM reviews r
-      JOIN users u ON r.reviewer_id = u.id
-      WHERE r.reviewee_id = ${req.params.id}
-    `;
-
     const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.id} ORDER BY sort_order, created_at`;
+
+    // Reviews only returned for authenticated users
+    const authHeader = req.headers.authorization;
+    let reviews: any[] = [];
+    if (authHeader?.startsWith('Bearer ')) {
+      reviews = await sql`
+        SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
+        FROM reviews r
+        JOIN users u ON r.reviewer_id = u.id
+        WHERE r.reviewee_id = ${req.params.id} AND r.published_at IS NOT NULL
+        ORDER BY r.created_at DESC
+      `;
+    }
 
     res.json({ sitter, services, reviews, photos });
   });
