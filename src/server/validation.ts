@@ -280,11 +280,15 @@ export const availabilitySchema = z.object({
 }).refine(
   (data) => data.start_time < data.end_time,
   { message: 'end_time must be after start_time', path: ['end_time'] }
+).refine(
+  (data) => data.day_of_week != null || data.specific_date != null,
+  { message: 'Either day_of_week or specific_date is required', path: ['day_of_week'] }
 );
 
 // --- Verification Update Schema ---
 export const verificationUpdateSchema = z.object({
-  house_photos_url: z.string().url('house_photos_url must be a valid URL').max(2048),
+  house_photos_url: z.string().url('house_photos_url must be a valid URL').max(2048)
+    .refine((url) => url.startsWith('https://'), 'URL must use HTTPS'),
 });
 
 // --- Calendar Schemas ---

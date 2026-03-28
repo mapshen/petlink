@@ -104,7 +104,10 @@ export function verifyWebhookSignature(payload: string, signature: string, secre
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(payload);
   const expected = hmac.digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  const sigBuf = Buffer.from(signature);
+  const expectedBuf = Buffer.from(expected);
+  if (sigBuf.length !== expectedBuf.length) return false;
+  return crypto.timingSafeEqual(sigBuf, expectedBuf);
 }
 
 export function parseWebhookEvent(body: unknown): CheckrWebhookEvent | null {
