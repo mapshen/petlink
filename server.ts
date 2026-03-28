@@ -15,7 +15,9 @@ import { createPaymentIntent, createACHPaymentIntent, createFinancialConnections
 import { getOrCreateStripeCustomer } from './src/server/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/server/notifications.ts';
 import { generateUploadUrl } from './src/server/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema } from './src/server/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema, calendarQuerySchema } from './src/server/validation.ts';
+import { getCalendarData } from './src/server/calendar.ts';
+import { generateCalendarToken, revokeCalendarToken, validateCalendarToken, generateICS, type ICSEvent } from './src/server/calendar-export.ts';
 import { parseRoverUrl, generateVerificationCode, scrapeRoverProfile, checkVerificationCode } from './src/server/profile-import.ts';
 import { verifyOAuthToken } from './src/server/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/server/cancellation.ts';
@@ -2783,6 +2785,140 @@ async function startServer() {
     }
     await sql`DELETE FROM imported_profiles WHERE id = ${req.params.id}`;
     res.json({ success: true });
+  });
+
+  // --- Calendar ---
+  v1.get('/calendar', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const parsed = calendarQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'start and end query params required (YYYY-MM-DD)' });
+      return;
+    }
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can access the calendar' });
+      return;
+    }
+    const events = await getCalendarData(sql, req.userId!, parsed.data.start, parsed.data.end);
+    res.json({ events });
+  });
+
+  // --- Calendar Export (iCal/ICS) ---
+  v1.post('/calendar/token', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const token = await generateCalendarToken(sql, req.userId!);
+    const url = `${req.protocol}://${req.get('host')}/api/v1/calendar/export?token=${token}`;
+    res.json({ token, url });
+  });
+
+  v1.delete('/calendar/token', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    await revokeCalendarToken(sql, req.userId!);
+    res.json({ success: true });
+  });
+
+  v1.get('/calendar/export', publicLimiter, async (req, res) => {
+    const token = req.query.token as string;
+    if (!token) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+    const userId = await validateCalendarToken(sql, token);
+    if (!userId) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+
+    const [user] = await sql`SELECT name FROM users WHERE id = ${userId}`;
+    if (!user) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+
+    const bookings = await sql`
+      SELECT b.id, b.status, b.start_time, b.end_time,
+             svc.type as service_type,
+             o.name as owner_name
+      FROM bookings b
+      LEFT JOIN services svc ON b.service_id = svc.id
+      JOIN users o ON b.owner_id = o.id
+      WHERE b.sitter_id = ${userId}
+      ORDER BY b.start_time DESC
+    `;
+
+    const bookingIds = bookings.map((b: any) => b.id);
+    const bookingPets = bookingIds.length > 0
+      ? await sql`
+          SELECT bp.booking_id, p.name
+          FROM booking_pets bp
+          JOIN pets p ON bp.pet_id = p.id
+          WHERE bp.booking_id IN ${sql(bookingIds)}
+        `
+      : [];
+    const petsByBooking = new Map<number, string[]>();
+    for (const row of bookingPets) {
+      const list = petsByBooking.get(row.booking_id) || [];
+      list.push(row.name);
+      petsByBooking.set(row.booking_id, list);
+    }
+
+    const availability = await sql`
+      SELECT * FROM availability WHERE sitter_id = ${userId} ORDER BY day_of_week, start_time
+    `;
+
+    const icsStatusMap: Record<string, 'confirmed' | 'tentative' | 'cancelled'> = {
+      confirmed: 'confirmed', in_progress: 'confirmed', completed: 'confirmed',
+      pending: 'tentative', cancelled: 'cancelled',
+    };
+
+    const icsEvents: ICSEvent[] = [];
+
+    for (const b of bookings) {
+      const petNames = petsByBooking.get(b.id) || [];
+      icsEvents.push({
+        id: b.id,
+        type: 'booking',
+        title: `${b.service_type || 'Booking'} - ${b.owner_name || 'Client'}`,
+        description: [
+          petNames.length > 0 ? `Pets: ${petNames.join(', ')}` : null,
+          b.service_type ? `Service: ${b.service_type}` : null,
+          b.owner_name ? `Client: ${b.owner_name}` : null,
+        ].filter(Boolean).join('\n'),
+        start: new Date(b.start_time),
+        end: new Date(b.end_time),
+        status: icsStatusMap[b.status] || 'confirmed',
+        categories: ['BOOKING'],
+      });
+    }
+
+    for (const a of availability) {
+      if (a.specific_date) {
+        const d = new Date(a.specific_date);
+        const [sh, sm] = (a.start_time as string).split(':').map(Number);
+        const [eh, em] = (a.end_time as string).split(':').map(Number);
+        icsEvents.push({
+          id: a.id, type: 'availability', title: 'Available',
+          start: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), sh, sm || 0)),
+          end: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), eh, em || 0)),
+          status: 'confirmed', categories: ['AVAILABILITY'],
+        });
+      } else if (a.day_of_week != null) {
+        const now = new Date();
+        const diff = ((a.day_of_week as number) - now.getUTCDay() + 7) % 7;
+        const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+        const [sh, sm] = (a.start_time as string).split(':').map(Number);
+        const [eh, em] = (a.end_time as string).split(':').map(Number);
+        icsEvents.push({
+          id: a.id, type: 'availability', title: 'Available',
+          start: new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate(), sh, sm || 0)),
+          end: new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate(), eh, em || 0)),
+          status: 'confirmed', categories: ['AVAILABILITY'],
+        });
+      }
+    }
+
+    const ics = generateICS(icsEvents, user.name);
+    res.set('Content-Type', 'text/calendar; charset=utf-8');
+    res.set('Content-Disposition', 'attachment; filename="petlink-calendar.ics"');
+    res.send(ics);
   });
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)

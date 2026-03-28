@@ -579,6 +579,17 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_imported_profiles_sitter_id ON imported_profiles (sitter_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_imported_reviews_sitter_id ON imported_reviews (sitter_id)`.catch(() => {});
 
+  // Issue #146: Calendar token-based iCal export
+  await sql`
+    CREATE TABLE IF NOT EXISTS calendar_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT UNIQUE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_calendar_tokens_user ON calendar_tokens (user_id)`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;

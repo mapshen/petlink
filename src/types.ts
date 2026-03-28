@@ -386,3 +386,18 @@ export interface RevenueDataPoint {
   revenue: number;
   booking_count: number;
 }
+
+export interface CalendarEvent {
+  id: number;
+  type: 'booking' | 'availability';
+  title: string;
+  start: string;
+  end: string;
+  status?: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  service_type?: string;
+  owner_name?: string;
+  owner_avatar?: string;
+  pet_names?: string[];
+  recurring?: boolean;
+  availability_id?: number;
+}
