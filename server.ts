@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
+import crypto from 'crypto';
 import { initDb } from './src/server/db.ts';
 import sql from './src/server/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/server/auth.ts';
@@ -15,7 +16,7 @@ import { createPaymentIntent, createACHPaymentIntent, createFinancialConnections
 import { getOrCreateStripeCustomer } from './src/server/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/server/notifications.ts';
 import { generateUploadUrl } from './src/server/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema, calendarQuerySchema, bookingFiltersSchema, analyticsDateRangeSchema } from './src/server/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema, calendarQuerySchema, bookingFiltersSchema, analyticsDateRangeSchema, availabilitySchema, verificationUpdateSchema } from './src/server/validation.ts';
 import { getCalendarData } from './src/server/calendar.ts';
 import { generateCalendarToken, revokeCalendarToken, validateCalendarToken, generateICS, type ICSEvent } from './src/server/calendar-export.ts';
 import { parseRoverUrl, generateVerificationCode, scrapeRoverProfile, checkVerificationCode } from './src/server/profile-import.ts';
@@ -889,7 +890,7 @@ async function startServer() {
     res.status(201).json({ verification });
   });
 
-  v1.put('/verification/update', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.put('/verification/update', authMiddleware, validate(verificationUpdateSchema), async (req: AuthenticatedRequest, res) => {
     const { house_photos_url } = req.body;
     const [verification] = await sql`SELECT * FROM verifications WHERE sitter_id = ${req.userId}`;
     if (!verification) {
@@ -908,15 +909,17 @@ async function startServer() {
     // Checkr webhook format detection
     const event = parseWebhookEvent(req.body);
     if (event && event.type && event.data?.object?.candidate_id) {
-      // Checkr webhook — verify signature if secret configured
+      // Checkr webhook — verify signature (required)
       const checkrSecret = process.env.CHECKR_WEBHOOK_SECRET;
-      if (checkrSecret) {
-        const signature = req.headers['x-checkr-signature'] as string || '';
-        const rawBody = JSON.stringify(req.body);
-        if (!verifyWebhookSignature(rawBody, signature, checkrSecret)) {
-          res.status(401).json({ error: 'Invalid webhook signature' });
-          return;
-        }
+      if (!checkrSecret) {
+        res.status(500).json({ error: 'Webhook secret not configured' });
+        return;
+      }
+      const signature = req.headers['x-checkr-signature'] as string || '';
+      const rawBody = JSON.stringify(req.body);
+      if (!verifyWebhookSignature(rawBody, signature, checkrSecret)) {
+        res.status(401).json({ error: 'Invalid webhook signature' });
+        return;
       }
 
       // Only process report.completed events
@@ -946,12 +949,16 @@ async function startServer() {
 
     // Legacy webhook format (sitter_id + status)
     const webhookSecret = process.env.BG_CHECK_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const signature = req.headers['x-webhook-signature'];
-      if (signature !== webhookSecret) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
+    if (!webhookSecret) {
+      res.status(500).json({ error: 'Webhook secret not configured' });
+      return;
+    }
+    const signature = req.headers['x-webhook-signature'] as string || '';
+    const secretBuf = Buffer.from(webhookSecret);
+    const sigBuf = Buffer.from(signature);
+    if (secretBuf.length !== sigBuf.length || !crypto.timingSafeEqual(secretBuf, sigBuf)) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const { sitter_id, status } = req.body;
@@ -997,17 +1004,13 @@ async function startServer() {
     res.json({ slots });
   });
 
-  v1.post('/availability', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/availability', authMiddleware, validate(availabilitySchema), async (req: AuthenticatedRequest, res) => {
     const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
     if (currentUser.approval_status !== 'approved') {
       res.status(403).json({ error: 'Your sitter account is pending approval. You cannot set availability yet.' });
       return;
     }
     const { day_of_week, specific_date, start_time, end_time, recurring } = req.body;
-    if (start_time == null || end_time == null) {
-      res.status(400).json({ error: 'start_time and end_time are required' });
-      return;
-    }
     const [slot] = await sql`
       INSERT INTO availability (sitter_id, day_of_week, specific_date, start_time, end_time, recurring)
       VALUES (${req.userId}, ${day_of_week ?? null}, ${specific_date || null}, ${start_time}, ${end_time}, ${recurring ? true : false})
@@ -1339,21 +1342,21 @@ async function startServer() {
   v1.put('/featured-listings/:id/pause', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [listing] = await sql`SELECT id FROM featured_listings WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     if (!listing) { res.status(404).json({ error: 'Listing not found' }); return; }
-    const [updated] = await sql`UPDATE featured_listings SET active = FALSE WHERE id = ${req.params.id} RETURNING *`;
+    const [updated] = await sql`UPDATE featured_listings SET active = FALSE WHERE id = ${req.params.id} AND sitter_id = ${req.userId} RETURNING *`;
     res.json({ listing: updated });
   });
 
   v1.put('/featured-listings/:id/resume', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [listing] = await sql`SELECT id FROM featured_listings WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     if (!listing) { res.status(404).json({ error: 'Listing not found' }); return; }
-    const [updated] = await sql`UPDATE featured_listings SET active = TRUE WHERE id = ${req.params.id} RETURNING *`;
+    const [updated] = await sql`UPDATE featured_listings SET active = TRUE WHERE id = ${req.params.id} AND sitter_id = ${req.userId} RETURNING *`;
     res.json({ listing: updated });
   });
 
   v1.delete('/featured-listings/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [listing] = await sql`SELECT id FROM featured_listings WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     if (!listing) { res.status(404).json({ error: 'Listing not found' }); return; }
-    await sql`DELETE FROM featured_listings WHERE id = ${req.params.id}`;
+    await sql`DELETE FROM featured_listings WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
     res.json({ success: true });
   });
 
@@ -1778,18 +1781,19 @@ async function startServer() {
       return;
     }
 
-    // Verify all pets belong to the owner
-    const ownerPets = await sql`SELECT id FROM pets WHERE id = ANY(${pet_ids}) AND owner_id = ${req.userId}`;
-    if (ownerPets.length !== pet_ids.length) {
-      res.status(400).json({ error: 'One or more pets not found or do not belong to you' });
-      return;
-    }
-
     const totalPrice = calculateBookingPrice(service.price, service.additional_pet_price || 0, pet_ids.length);
 
     // Use transaction for booking + booking_pets + care tasks
+    let booking;
+    try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const booking = await sql.begin(async (tx: any) => {
+    booking = await sql.begin(async (tx: any) => {
+      // Verify all pets belong to the owner (inside transaction for consistency)
+      const ownerPets = await tx`SELECT id FROM pets WHERE id = ANY(${pet_ids}) AND owner_id = ${req.userId}`;
+      if (ownerPets.length !== pet_ids.length) {
+        throw new Error('INVALID_PETS');
+      }
+
       const [b] = await tx`
         INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
         VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending')
@@ -1815,6 +1819,13 @@ async function startServer() {
 
       return b;
     });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'INVALID_PETS') {
+        res.status(400).json({ error: 'One or more pets not found or do not belong to you' });
+        return;
+      }
+      throw err;
+    }
 
     // Notify sitter of new booking
     const [owner] = await sql`SELECT name, email FROM users WHERE id = ${req.userId}`;
@@ -2224,7 +2235,7 @@ async function startServer() {
     try {
       const { booking_id } = req.body;
       const [booking] = await sql`
-        SELECT * FROM bookings WHERE id = ${booking_id} AND (owner_id = ${req.userId} OR sitter_id = ${req.userId}) AND payment_status = 'held'
+        SELECT * FROM bookings WHERE id = ${booking_id} AND owner_id = ${req.userId} AND payment_status = 'held'
       `;
       if (!booking) {
         res.status(404).json({ error: 'Booking not found or payment not held' });

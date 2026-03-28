@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
+      exclude: ['node_modules', '.claude/**'],
       coverage: {
         provider: 'v8',
         include: ['src/server/**/*.ts'],
