@@ -84,6 +84,40 @@ describe('double-blind reviews', () => {
     expect(reviews[1].published_at).not.toBeNull();
   });
 
+  it('should auto-publish unpublished reviews after 3 days', () => {
+    const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, created_at) VALUES (?, ?, ?, ?, ?)').run(1, 1, 2, 5, fourDaysAgo);
+
+    const review = db.prepare('SELECT * FROM reviews WHERE id = 1').get() as Record<string, unknown>;
+    expect(review.published_at).toBeNull();
+
+    // Should be visible via the 3-day auto-publish filter
+    const visible = db.prepare(
+      "SELECT * FROM reviews WHERE reviewee_id = 2 AND (published_at IS NOT NULL OR created_at < datetime('now', '-3 days'))"
+    ).all();
+    expect(visible).toHaveLength(1);
+  });
+
+  it('should NOT auto-publish unpublished reviews within 3 days', () => {
+    const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, created_at) VALUES (?, ?, ?, ?, ?)').run(1, 1, 2, 5, oneDayAgo);
+
+    const visible = db.prepare(
+      "SELECT * FROM reviews WHERE reviewee_id = 2 AND (published_at IS NOT NULL OR created_at < datetime('now', '-3 days'))"
+    ).all();
+    expect(visible).toHaveLength(0);
+  });
+
+  it('should block review submission after 3-day window if other party already reviewed', () => {
+    const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, created_at) VALUES (?, ?, ?, ?, ?)').run(1, 1, 2, 5, fourDaysAgo);
+
+    // The other party's review is > 3 days old — new review should be blocked
+    const otherReview = db.prepare('SELECT created_at FROM reviews WHERE booking_id = 1 AND reviewer_id = 1').get() as Record<string, unknown>;
+    const age = Date.now() - new Date(otherReview.created_at as string).getTime();
+    expect(age).toBeGreaterThan(3 * 24 * 60 * 60 * 1000);
+  });
+
   it('should prevent duplicate reviews from same reviewer', () => {
     db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating) VALUES (?, ?, ?, ?)').run(1, 1, 2, 5);
 

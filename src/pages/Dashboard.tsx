@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { useMode } from '../context/ModeContext';
 import { Booking } from '../types';
-import { Calendar, MapPin, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, XCircle, RefreshCw, Star } from 'lucide-react';
 import { format } from 'date-fns';
 import { API_BASE } from '../config';
 import { Link } from 'react-router-dom';
@@ -37,6 +37,11 @@ export default function Dashboard() {
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
+  const [reviewBookingId, setReviewBookingId] = useState<number | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<number>>(new Set());
   const { mode } = useMode();
   const isSitterMode = mode === 'sitter';
   const onboarding = useOnboardingStatus();
@@ -98,6 +103,34 @@ export default function Dashboard() {
     if (cancelDialogBookingId !== null) {
       updateBookingStatus(cancelDialogBookingId, 'cancelled');
       setCancelDialogBookingId(null);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewBookingId) return;
+    setReviewSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/reviews`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({
+          booking_id: reviewBookingId,
+          rating: reviewRating,
+          comment: reviewComment || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to submit review');
+      }
+      setReviewedBookingIds((prev) => new Set([...prev, reviewBookingId]));
+      setReviewBookingId(null);
+      setReviewRating(5);
+      setReviewComment('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit review');
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -240,6 +273,17 @@ export default function Dashboard() {
                         </Button>
                       )}
 
+                      {booking.status === 'completed' && !reviewedBookingIds.has(booking.id) && (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => { setReviewBookingId(booking.id); setReviewRating(5); setReviewComment(''); }}
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                          Leave Review
+                        </Button>
+                      )}
+
                       {!isSitterMode && booking.status === 'completed' && (
                         <Button size="xs" variant="outline" asChild>
                           <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
@@ -276,6 +320,55 @@ export default function Dashboard() {
             <AlertDialogCancel>Keep Booking</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={handleCancelConfirm}>
               Cancel Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Review Dialog */}
+      <AlertDialog open={reviewBookingId !== null} onOpenChange={(open) => { if (!open) { setReviewBookingId(null); setReviewRating(5); setReviewComment(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+              Leave a Review
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              How was your experience? Your review will be visible after both parties submit or after 3 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium text-stone-700 mb-2 block">Rating</label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setReviewRating(star)}
+                    className="p-0.5 transition-colors"
+                  >
+                    <Star className={`w-8 h-8 ${star <= reviewRating ? 'fill-amber-400 text-amber-400' : 'text-stone-200 hover:text-amber-200'}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label htmlFor="review-comment" className="text-sm font-medium text-stone-700 mb-2 block">Comment (optional)</label>
+              <textarea
+                id="review-comment"
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="Tell others about your experience..."
+                rows={3}
+                maxLength={1000}
+                className="w-full px-3 py-2 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSubmitReview} disabled={reviewSubmitting}>
+              {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

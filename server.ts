@@ -569,7 +569,7 @@ async function startServer() {
         FROM users u
         LEFT JOIN LATERAL (
           SELECT AVG(r.rating)::float as avg_rating, COUNT(*)::int as review_count
-          FROM reviews r WHERE r.reviewee_id = u.id AND r.published_at IS NOT NULL
+          FROM reviews r WHERE r.reviewee_id = u.id AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
         ) rv ON true
         LEFT JOIN LATERAL (
           SELECT
@@ -634,14 +634,20 @@ async function startServer() {
     }
 
     const services = await sql`SELECT * FROM services WHERE sitter_id = ${req.params.id}`;
-    const reviews = await sql`
-      SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
-      FROM reviews r
-      JOIN users u ON r.reviewer_id = u.id
-      WHERE r.reviewee_id = ${req.params.id}
-    `;
-
     const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.id} ORDER BY sort_order, created_at`;
+
+    // Reviews only returned for authenticated users
+    const authHeader = req.headers.authorization;
+    let reviews: any[] = [];
+    if (authHeader?.startsWith('Bearer ')) {
+      reviews = await sql`
+        SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
+        FROM reviews r
+        JOIN users u ON r.reviewer_id = u.id
+        WHERE r.reviewee_id = ${req.params.id} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+        ORDER BY r.created_at DESC
+      `;
+    }
 
     res.json({ sitter, services, reviews, photos });
   });
@@ -738,14 +744,21 @@ async function startServer() {
       return;
     }
 
+    // Block reviews after 3-day window if the other party already reviewed (prevents retaliation)
+    const [otherReview] = await sql`SELECT id, created_at FROM reviews WHERE booking_id = ${booking_id} AND reviewer_id = ${revieweeId}`;
+    if (otherReview) {
+      const otherAge = Date.now() - new Date(otherReview.created_at).getTime();
+      if (otherAge > 3 * 24 * 60 * 60 * 1000) {
+        res.status(403).json({ error: 'The review window for this booking has closed' });
+        return;
+      }
+    }
+
     const [review] = await sql`
       INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
       VALUES (${booking_id}, ${req.userId}, ${revieweeId}, ${rating}, ${comment || null})
       RETURNING id
     `;
-
-    // Check if both parties have reviewed — if so, publish both
-    const [otherReview] = await sql`SELECT id FROM reviews WHERE booking_id = ${booking_id} AND reviewer_id = ${revieweeId}`;
 
     if (otherReview) {
       await sql`UPDATE reviews SET published_at = NOW() WHERE booking_id = ${booking_id} AND published_at IS NULL`;
@@ -755,12 +768,12 @@ async function startServer() {
   });
 
   // Get reviews for a user (only published ones)
-  v1.get('/reviews/:userId', botBlockMiddleware, publicLimiter, async (req, res) => {
+  v1.get('/reviews/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const reviews = await sql`
       SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
       FROM reviews r
       JOIN users u ON r.reviewer_id = u.id
-      WHERE r.reviewee_id = ${req.params.userId} AND r.published_at IS NOT NULL
+      WHERE r.reviewee_id = ${req.params.userId} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
       ORDER BY r.created_at DESC
     `;
 
