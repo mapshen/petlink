@@ -21,8 +21,8 @@ export default defineConfig(({ mode }) => {
     test: {
       coverage: {
         provider: 'v8',
-        include: ['src/**/*.ts'],
-        exclude: ['src/**/*.test.ts', 'src/**/*.d.ts', 'src/db.ts', 'src/types.ts', 'src/**/*.tsx'],
+        include: ['src/server/**/*.ts'],
+        exclude: ['src/**/*.test.ts', 'src/**/*.d.ts', 'src/server/db.ts', 'src/types.ts'],
         thresholds: {
           statements: 80,
           branches: 70,
