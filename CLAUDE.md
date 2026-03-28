@@ -23,13 +23,13 @@ npm run clean        # Remove dist/
 
 Single Express server serves both the API and Vite-powered frontend in dev mode. Socket.io attached to the same HTTP server for real-time messaging and notifications.
 
-- **Database**: PostgreSQL via `postgres` (porsager), schema in `src/db.ts`. All tables live in a dedicated `petlink` schema (configurable via `DB_SCHEMA` env var). PostGIS extension also installed in the `petlink` schema. Connection `search_path` set to `petlink` only — no `public`.
-- **Auth**: JWT + bcrypt (`src/auth.ts`). Bearer tokens in `Authorization` header. Async middleware validates token + user existence. OAuth sign-in via Google, Apple, Facebook (`src/oauth.ts`). OAuth-only users have `password_hash = NULL`.
-- **Payments**: Stripe Connect escrow (`src/payments.ts`). Manual capture for hold/release flow.
-- **Notifications**: In-app + real-time via Socket.io (`src/notifications.ts`). Per-user preferences.
-- **Storage**: S3-compatible signed URL uploads (`src/storage.ts`). Supports AWS S3 and MinIO.
-- **Rate limiting**: 100 req/15min API, 20 req/15min auth endpoints, 30 req/15min public endpoints. Rate limiters in `src/rate-limit.ts`.
-- **Bot protection**: `robots.txt` disallows `/api/`, `X-Robots-Tag` header on all API responses, bot UA detection middleware on public endpoints (`src/bot-detection.ts`). Public endpoints (sitter search/profile, reviews, availability, photos, verification) have stricter rate limits and bot blocking.
+- **Database**: PostgreSQL via `postgres` (porsager), schema in `src/server/db.ts`. All tables live in a dedicated `petlink` schema (configurable via `DB_SCHEMA` env var). PostGIS extension also installed in the `petlink` schema. Connection `search_path` set to `petlink` only — no `public`.
+- **Auth**: JWT + bcrypt (`src/server/auth.ts`). Bearer tokens in `Authorization` header. Async middleware validates token + user existence. OAuth sign-in via Google, Apple, Facebook (`src/server/oauth.ts`). OAuth-only users have `password_hash = NULL`.
+- **Payments**: Direct payment escrow (`src/server/payments.ts`). Manual capture for hold/release flow.
+- **Notifications**: In-app + real-time via Socket.io (`src/server/notifications.ts`). Per-user preferences.
+- **Storage**: S3-compatible signed URL uploads (`src/server/storage.ts`). Supports AWS S3 and MinIO.
+- **Rate limiting**: 100 req/15min API, 20 req/15min auth endpoints, 30 req/15min public endpoints. Rate limiters in `src/server/rate-limit.ts`.
+- **Bot protection**: `robots.txt` disallows `/api/`, `X-Robots-Tag` header on all API responses, bot UA detection middleware on public endpoints (`src/server/bot-detection.ts`). Public endpoints (sitter search/profile, reviews, availability, photos, verification) have stricter rate limits and bot blocking.
 
 ### API Routes (all under `/api/v1/`, also mounted at `/api/` for backwards compat)
 
@@ -66,16 +66,33 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 
 React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 
-- **Entry**: `src/main.tsx` → `src/App.tsx` (router) → `src/components/Layout.tsx` (shell)
+- **Entry**: `src/main.tsx` → `src/App.tsx` (router) → `src/components/layout/Layout.tsx` (shell)
 - **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`petlink_token`, `petlink_user`)
-- **Pages**: Home, Login, Search, SitterProfile, Dashboard (mode-aware booking filtering), Messages, TrackWalk, ProfilePage (sidebar + stacked sections: owner mode shows ProfileTab+PetsTab, sitter mode shows ProfileTab+ServicesTab+PhotosTab), Onboarding. Old routes `/pets`, `/services`, `/photos` redirect to `/profile`.
+- **Pages** (organized by feature in `src/pages/`):
+  - `auth/` — Login, Onboarding
+  - `admin/` — AdminPage (sitter approval management)
+  - `dashboard/` — Dashboard (bookings, reviews, favorites, onboarding checklist)
+  - `search/` — Search, SitterProfile
+  - `profile/` — ProfilePage (sidebar + stacked sections), ProfileTab, PetsTab, ServicesTab, PhotosTab, ReviewsTab, SubscriptionPage, ImportProfilePage
+  - `messages/` — Messages
+  - `payments/` — WalletPage, PaymentHistoryPage
+  - `sitter/` — AnalyticsPage, PromotePage, TrackWalk
+  - `Home.tsx` — landing page
 - **Mode system**: `ModeContext` provides global owner/sitter toggle for "both" role users. Persisted in localStorage (`petlink_mode`). Affects Dashboard filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
-- **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows), `PhotoGallery` (lightbox viewer), `FavoriteButton` (heart toggle), `FavoriteSitters` (dashboard favorites section), `PetSelector` (multi-pet checkbox selection for bookings), `CareInstructionsEditor` (per-pet care instruction management), `CareTasksChecklist` (sitter task completion with progress), `SitterClusterMap` (search results map with marker clustering), `SitterLocationMap` (sitter profile approximate location map), `MapViewToggle` (list/map/split view toggle)
-- **Hooks**: `useFavorites` (favorites state + optimistic toggle), `useOnboardingStatus`, `useImageUpload`
-- **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review, Availability, WalkEvent, SitterPhoto, Favorite, CancellationPolicy, SitterSubscription
+- **Components** (organized by domain in `src/components/`):
+  - `layout/` — Layout, ModeToggle
+  - `booking/` — BookingCalendar, TimeSlotPicker, PetSelector, CareTasksChecklist, QuickTapLogger
+  - `payment/` — PaymentForm, PaymentMethodSelector, SubscriptionPaymentForm, SavedPaymentMethods, BankAccountManager
+  - `profile/` — PhotoGallery, FavoriteButton, FavoriteSitters, LinkedAccounts, ImportedReviewBadge, CareInstructionsEditor
+  - `onboarding/` — OnboardingChecklist, OnboardingProgress, OAuthButtons
+  - `map/` — SitterClusterMap, SitterLocationMap, MapViewToggle
+  - `ui/` — shadcn components
+- **Hooks**: `useFavorites`, `useOnboardingStatus`, `useImageUpload`, `useVideoUpload`, `usePaymentIntent`
+- **Server modules** (`src/server/`): auth, admin, analytics, payments, payouts, notifications, email, storage, validation, profile-import, stripe-customers, etc.
+- **Types**: `src/types.ts`
 - **Path alias**: `@/*` maps to project root
 
-### Database Schema (`src/db.ts`)
+### Database Schema (`src/server/db.ts`)
 
 PostgreSQL with PostGIS.
 
@@ -116,7 +133,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 - `postgres` — PostgreSQL driver (tagged template literals)
 - `stripe` — Stripe Connect payments (backend)
 - `@stripe/stripe-js` + `@stripe/react-stripe-js` — Stripe Elements for embedded payment forms
-- `resend` — transactional email via Resend API (`src/email.ts`)
+- `resend` — transactional email via Resend API (`src/server/email.ts`)
 - `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` — S3 uploads
 - `leaflet` + `react-leaflet` — interactive maps with OpenStreetMap tiles (`src/components/map/`)
 - `leaflet.markercluster` — marker clustering for search results map
