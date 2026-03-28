@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PetLink — a pet services marketplace (Rover clone). React 19 + Express + PostgreSQL (PostGIS) + Socket.io + Stripe Connect. Monorepo with frontend and backend in the same package.
+PetLink — a pet services marketplace (Rover clone). React 19 + Express + PostgreSQL (PostGIS) + Socket.io + Stripe. Monorepo with frontend and backend in the same package.
 
 ## Commands
 
@@ -131,7 +131,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 - `shadcn/ui` — accessible UI components (Button, Card, Badge, Alert, AlertDialog, Avatar, Input, Textarea, Dialog, Select, Tabs)
 - `clsx` + `tailwind-merge` — conditional class composition (via `cn()` in `lib/utils.ts`)
 - `postgres` — PostgreSQL driver (tagged template literals)
-- `stripe` — Stripe Connect payments (backend)
+- `stripe` — Stripe payments (backend)
 - `@stripe/stripe-js` + `@stripe/react-stripe-js` — Stripe Elements for embedded payment forms
 - `resend` — transactional email via Resend API (`src/server/email.ts`)
 - `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` — S3 uploads
