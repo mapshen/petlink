@@ -168,6 +168,14 @@ export default function Dashboard() {
         </Alert>
       )}
 
+      {user?.approval_status === 'banned' && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>
+            Your account has been suspended. Please contact support.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {isSitterMode && !onboarding.loading && !onboarding.isComplete && !checklistDismissed && (
         <OnboardingChecklist
           status={onboarding}

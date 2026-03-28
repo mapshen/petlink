@@ -80,7 +80,7 @@ PostgreSQL with PostGIS.
 
 | Table | Key Columns / Notes |
 |-------|-------------------|
-| `users` | `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected), `approval_rejected_reason`, `approved_by`, `approved_at`, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills` |
+| `users` | `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills` |
 | `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
 | `pet_vaccinations` | Vaccine records with expiration tracking |
 | `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB |

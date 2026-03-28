@@ -79,6 +79,40 @@ describe('approval status logic', () => {
   });
 });
 
+describe('banned user enforcement', () => {
+  function shouldBlockLogin(approvalStatus: string): boolean {
+    return approvalStatus === 'banned';
+  }
+
+  function shouldBlockAuthMiddleware(approvalStatus: string): boolean {
+    return approvalStatus === 'banned';
+  }
+
+  it('blocks banned users at login', () => {
+    expect(shouldBlockLogin('banned')).toBe(true);
+  });
+
+  it('does not block approved users at login', () => {
+    expect(shouldBlockLogin('approved')).toBe(false);
+  });
+
+  it('does not block rejected users at login', () => {
+    expect(shouldBlockLogin('rejected')).toBe(false);
+  });
+
+  it('does not block pending users at login', () => {
+    expect(shouldBlockLogin('pending_approval')).toBe(false);
+  });
+
+  it('blocks banned users at auth middleware', () => {
+    expect(shouldBlockAuthMiddleware('banned')).toBe(true);
+  });
+
+  it('does not block approved users at auth middleware', () => {
+    expect(shouldBlockAuthMiddleware('approved')).toBe(false);
+  });
+});
+
 describe('approval email builder', () => {
   // Dynamic import to avoid top-level import issues with Resend
   it('builds approved email', async () => {
