@@ -160,6 +160,7 @@ export interface Booking {
   owner_avatar?: string;
   service_type?: string;
   pets?: { id: number; name: string; photo_url?: string; breed?: string }[];
+  payment_method?: 'card' | 'ach_debit';
 }
 
 export interface Message {

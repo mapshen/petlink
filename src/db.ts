@@ -532,6 +532,13 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users (approval_status)`.catch(() => {});
 
+  // Issue #99: ACH bank transfer payment option
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'card'`.catch(() => {});
+  await sql`ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_payment_method_check`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD CONSTRAINT bookings_payment_method_check CHECK(payment_method IN ('card', 'ach_debit'))`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_failure_reason TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;

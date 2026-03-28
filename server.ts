@@ -11,7 +11,7 @@ import cookieParser from 'cookie-parser';
 import { initDb } from './src/db.ts';
 import sql from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
-import { createConnectedAccount, createAccountLink, createPaymentIntent, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, createSubscriptionIntent, cancelStripeSubscription, listPaymentMethods, detachPaymentMethod, listCharges } from './src/payments.ts';
+import { createConnectedAccount, createAccountLink, createPaymentIntent, createACHPaymentIntent, createFinancialConnectionsSession, listBankAccounts, detachBankAccount, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, createSubscriptionIntent, cancelStripeSubscription, listPaymentMethods, detachPaymentMethod, listCharges } from './src/payments.ts';
 import { getOrCreateStripeCustomer } from './src/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
@@ -2556,6 +2556,62 @@ async function startServer() {
     } catch (error) {
       console.error('Payment history error:', error);
       res.status(500).json({ error: 'Failed to load payment history' });
+    }
+  });
+
+  // --- ACH Bank Transfer Payment ---
+  v1.post('/payments/link-bank', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [user] = await sql`SELECT email, stripe_customer_id FROM users WHERE id = ${req.userId}`;
+      if (!user.stripe_customer_id) {
+        res.status(503).json({ error: 'Bank linking requires Stripe Customer setup. Please make a card payment first.' });
+        return;
+      }
+      const result = await createFinancialConnectionsSession(user.stripe_customer_id);
+      res.json(result);
+    } catch (error) {
+      console.error('Bank linking error:', error);
+      res.status(500).json({ error: 'Failed to start bank linking' });
+    }
+  });
+
+  v1.get('/payments/bank-accounts', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+      if (!user?.stripe_customer_id) {
+        res.json({ bank_accounts: [] });
+        return;
+      }
+      const accounts = await listBankAccounts(user.stripe_customer_id);
+      res.json({ bank_accounts: accounts });
+    } catch (error) {
+      console.error('Bank accounts error:', error);
+      res.status(500).json({ error: 'Failed to load bank accounts' });
+    }
+  });
+
+  v1.delete('/payments/bank-accounts/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.params.id || !/^pm_/.test(req.params.id)) {
+        res.status(400).json({ error: 'Invalid payment method ID' });
+        return;
+      }
+      const [user] = await sql`SELECT stripe_customer_id FROM users WHERE id = ${req.userId}`;
+      if (!user?.stripe_customer_id) {
+        res.status(404).json({ error: 'No bank accounts found' });
+        return;
+      }
+      const accounts = await listBankAccounts(user.stripe_customer_id);
+      const owns = accounts.some((a) => a.id === req.params.id);
+      if (!owns) {
+        res.status(404).json({ error: 'Bank account not found' });
+        return;
+      }
+      await detachBankAccount(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Bank account deletion error:', error);
+      res.status(500).json({ error: 'Failed to remove bank account' });
     }
   });
 
