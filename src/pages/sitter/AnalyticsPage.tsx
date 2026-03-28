@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { BarChart3, Users, DollarSign, Star, TrendingUp, Clock } from 'lucide-react';
+import { BarChart3, Users, DollarSign, Star, TrendingUp, Clock, Eye } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { startOfMonth, addMonths, addDays, subMonths, format } from 'date-fns';
-import type { AnalyticsOverview, ClientSummary, RevenueDataPoint } from '../../types';
+import type { AnalyticsOverview, ClientSummary, RevenueDataPoint, ProfileViewsData } from '../../types';
 
 export type AnalyticsPeriod = 'this_month' | 'last_3_months' | 'last_6_months' | 'this_year' | 'all_time';
 
@@ -113,6 +113,39 @@ function RevenueBarChart({ data }: RevenueBarChartProps) {
   );
 }
 
+interface ViewsBarChartProps {
+  readonly data: ReadonlyArray<{ date: string; count: number }>;
+}
+
+function ViewsBarChart({ data }: ViewsBarChartProps) {
+  const maxCount = data.reduce((max, d) => Math.max(max, d.count), 0);
+
+  if (data.length === 0) {
+    return <p className="text-stone-400 text-sm py-8 text-center">No view data yet.</p>;
+  }
+
+  return (
+    <div className="flex items-end gap-1 h-48 overflow-x-auto">
+      {data.map((d) => {
+        const heightPct = maxCount > 0 ? (d.count / maxCount) * 100 : 0;
+        return (
+          <div key={d.date} className="flex-1 min-w-[20px] flex flex-col items-center gap-1">
+            <span className="text-[10px] text-stone-500">{d.count}</span>
+            <div
+              className="w-full bg-blue-500 rounded-t-md transition-all"
+              style={{ height: `${Math.max(heightPct, 2)}%` }}
+              title={`${d.date}: ${d.count} views`}
+            />
+            <span className="text-[10px] text-stone-400 truncate w-full text-center">
+              {d.date.slice(5)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function buildAnalyticsParams(range: PeriodDateRange): string {
   const params = new URLSearchParams();
   if (range.all) {
@@ -149,6 +182,7 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [clients, setClients] = useState<ClientSummary[]>([]);
   const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
+  const [viewsData, setViewsData] = useState<ProfileViewsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -169,10 +203,11 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
         const overviewQuery = buildAnalyticsParams(range);
         const revenueQuery = buildRevenueParams(range);
 
-        const [overviewRes, clientsRes, revenueRes] = await Promise.all([
+        const [overviewRes, clientsRes, revenueRes, viewsRes] = await Promise.all([
           fetch(`${API_BASE}/analytics/overview?${overviewQuery}`, opts),
           fetch(`${API_BASE}/analytics/clients?limit=50&offset=0`, opts),
           fetch(`${API_BASE}/analytics/revenue?${revenueQuery}`, opts),
+          fetch(`${API_BASE}/analytics/views?${overviewQuery}`, opts),
         ]);
 
         if (!overviewRes.ok || !clientsRes.ok || !revenueRes.ok) {
@@ -186,10 +221,12 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
           clientsRes.json(),
           revenueRes.json(),
         ]);
+        const viewsJson = viewsRes.ok ? await viewsRes.json() : null;
 
         setOverview(overviewJson);
         setClients(clientsJson.clients);
         setRevenueData(revenueJson.data);
+        setViewsData(viewsJson);
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
           setError('Failed to load analytics data.');
@@ -255,7 +292,7 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
         <>
           {/* Stats Cards */}
           {overview && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
               <StatsCard
                 label="Total Revenue"
                 value={formatCurrency(overview.total_revenue)}
@@ -267,6 +304,12 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
                 value={String(overview.total_bookings)}
                 icon={<TrendingUp className="h-5 w-5" />}
                 sub={`${overview.completion_rate}% completion rate`}
+              />
+              <StatsCard
+                label="Profile Views"
+                value={String(overview.profile_views)}
+                icon={<Eye className="h-5 w-5" />}
+                sub={viewsData?.views_by_source?.map((s) => `${s.count} ${s.source}`).join(', ') || undefined}
               />
               <StatsCard
                 label="Avg Rating"
@@ -293,6 +336,14 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
             <h2 className="text-lg font-semibold text-stone-900 mb-4">Monthly Revenue</h2>
             <RevenueBarChart data={revenueData} />
           </div>
+
+          {/* Profile Views Chart (Pro only) */}
+          {viewsData && viewsData.views_by_day.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
+              <h2 className="text-lg font-semibold text-stone-900 mb-4">Daily Profile Views</h2>
+              <ViewsBarChart data={viewsData.views_by_day} />
+            </div>
+          )}
 
           {/* Client List */}
           <div className="bg-white rounded-2xl shadow-sm p-6">

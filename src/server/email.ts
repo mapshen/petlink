@@ -180,6 +180,55 @@ ${isApproved ? '<p style="color:#78716c;font-size:14px">Log in to PetLink to set
   };
 }
 
+export function buildOwnerWelcomeEmail(params: {
+  ownerName: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.ownerName);
+  return {
+    subject: sanitizeSubject('Welcome to PetLink!'),
+    html: emailWrapper('Welcome to PetLink! 🎉', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Thanks for joining PetLink — the easiest way to find trusted pet sitters near you.</p>
+<p style="color:#44403c;line-height:1.6;font-weight:600">Here's what you can do:</p>
+<ul style="color:#44403c;line-height:1.8;padding-left:20px">
+<li>🔍 Search for nearby sitters by service, location, and price</li>
+<li>📅 Book services like dog walking, boarding, and drop-in visits</li>
+<li>📍 Track your pet's walks in real time</li>
+</ul>
+<div style="text-align:center;margin:24px 0">
+<a href="https://petlink.app/search" style="display:inline-block;background:#059669;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Find a Sitter</a>
+</div>
+<p style="color:#78716c;font-size:14px">If you have any questions, we're here to help!</p>
+`),
+  };
+}
+
+export function buildSitterWelcomeEmail(params: {
+  sitterName: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.sitterName);
+  return {
+    subject: sanitizeSubject('Welcome to PetLink — Next Steps'),
+    html: emailWrapper('Welcome to PetLink! 🎉', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Thanks for signing up as a sitter on PetLink!</p>
+<div style="background:#fefce8;border-radius:8px;padding:16px;margin:16px 0;border-left:3px solid #f59e0b">
+<p style="margin:0;color:#92400e;font-size:14px"><strong>Your account is pending approval.</strong> Our team will review your profile shortly.</p>
+</div>
+<p style="color:#44403c;line-height:1.6;font-weight:600">While you wait, get a head start:</p>
+<ol style="color:#44403c;line-height:1.8;padding-left:20px">
+<li>Complete your profile with a photo and bio</li>
+<li>Import your reviews from Rover or other platforms</li>
+<li>Set your availability and service areas</li>
+</ol>
+<div style="text-align:center;margin:24px 0">
+<a href="https://petlink.app/profile" style="display:inline-block;background:#059669;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Complete Your Profile</a>
+</div>
+<p style="color:#78716c;font-size:14px">We'll notify you once your account is approved.</p>
+`),
+  };
+}
+
 export function buildSitterNewBookingEmail(params: {
   sitterName: string;
   ownerName: string;

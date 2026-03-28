@@ -308,7 +308,14 @@ export interface AnalyticsOverview {
   cancellation_rate: number;
   repeat_client_pct: number;
   unique_clients: number;
+  profile_views: number;
   monthly_revenue: { month: number; revenue: number }[];
+}
+
+export interface ProfileViewsData {
+  total_views: number;
+  views_by_day: { date: string; count: number }[];
+  views_by_source: { source: string; count: number }[];
 }
 
 export interface ClientSummary {

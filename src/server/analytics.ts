@@ -1,6 +1,7 @@
 import sql from './db.ts';
 import type { Request, Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from './auth.ts';
+import { getProfileViewsCount } from './profile-views.ts';
 
 // --- Middleware ---
 
@@ -108,6 +109,8 @@ export async function getOverview(sitterId: number, option: DateRangeOption) {
     ORDER BY month
   `;
 
+  const profileViews = await getProfileViewsCount(sitterId, rangeStart, rangeEnd);
+
   const totalBookings = bookingStats.total_bookings;
   const completedBookings = bookingStats.completed_bookings;
   const uniqueClients = bookingStats.unique_clients;
@@ -127,6 +130,7 @@ export async function getOverview(sitterId: number, option: DateRangeOption) {
     cancellation_rate: totalBookings > 0 ? Math.round((bookingStats.cancelled_bookings / totalBookings) * 100) : 0,
     repeat_client_pct: uniqueClients > 0 ? Math.round((repeatClients / uniqueClients) * 100) : 0,
     unique_clients: uniqueClients,
+    profile_views: profileViews,
     monthly_revenue: monthlyRevenue.map((r: { month: number; revenue: number }) => ({
       month: r.month,
       revenue: r.revenue,

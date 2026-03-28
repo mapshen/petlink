@@ -590,6 +590,19 @@ export async function initDb() {
   `;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_calendar_tokens_user ON calendar_tokens (user_id)`.catch(() => {});
 
+  // Issue #165: Profile view tracking
+  await sql`
+    CREATE TABLE IF NOT EXISTS profile_views (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id),
+      viewed_at TIMESTAMPTZ DEFAULT NOW(),
+      source TEXT DEFAULT 'direct',
+      session_id TEXT
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_sitter ON profile_views (sitter_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_viewed_at ON profile_views (viewed_at)`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
