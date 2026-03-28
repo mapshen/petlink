@@ -2407,6 +2407,11 @@ async function startServer() {
       res.json(result);
       return;
     }
+    if (req.query.all === 'true') {
+      const result = await getOverview(req.userId!, { startDate: '2020-01-01', endDate: `${new Date().getFullYear() + 1}-01-01` });
+      res.json(result);
+      return;
+    }
     const yearResult = validateYear(req.query.year);
     if (yearResult.valid === false) {
       res.status(400).json({ error: yearResult.error });
@@ -2449,6 +2454,11 @@ async function startServer() {
     const period = validateRevenuePeriod(req.query.period);
     if (start && end) {
       const result = await getRevenue(req.userId!, period, { startDate: start, endDate: end });
+      res.json(result);
+      return;
+    }
+    if (req.query.all === 'true') {
+      const result = await getRevenue(req.userId!, period, { startDate: '2020-01-01', endDate: `${new Date().getFullYear() + 1}-01-01` });
       res.json(result);
       return;
     }

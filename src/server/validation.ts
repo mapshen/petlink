@@ -254,13 +254,19 @@ export const bookingFiltersSchema = z.object({
   search: z.string().max(100, 'Search term must be under 100 characters').optional(),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   offset: z.coerce.number().int().min(0).optional().default(0),
-});
+}).refine(
+  (data) => !data.start || !data.end || data.start <= data.end,
+  { message: 'start date must be before or equal to end date', path: ['start'] }
+);
 
 // --- Analytics Date Range Schema ---
 export const analyticsDateRangeSchema = z.object({
   start: z.string().regex(datePattern, 'start must be YYYY-MM-DD').optional(),
   end: z.string().regex(datePattern, 'end must be YYYY-MM-DD').optional(),
-});
+}).refine(
+  (data) => !data.start || !data.end || data.start <= data.end,
+  { message: 'start date must be before or equal to end date', path: ['start'] }
+);
 
 // --- Calendar Schemas ---
 export const calendarQuerySchema = z.object({

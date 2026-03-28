@@ -12,6 +12,7 @@ export interface PeriodDateRange {
   readonly start: string | null;
   readonly end: string | null;
   readonly year: number | null;
+  readonly all?: boolean;
 }
 
 export const PERIOD_OPTIONS: ReadonlyArray<{ value: AnalyticsPeriod; label: string }> = [
@@ -49,7 +50,7 @@ export function computePeriodRange(period: AnalyticsPeriod, now: Date = new Date
         year: now.getFullYear(),
       };
     case 'all_time':
-      return { start: null, end: null, year: null };
+      return { start: null, end: null, year: null, all: true };
     default:
       return { start: null, end: null, year: null };
   }
@@ -114,6 +115,10 @@ function RevenueBarChart({ data }: RevenueBarChartProps) {
 
 function buildAnalyticsParams(range: PeriodDateRange): string {
   const params = new URLSearchParams();
+  if (range.all) {
+    params.set('all', 'true');
+    return params.toString();
+  }
   if (range.year !== null) {
     params.set('year', String(range.year));
   }
@@ -125,6 +130,10 @@ function buildAnalyticsParams(range: PeriodDateRange): string {
 function buildRevenueParams(range: PeriodDateRange): string {
   const params = new URLSearchParams();
   params.set('period', 'monthly');
+  if (range.all) {
+    params.set('all', 'true');
+    return params.toString();
+  }
   if (range.year !== null) {
     params.set('year', String(range.year));
   }
