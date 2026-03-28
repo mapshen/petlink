@@ -211,7 +211,7 @@ export default function SitterProfile() {
                     <span>
                       {sitter.review_count > 0
                         ? `${sitter.avg_rating} (${sitter.review_count} ${sitter.review_count === 1 ? 'review' : 'reviews'})`
-                        : 'New sitter'}
+                        : 'No reviews'}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">

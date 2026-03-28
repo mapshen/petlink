@@ -693,8 +693,8 @@ async function startServer() {
 
     const sitterWithStats = {
       ...sitter,
-      avg_rating: reviewStats.avg_rating ? Number(Number(reviewStats.avg_rating).toFixed(1)) : null,
-      review_count: Number(reviewStats.review_count) || 0,
+      avg_rating: reviewStats.avg_rating ? Number(reviewStats.avg_rating.toFixed(1)) : null,
+      review_count: reviewStats.review_count,
     };
 
     res.json({ sitter: sitterWithStats, services, reviews, photos, imported_reviews });

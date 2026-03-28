@@ -126,3 +126,55 @@ describe('double-blind reviews', () => {
     }).toThrow();
   });
 });
+
+describe('sitter profile review stats', () => {
+  let db: ReturnType<typeof createTestDb>;
+
+  beforeEach(() => { db = createTestDb(); });
+
+  function getReviewStats(sitterId: number) {
+    return db.prepare(
+      `SELECT AVG(r.rating) as avg_rating, COUNT(*) as review_count
+       FROM reviews r
+       WHERE r.reviewee_id = ?
+         AND (r.published_at IS NOT NULL OR r.created_at < datetime('now', '-3 days'))`
+    ).get(sitterId) as { avg_rating: number | null; review_count: number };
+  }
+
+  it('returns null avg_rating and 0 count for sitter with no reviews', () => {
+    const stats = getReviewStats(2);
+    expect(stats.avg_rating).toBeNull();
+    expect(stats.review_count).toBe(0);
+  });
+
+  it('returns correct avg_rating and count for published reviews', () => {
+    const now = new Date().toISOString();
+    db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, published_at) VALUES (?, ?, ?, ?, ?)').run(1, 1, 2, 5, now);
+
+    // Add a second booking+review
+    db.prepare('INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)').run(2, 1, 1, 'completed', '2025-02-01', '2025-02-02');
+    db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, published_at) VALUES (?, ?, ?, ?, ?)').run(2, 1, 2, 3, now);
+
+    const stats = getReviewStats(2);
+    expect(stats.avg_rating).toBe(4); // (5 + 3) / 2
+    expect(stats.review_count).toBe(2);
+  });
+
+  it('includes auto-published reviews older than 3 days', () => {
+    const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, created_at) VALUES (?, ?, ?, ?, ?)').run(1, 1, 2, 4, fourDaysAgo);
+
+    const stats = getReviewStats(2);
+    expect(stats.avg_rating).toBe(4);
+    expect(stats.review_count).toBe(1);
+  });
+
+  it('excludes unpublished reviews within 3-day blind window', () => {
+    const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, created_at) VALUES (?, ?, ?, ?, ?)').run(1, 1, 2, 5, oneDayAgo);
+
+    const stats = getReviewStats(2);
+    expect(stats.avg_rating).toBeNull();
+    expect(stats.review_count).toBe(0);
+  });
+});
