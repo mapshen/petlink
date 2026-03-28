@@ -64,6 +64,25 @@ export default function SitterProfile() {
     setSelectedTime(null);
   }, []);
 
+  // Track profile view on mount (fire-and-forget)
+  useEffect(() => {
+    if (!id) return;
+    const fromParam = searchParams.get('from');
+    const source = fromParam === 'search' ? 'search' : fromParam === 'favorites' ? 'favorites' : 'direct';
+
+    let sessionId = sessionStorage.getItem('petlink_view_session');
+    if (!sessionId) {
+      sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem('petlink_view_session', sessionId);
+    }
+
+    fetch(`${API_BASE}/sitters/${id}/view`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source, session_id: sessionId }),
+    }).catch(() => {});
+  }, [id, searchParams]);
+
   useEffect(() => {
     const fetchSitter = async () => {
       try {

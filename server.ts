@@ -28,8 +28,9 @@ import { botBlockMiddleware } from './src/server/bot-detection.ts';
 import { createCandidate, createInvitation, verifyWebhookSignature, parseWebhookEvent, mapCheckrStatus, isCheckrConfigured } from './src/server/checkr.ts';
 import { calculateRankingScore, isNewSitter, type SitterStats } from './src/server/sitter-ranking.ts';
 import { requireSitterRole, validateYear, validateRevenuePeriod, getOverview, getClients, getClientDetail, getRevenue } from './src/server/analytics.ts';
+import { recordProfileView, getProfileViewsAnalytics } from './src/server/profile-views.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/server/rate-limit.ts';
-import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail, buildApprovalStatusEmail } from './src/server/email.ts';
+import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildNewMessageEmail, buildSitterNewBookingEmail, buildApprovalStatusEmail, buildOwnerWelcomeEmail, buildSitterWelcomeEmail } from './src/server/email.ts';
 import { adminMiddleware, isAdminUser } from './src/server/admin.ts';
 import { format as formatDate } from 'date-fns';
 import type { ErrorRequestHandler } from 'express';
@@ -162,6 +163,12 @@ async function startServer() {
     `;
     const token = signToken({ userId: user.id });
 
+    const isSitter = role === 'sitter' || role === 'both';
+    const welcomeEmail = isSitter
+      ? buildSitterWelcomeEmail({ sitterName: name })
+      : buildOwnerWelcomeEmail({ ownerName: name });
+    sendEmail({ to: email, ...welcomeEmail }).catch(() => {});
+
     res.status(201).json({ user, token });
   });
 
@@ -258,6 +265,12 @@ async function startServer() {
     }
 
     const jwtToken = signToken({ userId: result.user.id });
+
+    if (result.isNewUser) {
+      const welcomeEmail = buildOwnerWelcomeEmail({ ownerName: result.user.name || 'there' });
+      sendEmail({ to: result.user.email, ...welcomeEmail }).catch(() => {});
+    }
+
     res.json({ user: result.user, token: jwtToken, isNewUser: result.isNewUser });
   });
 
@@ -704,6 +717,21 @@ async function startServer() {
     res.json({ sitter: sitterWithStats, services, reviews, photos, imported_reviews });
   });
 
+  // --- Profile View Tracking (Issue #165) ---
+  v1.post('/sitters/:id/view', botBlockMiddleware, publicLimiter, async (req, res) => {
+    const sitterId = Number(req.params.id);
+    if (!sitterId || isNaN(sitterId)) {
+      res.status(400).json({ error: 'Invalid sitter ID' });
+      return;
+    }
+    const { source, session_id } = req.body || {};
+    const safeSessionId = typeof session_id === 'string' ? session_id.slice(0, 64) : undefined;
+    const safeSource = typeof source === 'string' ? source.slice(0, 32) : undefined;
+    // Fire-and-forget: respond immediately, insert async
+    res.status(204).end();
+    recordProfileView(sitterId, safeSource, safeSessionId).catch(() => {});
+  });
+
   // --- Services (sitter CRUD) ---
   v1.get('/services/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const services = await sql`SELECT * FROM services WHERE sitter_id = ${req.userId}`;
@@ -1006,8 +1034,8 @@ async function startServer() {
 
   v1.post('/availability', authMiddleware, validate(availabilitySchema), async (req: AuthenticatedRequest, res) => {
     const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
-    if (currentUser.approval_status !== 'approved') {
-      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot set availability yet.' });
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can set availability.' });
       return;
     }
     const { day_of_week, specific_date, start_time, end_time, recurring } = req.body;
@@ -2479,6 +2507,37 @@ async function startServer() {
       return;
     }
     const result = await getRevenue(req.userId!, period, { year: yearResult.year });
+    res.json(result);
+  });
+
+  v1.get('/analytics/views', authMiddleware, requireSitterRole, async (req: AuthenticatedRequest, res) => {
+    const dateRange = analyticsDateRangeSchema.safeParse(req.query);
+    if (!dateRange.success) {
+      res.status(400).json({ error: dateRange.error.issues[0].message });
+      return;
+    }
+    const { start, end } = dateRange.data;
+    const [currentUser] = await sql`SELECT is_pro FROM users WHERE id = ${req.userId}`;
+    const isPro = currentUser?.is_pro === true;
+
+    if (start && end) {
+      const result = await getProfileViewsAnalytics(req.userId!, start, end, isPro);
+      res.json(result);
+      return;
+    }
+    if (req.query.all === 'true') {
+      const result = await getProfileViewsAnalytics(req.userId!, '2020-01-01', `${new Date().getFullYear() + 1}-01-01`, isPro);
+      res.json(result);
+      return;
+    }
+    const yearResult = validateYear(req.query.year);
+    if (yearResult.valid === false) {
+      res.status(400).json({ error: yearResult.error });
+      return;
+    }
+    const rangeStart = `${yearResult.year}-01-01`;
+    const rangeEnd = `${yearResult.year + 1}-01-01`;
+    const result = await getProfileViewsAnalytics(req.userId!, rangeStart, rangeEnd, isPro);
     res.json(result);
   });
 

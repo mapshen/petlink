@@ -4,6 +4,8 @@ import {
   buildBookingStatusEmail,
   buildNewMessageEmail,
   buildSitterNewBookingEmail,
+  buildOwnerWelcomeEmail,
+  buildSitterWelcomeEmail,
   escapeHtml,
 } from './email.ts';
 
@@ -134,6 +136,47 @@ describe('email templates', () => {
       });
       expect(result.html).toContain('Free');
       expect(result.html).not.toContain('$0.00');
+    });
+  });
+
+  describe('buildOwnerWelcomeEmail', () => {
+    it('returns correct subject', () => {
+      const result = buildOwnerWelcomeEmail({ ownerName: 'Alice' });
+      expect(result.subject).toBe('Welcome to PetLink!');
+    });
+
+    it('HTML contains owner name and search link', () => {
+      const result = buildOwnerWelcomeEmail({ ownerName: 'Alice' });
+      expect(result.html).toContain('Hi Alice');
+      expect(result.html).toContain('https://petlink.app/search');
+      expect(result.html).toContain('Find a Sitter');
+    });
+
+    it('HTML-escapes special characters in name', () => {
+      const result = buildOwnerWelcomeEmail({ ownerName: '<b>Evil</b>' });
+      expect(result.html).not.toContain('<b>Evil</b>');
+      expect(result.html).toContain('&lt;b&gt;Evil&lt;/b&gt;');
+    });
+  });
+
+  describe('buildSitterWelcomeEmail', () => {
+    it('returns correct subject', () => {
+      const result = buildSitterWelcomeEmail({ sitterName: 'Bob' });
+      expect(result.subject).toBe('Welcome to PetLink — Next Steps');
+    });
+
+    it('HTML contains sitter name, profile link, and mentions approval', () => {
+      const result = buildSitterWelcomeEmail({ sitterName: 'Bob' });
+      expect(result.html).toContain('Hi Bob');
+      expect(result.html).toContain('https://petlink.app/profile');
+      expect(result.html).toContain('Complete Your Profile');
+      expect(result.html).toContain('pending approval');
+    });
+
+    it('HTML-escapes special characters in name', () => {
+      const result = buildSitterWelcomeEmail({ sitterName: "O'Malley & Co" });
+      expect(result.html).not.toContain("O'Malley & Co");
+      expect(result.html).toContain('O&#39;Malley &amp; Co');
     });
   });
 
