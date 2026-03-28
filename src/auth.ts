@@ -43,9 +43,13 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
 
   try {
     const decoded = verifyToken(token);
-    const [user] = await sql`SELECT id FROM users WHERE id = ${decoded.userId}`;
+    const [user] = await sql`SELECT id, approval_status FROM users WHERE id = ${decoded.userId}`;
     if (!user) {
       res.status(401).json({ error: 'User not found' });
+      return;
+    }
+    if (user.approval_status === 'banned') {
+      res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
       return;
     }
     req.userId = decoded.userId;

@@ -179,6 +179,11 @@ async function startServer() {
       return;
     }
 
+    if (user.approval_status === 'banned') {
+      res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
+      return;
+    }
+
     const token = signToken({ userId: user.id });
     const { password_hash: _, ...safeUser } = user;
     res.json({ user: safeUser, token });
@@ -238,6 +243,14 @@ async function startServer() {
 
       return { user: newUser, isNewUser: true };
     });
+
+    if (!result.isNewUser) {
+      const [fullUser] = await sql`SELECT approval_status FROM users WHERE id = ${result.user.id}`;
+      if (fullUser?.approval_status === 'banned') {
+        res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
+        return;
+      }
+    }
 
     const jwtToken = signToken({ userId: result.user.id });
     res.json({ user: result.user, token: jwtToken, isNewUser: result.isNewUser });
