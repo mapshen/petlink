@@ -9,13 +9,16 @@ import CalendarExportDialog from './CalendarExportDialog';
 import { API_BASE } from '../../config';
 
 export default function CalendarCommandCenter() {
-  const { events, eventsByDate, loading, error, currentDate, goNext, goPrev, refetch } =
+  const { events, eventsByDate, loading, error: fetchError, currentDate, goNext, goPrev, refetch } =
     useCalendar();
 
   const [selectedDay, setSelectedDay] = useState<Date | null>(() => new Date());
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [showAvailabilityForm, setShowAvailabilityForm] = useState(false);
   const [availabilityFormDate, setAvailabilityFormDate] = useState<Date | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const error = fetchError || actionError;
 
   const selectedDayKey = selectedDay ? format(selectedDay, 'yyyy-MM-dd') : null;
   const selectedDayEvents = selectedDayKey ? (eventsByDate.get(selectedDayKey) ?? []) : [];
@@ -26,26 +29,36 @@ export default function CalendarCommandCenter() {
   }, []);
 
   const handleDeleteAvailability = useCallback(async (availabilityId: number) => {
-    const token = localStorage.getItem('petlink_token');
-    await fetch(`${API_BASE}/availability/${availabilityId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    refetch();
+    try {
+      const token = localStorage.getItem('petlink_token');
+      const res = await fetch(`${API_BASE}/availability/${availabilityId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to delete availability');
+      refetch();
+    } catch {
+      setActionError('Failed to delete availability. Please try again.');
+    }
   }, [refetch]);
 
   const handleBookingAction = useCallback(async (bookingId: number, action: 'confirm' | 'cancel') => {
-    const token = localStorage.getItem('petlink_token');
-    const status = action === 'confirm' ? 'confirmed' : 'cancelled';
-    await fetch(`${API_BASE}/bookings/${bookingId}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status }),
-    });
-    refetch();
+    try {
+      const token = localStorage.getItem('petlink_token');
+      const status = action === 'confirm' ? 'confirmed' : 'cancelled';
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error('Failed to update booking');
+      refetch();
+    } catch {
+      setActionError('Failed to update booking. Please try again.');
+    }
   }, [refetch]);
 
   if (loading) {
