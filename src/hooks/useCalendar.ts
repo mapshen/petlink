@@ -2,18 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   startOfMonth,
   endOfMonth,
-  startOfWeek,
-  endOfWeek,
   addMonths,
   subMonths,
-  addWeeks,
-  subWeeks,
   format,
 } from 'date-fns';
 import { API_BASE } from '../config';
 import { CalendarEvent } from '../types';
-
-type ViewMode = 'month' | 'week' | 'list';
 
 interface UseCalendarReturn {
   events: CalendarEvent[];
@@ -21,40 +15,21 @@ interface UseCalendarReturn {
   loading: boolean;
   error: string | null;
   currentDate: Date;
-  view: ViewMode;
-  setView: (view: ViewMode) => void;
   goNext: () => void;
   goPrev: () => void;
   goToday: () => void;
   refetch: () => void;
 }
 
-function computeRange(view: ViewMode, date: Date): { rangeStart: Date; rangeEnd: Date } {
-  if (view === 'week') {
-    return {
-      rangeStart: startOfWeek(date, { weekStartsOn: 0 }),
-      rangeEnd: endOfWeek(date, { weekStartsOn: 0 }),
-    };
-  }
-  // month and list both use full month
-  return {
-    rangeStart: startOfMonth(date),
-    rangeEnd: endOfMonth(date),
-  };
-}
-
 export function useCalendar(): UseCalendarReturn {
-  const [view, setView] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchTick, setFetchTick] = useState(0);
 
-  const { rangeStart, rangeEnd } = useMemo(
-    () => computeRange(view, currentDate),
-    [view, currentDate]
-  );
+  const rangeStart = useMemo(() => startOfMonth(currentDate), [currentDate]);
+  const rangeEnd = useMemo(() => endOfMonth(currentDate), [currentDate]);
 
   useEffect(() => {
     const token = localStorage.getItem('petlink_token');
@@ -96,7 +71,7 @@ export function useCalendar(): UseCalendarReturn {
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const event of events) {
-      const key = event.start.slice(0, 10); // YYYY-MM-DD
+      const key = event.start.slice(0, 10);
       const existing = map.get(key) ?? [];
       map.set(key, [...existing, event]);
     }
@@ -104,12 +79,12 @@ export function useCalendar(): UseCalendarReturn {
   }, [events]);
 
   const goNext = useCallback(() => {
-    setCurrentDate((prev) => (view === 'week' ? addWeeks(prev, 1) : addMonths(prev, 1)));
-  }, [view]);
+    setCurrentDate((prev) => addMonths(prev, 1));
+  }, []);
 
   const goPrev = useCallback(() => {
-    setCurrentDate((prev) => (view === 'week' ? subWeeks(prev, 1) : subMonths(prev, 1)));
-  }, [view]);
+    setCurrentDate((prev) => subMonths(prev, 1));
+  }, []);
 
   const goToday = useCallback(() => {
     setCurrentDate(new Date());
@@ -125,8 +100,6 @@ export function useCalendar(): UseCalendarReturn {
     loading,
     error,
     currentDate,
-    view,
-    setView,
     goNext,
     goPrev,
     goToday,
