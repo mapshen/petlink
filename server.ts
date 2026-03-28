@@ -2841,6 +2841,8 @@ async function startServer() {
       LEFT JOIN services svc ON b.service_id = svc.id
       JOIN users o ON b.owner_id = o.id
       WHERE b.sitter_id = ${userId}
+        AND b.start_time > NOW() - INTERVAL '3 months'
+        AND b.start_time < NOW() + INTERVAL '6 months'
       ORDER BY b.start_time DESC
     `;
 
@@ -2855,9 +2857,8 @@ async function startServer() {
       : [];
     const petsByBooking = new Map<number, string[]>();
     for (const row of bookingPets) {
-      const list = petsByBooking.get(row.booking_id) || [];
-      list.push(row.name);
-      petsByBooking.set(row.booking_id, list);
+      const existing = petsByBooking.get(row.booking_id) ?? [];
+      petsByBooking.set(row.booking_id, [...existing, row.name]);
     }
 
     const availability = await sql`

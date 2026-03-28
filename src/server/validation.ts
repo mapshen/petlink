@@ -245,6 +245,6 @@ export const confirmImportSchema = z.object({
 
 // --- Calendar Schemas ---
 export const calendarQuerySchema = z.object({
-  start: z.string().regex(/^\d{4}-\d{2}-\d{2}/),
-  end: z.string().regex(/^\d{4}-\d{2}-\d{2}/),
+  start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
