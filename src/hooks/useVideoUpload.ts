@@ -42,7 +42,7 @@ export function useVideoUpload(token: string | null) {
         return null;
       }
       if (file.size > MAX_FILE_SIZE) {
-        setState((s) => ({ ...s, error: 'Video file must be under 50MB.' }));
+        setState((s) => ({ ...s, error: 'Video file must be under 10MB.' }));
         return null;
       }
 

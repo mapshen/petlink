@@ -2,11 +2,16 @@ import { useState, useCallback } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { API_BASE } from '../config';
 
+interface CreateIntentResult {
+  secret: string | null;
+  error: string | null;
+}
+
 interface UsePaymentIntentReturn {
   clientSecret: string | null;
   loading: boolean;
   error: string | null;
-  createIntent: (bookingId: number) => Promise<string | null>;
+  createIntent: (bookingId: number) => Promise<CreateIntentResult>;
 }
 
 export function usePaymentIntent(): UsePaymentIntentReturn {
@@ -15,7 +20,7 @@ export function usePaymentIntent(): UsePaymentIntentReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const createIntent = useCallback(async (bookingId: number): Promise<string | null> => {
+  const createIntent = useCallback(async (bookingId: number): Promise<CreateIntentResult> => {
     setLoading(true);
     setError(null);
     try {
@@ -32,11 +37,11 @@ export function usePaymentIntent(): UsePaymentIntentReturn {
 
       const data = await res.json();
       setClientSecret(data.clientSecret);
-      return data.clientSecret;
+      return { secret: data.clientSecret, error: null };
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Payment setup failed';
       setError(msg);
-      return null;
+      return { secret: null, error: msg };
     } finally {
       setLoading(false);
     }

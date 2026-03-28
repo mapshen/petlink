@@ -12,9 +12,27 @@ export default function Login() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
 
+  const signupNameError = isSignup && name.trim().length === 0 ? 'Name is required' : null;
+  const signupPasswordError = isSignup && password.length > 0 && password.length < 8 ? 'Password must be at least 8 characters' : null;
+  const isFormValid = isSignup
+    ? email.length > 0 && name.trim().length > 0 && password.length >= 8
+    : email.length > 0 && password.length > 0;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (isSignup) {
+      if (name.trim().length === 0) {
+        setError('Name is required');
+        return;
+      }
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters');
+        return;
+      }
+    }
+
     try {
       if (isSignup) {
         await signup(email, password, name);
@@ -75,15 +93,20 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             {isSignup && (
-              <input
-                name="name"
-                type="text"
-                required
-                className="w-full px-3 py-2.5 border border-stone-300 placeholder-stone-500 text-stone-900 rounded-lg focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                placeholder="Full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              <div>
+                <input
+                  name="name"
+                  type="text"
+                  required
+                  className="w-full px-3 py-2.5 border border-stone-300 placeholder-stone-500 text-stone-900 rounded-lg focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                  placeholder="Full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                {signupNameError && name !== '' && (
+                  <p className="text-red-500 text-xs mt-1">{signupNameError}</p>
+                )}
+              </div>
             )}
             <input
               id="email-address"
@@ -96,23 +119,29 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <input
-              name="password"
-              type="password"
-              autoComplete={isSignup ? 'new-password' : 'current-password'}
-              required
-              className="w-full px-3 py-2.5 border border-stone-300 placeholder-stone-500 text-stone-900 rounded-lg focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div>
+              <input
+                name="password"
+                type="password"
+                autoComplete={isSignup ? 'new-password' : 'current-password'}
+                required
+                className="w-full px-3 py-2.5 border border-stone-300 placeholder-stone-500 text-stone-900 rounded-lg focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                placeholder={isSignup ? 'Password (min 8 characters)' : 'Password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              {signupPasswordError && (
+                <p className="text-red-500 text-xs mt-1">{signupPasswordError}</p>
+              )}
+            </div>
           </div>
 
           {error && <div className="text-red-500 text-sm text-center">{error}</div>}
 
           <button
             type="submit"
-            className="w-full py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors"
+            disabled={!isFormValid}
+            className="w-full py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSignup ? 'Create account' : 'Sign in'}
           </button>
