@@ -53,9 +53,8 @@ async function fetchBookingEvents(
 
   const petsByBooking = new Map<number, string[]>();
   for (const pr of petRows) {
-    const list = petsByBooking.get(pr.booking_id) ?? [];
-    list.push(pr.name);
-    petsByBooking.set(pr.booking_id, list);
+    const existing = petsByBooking.get(pr.booking_id) ?? [];
+    petsByBooking.set(pr.booking_id, [...existing, pr.name]);
   }
 
   return rows.map((r: any) => ({

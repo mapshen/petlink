@@ -2,10 +2,11 @@ import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Booking } from '../../types';
-import { Calendar, CalendarDays, MapPin, CheckCircle, XCircle, RefreshCw, Star, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2 } from 'lucide-react';
 
 const AnalyticsPage = lazy(() => import('../sitter/AnalyticsPage'));
 const PromotePage = lazy(() => import('../sitter/PromotePage'));
+const CalendarCommandCenter = lazy(() => import('../../components/calendar/CalendarCommandCenter'));
 import { format } from 'date-fns';
 import { API_BASE } from '../../config';
 import { Link } from 'react-router-dom';
@@ -153,19 +154,11 @@ export default function Dashboard() {
       <h1 className="text-3xl font-bold text-stone-900 mb-8">Dashboard</h1>
 
       {isSitterMode && user?.approval_status === 'approved' && (
-        <Link
-          to="/calendar"
-          className="mb-6 flex items-center gap-3 p-4 bg-white rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-300 hover:shadow-md transition-all group"
-        >
-          <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors">
-            <CalendarDays className="w-5 h-5" />
+        <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
+          <div className="mb-6">
+            <CalendarCommandCenter />
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-stone-900">View your calendar</p>
-            <p className="text-xs text-stone-500">Manage bookings, availability, and export to other calendars</p>
-          </div>
-          <span className="text-xs font-medium text-emerald-600">Open →</span>
-        </Link>
+        </Suspense>
       )}
 
       {isSitterMode && user?.approval_status === 'pending_approval' && (
@@ -220,139 +213,112 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
-        <div className="border-b border-stone-100 px-6 py-4 bg-stone-50">
-          <h2 className="font-bold text-stone-700">Your Bookings</h2>
-        </div>
-
-        {(() => {
-          const filteredBookings = bookings.filter((b) =>
-            isSitterMode ? user?.id === b.sitter_id : user?.id === b.owner_id
-          );
-          return filteredBookings.length === 0 ? (
-          <div className="p-12 text-center text-stone-500">
-            <Calendar className="w-12 h-12 mx-auto mb-4 text-stone-300" />
-            <p>No bookings yet.</p>
+      {!isSitterMode && (
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+          <div className="border-b border-stone-100 px-6 py-4 bg-stone-50">
+            <h2 className="font-bold text-stone-700">Your Bookings</h2>
           </div>
-        ) : (
-          <div className="divide-y divide-stone-100">
-            {filteredBookings.map((booking) => {
-              const otherPersonName = isSitterMode ? booking.owner_name : booking.sitter_name;
-              const otherPersonAvatar = isSitterMode ? booking.owner_avatar : booking.sitter_avatar;
 
-              return (
-                <div key={booking.id} className="p-6 hover:bg-stone-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-12 w-12 border border-stone-200">
-                        <AvatarImage src={otherPersonAvatar || undefined} alt={otherPersonName} />
-                        <AvatarFallback>{otherPersonName?.charAt(0)?.toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="font-bold text-stone-900">{otherPersonName}</h3>
-                        <div className="text-sm text-stone-500 capitalize">{booking.service_type?.replace(/[-_]/g, ' ')}</div>
-                        {booking.pets && booking.pets.length > 0 && (
-                          <div className="text-xs text-stone-400 mt-0.5">
-                            {booking.pets.map((p) => p.name).join(', ')}
-                          </div>
-                        )}
+          {(() => {
+            const filteredBookings = bookings.filter((b) => user?.id === b.owner_id);
+            return filteredBookings.length === 0 ? (
+            <div className="p-12 text-center text-stone-500">
+              <Calendar className="w-12 h-12 mx-auto mb-4 text-stone-300" />
+              <p>No bookings yet.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-stone-100">
+              {filteredBookings.map((booking) => (
+                  <div key={booking.id} className="p-6 hover:bg-stone-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-12 w-12 border border-stone-200">
+                          <AvatarImage src={booking.sitter_avatar || undefined} alt={booking.sitter_name} />
+                          <AvatarFallback>{booking.sitter_name?.charAt(0)?.toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h3 className="font-bold text-stone-900">{booking.sitter_name}</h3>
+                          <div className="text-sm text-stone-500 capitalize">{booking.service_type?.replace(/[-_]/g, ' ')}</div>
+                          {booking.pets && booking.pets.length > 0 && (
+                            <div className="text-xs text-stone-400 mt-0.5">
+                              {booking.pets.map((p) => p.name).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-stone-900">
+                          {format(new Date(booking.start_time), 'MMM d, yyyy')}
+                        </div>
+                        <div className="text-xs text-stone-500">
+                          {format(new Date(booking.start_time), 'h:mm a')} - {format(new Date(booking.end_time), 'h:mm a')}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-stone-900">
-                        {format(new Date(booking.start_time), 'MMM d, yyyy')}
-                      </div>
-                      <div className="text-xs text-stone-500">
-                        {format(new Date(booking.start_time), 'h:mm a')} - {format(new Date(booking.end_time), 'h:mm a')}
-                      </div>
-                    </div>
-                  </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <Badge variant={statusVariant(booking.status)} className="capitalize">
+                        {booking.status}
+                      </Badge>
 
-                  <div className="mt-4 flex items-center justify-between">
-                    <Badge variant={statusVariant(booking.status)} className="capitalize">
-                      {booking.status}
-                    </Badge>
-
-                    <div className="flex items-center gap-2">
-                      {isSitterMode && booking.status === 'pending' && (
-                        <>
+                      <div className="flex items-center gap-2">
+                        {(booking.status === 'pending' || booking.status === 'confirmed') && (
                           <Button
                             size="xs"
-                            onClick={() => updateBookingStatus(booking.id, 'confirmed')}
-                            disabled={updatingIds.has(booking.id)}
-                          >
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            Accept
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="destructive"
+                            variant="outline"
+                            className="text-red-700 border-red-200 hover:bg-red-50"
                             onClick={() => setCancelDialogBookingId(booking.id)}
                             disabled={updatingIds.has(booking.id)}
                           >
                             <XCircle className="w-3.5 h-3.5" />
-                            Decline
+                            Cancel
                           </Button>
-                        </>
-                      )}
+                        )}
 
-                      {!isSitterMode && (booking.status === 'pending' || booking.status === 'confirmed') && (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          className="text-red-700 border-red-200 hover:bg-red-50"
-                          onClick={() => setCancelDialogBookingId(booking.id)}
-                          disabled={updatingIds.has(booking.id)}
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          Cancel
-                        </Button>
-                      )}
+                        {booking.status === 'in_progress' && (
+                          <Button size="xs" variant="ghost" asChild>
+                            <Link to={`/track/${booking.id}`}>
+                              <MapPin className="w-4 h-4" />
+                              Track Walk
+                            </Link>
+                          </Button>
+                        )}
 
-                      {booking.status === 'in_progress' && (
-                        <Button size="xs" variant="ghost" asChild>
-                          <Link to={`/track/${booking.id}`}>
-                            <MapPin className="w-4 h-4" />
-                            Track Walk
-                          </Link>
-                        </Button>
-                      )}
+                        {booking.status === 'completed' && !reviewedBookingIds.has(booking.id) && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => { setReviewBookingId(booking.id); setReviewRating(5); setReviewComment(''); }}
+                          >
+                            <Star className="w-3.5 h-3.5" />
+                            Leave Review
+                          </Button>
+                        )}
 
-                      {booking.status === 'completed' && !reviewedBookingIds.has(booking.id) && (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => { setReviewBookingId(booking.id); setReviewRating(5); setReviewComment(''); }}
-                        >
-                          <Star className="w-3.5 h-3.5" />
-                          Leave Review
-                        </Button>
-                      )}
-
-                      {!isSitterMode && booking.status === 'completed' && (
-                        <Button size="xs" variant="outline" asChild>
-                          <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            Book Again
-                          </Link>
-                        </Button>
-                      )}
+                        {booking.status === 'completed' && (
+                          <Button size="xs" variant="outline" asChild>
+                            <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              Book Again
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
                     </div>
+
+                    {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
+                      <div className="mt-4">
+                        <CareTasksChecklist bookingId={booking.id} token={token} isSitter={false} />
+                      </div>
+                    )}
                   </div>
-
-                  {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
-                    <div className="mt-4">
-                      <CareTasksChecklist bookingId={booking.id} token={token} isSitter={isSitterMode} />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-        })()}
-      </div>
+                ))}
+            </div>
+          );
+          })()}
+        </div>
+      )}
 
       {isSitterMode && (
         <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
