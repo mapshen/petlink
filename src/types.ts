@@ -1,5 +1,20 @@
 export type CancellationPolicy = 'flexible' | 'moderate' | 'strict';
 
+export interface SitterWithService extends User {
+  price: number;
+  service_type: string;
+  distance_meters?: number;
+  accepted_pet_sizes?: string[];
+  accepted_species?: string[];
+  years_experience?: number;
+  max_pets?: number;
+  ranking_score?: number;
+  is_new?: boolean;
+  review_count?: number;
+  avg_rating?: number | null;
+  service_radius_miles?: number;
+}
+
 export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
 
 export type SubscriptionTier = 'free' | 'pro';
@@ -35,6 +50,7 @@ export interface User {
   has_own_pets?: boolean;
   own_pets_description?: string;
   skills?: string[];
+  service_radius_miles?: number;
   subscription_tier?: SubscriptionTier;
   approval_status?: 'approved' | 'pending_approval' | 'rejected' | 'banned';
   approval_rejected_reason?: string;

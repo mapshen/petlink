@@ -70,7 +70,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 - **Auth state**: `src/context/AuthContext.tsx` — React context + localStorage (`petlink_token`, `petlink_user`)
 - **Pages**: Home, Login, Search, SitterProfile, Dashboard (mode-aware booking filtering), Messages, TrackWalk, ProfilePage (sidebar + stacked sections: owner mode shows ProfileTab+PetsTab, sitter mode shows ProfileTab+ServicesTab+PhotosTab), Onboarding. Old routes `/pets`, `/services`, `/photos` redirect to `/profile`.
 - **Mode system**: `ModeContext` provides global owner/sitter toggle for "both" role users. Persisted in localStorage (`petlink_mode`). Affects Dashboard filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
-- **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows), `PhotoGallery` (lightbox viewer), `FavoriteButton` (heart toggle), `FavoriteSitters` (dashboard favorites section), `PetSelector` (multi-pet checkbox selection for bookings), `CareInstructionsEditor` (per-pet care instruction management), `CareTasksChecklist` (sitter task completion with progress)
+- **Components**: `BookingCalendar` (month-grid date picker with availability), `TimeSlotPicker` (time slot selection from availability windows), `PhotoGallery` (lightbox viewer), `FavoriteButton` (heart toggle), `FavoriteSitters` (dashboard favorites section), `PetSelector` (multi-pet checkbox selection for bookings), `CareInstructionsEditor` (per-pet care instruction management), `CareTasksChecklist` (sitter task completion with progress), `SitterClusterMap` (search results map with marker clustering), `SitterLocationMap` (sitter profile approximate location map), `MapViewToggle` (list/map/split view toggle)
 - **Hooks**: `useFavorites` (favorites state + optimistic toggle), `useOnboardingStatus`, `useImageUpload`
 - **Types**: `src/types.ts` — User, Pet, Service, Booking, Message, Review, Availability, WalkEvent, SitterPhoto, Favorite, CancellationPolicy, SitterSubscription
 - **Path alias**: `@/*` maps to project root
@@ -81,7 +81,7 @@ PostgreSQL with PostGIS.
 
 | Table | Key Columns / Notes |
 |-------|-------------------|
-| `users` | `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills` |
+| `users` | `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10) |
 | `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
 | `pet_vaccinations` | Vaccine records with expiration tracking |
 | `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB |
@@ -118,6 +118,8 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 - `@stripe/stripe-js` + `@stripe/react-stripe-js` — Stripe Elements for embedded payment forms
 - `resend` — transactional email via Resend API (`src/email.ts`)
 - `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` — S3 uploads
+- `leaflet` + `react-leaflet` — interactive maps with OpenStreetMap tiles (`src/components/map/`)
+- `leaflet.markercluster` — marker clustering for search results map
 
 ## Testing
 
