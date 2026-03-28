@@ -6,6 +6,7 @@ import {
   subMonths,
   format,
 } from 'date-fns';
+import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { API_BASE } from '../config';
 import { CalendarEvent } from '../types';
 
@@ -22,6 +23,7 @@ interface UseCalendarReturn {
 }
 
 export function useCalendar(): UseCalendarReturn {
+  const { token } = useAuth();
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,7 +34,6 @@ export function useCalendar(): UseCalendarReturn {
   const rangeEnd = useMemo(() => endOfMonth(currentDate), [currentDate]);
 
   useEffect(() => {
-    const token = localStorage.getItem('petlink_token');
     if (!token) {
       setError('Not authenticated');
       return;
@@ -46,10 +47,7 @@ export function useCalendar(): UseCalendarReturn {
     setError(null);
 
     fetch(`${API_BASE}/calendar?start=${start}&end=${end}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(token),
       signal: controller.signal,
     })
       .then((res) => {
@@ -66,7 +64,7 @@ export function useCalendar(): UseCalendarReturn {
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [rangeStart, rangeEnd, fetchTick]);
+  }, [token, rangeStart, rangeEnd, fetchTick]);
 
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();

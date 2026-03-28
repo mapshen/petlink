@@ -16,7 +16,7 @@ import { createPaymentIntent, createACHPaymentIntent, createFinancialConnections
 import { getOrCreateStripeCustomer } from './src/server/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/server/notifications.ts';
 import { generateUploadUrl } from './src/server/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema, calendarQuerySchema, bookingFiltersSchema, analyticsDateRangeSchema, availabilitySchema, verificationUpdateSchema } from './src/server/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema, calendarQuerySchema, bookingFiltersSchema, analyticsDateRangeSchema, availabilitySchema, verificationUpdateSchema, notificationPreferencesSchema, paymentIntentSchema, paymentActionSchema, applyProfileSchema, signedUrlSchema } from './src/server/validation.ts';
 import { getCalendarData } from './src/server/calendar.ts';
 import { generateCalendarToken, revokeCalendarToken, validateCalendarToken, generateICS, type ICSEvent } from './src/server/calendar-export.ts';
 import { parseRoverUrl, generateVerificationCode, scrapeRoverProfile, checkVerificationCode } from './src/server/profile-import.ts';
@@ -981,10 +981,9 @@ async function startServer() {
       res.status(500).json({ error: 'Webhook secret not configured' });
       return;
     }
-    const signature = req.headers['x-webhook-signature'] as string || '';
-    const secretBuf = Buffer.from(webhookSecret);
-    const sigBuf = Buffer.from(signature);
-    if (secretBuf.length !== sigBuf.length || !crypto.timingSafeEqual(secretBuf, sigBuf)) {
+    const legacySignature = req.headers['x-webhook-signature'] as string || '';
+    const legacyBody = JSON.stringify(req.body);
+    if (!verifyWebhookSignature(legacyBody, legacySignature, webhookSecret)) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
@@ -1174,86 +1173,6 @@ async function startServer() {
       res.status(404).json({ error: 'Favorite not found' });
       return;
     }
-    res.json({ success: true });
-  });
-
-  // --- Recurring Bookings ---
-  v1.get('/recurring-bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const recurring = await sql`
-      SELECT rb.*, u.name as sitter_name, s.type as service_type
-      FROM recurring_bookings rb
-      JOIN users u ON rb.sitter_id = u.id
-      JOIN services s ON rb.service_id = s.id
-      WHERE rb.owner_id = ${req.userId}
-      ORDER BY rb.created_at DESC
-    `;
-    res.json({ recurring_bookings: recurring });
-  });
-
-  v1.post('/recurring-bookings', authMiddleware, validate(createRecurringBookingSchema), async (req: AuthenticatedRequest, res) => {
-    const { sitter_id, service_id, pet_ids, frequency, day_of_week, start_time, end_time } = req.body;
-
-    if (Number(sitter_id) === req.userId) {
-      res.status(400).json({ error: 'Cannot create recurring booking with yourself' });
-      return;
-    }
-
-    const [service] = await sql`SELECT id FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
-    if (!service) {
-      res.status(400).json({ error: 'Invalid service for this sitter' });
-      return;
-    }
-
-    const ownerPets = await sql`SELECT id FROM pets WHERE id = ANY(${pet_ids}) AND owner_id = ${req.userId}`;
-    if (ownerPets.length !== pet_ids.length) {
-      res.status(400).json({ error: 'One or more pets not found' });
-      return;
-    }
-
-    // Calculate next occurrence
-    const now = new Date();
-    const today = now.getDay();
-    let daysUntil = day_of_week - today;
-    if (daysUntil <= 0) daysUntil += 7;
-    const nextDate = new Date(now);
-    nextDate.setDate(now.getDate() + daysUntil);
-    const nextOccurrence = nextDate.toISOString().split('T')[0];
-
-    const [recurring] = await sql`
-      INSERT INTO recurring_bookings (owner_id, sitter_id, service_id, pet_ids, frequency, day_of_week, start_time, end_time, next_occurrence)
-      VALUES (${req.userId}, ${sitter_id}, ${service_id}, ${pet_ids}, ${frequency}, ${day_of_week}, ${start_time}, ${end_time}, ${nextOccurrence})
-      RETURNING *
-    `;
-    res.status(201).json({ recurring_booking: recurring });
-  });
-
-  v1.put('/recurring-bookings/:id/pause', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [rb] = await sql`SELECT id FROM recurring_bookings WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
-    if (!rb) {
-      res.status(404).json({ error: 'Recurring booking not found' });
-      return;
-    }
-    const [updated] = await sql`UPDATE recurring_bookings SET active = FALSE WHERE id = ${req.params.id} RETURNING *`;
-    res.json({ recurring_booking: updated });
-  });
-
-  v1.put('/recurring-bookings/:id/resume', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [rb] = await sql`SELECT id FROM recurring_bookings WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
-    if (!rb) {
-      res.status(404).json({ error: 'Recurring booking not found' });
-      return;
-    }
-    const [updated] = await sql`UPDATE recurring_bookings SET active = TRUE WHERE id = ${req.params.id} RETURNING *`;
-    res.json({ recurring_booking: updated });
-  });
-
-  v1.delete('/recurring-bookings/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [rb] = await sql`SELECT id FROM recurring_bookings WHERE id = ${req.params.id} AND owner_id = ${req.userId}`;
-    if (!rb) {
-      res.status(404).json({ error: 'Recurring booking not found' });
-      return;
-    }
-    await sql`DELETE FROM recurring_bookings WHERE id = ${req.params.id}`;
     res.json({ success: true });
   });
 
@@ -2221,21 +2140,17 @@ async function startServer() {
     res.json({ preferences: prefs });
   });
 
-  v1.put('/notification-preferences', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const { new_booking, booking_status, new_message, walk_updates } = req.body;
-    const prefs = await updatePreferences(req.userId!, { new_booking, booking_status, new_message, walk_updates });
+  v1.put('/notification-preferences', authMiddleware, validate(notificationPreferencesSchema), async (req: AuthenticatedRequest, res) => {
+    const { new_booking, booking_status, new_message, walk_updates, email_enabled } = req.body;
+    const prefs = await updatePreferences(req.userId!, { new_booking, booking_status, new_message, walk_updates, email_enabled });
     res.json({ preferences: prefs });
   });
 
   // --- Stripe Connect ---
   // --- Payments (direct — no Stripe Connect) ---
-  v1.post('/payments/create-intent', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/payments/create-intent', authMiddleware, validate(paymentIntentSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
-      if (!booking_id) {
-        res.status(400).json({ error: 'booking_id is required' });
-        return;
-      }
       const [booking] = await sql`SELECT * FROM bookings WHERE id = ${booking_id} AND owner_id = ${req.userId}`;
       if (!booking) {
         res.status(404).json({ error: 'Booking not found' });
@@ -2259,7 +2174,7 @@ async function startServer() {
     }
   });
 
-  v1.post('/payments/capture', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/payments/capture', authMiddleware, validate(paymentActionSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
       const [booking] = await sql`
@@ -2278,7 +2193,7 @@ async function startServer() {
     }
   });
 
-  v1.post('/payments/cancel', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/payments/cancel', authMiddleware, validate(paymentActionSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
       const [booking] = await sql`
@@ -2405,24 +2320,21 @@ async function startServer() {
   });
 
   // --- Media Upload (S3 signed URLs) ---
-  v1.post('/uploads/signed-url', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/uploads/signed-url', authMiddleware, validate(signedUrlSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const { folder, contentType, fileSize } = req.body;
-      const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos'] as const;
-      if (!folder || !validFolders.includes(folder)) {
-        res.status(400).json({ error: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos' });
-        return;
-      }
-      const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-      const allowedVideoTypes = ['video/mp4', 'video/quicktime', 'video/webm'];
-      const allowedContentTypes = [...allowedImageTypes, ...allowedVideoTypes];
-      if (!contentType || !allowedContentTypes.includes(contentType)) {
-        res.status(400).json({ error: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/quicktime, video/webm' });
-        return;
-      }
-      const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB
-      if (folder === 'videos' && typeof fileSize === 'number' && fileSize > MAX_VIDEO_SIZE) {
-        res.status(400).json({ error: 'Video file must be under 10MB' });
+      const MAX_SIZE: Record<string, number> = {
+        pets: 5 * 1024 * 1024,
+        avatars: 5 * 1024 * 1024,
+        'sitter-photos': 5 * 1024 * 1024,
+        verifications: 5 * 1024 * 1024,
+        walks: 5 * 1024 * 1024,
+        videos: 10 * 1024 * 1024,
+      };
+      const maxBytes = MAX_SIZE[folder];
+      if (typeof fileSize === 'number' && fileSize > maxBytes) {
+        const maxMB = maxBytes / (1024 * 1024);
+        res.status(400).json({ error: `File must be under ${maxMB}MB for ${folder}` });
         return;
       }
       const result = await generateUploadUrl(folder, contentType, req.userId!);
@@ -2884,12 +2796,8 @@ async function startServer() {
     });
   });
 
-  v1.post('/import/apply-profile', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  v1.post('/import/apply-profile', authMiddleware, validate(applyProfileSchema), async (req: AuthenticatedRequest, res) => {
     const { profile_id } = req.body;
-    if (!profile_id) {
-      res.status(400).json({ error: 'profile_id is required' });
-      return;
-    }
     const [profile] = await sql`
       SELECT id, sitter_id, verification_status, raw_data
       FROM imported_profiles WHERE id = ${profile_id} AND sitter_id = ${req.userId}
@@ -3094,6 +3002,15 @@ async function startServer() {
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+
+  const shutdown = async () => {
+    io.close();
+    httpServer.close();
+    await sql.end({ timeout: 5 });
+    process.exit(0);
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 startServer();

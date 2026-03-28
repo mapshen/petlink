@@ -53,6 +53,7 @@ export default function SitterProfile() {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const { clientSecret, loading: paymentLoading, error: paymentError, createIntent } = usePaymentIntent();
+  const [bookingLoading, setBookingLoading] = useState(false);
   const [cityName, setCityName] = useState<string | null>(null);
 
   const handleAvailabilityLoaded = useCallback((data: Availability[]) => {
@@ -139,6 +140,7 @@ export default function SitterProfile() {
 
     if (!selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0) return;
     setBookingError(null);
+    setBookingLoading(true);
 
     try {
       const [hours, minutes] = selectedTime.split(':').map(Number);
@@ -179,19 +181,21 @@ export default function SitterProfile() {
         const totalPrice = calculateBookingPrice(selectedSvcObj!.price, selectedSvcObj!.additional_pet_price || 0, selectedPetIds.length);
         const totalCents = Math.round(totalPrice * 100);
         setPaymentAmount(totalCents);
-        const secret = await createIntent(bookingId);
-        if (secret) {
+        const result = await createIntent(bookingId);
+        if (result.secret) {
           setShowPayment(true);
           return;
         }
         // Payment setup failed — show the specific error
-        setBookingError(`Booking created but payment setup failed: ${paymentError || 'unknown error'}. You can pay later from the dashboard.`);
+        setBookingError(`Booking created but payment setup failed: ${result.error || 'unknown error'}. You can pay later from the dashboard.`);
         return;
       } else {
         navigate('/dashboard');
       }
     } catch (err) {
       setBookingError(err instanceof Error ? err.message : 'Failed to create booking. Please try again.');
+    } finally {
+      setBookingLoading(false);
     }
   };
 
@@ -507,10 +511,10 @@ export default function SitterProfile() {
 
             <button
               onClick={handleBooking}
-              disabled={!selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
+              disabled={bookingLoading || !selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
               className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet' ? 'Request Booking' : 'Request Booking & Pay'}
+              {bookingLoading ? 'Submitting...' : selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet' ? 'Request Booking' : 'Request Booking & Pay'}
             </button>
             
             <p className="text-xs text-center text-stone-400 mt-4">

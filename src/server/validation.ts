@@ -291,6 +291,40 @@ export const verificationUpdateSchema = z.object({
     .refine((url) => url.startsWith('https://'), 'URL must use HTTPS'),
 });
 
+// --- Notification Preferences Schemas ---
+export const notificationPreferencesSchema = z.object({
+  email_enabled: z.boolean().optional(),
+  new_booking: z.boolean().optional(),
+  booking_status: z.boolean().optional(),
+  new_message: z.boolean().optional(),
+  walk_updates: z.boolean().optional(),
+});
+
+// --- Payment Schemas ---
+export const paymentIntentSchema = z.object({
+  booking_id: z.number().int().positive(),
+  payment_method: z.enum(['card', 'ach_debit']).optional(),
+});
+
+export const paymentActionSchema = z.object({
+  booking_id: z.number().int().positive(),
+});
+
+// --- Import Apply Profile Schema ---
+export const applyProfileSchema = z.object({
+  profile_id: z.number().int().positive('Invalid profile ID'),
+});
+
+// --- Upload Signed URL Schema ---
+const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos'] as const;
+const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;
+
+export const signedUrlSchema = z.object({
+  folder: z.enum(validFolders, { message: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos' }),
+  contentType: z.enum(allowedContentTypes, { message: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/quicktime, video/webm' }),
+  fileSize: z.number().int().positive('fileSize must be a positive integer').optional(),
+});
+
 // --- Calendar Schemas ---
 export const calendarQuerySchema = z.object({
   start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { CalendarDays, Plus } from 'lucide-react';
+import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useCalendar } from '../../hooks/useCalendar';
 import MiniCalendar from './MiniCalendar';
 import CalendarAgenda from './CalendarAgenda';
@@ -9,6 +10,7 @@ import CalendarExportDialog from './CalendarExportDialog';
 import { API_BASE } from '../../config';
 
 export default function CalendarCommandCenter() {
+  const { token } = useAuth();
   const { events, eventsByDate, loading, error: fetchError, currentDate, goNext, goPrev, refetch } =
     useCalendar();
 
@@ -30,28 +32,23 @@ export default function CalendarCommandCenter() {
 
   const handleDeleteAvailability = useCallback(async (availabilityId: number) => {
     try {
-      const token = localStorage.getItem('petlink_token');
       const res = await fetch(`${API_BASE}/availability/${availabilityId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(token),
       });
       if (!res.ok) throw new Error('Failed to delete availability');
       refetch();
     } catch {
       setActionError('Failed to delete availability. Please try again.');
     }
-  }, [refetch]);
+  }, [token, refetch]);
 
   const handleBookingAction = useCallback(async (bookingId: number, action: 'confirm' | 'cancel') => {
     try {
-      const token = localStorage.getItem('petlink_token');
       const status = action === 'confirm' ? 'confirmed' : 'cancelled';
       const res = await fetch(`${API_BASE}/bookings/${bookingId}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(token),
         body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error('Failed to update booking');
@@ -59,7 +56,7 @@ export default function CalendarCommandCenter() {
     } catch {
       setActionError('Failed to update booking. Please try again.');
     }
-  }, [refetch]);
+  }, [token, refetch]);
 
   if (loading) {
     return (
