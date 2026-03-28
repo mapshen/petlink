@@ -36,21 +36,9 @@ describe('payments', () => {
     process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_fake';
   });
 
-  it('createConnectedAccount returns account id', async () => {
-    const { createConnectedAccount } = await import('./payments.ts');
-    const id = await createConnectedAccount('test@example.com');
-    expect(id).toBe('acct_test123');
-  });
-
-  it('createAccountLink returns onboarding URL', async () => {
-    const { createAccountLink } = await import('./payments.ts');
-    const url = await createAccountLink('acct_test123', 'http://localhost:3000');
-    expect(url).toContain('stripe.com');
-  });
-
   it('createPaymentIntent returns client secret and id', async () => {
     const { createPaymentIntent } = await import('./payments.ts');
-    const result = await createPaymentIntent(5000, 'acct_test123');
+    const result = await createPaymentIntent(5000);
     expect(result.paymentIntentId).toBe('pi_test123');
     expect(result.clientSecret).toBe('pi_test123_secret_xyz');
   });

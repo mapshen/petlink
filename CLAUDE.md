@@ -54,7 +54,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Notifications | `GET /notifications`, `POST /notifications/:id/read`, `POST /notifications/read-all`, `GET/PUT /notification-preferences` |
 | Subscriptions | `GET /subscription`, `POST /subscription/upgrade`, `POST /subscription/cancel` |
 | Payouts | `GET /payouts` (paginated: `?limit=&offset=`), `GET /payouts/pending` |
-| Payments | `POST /stripe/connect`, `POST /stripe/account-link`, `POST /payments/create-intent`, `POST /payments/capture`, `POST /payments/cancel`, `GET /payment-methods`, `DELETE /payment-methods/:id`, `GET /payment-history`, `POST /payments/link-bank`, `GET /payments/bank-accounts`, `DELETE /payments/bank-accounts/:id` |
+| Payments | `POST /payments/create-intent`, `POST /payments/capture`, `POST /payments/cancel`, `GET /payment-methods`, `DELETE /payment-methods/:id`, `GET /payment-history`, `POST /payments/link-bank`, `GET /payments/bank-accounts`, `DELETE /payments/bank-accounts/:id` |
 | Subscriptions | `GET /subscription`, `POST /subscription/upgrade`, `POST /subscription/cancel`, `POST /subscription/create-intent` |
 | Analytics | `GET /analytics/overview` (sitter stats by year), `GET /analytics/clients` (client list with pets, paginated), `GET /analytics/clients/:clientId` (client booking history), `GET /analytics/revenue` (weekly/monthly revenue breakdown) |
 | Uploads | `POST /uploads/signed-url` |
