@@ -1,9 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto } from '../types';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle, Home, Award, PawPrint, CreditCard } from 'lucide-react';
 import { API_BASE } from '../config';
+import { reverseGeocode } from '../lib/geo';
+
+const SitterLocationMap = lazy(() => import('../components/map/SitterLocationMap'));
 import BookingCalendar from '../components/BookingCalendar';
 import TimeSlotPicker from '../components/TimeSlotPicker';
 import PhotoGallery from '../components/PhotoGallery';
@@ -48,6 +51,7 @@ export default function SitterProfile() {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const { clientSecret, loading: paymentLoading, error: paymentError, createIntent } = usePaymentIntent();
+  const [cityName, setCityName] = useState<string | null>(null);
 
   const handleAvailabilityLoaded = useCallback((data: Availability[]) => {
     setAvailability(data);
@@ -79,6 +83,14 @@ export default function SitterProfile() {
     };
     fetchSitter();
   }, [id, serviceIdParam]);
+
+  useEffect(() => {
+    if (sitter?.lat != null && sitter?.lng != null) {
+      reverseGeocode(sitter.lat, sitter.lng).then((city) => {
+        if (city) setCityName(city);
+      });
+    }
+  }, [sitter?.lat, sitter?.lng]);
 
   useEffect(() => {
     if (!user || !token) return;
@@ -200,7 +212,7 @@ export default function SitterProfile() {
                 </div>
                 <div className="flex items-center text-stone-500 mt-2">
                   <MapPin className="w-4 h-4 mr-1" />
-                  <span>San Francisco, CA</span>
+                  <span>{cityName || (sitter.lat != null ? 'Approximate location' : 'Location not shared')}</span>
                 </div>
                 <div className="flex items-center gap-4 mt-4 text-sm font-medium">
                   <div className="flex items-center gap-1 text-amber-500 bg-amber-50 px-3 py-1 rounded-full">
@@ -279,6 +291,28 @@ export default function SitterProfile() {
               )}
             </div>
           </div>
+
+          {sitter.lat != null && sitter.lng != null && (
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
+              <h2 className="text-xl font-bold mb-4 text-stone-900">Location</h2>
+              <Suspense fallback={
+                <div className="h-64 md:h-80 bg-stone-100 rounded-2xl flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+                </div>
+              }>
+                <SitterLocationMap
+                  lat={sitter.lat}
+                  lng={sitter.lng}
+                  name={sitter.name}
+                  serviceRadiusMiles={sitter.service_radius_miles}
+                />
+              </Suspense>
+              <p className="text-xs text-stone-400 mt-3">
+                {cityName ? `${cityName} — ` : ''}Approximate location shown for privacy
+                {sitter.service_radius_miles && ` · Serves within ${sitter.service_radius_miles} miles`}
+              </p>
+            </div>
+          )}
 
           {photos.length > 0 && (
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">

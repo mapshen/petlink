@@ -311,7 +311,7 @@ async function startServer() {
 
   v1.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
     `;
     if (user) {
       res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
@@ -322,7 +322,7 @@ async function startServer() {
 
   // --- Users ---
   v1.put('/users/me', authMiddleware, validate(updateProfileSchema), async (req: AuthenticatedRequest, res) => {
-    const { name, bio, avatar_url, role, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills } = req.body;
+    const { name, bio, avatar_url, role, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles } = req.body;
 
     // Check if user is switching from owner to sitter/both
     const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
@@ -340,11 +340,12 @@ async function startServer() {
       ${has_own_pets !== undefined ? sql`, has_own_pets = ${has_own_pets ?? false}` : sql``}
       ${own_pets_description !== undefined ? sql`, own_pets_description = ${own_pets_description || null}` : sql``}
       ${skills !== undefined ? sql`, skills = ${skills || []}` : sql``}
+      ${service_radius_miles !== undefined ? sql`, service_radius_miles = ${service_radius_miles}` : sql``}
       WHERE id = ${req.userId}
     `;
 
     const [user] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
     `;
 
     res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
@@ -649,7 +650,7 @@ async function startServer() {
 
   v1.get('/sitters/:id', botBlockMiddleware, publicLimiter, async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills FROM users WHERE id = ${req.params.id} AND role IN ('sitter', 'both') AND approval_status = 'approved'
+      SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles FROM users WHERE id = ${req.params.id} AND role IN ('sitter', 'both') AND approval_status = 'approved'
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });

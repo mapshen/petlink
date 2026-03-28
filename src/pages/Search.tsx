@@ -1,25 +1,16 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { User } from '../types';
+import { SitterWithService } from '../types';
 import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw, Navigation, Search as SearchIcon, SlidersHorizontal, X, DollarSign } from 'lucide-react';
 import { API_BASE } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../hooks/useFavorites';
+import { useMapViewPreference } from '../hooks/useMapViewPreference';
 import FavoriteButton from '../components/FavoriteButton';
+import MapViewToggle from '../components/map/MapViewToggle';
+import { metersToMiles } from '../lib/geo';
 
-interface SitterWithService extends User {
-  price: number;
-  service_type: string;
-  distance_meters?: number;
-  accepted_pet_sizes?: string[];
-  accepted_species?: string[];
-  years_experience?: number;
-  max_pets?: number;
-  ranking_score?: number;
-  is_new?: boolean;
-  review_count?: number;
-  avg_rating?: number | null;
-}
+const SitterClusterMap = lazy(() => import('../components/map/SitterClusterMap'));
 
 interface Coords {
   lat: number;
@@ -71,6 +62,19 @@ async function geocodeAddress(address: string): Promise<Coords | null> {
   }
 }
 
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : false
+  );
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+  return isDesktop;
+}
+
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
   const serviceType = searchParams.get('serviceType') || 'walking';
@@ -87,16 +91,21 @@ export default function Search() {
   const [geocoding, setGeocoding] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
 
-  // Filter state — initialized from URL params
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
   const [petSize, setPetSize] = useState(searchParams.get('petSize') || '');
   const [species, setSpecies] = useState(searchParams.get('species') || '');
 
-  const hasActiveFilters = minPrice || maxPrice || petSize || species;
+  const [highlightedSitterId, setHighlightedSitterId] = useState<number | null>(null);
 
-  // Geocode on mount if location param provided
+  const hasActiveFilters = minPrice || maxPrice || petSize || species;
+  const { view, setView } = useMapViewPreference();
+  const isDesktop = useIsDesktop();
+
+  const showList = view === 'list' || view === 'split';
+  const showMap = view === 'map' || view === 'split';
+
   useEffect(() => {
     if (initialLocation && !coords) {
       handleGeocode(initialLocation);
@@ -142,7 +151,6 @@ export default function Search() {
     handleGeocode(locationInput);
   };
 
-  // Sync filters to URL params
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
     if (minPrice) params.set('minPrice', minPrice); else params.delete('minPrice');
@@ -159,7 +167,6 @@ export default function Search() {
     setSpecies('');
   };
 
-  // Fetch sitters when coords, serviceType, radius, or filters change
   useEffect(() => {
     const fetchSitters = async () => {
       setLoading(true);
@@ -189,12 +196,6 @@ export default function Search() {
     fetchSitters();
   }, [serviceType, coords, radius, retryCount, minPrice, maxPrice, petSize, species]);
 
-  const formatDistance = (meters?: number) => {
-    if (!meters) return null;
-    const miles = meters / 1609.34;
-    return miles < 1 ? `${(miles * 5280).toFixed(0)} ft` : `${miles.toFixed(1)} mi`;
-  };
-
   const { user: authUser } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
 
@@ -202,7 +203,10 @@ export default function Search() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="text-3xl font-bold text-stone-900 mb-6">{serviceLabel}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-stone-900">{serviceLabel}</h1>
+        <MapViewToggle view={view} onViewChange={setView} showSplitOption={isDesktop} />
+      </div>
 
       {/* Location Search Bar */}
       <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-4 mb-4">
@@ -286,7 +290,6 @@ export default function Search() {
         {filtersOpen && (
           <div className="px-4 pb-4 border-t border-stone-100 pt-4">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Price Range */}
               <div>
                 <label className="block text-xs font-medium text-stone-600 mb-2">
                   <DollarSign className="w-3 h-3 inline mr-1" />
@@ -313,11 +316,8 @@ export default function Search() {
                 </div>
               </div>
 
-              {/* Pet Size */}
               <div>
-                <label className="block text-xs font-medium text-stone-600 mb-2">
-                  Pet Size
-                </label>
+                <label className="block text-xs font-medium text-stone-600 mb-2">Pet Size</label>
                 <div className="flex flex-wrap gap-2">
                   {PET_SIZES.map((size) => (
                     <button
@@ -337,11 +337,8 @@ export default function Search() {
                 </div>
               </div>
 
-              {/* Pet Species */}
               <div>
-                <label className="block text-xs font-medium text-stone-600 mb-2">
-                  Pet Type
-                </label>
+                <label className="block text-xs font-medium text-stone-600 mb-2">Pet Type</label>
                 <div className="flex flex-wrap gap-2">
                   {PET_SPECIES.map((s) => (
                     <button
@@ -360,7 +357,6 @@ export default function Search() {
                 </div>
               </div>
 
-              {/* Clear Filters */}
               <div className="flex items-end">
                 {hasActiveFilters && (
                   <button
@@ -393,92 +389,126 @@ export default function Search() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sitters.map((sitter) => (
-            <Link key={sitter.id} to={`/sitter/${sitter.id}`} className="block group">
-              <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md transition-all duration-300 relative">
-                {authUser && (
-                  <div className="absolute top-3 right-3 z-10">
-                    <FavoriteButton
-                      sitterId={sitter.id}
-                      isFavorited={isFavorited(sitter.id)}
-                      onToggle={toggleFavorite}
-                      size="sm"
-                    />
+        <div className={view === 'split' ? 'grid lg:grid-cols-2 gap-6' : ''}>
+          {/* Sitter List */}
+          {showList && (
+            <div className={view === 'split' ? 'overflow-y-auto max-h-[calc(100vh-200px)] pr-2 space-y-4' : ''}>
+              <div className={view === 'list' ? 'grid md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+                {sitters.map((sitter) => (
+                  <Link
+                    key={sitter.id}
+                    to={`/sitter/${sitter.id}`}
+                    className="block group"
+                    onMouseEnter={() => setHighlightedSitterId(sitter.id)}
+                    onMouseLeave={() => setHighlightedSitterId(null)}
+                  >
+                    <div className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-300 relative ${
+                      highlightedSitterId === sitter.id ? 'border-emerald-400 ring-1 ring-emerald-400' : 'border-stone-100'
+                    }`}>
+                      {authUser && (
+                        <div className="absolute top-3 right-3 z-10">
+                          <FavoriteButton
+                            sitterId={sitter.id}
+                            isFavorited={isFavorited(sitter.id)}
+                            onToggle={toggleFavorite}
+                            size="sm"
+                          />
+                        </div>
+                      )}
+                      <div className="flex p-6 gap-4">
+                        <div className="flex-shrink-0">
+                          <img
+                            src={sitter.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sitter.name)}`}
+                            alt={sitter.name}
+                            className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
+                          />
+                        </div>
+                        <div className="flex-grow min-w-0">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="text-lg font-bold text-stone-900 group-hover:text-emerald-600 transition-colors">
+                                {sitter.name}
+                              </h3>
+                              <div className="flex items-center text-stone-500 text-sm mt-1">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                {sitter.distance_meters != null
+                                  ? <span>{metersToMiles(sitter.distance_meters)} away</span>
+                                  : <span>Nearby</span>
+                                }
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="block text-lg font-bold text-emerald-600">{sitter.price === 0 ? 'Free' : `$${sitter.price}`}</span>
+                              {sitter.price > 0 && <span className="text-xs text-stone-400">per {serviceType === 'walking' ? 'walk' : 'night'}</span>}
+                            </div>
+                          </div>
+
+                          <p className="text-stone-600 text-sm mt-3 line-clamp-2">{sitter.bio}</p>
+
+                          <div className="mt-4 flex items-center gap-4 text-xs font-medium text-stone-500">
+                            {sitter.avg_rating ? (
+                              <div className="flex items-center gap-1 text-amber-500">
+                                <Star className="w-3 h-3 fill-current" />
+                                <span>{sitter.avg_rating} ({sitter.review_count})</span>
+                              </div>
+                            ) : (
+                              <span className="text-stone-400">No reviews</span>
+                            )}
+                            <div className="flex items-center gap-1 text-emerald-600">
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>Verified</span>
+                            </div>
+                            {sitter.years_experience != null && sitter.years_experience > 0 && (
+                              <span className="text-stone-400">{sitter.years_experience}yr exp</span>
+                            )}
+                            {sitter.is_new && (
+                              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                                New
+                              </span>
+                            )}
+                            {sitter.accepted_species && sitter.accepted_species.length > 0 && (
+                              <span className="text-stone-400">
+                                {sitter.accepted_species.map((s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ')).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+
+                {sitters.length === 0 && (
+                  <div className="col-span-full text-center py-12 bg-stone-50 rounded-2xl">
+                    <p className="text-stone-500">
+                      {hasActiveFilters
+                        ? 'No sitters match your filters. Try adjusting or clearing filters.'
+                        : coords
+                          ? 'No sitters found in this area. Try expanding your search radius.'
+                          : 'No sitters found. Try searching a specific location.'}
+                    </p>
                   </div>
                 )}
-                <div className="flex p-6 gap-4">
-                  <div className="flex-shrink-0">
-                    <img
-                      src={sitter.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sitter.name)}`}
-                      alt={sitter.name}
-                      className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
-                    />
-                  </div>
-                  <div className="flex-grow">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-bold text-stone-900 group-hover:text-emerald-600 transition-colors">
-                          {sitter.name}
-                        </h3>
-                        <div className="flex items-center text-stone-500 text-sm mt-1">
-                          <MapPin className="w-3 h-3 mr-1" />
-                          {sitter.distance_meters != null
-                            ? <span>{formatDistance(sitter.distance_meters)} away</span>
-                            : <span>San Francisco, CA</span>
-                          }
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="block text-lg font-bold text-emerald-600">{sitter.price === 0 ? 'Free' : `$${sitter.price}`}</span>
-                        {sitter.price > 0 && <span className="text-xs text-stone-400">per {serviceType === 'walking' ? 'walk' : 'night'}</span>}
-                      </div>
-                    </div>
-
-                    <p className="text-stone-600 text-sm mt-3 line-clamp-2">{sitter.bio}</p>
-
-                    <div className="mt-4 flex items-center gap-4 text-xs font-medium text-stone-500">
-                      {sitter.avg_rating ? (
-                        <div className="flex items-center gap-1 text-amber-500">
-                          <Star className="w-3 h-3 fill-current" />
-                          <span>{sitter.avg_rating} ({sitter.review_count})</span>
-                        </div>
-                      ) : (
-                        <span className="text-stone-400">No reviews</span>
-                      )}
-                      <div className="flex items-center gap-1 text-emerald-600">
-                        <ShieldCheck className="w-3 h-3" />
-                        <span>Verified</span>
-                      </div>
-                      {sitter.years_experience != null && sitter.years_experience > 0 && (
-                        <span className="text-stone-400">{sitter.years_experience}yr exp</span>
-                      )}
-                      {sitter.is_new && (
-                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
-                          New
-                        </span>
-                      )}
-                      {sitter.accepted_species && sitter.accepted_species.length > 0 && (
-                        <span className="text-stone-400">
-                          {sitter.accepted_species.map((s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ')).join(', ')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
               </div>
-            </Link>
-          ))}
+            </div>
+          )}
 
-          {sitters.length === 0 && (
-            <div className="col-span-full text-center py-12 bg-stone-50 rounded-2xl">
-              <p className="text-stone-500">
-                {hasActiveFilters
-                  ? 'No sitters match your filters. Try adjusting or clearing filters.'
-                  : coords
-                    ? 'No sitters found in this area. Try expanding your search radius.'
-                    : 'No sitters found. Try searching a specific location.'}
-              </p>
+          {/* Map */}
+          {showMap && (
+            <div className={`${view === 'split' ? 'sticky top-24 h-[calc(100vh-200px)]' : 'h-[600px]'} rounded-2xl overflow-hidden`}>
+              <Suspense fallback={
+                <div className="w-full h-full bg-stone-100 rounded-2xl flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+                </div>
+              }>
+                <SitterClusterMap
+                  sitters={sitters}
+                  serviceType={serviceType}
+                  searchCenter={coords}
+                  searchRadius={radius}
+                  highlightedSitterId={highlightedSitterId}
+                />
+              </Suspense>
             </div>
           )}
         </div>
