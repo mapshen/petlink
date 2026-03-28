@@ -84,6 +84,31 @@ describe('double-blind reviews', () => {
     expect(reviews[1].published_at).not.toBeNull();
   });
 
+  it('should auto-publish unpublished reviews after 7 days', () => {
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, created_at) VALUES (?, ?, ?, ?, ?)').run(1, 1, 2, 5, eightDaysAgo);
+
+    // Review is unpublished (published_at IS NULL)
+    const review = db.prepare('SELECT * FROM reviews WHERE id = 1').get() as Record<string, unknown>;
+    expect(review.published_at).toBeNull();
+
+    // But should be visible via the time-limited filter
+    const visible = db.prepare(
+      "SELECT * FROM reviews WHERE reviewee_id = 2 AND (published_at IS NOT NULL OR created_at < datetime('now', '-7 days'))"
+    ).all();
+    expect(visible).toHaveLength(1);
+  });
+
+  it('should NOT auto-publish unpublished reviews within 7 days', () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, created_at) VALUES (?, ?, ?, ?, ?)').run(1, 1, 2, 5, twoDaysAgo);
+
+    const visible = db.prepare(
+      "SELECT * FROM reviews WHERE reviewee_id = 2 AND (published_at IS NOT NULL OR created_at < datetime('now', '-7 days'))"
+    ).all();
+    expect(visible).toHaveLength(0);
+  });
+
   it('should prevent duplicate reviews from same reviewer', () => {
     db.prepare('INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating) VALUES (?, ?, ?, ?)').run(1, 1, 2, 5);
 
