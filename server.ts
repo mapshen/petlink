@@ -725,9 +725,11 @@ async function startServer() {
       return;
     }
     const { source, session_id } = req.body || {};
+    const safeSessionId = typeof session_id === 'string' ? session_id.slice(0, 64) : undefined;
+    const safeSource = typeof source === 'string' ? source.slice(0, 32) : undefined;
     // Fire-and-forget: respond immediately, insert async
     res.status(204).end();
-    recordProfileView(sitterId, source, session_id).catch(() => {});
+    recordProfileView(sitterId, safeSource, safeSessionId).catch(() => {});
   });
 
   // --- Services (sitter CRUD) ---

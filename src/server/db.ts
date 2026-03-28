@@ -602,6 +602,7 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_sitter ON profile_views (sitter_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_viewed_at ON profile_views (viewed_at)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_dedup ON profile_views (sitter_id, session_id, viewed_at DESC) WHERE session_id IS NOT NULL`.catch(() => {});
 
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
