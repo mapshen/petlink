@@ -29,7 +29,7 @@ function formatCurrency(cents: number) {
   return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export default function PromotePage() {
+export default function PromotePage({ embedded = false }: { embedded?: boolean }) {
   const { user, token, loading: authLoading } = useAuth();
   const [listings, setListings] = useState<FeaturedListing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,8 +102,10 @@ export default function PromotePage() {
     }
   };
 
-  if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!embedded) {
+    if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+    if (!user) return <Navigate to="/login" replace />;
+  }
 
   const totalImpressions = listings.reduce((s, l) => s + l.impressions, 0);
   const totalClicks = listings.reduce((s, l) => s + l.clicks, 0);
@@ -112,7 +114,7 @@ export default function PromotePage() {
   const activeCount = listings.filter(l => l.active).length;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className={embedded ? '' : 'max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

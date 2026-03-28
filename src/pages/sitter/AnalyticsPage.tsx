@@ -62,7 +62,7 @@ function RevenueBarChart({ data }: RevenueBarChartProps) {
   );
 }
 
-export default function AnalyticsPage() {
+export default function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const { user, token, loading: authLoading } = useAuth();
 
   const [year, setYear] = useState(new Date().getFullYear());
@@ -119,30 +119,30 @@ export default function AnalyticsPage() {
     return () => controller.abort();
   }, [user, token, year, isSitter]);
 
-  if (authLoading) {
-    return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
-      </div>
-    );
-  }
-
-  if (!user) return <Navigate to="/login" replace />;
-
-  if (!isSitter) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-12 text-center">
-        <h1 className="text-2xl font-bold text-stone-900 mb-2">Access Denied</h1>
-        <p className="text-stone-500">Analytics is only available for sitter accounts.</p>
-      </div>
-    );
+  if (!embedded) {
+    if (authLoading) {
+      return (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+        </div>
+      );
+    }
+    if (!user) return <Navigate to="/login" replace />;
+    if (!isSitter) {
+      return (
+        <div className="max-w-2xl mx-auto px-4 py-12 text-center">
+          <h1 className="text-2xl font-bold text-stone-900 mb-2">Access Denied</h1>
+          <p className="text-stone-500">Analytics is only available for sitter accounts.</p>
+        </div>
+      );
+    }
   }
 
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: currentYear - 2019 }, (_, i) => currentYear - i);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className={embedded ? '' : 'max-w-6xl mx-auto px-4 py-8'}>
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">

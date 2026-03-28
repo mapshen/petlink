@@ -25,7 +25,7 @@ const PRO_BENEFITS = [
   { icon: Check, text: 'Advanced analytics and insights' },
 ];
 
-export default function SubscriptionPage() {
+export default function SubscriptionPage({ embedded = false }: { embedded?: boolean }) {
   const { user, token, loading: authLoading } = useAuth();
   const [subscription, setSubscription] = useState<SitterSubscription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,8 +129,10 @@ export default function SubscriptionPage() {
     }
   };
 
-  if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!embedded) {
+    if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+    if (!user) return <Navigate to="/login" replace />;
+  }
 
   const isPro = subscription?.tier === 'pro' && subscription?.status === 'active';
   const periodEnd = subscription?.current_period_end
@@ -138,7 +140,7 @@ export default function SubscriptionPage() {
     : null;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className={embedded ? '' : 'max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
       <div className="flex items-center gap-3 mb-6">
         <Crown className={`w-6 h-6 ${isPro ? 'text-amber-500' : 'text-stone-400'}`} />
         <h1 className="text-2xl font-bold text-stone-900">Subscription</h1>

@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Booking } from '../../types';
-import { Calendar, MapPin, CheckCircle, XCircle, RefreshCw, Star } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, XCircle, RefreshCw, Star, Loader2 } from 'lucide-react';
+
+const AnalyticsPage = lazy(() => import('../sitter/AnalyticsPage'));
+const PromotePage = lazy(() => import('../sitter/PromotePage'));
 import { format } from 'date-fns';
 import { API_BASE } from '../../config';
 import { Link } from 'react-router-dom';
@@ -334,6 +337,17 @@ export default function Dashboard() {
         );
         })()}
       </div>
+
+      {isSitterMode && (
+        <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
+          <div className="mt-8">
+            <AnalyticsPage embedded />
+          </div>
+          <div className="mt-8">
+            <PromotePage embedded />
+          </div>
+        </Suspense>
+      )}
 
       <AlertDialog open={cancelDialogBookingId !== null} onOpenChange={(open) => { if (!open) setCancelDialogBookingId(null); }}>
         <AlertDialogContent>
