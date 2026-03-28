@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto } from '../types';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle, Home, Award, PawPrint } from 'lucide-react';
+import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle, Home, Award, PawPrint, CreditCard } from 'lucide-react';
 import { API_BASE } from '../config';
 import BookingCalendar from '../components/BookingCalendar';
 import TimeSlotPicker from '../components/TimeSlotPicker';
@@ -10,8 +10,20 @@ import PhotoGallery from '../components/PhotoGallery';
 import PetSelector from '../components/PetSelector';
 import { useFavorites } from '../hooks/useFavorites';
 import FavoriteButton from '../components/FavoriteButton';
+import PaymentForm from '../components/PaymentForm';
+import { usePaymentIntent } from '../hooks/usePaymentIntent';
 import { calculateBookingPrice } from '../multi-pet-pricing';
 import { getPolicyDescription } from '../cancellation';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from '../components/ui/alert-dialog';
 
 export default function SitterProfile() {
   const { id } = useParams();
@@ -33,6 +45,9 @@ export default function SitterProfile() {
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
   const [selectedPetIds, setSelectedPetIds] = useState<number[]>([]);
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const { clientSecret, loading: paymentLoading, error: paymentError, createIntent } = usePaymentIntent();
 
   const handleAvailabilityLoaded = useCallback((data: Availability[]) => {
     setAvailability(data);
@@ -115,7 +130,27 @@ export default function SitterProfile() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Booking request failed');
       }
-      navigate('/dashboard');
+      const bookingData = await res.json();
+      const selectedSvcObj = services.find((s) => s.id === selectedService);
+      const isFree = selectedSvcObj?.type === 'meet_greet' || (bookingData.booking?.total_price ?? 0) === 0;
+
+      if (isFree) {
+        navigate('/dashboard');
+        return;
+      }
+
+      // Initiate payment for paid bookings
+      const bookingId = bookingData.booking?.id;
+      if (bookingId) {
+        const totalCents = Math.round((bookingData.booking.total_price || 0) * 100);
+        setPaymentAmount(totalCents);
+        const secret = await createIntent(bookingId);
+        if (secret) {
+          setShowPayment(true);
+        }
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setBookingError(err instanceof Error ? err.message : 'Failed to create booking. Please try again.');
     }
@@ -383,7 +418,7 @@ export default function SitterProfile() {
               disabled={!selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
               className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Request Booking
+              {selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet' ? 'Request Booking' : 'Request Booking & Pay'}
             </button>
             
             <p className="text-xs text-center text-stone-400 mt-4">
@@ -416,6 +451,48 @@ export default function SitterProfile() {
           </div>
         </div>
       </div>
+
+      {/* Payment Dialog */}
+      <AlertDialog open={showPayment} onOpenChange={(open) => { if (!open) setShowPayment(false); }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-emerald-600" />
+              Complete Payment
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Your booking has been created. Complete payment to confirm.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {clientSecret && paymentAmount > 0 ? (
+            <PaymentForm
+              clientSecret={clientSecret}
+              amount={paymentAmount}
+              onSuccess={() => {
+                setShowPayment(false);
+                navigate('/dashboard');
+              }}
+              onError={(msg) => setBookingError(msg)}
+            />
+          ) : paymentLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+            </div>
+          ) : paymentError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{paymentError}</AlertDescription>
+            </Alert>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowPayment(false);
+              navigate('/dashboard');
+            }}>
+              Pay Later
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

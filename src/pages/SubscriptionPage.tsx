@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { Crown, Check, Zap, Shield, Clock, AlertCircle } from 'lucide-react';
+import { Crown, Check, Zap, Shield, Clock, AlertCircle, CreditCard } from 'lucide-react';
+import SubscriptionPaymentForm from '../components/SubscriptionPaymentForm';
 import { API_BASE } from '../config';
 import { SitterSubscription } from '../types';
 import { Button } from '../components/ui/button';
@@ -31,6 +32,8 @@ export default function SubscriptionPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [subscriptionClientSecret, setSubscriptionClientSecret] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -67,6 +70,21 @@ export default function SubscriptionPage() {
     setActionLoading(true);
     setError(null);
     try {
+      // Try embedded payment first
+      const intentRes = await fetch(`${API_BASE}/subscription/create-intent`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({}),
+      });
+      if (intentRes.ok) {
+        const intentData = await intentRes.json();
+        setSubscriptionClientSecret(intentData.clientSecret);
+        setShowPayment(true);
+        setActionLoading(false);
+        return;
+      }
+
+      // Fallback to hosted checkout / dev mode
       const res = await fetch(`${API_BASE}/subscription/upgrade`, {
         method: 'POST',
         headers: getAuthHeaders(token),
@@ -245,6 +263,38 @@ export default function SubscriptionPage() {
             <AlertDialogAction variant="destructive" onClick={handleCancel}>
               {actionLoading ? 'Cancelling...' : 'Cancel Subscription'}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Embedded Subscription Payment */}
+      <AlertDialog open={showPayment} onOpenChange={(open) => { if (!open) { setShowPayment(false); setSubscriptionClientSecret(null); } }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-emerald-600" />
+              Subscribe to Pro
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Payment is processed securely on this page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {subscriptionClientSecret && (
+            <SubscriptionPaymentForm
+              clientSecret={subscriptionClientSecret}
+              onSuccess={() => {
+                setShowPayment(false);
+                setSubscriptionClientSecret(null);
+                setSuccessMessage('Welcome to Pro! Your subscription is now active.');
+                fetchSubscription();
+              }}
+              onError={(msg) => setError(msg)}
+            />
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setShowPayment(false); setSubscriptionClientSecret(null); }}>
+              Cancel
+            </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

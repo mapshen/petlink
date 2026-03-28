@@ -51,8 +51,11 @@ export async function createPaymentIntent(
     capture_method: 'manual',
   });
 
+  if (!paymentIntent.client_secret) {
+    throw new Error('Payment intent created without client secret');
+  }
   return {
-    clientSecret: paymentIntent.client_secret!,
+    clientSecret: paymentIntent.client_secret,
     paymentIntentId: paymentIntent.id,
   };
 }
@@ -110,9 +113,69 @@ export async function createSubscriptionCheckout(
   return session.url!;
 }
 
+export async function createSubscriptionIntent(
+  customerId: string,
+  priceId: string
+): Promise<{ clientSecret: string; subscriptionId: string }> {
+  const stripe = getStripe();
+  const subscription = await stripe.subscriptions.create({
+    customer: customerId,
+    items: [{ price: priceId }],
+    payment_behavior: 'default_incomplete',
+    payment_settings: { save_default_payment_method: 'on_subscription' },
+    expand: ['latest_invoice.payment_intent'],
+  });
+
+  const invoice = subscription.latest_invoice;
+  if (!invoice || typeof invoice === 'string') {
+    throw new Error('Subscription invoice not expanded');
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const paymentIntent = (invoice as any).payment_intent as Stripe.PaymentIntent;
+  if (!paymentIntent?.client_secret) {
+    throw new Error('Subscription payment intent created without client secret');
+  }
+
+  return {
+    clientSecret: paymentIntent.client_secret,
+    subscriptionId: subscription.id,
+  };
+}
+
 export async function cancelStripeSubscription(stripeSubscriptionId: string): Promise<void> {
   const stripe = getStripe();
   await stripe.subscriptions.cancel(stripeSubscriptionId);
+}
+
+export async function listPaymentMethods(customerId: string): Promise<{ id: string; brand: string; last4: string; exp_month: number; exp_year: number }[]> {
+  const stripe = getStripe();
+  const methods = await stripe.paymentMethods.list({ customer: customerId, type: 'card' });
+  return methods.data.map((m) => ({
+    id: m.id,
+    brand: m.card?.brand ?? 'unknown',
+    last4: m.card?.last4 ?? '****',
+    exp_month: m.card?.exp_month ?? 0,
+    exp_year: m.card?.exp_year ?? 0,
+  }));
+}
+
+export async function detachPaymentMethod(paymentMethodId: string): Promise<void> {
+  const stripe = getStripe();
+  await stripe.paymentMethods.detach(paymentMethodId);
+}
+
+export async function listCharges(customerId: string, limit: number = 20): Promise<{ id: string; amount: number; status: string; description: string | null; created_at: string; invoice_id?: string }[]> {
+  const stripe = getStripe();
+  const charges = await stripe.charges.list({ customer: customerId, limit });
+  return charges.data.map((c) => ({
+    id: c.id,
+    amount: c.amount,
+    status: c.status,
+    description: c.description,
+    created_at: new Date(c.created * 1000).toISOString(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    invoice_id: (c as any).invoice ? String((c as any).invoice) : undefined,
+  }));
 }
 
 export async function getStripeSubscription(stripeSubscriptionId: string): Promise<Stripe.Subscription> {
