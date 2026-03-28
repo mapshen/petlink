@@ -21,6 +21,7 @@ export default function ImportProfilePage() {
   const [profileId, setProfileId] = useState<number | null>(null);
   const [verificationCode, setVerificationCode] = useState<string | null>(null);
   const [importedCount, setImportedCount] = useState(0);
+  const [scrapedBio, setScrapedBio] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" /></div>;
@@ -116,6 +117,9 @@ export default function ImportProfilePage() {
       }
       const data = await res.json();
       setImportedCount(data.imported_count);
+      if (data.scraped_profile?.bio) {
+        setScrapedBio(data.scraped_profile.bio);
+      }
       setStep('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed');
@@ -257,16 +261,49 @@ export default function ImportProfilePage() {
       {/* Step 5: Done */}
       {step === 'done' && (
         <Card>
-          <CardContent className="p-6 text-center space-y-4">
-            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-              <Check className="w-8 h-8 text-emerald-600" />
+          <CardContent className="p-6 space-y-4">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-emerald-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-stone-900">Import Complete!</h2>
+              <p className="text-stone-600">{importedCount} reviews imported from Rover.</p>
+              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 mt-2">
+                <ExternalLink className="w-3 h-3 mr-1" /> Imported from Rover
+              </Badge>
             </div>
-            <h2 className="text-lg font-semibold text-stone-900">Import Complete!</h2>
-            <p className="text-stone-600">{importedCount} reviews imported from Rover.</p>
-            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-              <ExternalLink className="w-3 h-3 mr-1" /> Imported from Rover
-            </Badge>
-            <div className="pt-4">
+
+            {scrapedBio && (
+              <div className="bg-stone-50 rounded-xl border border-stone-200 p-4 text-left">
+                <p className="text-sm font-medium text-stone-700 mb-2">Use your Rover bio on PetLink?</p>
+                <p className="text-sm text-stone-600 mb-3 line-clamp-4">{scrapedBio}</p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`${API_BASE}/import/apply-profile`, {
+                          method: 'POST',
+                          headers: getAuthHeaders(token),
+                          body: JSON.stringify({ profile_id: profileId }),
+                        });
+                        if (!res.ok) throw new Error('Failed to apply');
+                        setScrapedBio(null);
+                      } catch {
+                        setError('Failed to apply profile data.');
+                      }
+                    }}
+                  >
+                    Apply Bio
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setScrapedBio(null)}>
+                    Skip
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 text-center">
               <Link to="/profile">
                 <Button>View Your Profile</Button>
               </Link>

@@ -2643,7 +2643,7 @@ async function startServer() {
       res.status(502).json({ error: 'Could not reach Rover. Please try again later.' });
       return;
     }
-    const code = generateVerificationCode();
+    const code = generateVerificationCode('petlink');
     const { rawHtml, ...profileData } = scraped;
 
     const [profile] = await sql`
@@ -2724,7 +2724,45 @@ async function startServer() {
       }));
       await sql`INSERT INTO imported_reviews ${sql(rows, 'imported_profile_id', 'sitter_id', 'platform', 'reviewer_name', 'rating', 'comment', 'review_date')}`;
     }
-    res.json({ imported_count: reviews.length });
+    // Return scraped profile data so frontend can offer to pre-fill
+    const rawProfile = profile.raw_data as { name?: string; bio?: string; rating?: number; reviewCount?: number };
+    res.json({
+      imported_count: reviews.length,
+      scraped_profile: {
+        name: rawProfile.name || null,
+        bio: rawProfile.bio || null,
+        rating: rawProfile.rating || null,
+        review_count: rawProfile.reviewCount || null,
+      },
+    });
+  });
+
+  v1.post('/import/apply-profile', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const { profile_id } = req.body;
+    if (!profile_id) {
+      res.status(400).json({ error: 'profile_id is required' });
+      return;
+    }
+    const [profile] = await sql`
+      SELECT id, sitter_id, verification_status, raw_data
+      FROM imported_profiles WHERE id = ${profile_id} AND sitter_id = ${req.userId}
+    `;
+    if (!profile || profile.verification_status !== 'verified') {
+      res.status(400).json({ error: 'Profile must be verified first' });
+      return;
+    }
+    const rawData = profile.raw_data as { name?: string; bio?: string };
+    // Only update fields that are currently empty on the user's profile
+    const [user] = await sql`SELECT name, bio FROM users WHERE id = ${req.userId}`;
+    const updates: { bio?: string } = {};
+    if (!user.bio && rawData.bio) {
+      updates.bio = rawData.bio;
+    }
+    if (Object.keys(updates).length > 0) {
+      await sql`UPDATE users SET bio = COALESCE(${updates.bio || null}, bio) WHERE id = ${req.userId}`;
+    }
+    const [updated] = await sql`SELECT id, name, bio FROM users WHERE id = ${req.userId}`;
+    res.json({ user: updated, fields_updated: Object.keys(updates) });
   });
 
   v1.get('/import/profiles', authMiddleware, async (req: AuthenticatedRequest, res) => {

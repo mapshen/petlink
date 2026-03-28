@@ -59,18 +59,18 @@ describe('parseRoverUrl', () => {
 });
 
 describe('generateVerificationCode', () => {
-  it('starts with PL- prefix', () => {
-    const code = generateVerificationCode();
-    expect(code).toMatch(/^PL-/);
+  it('includes platform name in code', () => {
+    const code = generateVerificationCode('petlink');
+    expect(code).toMatch(/^petlink-verify-/);
   });
 
-  it('has correct length (PL- + 8 hex chars)', () => {
-    const code = generateVerificationCode();
-    expect(code).toHaveLength(11); // "PL-" + 8 hex chars
+  it('has correct length (platform-verify- + 8 hex chars)', () => {
+    const code = generateVerificationCode('petlink');
+    expect(code).toHaveLength(23); // "petlink-verify-" (15) + 8 hex chars
   });
 
   it('generates unique codes', () => {
-    const codes = new Set(Array.from({ length: 100 }, () => generateVerificationCode()));
+    const codes = new Set(Array.from({ length: 100 }, () => generateVerificationCode('petlink')));
     expect(codes.size).toBe(100);
   });
 });
@@ -80,7 +80,7 @@ describe('parseRoverProfileHtml', () => {
     <html>
     <body>
       <h1 class="sitter-name">Jane Smith</h1>
-      <div class="about-me">I love all animals! PL-abc12345</div>
+      <div class="about-me">I love all animals! petlink-verify-abc12345</div>
       <span class="star-rating"><span class="rating-value">4.8</span></span>
       <span class="review-count">42 reviews</span>
       <div class="review-card">
@@ -142,19 +142,19 @@ describe('parseRoverProfileHtml', () => {
 describe('checkVerificationCode', () => {
   const htmlWithCode = `
     <html><body>
-      <div class="about-me">I love pets! PL-abc12345 Check me out.</div>
+      <div class="about-me">I love pets! petlink-verify-abc12345 Check me out.</div>
     </body></html>
   `;
 
   it('finds verification code in bio', () => {
-    expect(checkVerificationCode(htmlWithCode, 'PL-abc12345')).toBe(true);
+    expect(checkVerificationCode(htmlWithCode, 'petlink-verify-abc12345')).toBe(true);
   });
 
   it('returns false for missing code', () => {
-    expect(checkVerificationCode(htmlWithCode, 'PL-xxxxxxxx')).toBe(false);
+    expect(checkVerificationCode(htmlWithCode, 'petlink-verify-xxxxxxxx')).toBe(false);
   });
 
   it('returns false for empty HTML', () => {
-    expect(checkVerificationCode('<html><body></body></html>', 'PL-abc12345')).toBe(false);
+    expect(checkVerificationCode('<html><body></body></html>', 'petlink-verify-abc12345')).toBe(false);
   });
 });

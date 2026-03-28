@@ -22,9 +22,9 @@ export function parseRoverUrl(url: string): { valid: true; username: string } | 
   }
 }
 
-export function generateVerificationCode(): string {
+export function generateVerificationCode(platform: string = 'petlink'): string {
   const bytes = crypto.randomBytes(4);
-  return `PL-${bytes.toString('hex')}`;
+  return `${platform}-verify-${bytes.toString('hex')}`;
 }
 
 export function parseRoverProfileHtml(html: string): {
