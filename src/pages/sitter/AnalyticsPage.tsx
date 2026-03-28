@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { BarChart3, Users, DollarSign, Star, TrendingUp, Clock } from 'lucide-react';
 import { API_BASE } from '../../config';
-import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { startOfMonth, addMonths, addDays, subMonths, format } from 'date-fns';
 import type { AnalyticsOverview, ClientSummary, RevenueDataPoint } from '../../types';
 
 export type AnalyticsPeriod = 'this_month' | 'last_3_months' | 'last_6_months' | 'this_year' | 'all_time';
@@ -28,25 +28,25 @@ export function computePeriodRange(period: AnalyticsPeriod, now: Date = new Date
     case 'this_month':
       return {
         start: format(startOfMonth(now), 'yyyy-MM-dd'),
-        end: format(endOfMonth(now), 'yyyy-MM-dd'),
+        end: format(addMonths(startOfMonth(now), 1), 'yyyy-MM-dd'),
         year: null,
       };
     case 'last_3_months':
       return {
         start: format(subMonths(now, 3), 'yyyy-MM-dd'),
-        end: format(now, 'yyyy-MM-dd'),
+        end: format(addDays(now, 1), 'yyyy-MM-dd'),
         year: null,
       };
     case 'last_6_months':
       return {
         start: format(subMonths(now, 6), 'yyyy-MM-dd'),
-        end: format(now, 'yyyy-MM-dd'),
+        end: format(addDays(now, 1), 'yyyy-MM-dd'),
         year: null,
       };
     case 'this_year':
       return {
         start: `${now.getFullYear()}-01-01`,
-        end: `${now.getFullYear()}-12-31`,
+        end: `${now.getFullYear() + 1}-01-01`,
         year: now.getFullYear(),
       };
     case 'all_time':

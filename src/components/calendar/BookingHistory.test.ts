@@ -71,31 +71,31 @@ describe('BookingHistory: computeOffset', () => {
 describe('AnalyticsPage: computePeriodRange', () => {
   const fixedDate = new Date(2026, 2, 15); // March 15, 2026
 
-  it('computes this_month range', () => {
+  it('computes this_month range with exclusive end', () => {
     const range = computePeriodRange('this_month', fixedDate);
     expect(range.start).toBe('2026-03-01');
-    expect(range.end).toBe('2026-03-31');
+    expect(range.end).toBe('2026-04-01');
     expect(range.year).toBeNull();
   });
 
-  it('computes last_3_months range', () => {
+  it('computes last_3_months range with exclusive end', () => {
     const range = computePeriodRange('last_3_months', fixedDate);
     expect(range.start).toBe('2025-12-15');
-    expect(range.end).toBe('2026-03-15');
+    expect(range.end).toBe('2026-03-16');
     expect(range.year).toBeNull();
   });
 
-  it('computes last_6_months range', () => {
+  it('computes last_6_months range with exclusive end', () => {
     const range = computePeriodRange('last_6_months', fixedDate);
     expect(range.start).toBe('2025-09-15');
-    expect(range.end).toBe('2026-03-15');
+    expect(range.end).toBe('2026-03-16');
     expect(range.year).toBeNull();
   });
 
-  it('computes this_year range', () => {
+  it('computes this_year range with exclusive end', () => {
     const range = computePeriodRange('this_year', fixedDate);
     expect(range.start).toBe('2026-01-01');
-    expect(range.end).toBe('2026-12-31');
+    expect(range.end).toBe('2027-01-01');
     expect(range.year).toBe(2026);
   });
 
@@ -106,18 +106,18 @@ describe('AnalyticsPage: computePeriodRange', () => {
     expect(range.year).toBeNull();
   });
 
-  it('handles January for this_month', () => {
+  it('handles January for this_month with exclusive end', () => {
     const jan = new Date(2026, 0, 10);
     const range = computePeriodRange('this_month', jan);
     expect(range.start).toBe('2026-01-01');
-    expect(range.end).toBe('2026-01-31');
+    expect(range.end).toBe('2026-02-01');
   });
 
-  it('handles last_3_months crossing year boundary', () => {
+  it('handles last_3_months crossing year boundary with exclusive end', () => {
     const jan = new Date(2026, 0, 20);
     const range = computePeriodRange('last_3_months', jan);
     expect(range.start).toBe('2025-10-20');
-    expect(range.end).toBe('2026-01-20');
+    expect(range.end).toBe('2026-01-21');
   });
 
   it('defaults to null range for unknown period', () => {
