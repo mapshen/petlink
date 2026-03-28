@@ -44,7 +44,7 @@ type Tab = 'pending' | 'all';
 type ActionType = 'reject' | 'ban';
 
 export default function AdminPage() {
-  const { user, token } = useAuth();
+  const { user, token, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<Tab>('pending');
   const [pendingSitters, setPendingSitters] = useState<AdminSitter[]>([]);
   const [allSitters, setAllSitters] = useState<AdminSitter[]>([]);
@@ -98,6 +98,9 @@ export default function AdminPage() {
     fetchAll();
   }, [token]);
 
+  if (authLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;
+  }
   if (!user?.is_admin) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -370,13 +373,14 @@ export default function AdminPage() {
           />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <Button
               variant="destructive"
               onClick={handleAction}
-              disabled={actionType === 'ban' && !actionReason.trim()}
+              disabled={(actionType === 'ban' && !actionReason.trim()) || processingId !== null}
             >
+              {processingId ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               {actionType === 'ban' ? 'Ban User' : 'Reject'}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
