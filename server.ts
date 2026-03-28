@@ -2332,7 +2332,7 @@ async function startServer() {
         videos: 10 * 1024 * 1024,
       };
       const maxBytes = MAX_SIZE[folder];
-      if (typeof fileSize === 'number' && fileSize > maxBytes) {
+      if (fileSize > maxBytes) {
         const maxMB = maxBytes / (1024 * 1024);
         res.status(400).json({ error: `File must be under ${maxMB}MB for ${folder}` });
         return;
@@ -3003,11 +3003,11 @@ async function startServer() {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 
-  const shutdown = async () => {
+  const shutdown = () => {
     io.close();
-    httpServer.close();
-    await sql.end({ timeout: 5 });
-    process.exit(0);
+    httpServer.close(() => {
+      sql.end({ timeout: 5 }).then(() => process.exit(0)).catch(() => process.exit(1));
+    });
   };
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
