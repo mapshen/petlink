@@ -242,3 +242,9 @@ export const verifyImportSchema = z.object({
 export const confirmImportSchema = z.object({
   profile_id: z.number().int().positive('Invalid profile ID'),
 });
+
+// --- Calendar Schemas ---
+export const calendarQuerySchema = z.object({
+  start: z.string().regex(/^\d{4}-\d{2}-\d{2}/),
+  end: z.string().regex(/^\d{4}-\d{2}-\d{2}/),
+});

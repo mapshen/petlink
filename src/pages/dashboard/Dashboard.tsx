@@ -2,7 +2,7 @@ import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Booking } from '../../types';
-import { Calendar, MapPin, CheckCircle, XCircle, RefreshCw, Star, Loader2 } from 'lucide-react';
+import { Calendar, CalendarDays, MapPin, CheckCircle, XCircle, RefreshCw, Star, Loader2 } from 'lucide-react';
 
 const AnalyticsPage = lazy(() => import('../sitter/AnalyticsPage'));
 const PromotePage = lazy(() => import('../sitter/PromotePage'));
@@ -151,6 +151,22 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-3xl font-bold text-stone-900 mb-8">Dashboard</h1>
+
+      {isSitterMode && user?.approval_status === 'approved' && (
+        <Link
+          to="/calendar"
+          className="mb-6 flex items-center gap-3 p-4 bg-white rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-300 hover:shadow-md transition-all group"
+        >
+          <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+            <CalendarDays className="w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-stone-900">View your calendar</p>
+            <p className="text-xs text-stone-500">Manage bookings, availability, and export to other calendars</p>
+          </div>
+          <span className="text-xs font-medium text-emerald-600">Open →</span>
+        </Link>
+      )}
 
       {isSitterMode && user?.approval_status === 'pending_approval' && (
         <Alert className="mb-6 border-amber-200 bg-amber-50">
