@@ -18,6 +18,7 @@ import AnalyticsPage from './pages/sitter/AnalyticsPage';
 import AdminPage from './pages/admin/AdminPage';
 import PaymentHistoryPage from './pages/payments/PaymentHistoryPage';
 import ImportProfilePage from './pages/profile/ImportProfilePage';
+import CalendarPage from './pages/calendar/CalendarPage';
 import Onboarding from './pages/auth/Onboarding';
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/payment-history" element={<PaymentHistoryPage />} />
               <Route path="/import-profile" element={<ImportProfilePage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/pets" element={<Navigate to="/profile" replace />} />
               <Route path="/services" element={<Navigate to="/profile" replace />} />
               <Route path="/photos" element={<Navigate to="/profile" replace />} />
