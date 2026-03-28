@@ -15,7 +15,8 @@ import { createPaymentIntent, createACHPaymentIntent, createFinancialConnections
 import { getOrCreateStripeCustomer } from './src/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema } from './src/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema } from './src/validation.ts';
+import { parseRoverUrl, generateVerificationCode, scrapeRoverProfile, checkVerificationCode } from './src/profile-import.ts';
 import { verifyOAuthToken } from './src/oauth.ts';
 import { calculateRefund, getPolicyDescription } from './src/cancellation.ts';
 import { calculateBookingPrice } from './src/multi-pet-pricing.ts';
@@ -659,6 +660,16 @@ async function startServer() {
     const services = await sql`SELECT * FROM services WHERE sitter_id = ${req.params.id}`;
     const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.id} ORDER BY sort_order, created_at`;
 
+    // Public review stats (not gated behind auth)
+    const [reviewStats] = await sql`
+      SELECT
+        AVG(r.rating)::float as avg_rating,
+        COUNT(*)::int as review_count
+      FROM reviews r
+      WHERE r.reviewee_id = ${req.params.id}
+        AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+    `;
+
     // Reviews only returned for authenticated users
     const authHeader = req.headers.authorization;
     let reviews: any[] = [];
@@ -672,7 +683,21 @@ async function startServer() {
       `;
     }
 
-    res.json({ sitter, services, reviews, photos });
+    const imported_reviews = await sql`
+      SELECT ir.id, ir.platform, ir.reviewer_name, ir.rating, ir.comment, ir.review_date
+      FROM imported_reviews ir
+      JOIN imported_profiles ip ON ir.imported_profile_id = ip.id
+      WHERE ir.sitter_id = ${req.params.id} AND ip.verification_status = 'verified'
+      ORDER BY ir.review_date DESC NULLS LAST
+    `;
+
+    const sitterWithStats = {
+      ...sitter,
+      avg_rating: reviewStats.avg_rating ? Number(reviewStats.avg_rating.toFixed(1)) : null,
+      review_count: reviewStats.review_count,
+    };
+
+    res.json({ sitter: sitterWithStats, services, reviews, photos, imported_reviews });
   });
 
   // --- Services (sitter CRUD) ---
@@ -2570,6 +2595,193 @@ async function startServer() {
       console.error('Bank account deletion error:', error);
       res.status(500).json({ error: 'Failed to remove bank account' });
     }
+  });
+
+  // --- Profile Import ---
+  // Import endpoints are rate-limited by the global apiLimiter (100/15min)
+  // plus auth required — scraping abuse is bounded by authenticated user rate
+
+  v1.post('/import/preview', authMiddleware, validate(importPreviewSchema), async (req: AuthenticatedRequest, res) => {
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can import profiles' });
+      return;
+    }
+    const { url } = req.body;
+    const parsed = parseRoverUrl(url);
+    if (!parsed.valid) {
+      res.status(400).json({ error: (parsed as { error: string }).error });
+      return;
+    }
+    let profile;
+    try {
+      profile = await scrapeRoverProfile(url);
+    } catch {
+      res.status(502).json({ error: 'Could not reach Rover. Please try again later.' });
+      return;
+    }
+    const { rawHtml: _, ...preview } = profile;
+    res.json({ profile: preview });
+  });
+
+  v1.post('/import/start-verification', authMiddleware, validate(importPreviewSchema), async (req: AuthenticatedRequest, res) => {
+    const { url } = req.body;
+    const parsed = parseRoverUrl(url);
+    if (!parsed.valid) {
+      res.status(400).json({ error: (parsed as { error: string }).error });
+      return;
+    }
+    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    if (user.role !== 'sitter' && user.role !== 'both') {
+      res.status(403).json({ error: 'Only sitters can import profiles' });
+      return;
+    }
+    let scraped;
+    try {
+      scraped = await scrapeRoverProfile(url);
+    } catch {
+      res.status(502).json({ error: 'Could not reach Rover. Please try again later.' });
+      return;
+    }
+    const code = generateVerificationCode('petlink');
+    const { rawHtml, ...profileData } = scraped;
+
+    const [profile] = await sql`
+      INSERT INTO imported_profiles (sitter_id, platform, profile_url, username, display_name, bio, rating, review_count, verification_code, verification_status, scraped_at, raw_data)
+      VALUES (${req.userId}, ${'rover'}, ${url}, ${parsed.username}, ${scraped.name}, ${scraped.bio}, ${scraped.rating}, ${scraped.reviewCount}, ${code}, ${'pending'}, NOW(), ${sql.json(profileData)})
+      ON CONFLICT (sitter_id, platform) DO UPDATE SET
+        profile_url = EXCLUDED.profile_url, username = EXCLUDED.username, display_name = EXCLUDED.display_name,
+        bio = EXCLUDED.bio, rating = EXCLUDED.rating, review_count = EXCLUDED.review_count,
+        verification_code = EXCLUDED.verification_code, verification_status = 'pending',
+        scraped_at = NOW(), raw_data = EXCLUDED.raw_data
+      RETURNING id, platform, display_name, bio, rating, review_count, verification_code, verification_status
+    `;
+    res.json({ profile, verification_code: code });
+  });
+
+  v1.post('/import/verify', authMiddleware, validate(verifyImportSchema), async (req: AuthenticatedRequest, res) => {
+    const { profile_id } = req.body;
+    const [profile] = await sql`
+      SELECT id, profile_url, verification_code, verification_status, created_at
+      FROM imported_profiles WHERE id = ${profile_id} AND sitter_id = ${req.userId}
+    `;
+    if (!profile) {
+      res.status(404).json({ error: 'Import profile not found' });
+      return;
+    }
+    // Check 24h expiry
+    const age = Date.now() - new Date(profile.created_at).getTime();
+    if (age > 24 * 60 * 60 * 1000) {
+      await sql`UPDATE imported_profiles SET verification_status = 'failed' WHERE id = ${profile_id}`;
+      res.status(410).json({ error: 'Verification code expired. Please start a new import.' });
+      return;
+    }
+    let scraped;
+    try {
+      scraped = await scrapeRoverProfile(profile.profile_url);
+    } catch {
+      res.status(502).json({ error: 'Could not reach Rover. Please try again later.' });
+      return;
+    }
+    const found = checkVerificationCode(scraped.rawHtml, profile.verification_code);
+    const status = found ? 'verified' : 'failed';
+    if (found) {
+      await sql`UPDATE imported_profiles SET verification_status = ${status}, verified_at = NOW() WHERE id = ${profile_id}`;
+    } else {
+      await sql`UPDATE imported_profiles SET verification_status = ${status} WHERE id = ${profile_id}`;
+    }
+    res.json({ verified: found, status });
+  });
+
+  v1.post('/import/confirm', authMiddleware, validate(confirmImportSchema), async (req: AuthenticatedRequest, res) => {
+    const { profile_id } = req.body;
+    const [profile] = await sql`
+      SELECT id, sitter_id, platform, verification_status, raw_data
+      FROM imported_profiles WHERE id = ${profile_id} AND sitter_id = ${req.userId}
+    `;
+    if (!profile) {
+      res.status(404).json({ error: 'Import profile not found' });
+      return;
+    }
+    if (profile.verification_status !== 'verified') {
+      res.status(400).json({ error: 'Profile must be verified before importing reviews' });
+      return;
+    }
+    // Delete old imported reviews for this profile
+    await sql`DELETE FROM imported_reviews WHERE imported_profile_id = ${profile_id}`;
+    // Import reviews from raw_data (capped at 100)
+    const rawData = profile.raw_data as { reviews?: { reviewerName: string; rating: number; comment: string; date?: string }[] };
+    const reviews = (rawData.reviews ?? []).slice(0, 100);
+    if (reviews.length > 0) {
+      const rows = reviews.map((r) => ({
+        imported_profile_id: profile_id,
+        sitter_id: req.userId,
+        platform: profile.platform,
+        reviewer_name: r.reviewerName,
+        rating: r.rating,
+        comment: r.comment || null,
+        review_date: r.date ? (isNaN(new Date(r.date).getTime()) ? null : new Date(r.date).toISOString().slice(0, 10)) : null,
+      }));
+      await sql`INSERT INTO imported_reviews ${sql(rows, 'imported_profile_id', 'sitter_id', 'platform', 'reviewer_name', 'rating', 'comment', 'review_date')}`;
+    }
+    // Return scraped profile data so frontend can offer to pre-fill
+    const rawProfile = profile.raw_data as { name?: string; bio?: string; rating?: number; reviewCount?: number };
+    res.json({
+      imported_count: reviews.length,
+      scraped_profile: {
+        name: rawProfile.name || null,
+        bio: rawProfile.bio || null,
+        rating: rawProfile.rating || null,
+        review_count: rawProfile.reviewCount || null,
+      },
+    });
+  });
+
+  v1.post('/import/apply-profile', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const { profile_id } = req.body;
+    if (!profile_id) {
+      res.status(400).json({ error: 'profile_id is required' });
+      return;
+    }
+    const [profile] = await sql`
+      SELECT id, sitter_id, verification_status, raw_data
+      FROM imported_profiles WHERE id = ${profile_id} AND sitter_id = ${req.userId}
+    `;
+    if (!profile || profile.verification_status !== 'verified') {
+      res.status(400).json({ error: 'Profile must be verified first' });
+      return;
+    }
+    const rawData = profile.raw_data as { name?: string; bio?: string };
+    // Only update fields that are currently empty on the user's profile
+    const [user] = await sql`SELECT name, bio FROM users WHERE id = ${req.userId}`;
+    const updates: { bio?: string } = {};
+    if (!user.bio && rawData.bio) {
+      updates.bio = rawData.bio;
+    }
+    if (Object.keys(updates).length > 0) {
+      await sql`UPDATE users SET bio = COALESCE(${updates.bio || null}, bio) WHERE id = ${req.userId}`;
+    }
+    const [updated] = await sql`SELECT id, name, bio FROM users WHERE id = ${req.userId}`;
+    res.json({ user: updated, fields_updated: Object.keys(updates) });
+  });
+
+  v1.get('/import/profiles', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const profiles = await sql`
+      SELECT id, platform, profile_url, display_name, rating, review_count, verification_status, verified_at, created_at
+      FROM imported_profiles WHERE sitter_id = ${req.userId}
+      ORDER BY created_at DESC
+    `;
+    res.json({ profiles });
+  });
+
+  v1.delete('/import/profiles/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const [profile] = await sql`SELECT id FROM imported_profiles WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+    if (!profile) {
+      res.status(404).json({ error: 'Import profile not found' });
+      return;
+    }
+    await sql`DELETE FROM imported_profiles WHERE id = ${req.params.id}`;
+    res.json({ success: true });
   });
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)

@@ -219,3 +219,25 @@ export const approvalDecisionSchema = z.object({
   status: z.enum(['approved', 'rejected', 'banned'], { message: 'Status must be "approved", "rejected", or "banned"' }),
   reason: z.string().max(500, 'Reason must be under 500 characters').optional(),
 });
+
+// --- Profile Import Schemas ---
+export const importPreviewSchema = z.object({
+  url: z.string().url('Must be a valid URL').refine(
+    (url) => {
+      try {
+        const parsed = new URL(url);
+        return (parsed.hostname === 'rover.com' || parsed.hostname === 'www.rover.com')
+          && parsed.pathname.startsWith('/members/');
+      } catch { return false; }
+    },
+    'Must be a Rover profile URL (https://www.rover.com/members/{username})'
+  ),
+});
+
+export const verifyImportSchema = z.object({
+  profile_id: z.number().int().positive('Invalid profile ID'),
+});
+
+export const confirmImportSchema = z.object({
+  profile_id: z.number().int().positive('Invalid profile ID'),
+});
