@@ -145,6 +145,41 @@ export function buildNewMessageEmail(params: {
   };
 }
 
+export function buildApprovalStatusEmail(params: {
+  sitterName: string;
+  status: 'approved' | 'rejected' | 'banned';
+  reason?: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.sitterName);
+  const isApproved = params.status === 'approved';
+  const statusLabel = isApproved ? 'Approved' : 'Not Approved';
+  const statusColor = isApproved ? '#059669' : '#dc2626';
+  const message = isApproved
+    ? 'Your sitter account has been approved! You can now create services and start accepting bookings.'
+    : 'Unfortunately, your sitter application was not approved at this time.';
+
+  const reasonBlock = !isApproved && params.reason
+    ? `<div style="background:#fafaf9;border-radius:8px;padding:16px;margin:16px 0;border-left:3px solid #dc2626">
+<p style="margin:0 0 4px;color:#78716c;font-size:13px">Reason</p>
+<p style="margin:0;color:#44403c">${escapeHtml(params.reason)}</p>
+</div>`
+    : '';
+
+  return {
+    subject: sanitizeSubject(`Sitter Application ${statusLabel}`),
+    html: emailWrapper(`Application ${statusLabel}`, `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">${message}</p>
+<div style="background:#fafaf9;border-radius:8px;padding:16px;margin:16px 0">
+<p style="margin:0 0 4px;color:#78716c;font-size:13px">Status</p>
+<p style="margin:0;font-weight:600;color:${statusColor}">${statusLabel}</p>
+</div>
+${reasonBlock}
+${isApproved ? '<p style="color:#78716c;font-size:14px">Log in to PetLink to set up your services and availability.</p>' : '<p style="color:#78716c;font-size:14px">If you have questions, please contact support.</p>'}
+`),
+  };
+}
+
 export function buildSitterNewBookingEmail(params: {
   sitterName: string;
   ownerName: string;

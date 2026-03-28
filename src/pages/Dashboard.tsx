@@ -149,6 +149,33 @@ export default function Dashboard() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-3xl font-bold text-stone-900 mb-8">Dashboard</h1>
 
+      {isSitterMode && user?.approval_status === 'pending_approval' && (
+        <Alert className="mb-6 border-amber-200 bg-amber-50">
+          <AlertDescription className="text-amber-800">
+            Your sitter account is under review. We'll notify you once approved. You can still edit your profile while waiting.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isSitterMode && user?.approval_status === 'rejected' && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>
+            Your sitter application was not approved.
+            {user?.approval_rejected_reason && (
+              <span className="block mt-1 text-sm opacity-80">Reason: {user?.approval_rejected_reason}</span>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {user?.approval_status === 'banned' && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>
+            Your account has been suspended. Please contact support.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {isSitterMode && !onboarding.loading && !onboarding.isComplete && !checklistDismissed && (
         <OnboardingChecklist
           status={onboarding}
