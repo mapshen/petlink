@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { API_BASE } from '../config';
 import { Shield, Check, X, Ban, Loader2, Users, MapPin, Home, PawPrint, Award, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -40,12 +40,13 @@ interface AdminSitter {
   skills?: string[];
 }
 
-type Tab = 'pending' | 'all';
+type Tab = 'pending' | 'approved' | 'rejected' | 'banned' | 'all';
 type ActionType = 'reject' | 'ban';
 
 export default function AdminPage() {
   const { user, token, loading: authLoading } = useAuth();
-  const [tab, setTab] = useState<Tab>('pending');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: Tab = (searchParams.get('tab') as Tab) || 'pending';
   const [pendingSitters, setPendingSitters] = useState<AdminSitter[]>([]);
   const [allSitters, setAllSitters] = useState<AdminSitter[]>([]);
   const [allTotal, setAllTotal] = useState(0);
@@ -55,8 +56,8 @@ export default function AdminPage() {
   const [actionDialogSitter, setActionDialogSitter] = useState<AdminSitter | null>(null);
   const [actionType, setActionType] = useState<ActionType>('reject');
   const [actionReason, setActionReason] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const statusFilter = tab === 'all' || tab === 'pending' ? '' : tab === 'approved' ? 'approved' : tab === 'rejected' ? 'rejected' : tab === 'banned' ? 'banned' : '';
 
   const fetchPending = async () => {
     try {
@@ -90,7 +91,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetchAll();
-  }, [statusFilter]);
+  }, [tab]);
 
   useEffect(() => {
     if (!user?.is_admin) return;
@@ -295,13 +296,23 @@ export default function AdminPage() {
         </Alert>
       )}
 
-      <div className="flex gap-2 mb-6">
-        <Button variant={tab === 'pending' ? 'default' : 'outline'} onClick={() => setTab('pending')} size="sm">
-          Pending ({pendingSitters.length})
-        </Button>
-        <Button variant={tab === 'all' ? 'default' : 'outline'} onClick={() => setTab('all')} size="sm">
-          All Sitters ({allTotal})
-        </Button>
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {([
+          { key: 'pending', label: `Pending (${pendingSitters.length})` },
+          { key: 'approved', label: 'Approved' },
+          { key: 'rejected', label: 'Rejected' },
+          { key: 'banned', label: 'Banned' },
+          { key: 'all', label: `All (${allTotal})` },
+        ] as const).map((t) => (
+          <Button
+            key={t.key}
+            variant={tab === t.key ? 'default' : 'outline'}
+            onClick={() => setSearchParams({ tab: t.key })}
+            size="sm"
+          >
+            {t.label}
+          </Button>
+        ))}
       </div>
 
       {tab === 'pending' && (
@@ -319,33 +330,18 @@ export default function AdminPage() {
         </div>
       )}
 
-      {tab === 'all' && (
-        <div>
-          <div className="mb-4">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-stone-200 rounded-lg text-sm"
-            >
-              <option value="">All statuses</option>
-              <option value="approved">Approved</option>
-              <option value="pending_approval">Pending</option>
-              <option value="rejected">Rejected</option>
-              <option value="banned">Banned</option>
-            </select>
-          </div>
-          <div className="space-y-3">
-            {allSitters.length === 0 ? (
-              <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
-                <Users className="w-12 h-12 mx-auto mb-4 text-stone-300" />
-                <p className="text-stone-500">No sitters found.</p>
-              </div>
-            ) : (
-              allSitters.map((sitter) => (
-                <SitterCard key={sitter.id} sitter={sitter} showActions={true} />
-              ))
-            )}
-          </div>
+      {tab !== 'pending' && (
+        <div className="space-y-3">
+          {allSitters.length === 0 ? (
+            <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
+              <Users className="w-12 h-12 mx-auto mb-4 text-stone-300" />
+              <p className="text-stone-500">No sitters found.</p>
+            </div>
+          ) : (
+            allSitters.map((sitter) => (
+              <SitterCard key={sitter.id} sitter={sitter} showActions={true} />
+            ))
+          )}
         </div>
       )}
 
