@@ -755,7 +755,7 @@ async function startServer() {
   });
 
   // Get reviews for a user (only published ones)
-  v1.get('/reviews/:userId', botBlockMiddleware, publicLimiter, async (req, res) => {
+  v1.get('/reviews/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const reviews = await sql`
       SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
       FROM reviews r
