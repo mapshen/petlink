@@ -569,7 +569,7 @@ async function startServer() {
         FROM users u
         LEFT JOIN LATERAL (
           SELECT AVG(r.rating)::float as avg_rating, COUNT(*)::int as review_count
-          FROM reviews r WHERE r.reviewee_id = u.id AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '7 days')
+          FROM reviews r WHERE r.reviewee_id = u.id AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
         ) rv ON true
         LEFT JOIN LATERAL (
           SELECT
@@ -644,7 +644,7 @@ async function startServer() {
         SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
         FROM reviews r
         JOIN users u ON r.reviewer_id = u.id
-        WHERE r.reviewee_id = ${req.params.id} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '7 days')
+        WHERE r.reviewee_id = ${req.params.id} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
         ORDER BY r.created_at DESC
       `;
     }
@@ -744,15 +744,21 @@ async function startServer() {
       return;
     }
 
+    // Block reviews after 3-day window if the other party already reviewed (prevents retaliation)
+    const [otherReview] = await sql`SELECT id, created_at FROM reviews WHERE booking_id = ${booking_id} AND reviewer_id = ${revieweeId}`;
+    if (otherReview) {
+      const otherAge = Date.now() - new Date(otherReview.created_at).getTime();
+      if (otherAge > 3 * 24 * 60 * 60 * 1000) {
+        res.status(403).json({ error: 'The review window for this booking has closed' });
+        return;
+      }
+    }
+
     const [review] = await sql`
       INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
       VALUES (${booking_id}, ${req.userId}, ${revieweeId}, ${rating}, ${comment || null})
       RETURNING id
     `;
-
-    // Publish both reviews if both parties have reviewed
-    // Otherwise, reviews auto-publish after 7 days (prevents suppression by not reviewing)
-    const [otherReview] = await sql`SELECT id FROM reviews WHERE booking_id = ${booking_id} AND reviewer_id = ${revieweeId}`;
 
     if (otherReview) {
       await sql`UPDATE reviews SET published_at = NOW() WHERE booking_id = ${booking_id} AND published_at IS NULL`;
@@ -767,7 +773,7 @@ async function startServer() {
       SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
       FROM reviews r
       JOIN users u ON r.reviewer_id = u.id
-      WHERE r.reviewee_id = ${req.params.userId} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '7 days')
+      WHERE r.reviewee_id = ${req.params.userId} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
       ORDER BY r.created_at DESC
     `;
 
