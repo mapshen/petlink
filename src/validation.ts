@@ -223,8 +223,14 @@ export const approvalDecisionSchema = z.object({
 // --- Profile Import Schemas ---
 export const importPreviewSchema = z.object({
   url: z.string().url('Must be a valid URL').refine(
-    (url) => url.includes('rover.com/members/'),
-    'Must be a Rover profile URL (rover.com/members/{username})'
+    (url) => {
+      try {
+        const parsed = new URL(url);
+        return (parsed.hostname === 'rover.com' || parsed.hostname === 'www.rover.com')
+          && parsed.pathname.startsWith('/members/');
+      } catch { return false; }
+    },
+    'Must be a Rover profile URL (https://www.rover.com/members/{username})'
   ),
 });
 

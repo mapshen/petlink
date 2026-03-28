@@ -2597,7 +2597,13 @@ async function startServer() {
       res.status(400).json({ error: (parsed as { error: string }).error });
       return;
     }
-    const profile = await scrapeRoverProfile(url);
+    let profile;
+    try {
+      profile = await scrapeRoverProfile(url);
+    } catch {
+      res.status(502).json({ error: 'Could not reach Rover. Please try again later.' });
+      return;
+    }
     const { rawHtml: _, ...preview } = profile;
     res.json({ profile: preview });
   });
@@ -2614,7 +2620,13 @@ async function startServer() {
       res.status(403).json({ error: 'Only sitters can import profiles' });
       return;
     }
-    const scraped = await scrapeRoverProfile(url);
+    let scraped;
+    try {
+      scraped = await scrapeRoverProfile(url);
+    } catch {
+      res.status(502).json({ error: 'Could not reach Rover. Please try again later.' });
+      return;
+    }
     const code = generateVerificationCode();
     const { rawHtml, ...profileData } = scraped;
 
@@ -2648,7 +2660,13 @@ async function startServer() {
       res.status(410).json({ error: 'Verification code expired. Please start a new import.' });
       return;
     }
-    const scraped = await scrapeRoverProfile(profile.profile_url);
+    let scraped;
+    try {
+      scraped = await scrapeRoverProfile(profile.profile_url);
+    } catch {
+      res.status(502).json({ error: 'Could not reach Rover. Please try again later.' });
+      return;
+    }
     const found = checkVerificationCode(scraped.rawHtml, profile.verification_code);
     const status = found ? 'verified' : 'failed';
     if (found) {
@@ -2686,7 +2704,7 @@ async function startServer() {
         reviewer_name: r.reviewerName,
         rating: r.rating,
         comment: r.comment || null,
-        review_date: r.date || null,
+        review_date: r.date ? (isNaN(new Date(r.date).getTime()) ? null : new Date(r.date).toISOString().slice(0, 10)) : null,
       }));
       await sql`INSERT INTO imported_reviews ${sql(rows, 'imported_profile_id', 'sitter_id', 'platform', 'reviewer_name', 'rating', 'comment', 'review_date')}`;
     }
