@@ -273,7 +273,11 @@ export default function SitterProfile() {
                   <p className="text-stone-600 text-sm">{review.comment}</p>
                 </div>
               ))}
-              {reviews.length === 0 && <p className="text-stone-500 italic">No reviews yet.</p>}
+              {reviews.length === 0 && (
+                <p className="text-stone-500 italic">
+                  {user ? 'No reviews yet.' : 'Log in to see reviews.'}
+                </p>
+              )}
             </div>
           </div>
         </div>
