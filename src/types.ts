@@ -39,6 +39,8 @@ export interface User {
   approval_status?: 'approved' | 'pending_approval' | 'rejected' | 'banned';
   approval_rejected_reason?: string;
   is_admin?: boolean;
+  avg_rating?: number | null;
+  review_count?: number;
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';

@@ -660,6 +660,16 @@ async function startServer() {
     const services = await sql`SELECT * FROM services WHERE sitter_id = ${req.params.id}`;
     const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.id} ORDER BY sort_order, created_at`;
 
+    // Public review stats (not gated behind auth)
+    const [reviewStats] = await sql`
+      SELECT
+        AVG(r.rating)::float as avg_rating,
+        COUNT(*)::int as review_count
+      FROM reviews r
+      WHERE r.reviewee_id = ${req.params.id}
+        AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+    `;
+
     // Reviews only returned for authenticated users
     const authHeader = req.headers.authorization;
     let reviews: any[] = [];
@@ -681,7 +691,13 @@ async function startServer() {
       ORDER BY ir.review_date DESC NULLS LAST
     `;
 
-    res.json({ sitter, services, reviews, photos, imported_reviews });
+    const sitterWithStats = {
+      ...sitter,
+      avg_rating: reviewStats.avg_rating ? Number(Number(reviewStats.avg_rating).toFixed(1)) : null,
+      review_count: Number(reviewStats.review_count) || 0,
+    };
+
+    res.json({ sitter: sitterWithStats, services, reviews, photos, imported_reviews });
   });
 
   // --- Services (sitter CRUD) ---

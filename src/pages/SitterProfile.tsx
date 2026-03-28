@@ -208,7 +208,11 @@ export default function SitterProfile() {
                 <div className="flex items-center gap-4 mt-4 text-sm font-medium">
                   <div className="flex items-center gap-1 text-amber-500 bg-amber-50 px-3 py-1 rounded-full">
                     <Star className="w-4 h-4 fill-current" />
-                    <span>5.0 (12 reviews)</span>
+                    <span>
+                      {sitter.review_count > 0
+                        ? `${sitter.avg_rating} (${sitter.review_count} ${sitter.review_count === 1 ? 'review' : 'reviews'})`
+                        : 'New sitter'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
                     <ShieldCheck className="w-4 h-4" />
