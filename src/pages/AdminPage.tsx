@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { API_BASE } from '../config';
-import { Shield, Check, X, Ban, Loader2, Users, MapPin, Home, PawPrint, Award, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, Check, X, Ban, Loader2, Users, Home, PawPrint, Award, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -90,14 +89,10 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    fetchAll();
-  }, [tab]);
-
-  useEffect(() => {
     if (!user?.is_admin) return;
     fetchPending();
     fetchAll();
-  }, [token]);
+  }, [token, tab]);
 
   if (authLoading) {
     return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>;

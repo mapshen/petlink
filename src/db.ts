@@ -524,6 +524,8 @@ export async function initDb() {
 
   // Issue #110: Sitter approval workflow
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approval_status TEXT DEFAULT 'approved'`.catch(() => {});
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_approval_status_check`.catch(() => {});
+  await sql`ALTER TABLE users ADD CONSTRAINT users_approval_status_check CHECK(approval_status IN ('approved', 'pending_approval', 'rejected', 'banned'))`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approval_rejected_reason TEXT`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES users(id)`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`.catch(() => {});

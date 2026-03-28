@@ -2425,7 +2425,16 @@ async function startServer() {
 
   v1.put('/admin/sitters/:id/approval', adminMiddleware, validate(approvalDecisionSchema), async (req: AuthenticatedRequest, res) => {
     const sitterId = Number(req.params.id);
+    if (!sitterId || isNaN(sitterId)) {
+      res.status(400).json({ error: 'Invalid sitter ID' });
+      return;
+    }
     const { status, reason } = req.body;
+
+    if (sitterId === req.userId && (status === 'banned' || status === 'rejected')) {
+      res.status(400).json({ error: 'Cannot ban or reject yourself' });
+      return;
+    }
 
     const [sitter] = await sql`SELECT id, email, name, role, approval_status FROM users WHERE id = ${sitterId} AND role IN ('sitter', 'both')`;
     if (!sitter) {

@@ -147,7 +147,7 @@ export function buildNewMessageEmail(params: {
 
 export function buildApprovalStatusEmail(params: {
   sitterName: string;
-  status: 'approved' | 'rejected';
+  status: 'approved' | 'rejected' | 'banned';
   reason?: string;
 }): { subject: string; html: string } {
   const name = escapeHtml(params.sitterName);
