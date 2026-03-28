@@ -30,8 +30,8 @@ interface SitterClusterMapProps {
 
 const DEFAULT_CENTER: [number, number] = [37.77, -122.42];
 const DEFAULT_ZOOM = 12;
-const OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
 
 function FitBounds({ sitters, searchCenter }: { sitters: readonly MapSitter[]; searchCenter?: { lat: number; lng: number } | null }) {
   const map = useMap();
@@ -163,7 +163,7 @@ export default function SitterClusterMap({
       className={`w-full h-full rounded-2xl ${className}`}
       style={{ minHeight: '400px' }}
     >
-      <TileLayer attribution={OSM_ATTRIBUTION} url={OSM_URL} />
+      <TileLayer attribution={TILE_ATTRIBUTION} url={TILE_URL} />
       <FitBounds sitters={sitters} searchCenter={searchCenter} />
       <MarkerClusterWrapper
         sitters={sitters}

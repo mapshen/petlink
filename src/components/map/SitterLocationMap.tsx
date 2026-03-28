@@ -10,8 +10,8 @@ interface SitterLocationMapProps {
   readonly serviceRadiusMiles?: number;
 }
 
-const OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
 const MILES_TO_METERS = 1609.34;
 
 export default function SitterLocationMap({ lat, lng, name, serviceRadiusMiles }: SitterLocationMapProps) {
@@ -28,7 +28,7 @@ export default function SitterLocationMap({ lat, lng, name, serviceRadiusMiles }
         dragging={true}
         className="w-full h-64 md:h-80"
       >
-        <TileLayer attribution={OSM_ATTRIBUTION} url={OSM_URL} />
+        <TileLayer attribution={TILE_ATTRIBUTION} url={TILE_URL} />
         <Marker position={center} icon={emeraldIcon}>
           <Tooltip direction="top" offset={[0, -36]} opacity={0.9}>
             {name}&apos;s approximate area
