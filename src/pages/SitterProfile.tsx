@@ -150,9 +150,9 @@ export default function SitterProfile() {
           setShowPayment(true);
           return;
         }
-        // Payment setup failed — booking created but payment couldn't be initiated
-        // Navigate to dashboard; user can pay later or sitter needs to connect Stripe
-        navigate('/dashboard');
+        // Payment setup failed — show the specific error
+        setBookingError(`Booking created but payment setup failed: ${paymentError || 'unknown error'}. You can pay later from the dashboard.`);
+        return;
       } else {
         navigate('/dashboard');
       }
