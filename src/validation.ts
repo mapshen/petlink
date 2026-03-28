@@ -216,6 +216,6 @@ export const emptyBodySchema = z.object({});
 
 // --- Admin Schemas ---
 export const approvalDecisionSchema = z.object({
-  status: z.enum(['approved', 'rejected'], { message: 'Status must be "approved" or "rejected"' }),
+  status: z.enum(['approved', 'rejected', 'banned'], { message: 'Status must be "approved", "rejected", or "banned"' }),
   reason: z.string().max(500, 'Reason must be under 500 characters').optional(),
 });

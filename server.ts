@@ -2375,7 +2375,9 @@ async function startServer() {
   // --- Admin: Sitter Approval ---
   v1.get('/admin/pending-sitters', adminMiddleware, async (req: AuthenticatedRequest, res) => {
     const sitters = await sql`
-      SELECT id, email, name, role, bio, avatar_url, created_at, approval_status
+      SELECT id, email, name, role, bio, avatar_url, created_at, approval_status,
+             years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description,
+             accepted_species, skills
       FROM users
       WHERE approval_status = 'pending_approval' AND role IN ('sitter', 'both')
       ORDER BY created_at ASC
@@ -2387,11 +2389,13 @@ async function startServer() {
     const status = req.query.status as string | undefined;
     const limit = Math.min(Number(req.query.limit) || 50, 100);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
-    const validStatuses = ['approved', 'pending_approval', 'rejected'];
+    const validStatuses = ['approved', 'pending_approval', 'rejected', 'banned'];
     const statusFilter = status && validStatuses.includes(status) ? status : undefined;
 
     const sitters = await sql`
-      SELECT id, email, name, role, bio, avatar_url, created_at, approval_status, approved_at, approval_rejected_reason
+      SELECT id, email, name, role, bio, avatar_url, created_at, approval_status, approved_at, approval_rejected_reason,
+             years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description,
+             accepted_species, skills
       FROM users
       WHERE role IN ('sitter', 'both')
       ${statusFilter ? sql`AND approval_status = ${statusFilter}` : sql``}
@@ -2419,6 +2423,11 @@ async function startServer() {
     if (status === 'approved') {
       await sql`
         UPDATE users SET approval_status = 'approved', approved_by = ${req.userId}, approved_at = NOW(), approval_rejected_reason = NULL
+        WHERE id = ${sitterId}
+      `;
+    } else if (status === 'banned') {
+      await sql`
+        UPDATE users SET approval_status = 'banned', approval_rejected_reason = ${reason || 'Banned by admin'}, approved_by = ${req.userId}, approved_at = NOW()
         WHERE id = ${sitterId}
       `;
     } else {

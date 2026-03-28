@@ -36,7 +36,7 @@ export interface User {
   own_pets_description?: string;
   skills?: string[];
   subscription_tier?: SubscriptionTier;
-  approval_status?: 'approved' | 'pending_approval' | 'rejected';
+  approval_status?: 'approved' | 'pending_approval' | 'rejected' | 'banned';
   approval_rejected_reason?: string;
   is_admin?: boolean;
 }
