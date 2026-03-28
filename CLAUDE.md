@@ -54,7 +54,8 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Notifications | `GET /notifications`, `POST /notifications/:id/read`, `POST /notifications/read-all`, `GET/PUT /notification-preferences` |
 | Subscriptions | `GET /subscription`, `POST /subscription/upgrade`, `POST /subscription/cancel` |
 | Payouts | `GET /payouts` (paginated: `?limit=&offset=`), `GET /payouts/pending` |
-| Payments | `POST /stripe/connect`, `POST /stripe/account-link`, `POST /payments/create-intent`, `POST /payments/capture`, `POST /payments/cancel` |
+| Payments | `POST /stripe/connect`, `POST /stripe/account-link`, `POST /payments/create-intent`, `POST /payments/capture`, `POST /payments/cancel`, `GET /payment-methods`, `DELETE /payment-methods/:id`, `GET /payment-history`, `POST /payments/link-bank`, `GET /payments/bank-accounts`, `DELETE /payments/bank-accounts/:id` |
+| Subscriptions | `GET /subscription`, `POST /subscription/upgrade`, `POST /subscription/cancel`, `POST /subscription/create-intent` |
 | Analytics | `GET /analytics/overview` (sitter stats by year), `GET /analytics/clients` (client list with pets, paginated), `GET /analytics/clients/:clientId` (client booking history), `GET /analytics/revenue` (weekly/monthly revenue breakdown) |
 | Uploads | `POST /uploads/signed-url` |
 | Webhooks | `POST /webhooks/stripe`, `POST /webhooks/background-check` |
@@ -80,11 +81,11 @@ PostgreSQL with PostGIS.
 
 | Table | Key Columns / Notes |
 |-------|-------------------|
-| `users` | `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills` |
+| `users` | `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills` |
 | `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
 | `pet_vaccinations` | Vaccine records with expiration tracking |
 | `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB |
-| `bookings` | Links owner, sitter, service with status/payment tracking |
+| `bookings` | Links owner, sitter, service with status/payment tracking, `payment_method` (card/ach_debit), `payment_failure_reason` |
 | `booking_pets` | Junction table for multi-pet bookings |
 | `booking_care_tasks` | Checklist items auto-populated from pet care instructions |
 | `messages` | sender_id, receiver_id, content |
@@ -113,7 +114,8 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 - `shadcn/ui` — accessible UI components (Button, Card, Badge, Alert, AlertDialog, Avatar, Input, Textarea, Dialog, Select, Tabs)
 - `clsx` + `tailwind-merge` — conditional class composition (via `cn()` in `lib/utils.ts`)
 - `postgres` — PostgreSQL driver (tagged template literals)
-- `stripe` — Stripe Connect payments
+- `stripe` — Stripe Connect payments (backend)
+- `@stripe/stripe-js` + `@stripe/react-stripe-js` — Stripe Elements for embedded payment forms
 - `resend` — transactional email via Resend API (`src/email.ts`)
 - `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` — S3 uploads
 
