@@ -147,7 +147,11 @@ export default function SitterProfile() {
         const secret = await createIntent(bookingId);
         if (secret) {
           setShowPayment(true);
+          return;
         }
+        // Payment setup failed — booking created but payment couldn't be initiated
+        // Navigate to dashboard; user can pay later or sitter needs to connect Stripe
+        navigate('/dashboard');
       } else {
         navigate('/dashboard');
       }

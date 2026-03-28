@@ -2173,16 +2173,29 @@ async function startServer() {
         return;
       }
       const [sitter] = await sql`SELECT stripe_account_id FROM users WHERE id = ${booking.sitter_id}`;
-      if (!sitter.stripe_account_id) {
-        res.status(400).json({ error: 'Sitter has not connected a Stripe account' });
-        return;
-      }
       const amountCents = Math.round(booking.total_price * 100);
       if (amountCents <= 0) {
         res.status(400).json({ error: 'No payment required for free bookings' });
         return;
       }
-      const { clientSecret, paymentIntentId } = await createPaymentIntent(amountCents, sitter.stripe_account_id);
+      let clientSecret: string;
+      let paymentIntentId: string;
+      if (sitter.stripe_account_id) {
+        // Production: split payment via Stripe Connect
+        ({ clientSecret, paymentIntentId } = await createPaymentIntent(amountCents, sitter.stripe_account_id));
+      } else {
+        // Dev/test: direct payment intent (no Connect transfer)
+        const stripe = (await import('stripe')).default;
+        const s = new stripe(process.env.STRIPE_SECRET_KEY!);
+        const pi = await s.paymentIntents.create({
+          amount: amountCents,
+          currency: 'usd',
+          capture_method: 'manual',
+        });
+        if (!pi.client_secret) throw new Error('Payment intent created without client secret');
+        clientSecret = pi.client_secret;
+        paymentIntentId = pi.id;
+      }
       await sql`UPDATE bookings SET payment_intent_id = ${paymentIntentId}, payment_status = 'held' WHERE id = ${booking_id}`;
       res.json({ clientSecret, paymentIntentId });
     } catch (error) {
