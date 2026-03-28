@@ -153,6 +153,9 @@ export default function Dashboard() {
         <Alert className="mb-6 border-amber-200 bg-amber-50">
           <AlertDescription className="text-amber-800">
             Your sitter account is under review. We'll notify you once approved. You can still edit your profile while waiting.
+            <Link to="/import-profile" className="block mt-2 text-amber-900 font-medium hover:underline">
+              Already on Rover? Import your profile and reviews →
+            </Link>
           </AlertDescription>
         </Alert>
       )}

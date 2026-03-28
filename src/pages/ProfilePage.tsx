@@ -1,8 +1,8 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMode } from '../context/ModeContext';
-import { User as UserIcon, PawPrint, DollarSign, Camera, Star } from 'lucide-react';
+import { User as UserIcon, PawPrint, DollarSign, Camera, Star, Import } from 'lucide-react';
 import ProfileTab from './ProfileTab';
 import PetsTab from './PetsTab';
 import ServicesTab from './ServicesTab';
@@ -77,6 +77,18 @@ export default function ProfilePage() {
                 );
               })}
             </nav>
+
+            {mode === 'sitter' && (
+              <div className="mt-3 pt-3 border-t border-stone-100">
+                <Link
+                  to="/import-profile"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-blue-600 hover:bg-blue-50 whitespace-nowrap transition-colors"
+                >
+                  <Import className="w-4 h-4 flex-shrink-0" />
+                  Import from Rover
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
