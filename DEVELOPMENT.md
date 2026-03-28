@@ -57,11 +57,11 @@ npx vitest run --coverage   # With coverage report
 
 | Suite | Tests | Scope |
 |-------|-------|-------|
-| `src/auth.test.ts` | 6 | Password hashing, JWT sign/verify |
-| `src/reviews.test.ts` | 3 | Double-blind review DB logic |
-| `src/payments.test.ts` | 6 | Stripe Connect functions (mocked) |
-| `src/notifications.test.ts` | 4 | Notification DB operations |
-| `src/storage.test.ts` | 2 | S3 signed URL generation (mocked) |
+| `src/server/auth.test.ts` | 6 | Password hashing, JWT sign/verify |
+| `src/server/reviews.test.ts` | 6 | Review DB logic with 3-day blind window |
+| `src/server/payments.test.ts` | 6 | Stripe payment functions (mocked) |
+| `src/server/notifications.test.ts` | 4 | Notification DB operations |
+| `src/server/storage.test.ts` | 2 | S3 signed URL generation (mocked) |
 
 ### Testing Strategy
 
@@ -73,7 +73,7 @@ npx vitest run --coverage   # With coverage report
 
 ### Writing Tests
 
-**File naming**: `src/<module>.test.ts` alongside the source file.
+**File naming**: `src/server/<module>.test.ts` for backend, `src/pages/<feature>/<Component>.test.ts` for frontend — alongside the source file.
 
 **Test structure**:
 ```typescript
