@@ -132,7 +132,7 @@ export default function SitterProfile() {
       }
       const bookingData = await res.json();
       const selectedSvcObj = services.find((s) => s.id === selectedService);
-      const isFree = selectedSvcObj?.type === 'meet_greet' || (bookingData.booking?.total_price ?? 0) === 0;
+      const isFree = selectedSvcObj?.type === 'meet_greet' || selectedSvcObj?.price === 0;
 
       if (isFree) {
         navigate('/dashboard');
@@ -140,18 +140,19 @@ export default function SitterProfile() {
       }
 
       // Initiate payment for paid bookings
-      const bookingId = bookingData.booking?.id;
+      const bookingId = bookingData.id ?? bookingData.booking?.id;
       if (bookingId) {
-        const totalCents = Math.round((bookingData.booking.total_price || 0) * 100);
+        const totalPrice = calculateBookingPrice(selectedSvcObj!.price, selectedSvcObj!.additional_pet_price || 0, selectedPetIds.length);
+        const totalCents = Math.round(totalPrice * 100);
         setPaymentAmount(totalCents);
         const secret = await createIntent(bookingId);
         if (secret) {
           setShowPayment(true);
           return;
         }
-        // Payment setup failed — booking created but payment couldn't be initiated
-        // Navigate to dashboard; user can pay later or sitter needs to connect Stripe
-        navigate('/dashboard');
+        // Payment setup failed — show the specific error
+        setBookingError(`Booking created but payment setup failed: ${paymentError || 'unknown error'}. You can pay later from the dashboard.`);
+        return;
       } else {
         navigate('/dashboard');
       }

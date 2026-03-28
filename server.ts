@@ -11,7 +11,7 @@ import cookieParser from 'cookie-parser';
 import { initDb } from './src/db.ts';
 import sql from './src/db.ts';
 import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/auth.ts';
-import { createConnectedAccount, createAccountLink, createPaymentIntent, createACHPaymentIntent, createFinancialConnectionsSession, listBankAccounts, detachBankAccount, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, createSubscriptionIntent, cancelStripeSubscription, listPaymentMethods, detachPaymentMethod, listCharges } from './src/payments.ts';
+import { createPaymentIntent, createACHPaymentIntent, createFinancialConnectionsSession, listBankAccounts, detachBankAccount, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, createSubscriptionIntent, cancelStripeSubscription, listPaymentMethods, detachPaymentMethod, listCharges } from './src/payments.ts';
 import { getOrCreateStripeCustomer } from './src/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/notifications.ts';
 import { generateUploadUrl } from './src/storage.ts';
@@ -2117,45 +2117,7 @@ async function startServer() {
   });
 
   // --- Stripe Connect ---
-  v1.post('/stripe/connect', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    try {
-      const [user] = await sql`SELECT email, role, stripe_account_id FROM users WHERE id = ${req.userId}`;
-      if (user.role !== 'sitter' && user.role !== 'both') {
-        res.status(403).json({ error: 'Only sitters can connect a Stripe account' });
-        return;
-      }
-      if (user.stripe_account_id) {
-        res.status(409).json({ error: 'Stripe account already connected' });
-        return;
-      }
-      const accountId = await createConnectedAccount(user.email);
-      await sql`UPDATE users SET stripe_account_id = ${accountId} WHERE id = ${req.userId}`;
-      const appUrl = process.env.APP_URL || 'http://localhost:3000';
-      const url = await createAccountLink(accountId, appUrl);
-      res.json({ accountId, onboardingUrl: url });
-    } catch (error) {
-      console.error('Stripe connect error:', error);
-      res.status(500).json({ error: 'Failed to create Stripe account' });
-    }
-  });
-
-  v1.post('/stripe/account-link', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    try {
-      const [user] = await sql`SELECT stripe_account_id FROM users WHERE id = ${req.userId}`;
-      if (!user.stripe_account_id) {
-        res.status(400).json({ error: 'No Stripe account connected' });
-        return;
-      }
-      const appUrl = process.env.APP_URL || 'http://localhost:3000';
-      const url = await createAccountLink(user.stripe_account_id, appUrl);
-      res.json({ onboardingUrl: url });
-    } catch (error) {
-      console.error('Stripe account link error:', error);
-      res.status(500).json({ error: 'Failed to create account link' });
-    }
-  });
-
-  // --- Payments ---
+  // --- Payments (direct — no Stripe Connect) ---
   v1.post('/payments/create-intent', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
@@ -2172,30 +2134,12 @@ async function startServer() {
         res.status(409).json({ error: 'Payment already initiated for this booking' });
         return;
       }
-      const [sitter] = await sql`SELECT stripe_account_id FROM users WHERE id = ${booking.sitter_id}`;
       const amountCents = Math.round(booking.total_price * 100);
       if (amountCents <= 0) {
         res.status(400).json({ error: 'No payment required for free bookings' });
         return;
       }
-      let clientSecret: string;
-      let paymentIntentId: string;
-      if (sitter.stripe_account_id) {
-        // Production: split payment via Stripe Connect
-        ({ clientSecret, paymentIntentId } = await createPaymentIntent(amountCents, sitter.stripe_account_id));
-      } else {
-        // Dev/test: direct payment intent (no Connect transfer)
-        const stripe = (await import('stripe')).default;
-        const s = new stripe(process.env.STRIPE_SECRET_KEY!);
-        const pi = await s.paymentIntents.create({
-          amount: amountCents,
-          currency: 'usd',
-          capture_method: 'manual',
-        });
-        if (!pi.client_secret) throw new Error('Payment intent created without client secret');
-        clientSecret = pi.client_secret;
-        paymentIntentId = pi.id;
-      }
+      const { clientSecret, paymentIntentId } = await createPaymentIntent(amountCents);
       await sql`UPDATE bookings SET payment_intent_id = ${paymentIntentId}, payment_status = 'held' WHERE id = ${booking_id}`;
       res.json({ clientSecret, paymentIntentId });
     } catch (error) {

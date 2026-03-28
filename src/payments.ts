@@ -9,44 +9,14 @@ function getStripe(): Stripe {
   return new Stripe(STRIPE_SECRET_KEY);
 }
 
-export async function createConnectedAccount(email: string): Promise<string> {
-  const stripe = getStripe();
-  const account = await stripe.accounts.create({
-    type: 'express',
-    email,
-    capabilities: {
-      transfers: { requested: true },
-    },
-  });
-  return account.id;
-}
-
-export async function createAccountLink(accountId: string, returnUrl: string): Promise<string> {
-  const stripe = getStripe();
-  const link = await stripe.accountLinks.create({
-    account: accountId,
-    refresh_url: `${returnUrl}/stripe/refresh`,
-    return_url: `${returnUrl}/stripe/return`,
-    type: 'account_onboarding',
-  });
-  return link.url;
-}
-
 export async function createPaymentIntent(
-  amount: number,
-  sitterStripeAccountId: string,
-  platformFeePercent: number = 15
+  amount: number
 ): Promise<{ clientSecret: string; paymentIntentId: string }> {
   const stripe = getStripe();
-  const platformFee = Math.round(amount * (platformFeePercent / 100));
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount,
     currency: 'usd',
-    application_fee_amount: platformFee,
-    transfer_data: {
-      destination: sitterStripeAccountId,
-    },
     // Hold funds — capture later after service completion (escrow)
     capture_method: 'manual',
   });
@@ -62,28 +32,24 @@ export async function createPaymentIntent(
 
 export async function createACHPaymentIntent(
   amount: number,
-  customerId: string,
-  sitterStripeAccountId: string,
-  platformFeePercent: number = 15
+  customerId: string
 ): Promise<{ clientSecret: string; paymentIntentId: string }> {
   const stripe = getStripe();
-  const platformFee = Math.round(amount * (platformFeePercent / 100));
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount,
     currency: 'usd',
     customer: customerId,
     payment_method_types: ['us_bank_account'],
-    application_fee_amount: platformFee,
-    transfer_data: {
-      destination: sitterStripeAccountId,
-    },
     // ACH does not support manual capture — payment processed immediately
     // Escrow safety comes from the delayed payout system
   });
 
+  if (!paymentIntent.client_secret) {
+    throw new Error('Payment intent created without client secret');
+  }
   return {
-    clientSecret: paymentIntent.client_secret!,
+    clientSecret: paymentIntent.client_secret,
     paymentIntentId: paymentIntent.id,
   };
 }
