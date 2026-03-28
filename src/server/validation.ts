@@ -268,6 +268,25 @@ export const analyticsDateRangeSchema = z.object({
   { message: 'start date must be before or equal to end date', path: ['start'] }
 );
 
+// --- Availability Schema ---
+const timePattern = /^\d{2}:\d{2}(:\d{2})?$/;
+
+export const availabilitySchema = z.object({
+  day_of_week: z.number().int().min(0).max(6).nullable().optional(),
+  specific_date: z.string().regex(datePattern, 'specific_date must be YYYY-MM-DD').nullable().optional(),
+  start_time: z.string().regex(timePattern, 'start_time must be HH:MM or HH:MM:SS'),
+  end_time: z.string().regex(timePattern, 'end_time must be HH:MM or HH:MM:SS'),
+  recurring: z.boolean().optional(),
+}).refine(
+  (data) => data.start_time < data.end_time,
+  { message: 'end_time must be after start_time', path: ['end_time'] }
+);
+
+// --- Verification Update Schema ---
+export const verificationUpdateSchema = z.object({
+  house_photos_url: z.string().url('house_photos_url must be a valid URL').max(2048),
+});
+
 // --- Calendar Schemas ---
 export const calendarQuerySchema = z.object({
   start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

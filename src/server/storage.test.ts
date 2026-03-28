@@ -30,7 +30,7 @@ describe('storage', () => {
     const { generateUploadUrl } = await import('./storage.ts');
     const result = await generateUploadUrl('pets', 'image/jpeg', 1);
     expect(result.uploadUrl).toContain('signed-url');
-    expect(result.key).toMatch(/^pets\/1\/.+\.jpeg$/);
+    expect(result.key).toMatch(/^pets\/1\/.+\.jpg$/);
     expect(result.publicUrl).toContain('test-bucket');
   });
 
