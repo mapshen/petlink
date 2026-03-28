@@ -15,7 +15,7 @@ import { createPaymentIntent, createACHPaymentIntent, createFinancialConnections
 import { getOrCreateStripeCustomer } from './src/server/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/server/notifications.ts';
 import { generateUploadUrl } from './src/server/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema, calendarQuerySchema } from './src/server/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema, calendarQuerySchema, bookingFiltersSchema, analyticsDateRangeSchema } from './src/server/validation.ts';
 import { getCalendarData } from './src/server/calendar.ts';
 import { generateCalendarToken, revokeCalendarToken, validateCalendarToken, generateICS, type ICSEvent } from './src/server/calendar-export.ts';
 import { parseRoverUrl, generateVerificationCode, scrapeRoverProfile, checkVerificationCode } from './src/server/profile-import.ts';
@@ -1840,6 +1840,38 @@ async function startServer() {
   });
 
   v1.get('/bookings', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const parsed = bookingFiltersSchema.safeParse(req.query);
+    if (!parsed.success) {
+      const errors = parsed.error.issues.map((i) => i.message);
+      res.status(400).json({ error: errors[0], errors });
+      return;
+    }
+    const { start, end, status, search, limit, offset } = parsed.data;
+
+    // Determine if the user is acting as owner or sitter for search filtering
+    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
+    const userRole: string = currentUser?.role ?? 'owner';
+
+    // Count total matching rows for pagination
+    const [{ count: totalCount }] = await sql`
+      SELECT COUNT(*)::int AS count
+      FROM bookings b
+      JOIN users s ON b.sitter_id = s.id
+      JOIN users o ON b.owner_id = o.id
+      JOIN services svc ON b.service_id = svc.id
+      WHERE (b.owner_id = ${req.userId} OR b.sitter_id = ${req.userId})
+        ${start ? sql`AND b.start_time >= ${start}::timestamptz` : sql``}
+        ${end ? sql`AND b.start_time < ${end}::timestamptz` : sql``}
+        ${status ? sql`AND b.status = ${status}` : sql``}
+        ${search
+          ? userRole === 'sitter'
+            ? sql`AND o.name ILIKE ${'%' + search + '%'}`
+            : userRole === 'owner'
+              ? sql`AND s.name ILIKE ${'%' + search + '%'}`
+              : sql`AND (o.name ILIKE ${'%' + search + '%'} OR s.name ILIKE ${'%' + search + '%'})`
+          : sql``}
+    `;
+
     const bookings = await sql`
       SELECT b.*,
              s.name as sitter_name, s.avatar_url as sitter_avatar,
@@ -1849,8 +1881,19 @@ async function startServer() {
       JOIN users s ON b.sitter_id = s.id
       JOIN users o ON b.owner_id = o.id
       JOIN services svc ON b.service_id = svc.id
-      WHERE b.owner_id = ${req.userId} OR b.sitter_id = ${req.userId}
+      WHERE (b.owner_id = ${req.userId} OR b.sitter_id = ${req.userId})
+        ${start ? sql`AND b.start_time >= ${start}::timestamptz` : sql``}
+        ${end ? sql`AND b.start_time < ${end}::timestamptz` : sql``}
+        ${status ? sql`AND b.status = ${status}` : sql``}
+        ${search
+          ? userRole === 'sitter'
+            ? sql`AND o.name ILIKE ${'%' + search + '%'}`
+            : userRole === 'owner'
+              ? sql`AND s.name ILIKE ${'%' + search + '%'}`
+              : sql`AND (o.name ILIKE ${'%' + search + '%'} OR s.name ILIKE ${'%' + search + '%'})`
+          : sql``}
       ORDER BY b.start_time DESC
+      LIMIT ${limit} OFFSET ${offset}
     `;
 
     // Batch-fetch pets for all bookings
@@ -1863,15 +1906,16 @@ async function startServer() {
           WHERE bp.booking_id = ANY(${bookingIds})
         `
       : [];
-    const petsByBooking = new Map<number, { id: number; name: string; photo_url: string | null; breed: string | null }[]>();
-    for (const row of bookingPets) {
-      const list = petsByBooking.get(row.booking_id) || [];
-      list.push({ id: row.id, name: row.name, photo_url: row.photo_url, breed: row.breed });
-      petsByBooking.set(row.booking_id, list);
-    }
+    const petsByBooking = bookingPets.reduce(
+      (acc: Map<number, { id: number; name: string; photo_url: string | null; breed: string | null }[]>, row: { booking_id: number; id: number; name: string; photo_url: string | null; breed: string | null }) => {
+        const existing = acc.get(row.booking_id) ?? [];
+        return new Map([...acc, [row.booking_id, [...existing, { id: row.id, name: row.name, photo_url: row.photo_url, breed: row.breed }]]]);
+      },
+      new Map<number, { id: number; name: string; photo_url: string | null; breed: string | null }[]>(),
+    );
     const enriched = bookings.map((b: { id: number }) => ({ ...b, pets: petsByBooking.get(b.id) || [] }));
 
-    res.json({ bookings: enriched });
+    res.json({ bookings: enriched, total: totalCount });
   });
 
   // --- Booking Status Update ---
@@ -2352,19 +2396,37 @@ async function startServer() {
 
   // --- Sitter Analytics ---
   v1.get('/analytics/overview', authMiddleware, requireSitterRole, async (req: AuthenticatedRequest, res) => {
+    const dateRange = analyticsDateRangeSchema.safeParse(req.query);
+    if (!dateRange.success) {
+      res.status(400).json({ error: dateRange.error.issues[0].message });
+      return;
+    }
+    const { start, end } = dateRange.data;
+    if (start && end) {
+      const result = await getOverview(req.userId!, { startDate: start, endDate: end });
+      res.json(result);
+      return;
+    }
+    if (req.query.all === 'true') {
+      const result = await getOverview(req.userId!, { startDate: '2020-01-01', endDate: `${new Date().getFullYear() + 1}-01-01` });
+      res.json(result);
+      return;
+    }
     const yearResult = validateYear(req.query.year);
     if (yearResult.valid === false) {
       res.status(400).json({ error: yearResult.error });
       return;
     }
-    const result = await getOverview(req.userId!, yearResult.year);
+    const result = await getOverview(req.userId!, { year: yearResult.year });
     res.json(result);
   });
 
   v1.get('/analytics/clients', authMiddleware, requireSitterRole, async (req: AuthenticatedRequest, res) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
-    const clients = await getClients(req.userId!, limit, offset);
+    const dateRange = analyticsDateRangeSchema.safeParse(req.query);
+    const { start, end } = dateRange.success ? dateRange.data : { start: undefined, end: undefined };
+    const clients = await getClients(req.userId!, limit, offset, start, end);
     res.json({ clients });
   });
 
@@ -2387,13 +2449,25 @@ async function startServer() {
   });
 
   v1.get('/analytics/revenue', authMiddleware, requireSitterRole, async (req: AuthenticatedRequest, res) => {
+    const dateRange = analyticsDateRangeSchema.safeParse(req.query);
+    const { start, end } = dateRange.success ? dateRange.data : { start: undefined, end: undefined };
+    const period = validateRevenuePeriod(req.query.period);
+    if (start && end) {
+      const result = await getRevenue(req.userId!, period, { startDate: start, endDate: end });
+      res.json(result);
+      return;
+    }
+    if (req.query.all === 'true') {
+      const result = await getRevenue(req.userId!, period, { startDate: '2020-01-01', endDate: `${new Date().getFullYear() + 1}-01-01` });
+      res.json(result);
+      return;
+    }
     const yearResult = validateYear(req.query.year);
     if (yearResult.valid === false) {
       res.status(400).json({ error: yearResult.error });
       return;
     }
-    const period = validateRevenuePeriod(req.query.period);
-    const result = await getRevenue(req.userId!, period, yearResult.year);
+    const result = await getRevenue(req.userId!, period, { year: yearResult.year });
     res.json(result);
   });
 

@@ -3,7 +3,58 @@ import { Navigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { BarChart3, Users, DollarSign, Star, TrendingUp, Clock } from 'lucide-react';
 import { API_BASE } from '../../config';
+import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 import type { AnalyticsOverview, ClientSummary, RevenueDataPoint } from '../../types';
+
+export type AnalyticsPeriod = 'this_month' | 'last_3_months' | 'last_6_months' | 'this_year' | 'all_time';
+
+export interface PeriodDateRange {
+  readonly start: string | null;
+  readonly end: string | null;
+  readonly year: number | null;
+  readonly all?: boolean;
+}
+
+export const PERIOD_OPTIONS: ReadonlyArray<{ value: AnalyticsPeriod; label: string }> = [
+  { value: 'this_month', label: 'This month' },
+  { value: 'last_3_months', label: 'Last 3 months' },
+  { value: 'last_6_months', label: 'Last 6 months' },
+  { value: 'this_year', label: 'This year' },
+  { value: 'all_time', label: 'All time' },
+];
+
+export function computePeriodRange(period: AnalyticsPeriod, now: Date = new Date()): PeriodDateRange {
+  switch (period) {
+    case 'this_month':
+      return {
+        start: format(startOfMonth(now), 'yyyy-MM-dd'),
+        end: format(endOfMonth(now), 'yyyy-MM-dd'),
+        year: null,
+      };
+    case 'last_3_months':
+      return {
+        start: format(subMonths(now, 3), 'yyyy-MM-dd'),
+        end: format(now, 'yyyy-MM-dd'),
+        year: null,
+      };
+    case 'last_6_months':
+      return {
+        start: format(subMonths(now, 6), 'yyyy-MM-dd'),
+        end: format(now, 'yyyy-MM-dd'),
+        year: null,
+      };
+    case 'this_year':
+      return {
+        start: `${now.getFullYear()}-01-01`,
+        end: `${now.getFullYear()}-12-31`,
+        year: now.getFullYear(),
+      };
+    case 'all_time':
+      return { start: null, end: null, year: null, all: true };
+    default:
+      return { start: null, end: null, year: null };
+  }
+}
 
 function formatCurrency(n: number) {
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -62,10 +113,39 @@ function RevenueBarChart({ data }: RevenueBarChartProps) {
   );
 }
 
+function buildAnalyticsParams(range: PeriodDateRange): string {
+  const params = new URLSearchParams();
+  if (range.all) {
+    params.set('all', 'true');
+    return params.toString();
+  }
+  if (range.year !== null) {
+    params.set('year', String(range.year));
+  }
+  if (range.start) params.set('start', range.start);
+  if (range.end) params.set('end', range.end);
+  return params.toString();
+}
+
+function buildRevenueParams(range: PeriodDateRange): string {
+  const params = new URLSearchParams();
+  params.set('period', 'monthly');
+  if (range.all) {
+    params.set('all', 'true');
+    return params.toString();
+  }
+  if (range.year !== null) {
+    params.set('year', String(range.year));
+  }
+  if (range.start) params.set('start', range.start);
+  if (range.end) params.set('end', range.end);
+  return params.toString();
+}
+
 export default function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const { user, token, loading: authLoading } = useAuth();
 
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [period, setPeriod] = useState<AnalyticsPeriod>('this_year');
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [clients, setClients] = useState<ClientSummary[]>([]);
   const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
@@ -84,11 +164,15 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
       try {
         const headers = getAuthHeaders(token);
         const opts = { headers, signal: controller.signal };
+        const range = computePeriodRange(period);
+
+        const overviewQuery = buildAnalyticsParams(range);
+        const revenueQuery = buildRevenueParams(range);
 
         const [overviewRes, clientsRes, revenueRes] = await Promise.all([
-          fetch(`${API_BASE}/analytics/overview?year=${year}`, opts),
+          fetch(`${API_BASE}/analytics/overview?${overviewQuery}`, opts),
           fetch(`${API_BASE}/analytics/clients?limit=50&offset=0`, opts),
-          fetch(`${API_BASE}/analytics/revenue?period=monthly&year=${year}`, opts),
+          fetch(`${API_BASE}/analytics/revenue?${revenueQuery}`, opts),
         ]);
 
         if (!overviewRes.ok || !clientsRes.ok || !revenueRes.ok) {
@@ -117,7 +201,7 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
 
     fetchData();
     return () => controller.abort();
-  }, [user, token, year, isSitter]);
+  }, [user, token, period, isSitter]);
 
   if (!embedded) {
     if (authLoading) {
@@ -138,9 +222,6 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
     }
   }
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: currentYear - 2019 }, (_, i) => currentYear - i);
-
   return (
     <div className={embedded ? '' : 'max-w-6xl mx-auto px-4 py-8'}>
       {/* Header */}
@@ -150,12 +231,12 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
           <h1 className="text-2xl font-bold text-stone-900">Analytics</h1>
         </div>
         <select
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as AnalyticsPeriod)}
           className="border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white"
         >
-          {yearOptions.map((y) => (
-            <option key={y} value={y}>{y}</option>
+          {PERIOD_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
       </div>

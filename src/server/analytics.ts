@@ -30,18 +30,30 @@ export function validateRevenuePeriod(raw: unknown): 'weekly' | 'monthly' {
   return raw === 'weekly' ? 'weekly' : 'monthly';
 }
 
+// --- Date Range Resolution ---
+
+type DateRangeOption =
+  | { year: number }
+  | { startDate: string; endDate: string };
+
+function resolveDateRange(option: DateRangeOption): { rangeStart: string; rangeEnd: string } {
+  if ('startDate' in option) {
+    return { rangeStart: option.startDate, rangeEnd: option.endDate };
+  }
+  return { rangeStart: `${option.year}-01-01`, rangeEnd: `${option.year + 1}-01-01` };
+}
+
 // --- Queries ---
 
-export async function getOverview(sitterId: number, year: number) {
-  const yearStart = `${year}-01-01`;
-  const yearEnd = `${year + 1}-01-01`;
+export async function getOverview(sitterId: number, option: DateRangeOption) {
+  const { rangeStart, rangeEnd } = resolveDateRange(option);
 
   const [bookingStats] = await sql`
     WITH sitter_bookings AS (
       SELECT * FROM bookings
       WHERE sitter_id = ${sitterId}
-        AND start_time >= ${yearStart}::timestamptz
-        AND start_time < ${yearEnd}::timestamptz
+        AND start_time >= ${rangeStart}::timestamptz
+        AND start_time < ${rangeEnd}::timestamptz
     ),
     repeat AS (
       SELECT owner_id
@@ -69,8 +81,8 @@ export async function getOverview(sitterId: number, year: number) {
     FROM reviews r
     JOIN bookings b ON b.id = r.booking_id
     WHERE r.reviewee_id = ${sitterId}
-      AND b.start_time >= ${yearStart}::timestamptz
-      AND b.start_time < ${yearEnd}::timestamptz
+      AND b.start_time >= ${rangeStart}::timestamptz
+      AND b.start_time < ${rangeEnd}::timestamptz
   `;
 
   const [responseStats] = await sql`
@@ -79,8 +91,8 @@ export async function getOverview(sitterId: number, year: number) {
     FROM bookings
     WHERE sitter_id = ${sitterId}
       AND responded_at IS NOT NULL
-      AND start_time >= ${yearStart}::timestamptz
-      AND start_time < ${yearEnd}::timestamptz
+      AND start_time >= ${rangeStart}::timestamptz
+      AND start_time < ${rangeEnd}::timestamptz
   `;
 
   const monthlyRevenue = await sql`
@@ -90,8 +102,8 @@ export async function getOverview(sitterId: number, year: number) {
     FROM bookings
     WHERE sitter_id = ${sitterId}
       AND status = 'completed'
-      AND start_time >= ${yearStart}::timestamptz
-      AND start_time < ${yearEnd}::timestamptz
+      AND start_time >= ${rangeStart}::timestamptz
+      AND start_time < ${rangeEnd}::timestamptz
     GROUP BY EXTRACT(MONTH FROM start_time)
     ORDER BY month
   `;
@@ -122,7 +134,7 @@ export async function getOverview(sitterId: number, year: number) {
   };
 }
 
-export async function getClients(sitterId: number, limit = 50, offset = 0) {
+export async function getClients(sitterId: number, limit = 50, offset = 0, startDate?: string, endDate?: string) {
   const clients = await sql`
     SELECT
       u.id AS client_id,
@@ -136,6 +148,8 @@ export async function getClients(sitterId: number, limit = 50, offset = 0) {
     FROM bookings b
     JOIN users u ON u.id = b.owner_id
     WHERE b.sitter_id = ${sitterId}
+      ${startDate ? sql`AND b.start_time >= ${startDate}::timestamptz` : sql``}
+      ${endDate ? sql`AND b.start_time < ${endDate}::timestamptz` : sql``}
     GROUP BY u.id, u.name, u.avatar_url
     ORDER BY MAX(b.start_time) DESC
     LIMIT ${limit} OFFSET ${offset}
@@ -219,9 +233,8 @@ export async function getClientDetail(sitterId: number, clientId: number) {
   };
 }
 
-export async function getRevenue(sitterId: number, period: 'weekly' | 'monthly', year: number) {
-  const yearStart = `${year}-01-01`;
-  const yearEnd = `${year + 1}-01-01`;
+export async function getRevenue(sitterId: number, period: 'weekly' | 'monthly', option: DateRangeOption) {
+  const { rangeStart, rangeEnd } = resolveDateRange(option);
 
   const data = period === 'monthly'
     ? await sql`
@@ -232,8 +245,8 @@ export async function getRevenue(sitterId: number, period: 'weekly' | 'monthly',
       FROM bookings
       WHERE sitter_id = ${sitterId}
         AND status = 'completed'
-        AND start_time >= ${yearStart}::timestamptz
-        AND start_time < ${yearEnd}::timestamptz
+        AND start_time >= ${rangeStart}::timestamptz
+        AND start_time < ${rangeEnd}::timestamptz
       GROUP BY TO_CHAR(start_time, 'YYYY-MM')
       ORDER BY period
     `
@@ -245,11 +258,11 @@ export async function getRevenue(sitterId: number, period: 'weekly' | 'monthly',
       FROM bookings
       WHERE sitter_id = ${sitterId}
         AND status = 'completed'
-        AND start_time >= ${yearStart}::timestamptz
-        AND start_time < ${yearEnd}::timestamptz
+        AND start_time >= ${rangeStart}::timestamptz
+        AND start_time < ${rangeEnd}::timestamptz
       GROUP BY DATE_TRUNC('week', start_time)
       ORDER BY period
     `;
 
-  return { period, year, data };
+  return { period, data };
 }
