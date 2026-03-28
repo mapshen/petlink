@@ -7,6 +7,7 @@ import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2 } from 'lucide-reac
 const AnalyticsPage = lazy(() => import('../sitter/AnalyticsPage'));
 const PromotePage = lazy(() => import('../sitter/PromotePage'));
 const CalendarCommandCenter = lazy(() => import('../../components/calendar/CalendarCommandCenter'));
+const BookingHistory = lazy(() => import('../../components/calendar/BookingHistory'));
 import { format } from 'date-fns';
 import { API_BASE } from '../../config';
 import { Link } from 'react-router-dom';
@@ -157,6 +158,9 @@ export default function Dashboard() {
         <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
           <div className="mb-6">
             <CalendarCommandCenter />
+          </div>
+          <div className="mb-6">
+            <BookingHistory />
           </div>
         </Suspense>
       )}

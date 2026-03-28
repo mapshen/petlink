@@ -243,6 +243,25 @@ export const confirmImportSchema = z.object({
   profile_id: z.number().int().positive('Invalid profile ID'),
 });
 
+// --- Booking Filter Schemas ---
+const bookingStatusValues = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] as const;
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+export const bookingFiltersSchema = z.object({
+  start: z.string().regex(datePattern, 'start must be YYYY-MM-DD').optional(),
+  end: z.string().regex(datePattern, 'end must be YYYY-MM-DD').optional(),
+  status: z.enum(bookingStatusValues, { message: 'Invalid booking status' }).optional(),
+  search: z.string().max(100, 'Search term must be under 100 characters').optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  offset: z.coerce.number().int().min(0).optional().default(0),
+});
+
+// --- Analytics Date Range Schema ---
+export const analyticsDateRangeSchema = z.object({
+  start: z.string().regex(datePattern, 'start must be YYYY-MM-DD').optional(),
+  end: z.string().regex(datePattern, 'end must be YYYY-MM-DD').optional(),
+});
+
 // --- Calendar Schemas ---
 export const calendarQuerySchema = z.object({
   start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
