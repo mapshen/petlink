@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Megaphone, Crown, BarChart3, Shield, LogOut } from 'lucide-react';
+import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -24,11 +24,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Messages', path: '/messages', icon: MessageSquare },
     ...(user ? [
       { name: 'Wallet', path: '/wallet', icon: Wallet },
-    ] : []),
-    ...(user && mode === 'sitter' ? [
-      { name: 'Promote', path: '/promote', icon: Megaphone },
-      { name: 'Pro', path: '/subscription', icon: Crown },
-      ...(isSitter ? [{ name: 'Analytics', path: '/analytics', icon: BarChart3 }] : []),
     ] : []),
     ...(user?.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
   ];
