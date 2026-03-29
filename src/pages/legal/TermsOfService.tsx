@@ -153,11 +153,7 @@ export default function TermsOfService() {
             </a>.
           </p>
           <p className="mt-2 text-sm text-stone-500">
-            PetLink is a product of{' '}
-            <a href="https://www.pataplot.com" className="text-emerald-600 hover:underline" target="_blank" rel="noopener noreferrer">
-              PataPlot
-            </a>{' '}
-            (PaloPlot, LLC)
+            PaloPlot, LLC
           </p>
         </section>
       </div>

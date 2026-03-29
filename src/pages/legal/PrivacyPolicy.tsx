@@ -22,11 +22,8 @@ export default function PrivacyPolicy() {
         <section>
           <h2 className="text-xl font-semibold text-stone-900 mb-3">1. Introduction</h2>
           <p>
-            PaloPlot, LLC ("we", "us", "our") operates PetLink, a product of{' '}
-            <a href="https://www.pataplot.com" className="text-emerald-600 hover:underline" target="_blank" rel="noopener noreferrer">
-              PataPlot
-            </a>. This Privacy Policy describes how we collect, use, and protect your personal
-            information when you use our services.
+            PaloPlot, LLC ("we", "us", "our") operates PetLink. This Privacy Policy describes
+            how we collect, use, and protect your personal information when you use our services.
           </p>
         </section>
 
@@ -134,11 +131,7 @@ export default function PrivacyPolicy() {
             </a>.
           </p>
           <p className="mt-2 text-sm text-stone-500">
-            PetLink is a product of{' '}
-            <a href="https://www.pataplot.com" className="text-emerald-600 hover:underline" target="_blank" rel="noopener noreferrer">
-              PataPlot
-            </a>{' '}
-            (PaloPlot, LLC)
+            PaloPlot, LLC
           </p>
         </section>
       </div>
