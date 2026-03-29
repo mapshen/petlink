@@ -1,0 +1,37 @@
+import type { Router } from 'express';
+import sql from '../db.ts';
+import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
+import { validate, updateProfileSchema } from '../validation.ts';
+import { isAdminUser } from '../admin.ts';
+
+export default function userRoutes(router: Router): void {
+  router.put('/users/me', authMiddleware, validate(updateProfileSchema), async (req: AuthenticatedRequest, res) => {
+    const { name, bio, avatar_url, role, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles } = req.body;
+
+    // Check if user is switching from owner to sitter/both
+    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
+    const becomingSitter = role && (role === 'sitter' || role === 'both') && currentUser.role === 'owner';
+
+    await sql`
+      UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null},
+      role = COALESCE(${role || null}::user_role, role)
+      ${becomingSitter ? sql`, approval_status = 'pending_approval'` : sql``}
+      ${accepted_species !== undefined ? sql`, accepted_species = ${accepted_species || []}` : sql``}
+      ${years_experience !== undefined ? sql`, years_experience = ${years_experience}` : sql``}
+      ${home_type !== undefined ? sql`, home_type = ${home_type || null}` : sql``}
+      ${has_yard !== undefined ? sql`, has_yard = ${has_yard ?? false}` : sql``}
+      ${has_fenced_yard !== undefined ? sql`, has_fenced_yard = ${has_fenced_yard ?? false}` : sql``}
+      ${has_own_pets !== undefined ? sql`, has_own_pets = ${has_own_pets ?? false}` : sql``}
+      ${own_pets_description !== undefined ? sql`, own_pets_description = ${own_pets_description || null}` : sql``}
+      ${skills !== undefined ? sql`, skills = ${skills || []}` : sql``}
+      ${service_radius_miles !== undefined ? sql`, service_radius_miles = ${service_radius_miles}` : sql``}
+      WHERE id = ${req.userId}
+    `;
+
+    const [user] = await sql`
+      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
+    `;
+
+    res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
+  });
+}
