@@ -24,7 +24,7 @@ npm run clean        # Remove dist/
 Single Express server serves both the API and Vite-powered frontend in dev mode. Socket.io attached to the same HTTP server for real-time messaging and notifications.
 
 - **Database**: PostgreSQL via `postgres` (porsager), schema in `src/server/db.ts`. All tables live in a dedicated `petlink` schema (configurable via `DB_SCHEMA` env var). PostGIS extension also installed in the `petlink` schema. Connection `search_path` set to `petlink` only — no `public`.
-- **Auth**: JWT + bcrypt (`src/server/auth.ts`). Bearer tokens in `Authorization` header. Async middleware validates token + user existence. OAuth sign-in via Google, Apple, Facebook (`src/server/oauth.ts`). OAuth-only users have `password_hash = NULL`.
+- **Auth**: JWT + bcrypt (`src/server/auth.ts`). Short-lived access tokens (15min) + rotating refresh tokens (30d, SHA-256 hashed). Bearer tokens in `Authorization` header. Async middleware validates token + user existence. OAuth sign-in via Google, Apple, Facebook (`src/server/oauth.ts`). OAuth-only users have `password_hash = NULL`.
 - **Payments**: Direct payment escrow (`src/server/payments.ts`). Manual capture for hold/release flow.
 - **Notifications**: In-app + real-time via Socket.io (`src/server/notifications.ts`). Per-user preferences.
 - **Storage**: S3-compatible signed URL uploads (`src/server/storage.ts`). Supports AWS S3 and MinIO.
@@ -35,7 +35,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 
 | Domain | Endpoints |
 |--------|-----------|
-| Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/oauth`, `GET /auth/me`, `GET /auth/linked-accounts`, `DELETE /auth/linked-accounts/:provider`, `POST /auth/set-password` |
+| Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/oauth`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`, `GET /auth/linked-accounts`, `DELETE /auth/linked-accounts/:provider`, `POST /auth/set-password` |
 | Users | `PUT /users/me` |
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id`, `GET/PUT /pets/:id/care-instructions` |
 | Pet Vaccinations | `GET /pets/:petId/vaccinations`, `POST /pets/:petId/vaccinations`, `DELETE /pets/:petId/vaccinations/:id` |
@@ -116,6 +116,7 @@ PostgreSQL with PostGIS.
 | `sitter_photos` | Portfolio photos with ordering |
 | `favorites` | Owner favorite sitters |
 | `oauth_accounts` | Provider links (`provider`, `provider_id`, unique constraints) |
+| `refresh_tokens` | JWT refresh token hashes with expiry and revocation tracking |
 | `sitter_subscriptions` | Pro tier with status tracking, Stripe billing, billing period |
 | `sitter_payouts` | Delayed payout scheduling, `amount_cents` INTEGER, `status` CHECK, unique `booking_id` |
 
@@ -140,7 +141,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@examp
 
 ## Testing
 
-330 tests across 25 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+843 tests across 62 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 

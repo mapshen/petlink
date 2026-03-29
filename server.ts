@@ -11,7 +11,7 @@ import cookieParser from 'cookie-parser';
 import crypto from 'crypto';
 import { initDb } from './src/server/db.ts';
 import sql from './src/server/db.ts';
-import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, type AuthenticatedRequest } from './src/server/auth.ts';
+import { hashPassword, verifyPassword, signToken, verifyToken, authMiddleware, createRefreshToken, validateRefreshToken, revokeRefreshToken, revokeAllUserTokens, type AuthenticatedRequest } from './src/server/auth.ts';
 import { createPaymentIntent, createACHPaymentIntent, createFinancialConnectionsSession, listBankAccounts, detachBankAccount, capturePayment, cancelPayment, refundPayment, constructWebhookEvent, createSubscriptionCheckout, createSubscriptionIntent, cancelStripeSubscription, listPaymentMethods, detachPaymentMethod, listCharges } from './src/server/payments.ts';
 import { getOrCreateStripeCustomer } from './src/server/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/server/notifications.ts';
@@ -162,6 +162,7 @@ async function startServer() {
       RETURNING id, email, name, role, bio, avatar_url, lat, lng, approval_status
     `;
     const token = signToken({ userId: user.id });
+    const refreshToken = await createRefreshToken(user.id);
 
     const isSitter = role === 'sitter' || role === 'both';
     const welcomeEmail = isSitter
@@ -169,7 +170,7 @@ async function startServer() {
       : buildOwnerWelcomeEmail({ ownerName: name });
     sendEmail({ to: email, ...welcomeEmail }).catch(() => {});
 
-    res.status(201).json({ user, token });
+    res.status(201).json({ user, token, refreshToken });
   });
 
   v1.post('/auth/login', validate(loginSchema), async (req, res) => {
@@ -197,8 +198,9 @@ async function startServer() {
     }
 
     const token = signToken({ userId: user.id });
+    const refreshToken = await createRefreshToken(user.id);
     const { password_hash: _, ...safeUser } = user;
-    res.json({ user: safeUser, token });
+    res.json({ user: safeUser, token, refreshToken });
   });
 
   v1.post('/auth/oauth', validate(oauthSchema), async (req, res) => {
@@ -265,13 +267,14 @@ async function startServer() {
     }
 
     const jwtToken = signToken({ userId: result.user.id });
+    const refreshToken = await createRefreshToken(result.user.id);
 
     if (result.isNewUser) {
       const welcomeEmail = buildOwnerWelcomeEmail({ ownerName: result.user.name || 'there' });
       sendEmail({ to: result.user.email, ...welcomeEmail }).catch(() => {});
     }
 
-    res.json({ user: result.user, token: jwtToken, isNewUser: result.isNewUser });
+    res.json({ user: result.user, token: jwtToken, refreshToken, isNewUser: result.isNewUser });
   });
 
   v1.get('/auth/linked-accounts', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -335,6 +338,50 @@ async function startServer() {
     } else {
       res.status(401).json({ error: 'User not found' });
     }
+  });
+
+  v1.post('/auth/refresh', async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      res.status(400).json({ error: 'Refresh token is required' });
+      return;
+    }
+
+    const userId = await validateRefreshToken(refreshToken);
+    if (!userId) {
+      res.status(401).json({ error: 'Invalid or expired refresh token' });
+      return;
+    }
+
+    const [user] = await sql`SELECT id, approval_status FROM users WHERE id = ${userId}`;
+    if (!user) {
+      res.status(401).json({ error: 'User not found' });
+      return;
+    }
+    if (user.approval_status === 'banned') {
+      res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
+      return;
+    }
+
+    // Token rotation: revoke old, issue new pair
+    await revokeRefreshToken(refreshToken);
+    const newAccessToken = signToken({ userId });
+    const newRefreshToken = await createRefreshToken(userId);
+
+    res.json({ token: newAccessToken, refreshToken: newRefreshToken });
+  });
+
+  v1.post('/auth/logout', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const { refreshToken } = req.body;
+    if (refreshToken && typeof refreshToken === 'string') {
+      await revokeRefreshToken(refreshToken);
+    }
+    res.json({ message: 'Logged out' });
+  });
+
+  v1.post('/auth/logout-all', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    await revokeAllUserTokens(req.userId!);
+    res.json({ message: 'All sessions logged out' });
   });
 
   // --- Users ---
