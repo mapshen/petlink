@@ -144,7 +144,7 @@ export default function TrackWalk() {
       {videoError && (
         <div className="mb-4 text-xs text-red-600 bg-red-50 rounded-lg p-2 flex justify-between items-center">
           <span>{videoError}</span>
-          <button type="button" onClick={clearVideoError} className="text-red-400 hover:text-red-600 ml-2">Dismiss</button>
+          <button type="button" onClick={clearVideoError} aria-label="Dismiss error" className="text-red-400 hover:text-red-600 ml-2">Dismiss</button>
         </div>
       )}
 

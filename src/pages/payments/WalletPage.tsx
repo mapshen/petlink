@@ -302,7 +302,7 @@ export default function WalletPage() {
         <Alert variant="destructive" className="mb-4">
           <AlertDescription className="flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-xs font-medium hover:underline">Dismiss</button>
           </AlertDescription>
         </Alert>
       )}
@@ -449,7 +449,7 @@ export default function WalletPage() {
                 <div className="bg-stone-50 rounded-xl border border-stone-200 p-6 mb-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold text-stone-900">{editingId ? 'Edit Expense' : 'Add Expense'}</h3>
-                    <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }} className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
+                    <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }} aria-label="Close form" className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}

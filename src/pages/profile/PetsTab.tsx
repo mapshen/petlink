@@ -206,7 +206,7 @@ export default function PetsTab() {
     }));
   };
 
-  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+  if (loading) return <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div><span className="sr-only">Loading...</span></div>;
 
   return (
     <div>
@@ -226,7 +226,7 @@ export default function PetsTab() {
         <Alert variant="destructive" className="mb-6">
           <AlertDescription className="flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-xs font-medium hover:underline">Dismiss</button>
           </AlertDescription>
         </Alert>
       )}
@@ -235,7 +235,7 @@ export default function PetsTab() {
         <form onSubmit={handleSubmit} className="bg-stone-50 rounded-xl border border-stone-200 p-6 mb-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-stone-900">{editingId ? 'Edit Pet' : 'Add New Pet'}</h3>
-            <button type="button" onClick={cancelForm} className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
+            <button type="button" onClick={cancelForm} aria-label="Close form" className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
           </div>
 
           {/* Basic Info */}

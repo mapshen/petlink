@@ -10,6 +10,7 @@ import ServicesTab from './ServicesTab';
 import PhotosTab from './PhotosTab';
 import ReviewsTab from './ReviewsTab';
 import SubscriptionPage from './SubscriptionPage';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 interface SectionDef {
   id: string;
@@ -28,11 +29,12 @@ const ALL_SECTIONS: SectionDef[] = [
 ];
 
 export default function ProfilePage() {
+  useDocumentTitle('Profile');
   const { user, loading } = useAuth();
   const { mode } = useMode();
 
   if (loading) {
-    return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+    return <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div><span className="sr-only">Loading...</span></div>;
   }
 
   if (!user) {

@@ -144,7 +144,7 @@ export default function PhotosTab() {
     }
   };
 
-  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+  if (loading) return <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div><span className="sr-only">Loading...</span></div>;
 
   return (
     <div>
@@ -154,7 +154,7 @@ export default function PhotosTab() {
         <Alert variant="destructive" className="mb-6">
           <AlertDescription className="flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-xs font-medium hover:underline">Dismiss</button>
           </AlertDescription>
         </Alert>
       )}

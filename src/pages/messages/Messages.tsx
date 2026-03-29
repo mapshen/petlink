@@ -4,10 +4,13 @@ import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Message, Conversation } from '../../types';
 import io, { Socket } from 'socket.io-client';
 import { Send, AlertCircle, ArrowLeft, MessageSquare } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { API_BASE } from '../../config';
+import MessageBubble from '../../components/messages/MessageBubble';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function Messages() {
+  useDocumentTitle('Messages');
   const { user, token } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const recipientParam = searchParams.get('recipient');
@@ -231,7 +234,7 @@ export default function Messages() {
             <div role="alert" className="m-4 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span className="flex-grow">{error}</span>
-              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
+              <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
             </div>
           )}
 
@@ -240,6 +243,7 @@ export default function Messages() {
               <div className="p-4 border-b border-stone-100 flex items-center gap-3 bg-stone-50">
                 <button
                   onClick={goBackToList}
+                  aria-label="Back to conversations"
                   className="md:hidden p-1 text-stone-500 hover:text-stone-700"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -253,23 +257,9 @@ export default function Messages() {
               </div>
 
               <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-stone-50/50">
-                {messages.map((msg) => {
-                  const isMe = msg.sender_id === user.id;
-                  return (
-                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] rounded-2xl p-3 ${
-                        isMe
-                          ? 'bg-emerald-600 text-white rounded-br-none'
-                          : 'bg-white border border-stone-200 text-stone-900 rounded-bl-none'
-                      }`}>
-                        <p className="text-sm">{msg.content}</p>
-                        <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-emerald-200' : 'text-stone-400'}`}>
-                          {format(new Date(msg.created_at), 'h:mm a')}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {messages.map((msg) => (
+                  <MessageBubble key={msg.id} message={msg} isCurrentUser={msg.sender_id === user.id} />
+                ))}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -352,7 +342,7 @@ function ThreadWithNewUser({
   return (
     <>
       <div className="p-4 border-b border-stone-100 flex items-center gap-3 bg-stone-50">
-        <button onClick={goBackToList} className="md:hidden p-1 text-stone-500 hover:text-stone-700">
+        <button onClick={goBackToList} aria-label="Back to conversations" className="md:hidden p-1 text-stone-500 hover:text-stone-700">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <img
@@ -367,28 +357,14 @@ function ThreadWithNewUser({
         <div role="alert" className="m-4 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span className="flex-grow">{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
+          <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
         </div>
       )}
 
       <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-stone-50/50">
-        {messages.map((msg) => {
-          const isMe = msg.sender_id === user.id;
-          return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[70%] rounded-2xl p-3 ${
-                isMe
-                  ? 'bg-emerald-600 text-white rounded-br-none'
-                  : 'bg-white border border-stone-200 text-stone-900 rounded-bl-none'
-              }`}>
-                <p className="text-sm">{msg.content}</p>
-                <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-emerald-200' : 'text-stone-400'}`}>
-                  {format(new Date(msg.created_at), 'h:mm a')}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {messages.map((msg) => (
+          <MessageBubble key={msg.id} message={msg} isCurrentUser={msg.sender_id === user.id} />
+        ))}
         <div ref={messagesEndRef} />
       </div>
 

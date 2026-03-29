@@ -36,6 +36,7 @@ export async function sendEmail(payload: EmailPayload): Promise<{ id: string } |
   });
 
   if (error) {
+    console.warn('Email send failed:', error);
     return null;
   }
 

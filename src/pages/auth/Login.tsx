@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import OAuthButtons from '../../components/onboarding/OAuthButtons';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function Login() {
+  useDocumentTitle('Login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -94,7 +96,9 @@ export default function Login() {
           <div className="space-y-2">
             {isSignup && (
               <div>
+                <label htmlFor="signup-name" className="sr-only">Full name</label>
                 <input
+                  id="signup-name"
                   name="name"
                   type="text"
                   required
@@ -108,6 +112,7 @@ export default function Login() {
                 )}
               </div>
             )}
+            <label htmlFor="email-address" className="sr-only">Email address</label>
             <input
               id="email-address"
               name="email"
@@ -120,7 +125,9 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
             />
             <div>
+              <label htmlFor="password" className="sr-only">Password</label>
               <input
+                id="password"
                 name="password"
                 type="password"
                 autoComplete={isSignup ? 'new-password' : 'current-password'}

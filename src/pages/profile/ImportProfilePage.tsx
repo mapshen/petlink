@@ -24,7 +24,7 @@ export default function ImportProfilePage() {
   const [scrapedBio, setScrapedBio] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" /></div>;
+  if (authLoading) return <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" /><span className="sr-only">Loading...</span></div>;
   if (!user) return <Navigate to="/login" replace />;
 
   const handlePreview = async () => {
