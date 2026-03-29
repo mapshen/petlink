@@ -124,8 +124,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-stone-500 font-medium">PetLink &copy; {new Date().getFullYear()}</span>
             </div>
             <div className="flex gap-6 text-sm text-stone-500">
-              <a href="#" className="hover:text-stone-900">Privacy</a>
-              <a href="#" className="hover:text-stone-900">Terms</a>
+              <Link to="/privacy" className="hover:text-stone-900">Privacy</Link>
+              <Link to="/terms" className="hover:text-stone-900">Terms</Link>
               <a href="#" className="hover:text-stone-900">Sitemap</a>
             </div>
           </div>
