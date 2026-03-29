@@ -6,7 +6,13 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string, role?: string) => Promise<void>;
+  signup: (
+    email: string,
+    password: string,
+    name: string,
+    role?: string,
+    ageConfirmed?: boolean,
+  ) => Promise<void>;
   loginWithOAuth: (provider: OAuthProvider, token: string) => Promise<{ isNewUser: boolean }>;
   logout: () => void;
   updateUser: (user: User) => void;
@@ -204,27 +210,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, name: string, role?: string) => {
-    const res = await fetch(`${API_BASE}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name, role }),
-    });
+  const signup = useCallback(
+    async (email: string, password: string, name: string, role?: string, ageConfirmed?: boolean) => {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name, role, age_confirmed: ageConfirmed }),
+      });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || 'Signup failed');
-    }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Signup failed');
+      }
 
-    const data = await res.json();
-    setUser(data.user);
-    setToken(data.token);
-    localStorage.setItem('petlink_user', JSON.stringify(data.user));
-    localStorage.setItem('petlink_token', data.token);
-    if (data.refreshToken) {
-      localStorage.setItem('petlink_refresh_token', data.refreshToken);
-    }
-  }, []);
+      const data = await res.json();
+      setUser(data.user);
+      setToken(data.token);
+      localStorage.setItem('petlink_user', JSON.stringify(data.user));
+      localStorage.setItem('petlink_token', data.token);
+      if (data.refreshToken) {
+        localStorage.setItem('petlink_refresh_token', data.refreshToken);
+      }
+    },
+    [],
+  );
 
   const loginWithOAuth = useCallback(async (provider: OAuthProvider, oauthToken: string): Promise<{ isNewUser: boolean }> => {
     const res = await fetch(`${API_BASE}/auth/oauth`, {

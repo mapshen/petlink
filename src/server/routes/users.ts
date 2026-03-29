@@ -1,18 +1,41 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
-import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
+import {
+  authMiddleware,
+  revokeAllUserTokens,
+  type AuthenticatedRequest,
+} from '../auth.ts';
 import { validate, updateProfileSchema } from '../validation.ts';
 import { isAdminUser } from '../admin.ts';
 
 export default function userRoutes(router: Router): void {
-  router.put('/users/me', authMiddleware, validate(updateProfileSchema), async (req: AuthenticatedRequest, res) => {
-    const { name, bio, avatar_url, role, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles } = req.body;
+  router.put(
+    '/users/me',
+    authMiddleware,
+    validate(updateProfileSchema),
+    async (req: AuthenticatedRequest, res) => {
+      const {
+        name,
+        bio,
+        avatar_url,
+        role,
+        accepted_species,
+        years_experience,
+        home_type,
+        has_yard,
+        has_fenced_yard,
+        has_own_pets,
+        own_pets_description,
+        skills,
+        service_radius_miles,
+      } = req.body;
 
-    // Check if user is switching from owner to sitter/both
-    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
-    const becomingSitter = role && (role === 'sitter' || role === 'both') && currentUser.role === 'owner';
+      // Check if user is switching from owner to sitter/both
+      const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
+      const becomingSitter =
+        role && (role === 'sitter' || role === 'both') && currentUser.role === 'owner';
 
-    await sql`
+      await sql`
       UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null},
       role = COALESCE(${role || null}::user_role, role)
       ${becomingSitter ? sql`, approval_status = 'pending_approval'` : sql``}
@@ -28,10 +51,64 @@ export default function userRoutes(router: Router): void {
       WHERE id = ${req.userId}
     `;
 
-    const [user] = await sql`
+      const [user] = await sql`
       SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
     `;
 
-    res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
+      res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
+    },
+  );
+
+  // --- Account Deletion (Soft Delete) ---
+  router.delete('/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const userId = req.userId!;
+
+    // 1. Check for active bookings
+    const activeBookings = await sql`
+      SELECT id FROM bookings
+      WHERE (owner_id = ${userId} OR sitter_id = ${userId})
+        AND status IN ('confirmed', 'in_progress')
+    `;
+
+    if (activeBookings.length > 0) {
+      res.status(400).json({
+        error: 'Please complete or cancel active bookings before deleting your account.',
+      });
+      return;
+    }
+
+    // 2. Cancel pending bookings owned by the user
+    await sql`
+      UPDATE bookings SET status = 'cancelled'
+      WHERE owner_id = ${userId} AND status = 'pending'
+    `;
+
+    // 3. Revoke all refresh tokens
+    await revokeAllUserTokens(userId);
+
+    // 4. Anonymize user
+    const timestamp = Date.now();
+    const anonymizedEmail = `deleted_${userId}_${timestamp}@deleted.petlink.app`;
+
+    await sql`
+      UPDATE users SET
+        name = 'Deleted User',
+        email = ${anonymizedEmail},
+        bio = NULL,
+        avatar_url = NULL,
+        password_hash = NULL,
+        lat = NULL,
+        lng = NULL,
+        deleted_at = NOW()
+      WHERE id = ${userId}
+    `;
+
+    // 5. Anonymize reviews written by this user
+    await sql`
+      UPDATE reviews SET comment = NULL
+      WHERE reviewer_id = ${userId}
+    `;
+
+    res.json({ success: true });
   });
 }
