@@ -126,7 +126,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex gap-6 text-sm text-stone-500">
               <Link to="/privacy" className="hover:text-stone-900">Privacy</Link>
               <Link to="/terms" className="hover:text-stone-900">Terms</Link>
-              <a href="#" className="hover:text-stone-900">Sitemap</a>
+              <Link to="/sitemap" className="hover:text-stone-900">Sitemap</Link>
             </div>
           </div>
         </div>

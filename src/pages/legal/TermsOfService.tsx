@@ -4,14 +4,14 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Info } from 'lucide-react';
 
 export default function TermsOfService() {
-  useDocumentTitle('Terms of Service');
+  useDocumentTitle('Terms of Service - PetLink');
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <Alert className="mb-8 border-amber-200 bg-amber-50">
         <Info className="h-4 w-4 text-amber-600" />
         <AlertDescription className="text-amber-800">
-          This privacy policy is provided for informational purposes. Please consult legal counsel for compliance verification.
+          These terms of service are provided for informational purposes. Please consult legal counsel for compliance verification.
         </AlertDescription>
       </Alert>
 
@@ -67,7 +67,7 @@ export default function TermsOfService() {
             transactions but is not a party to the service agreement between users.
           </p>
           <ul className="list-disc pl-6 space-y-1.5">
-            <li>All payments are processed securely through Stripe</li>
+            <li>All payments are processed securely through our payment processor</li>
             <li>Cancellation terms are determined by each sitter's cancellation policy</li>
             <li>PetLink may hold funds in escrow until service completion</li>
             <li>Refund eligibility depends on the applicable cancellation policy and circumstances</li>
@@ -153,7 +153,11 @@ export default function TermsOfService() {
             </a>.
           </p>
           <p className="mt-2 text-sm text-stone-500">
-            PaloPlot, LLC, operating as PetLink
+            PetLink is a product of{' '}
+            <a href="https://www.pataplot.com" className="text-emerald-600 hover:underline" target="_blank" rel="noopener noreferrer">
+              PataPlot
+            </a>{' '}
+            (PaloPlot, LLC)
           </p>
         </section>
       </div>

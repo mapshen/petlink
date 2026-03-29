@@ -25,6 +25,7 @@ const ImportProfilePage = React.lazy(() => import('./pages/profile/ImportProfile
 const Onboarding = React.lazy(() => import('./pages/auth/Onboarding'));
 const PrivacyPolicy = React.lazy(() => import('./pages/legal/PrivacyPolicy'));
 const TermsOfService = React.lazy(() => import('./pages/legal/TermsOfService'));
+const Sitemap = React.lazy(() => import('./pages/legal/Sitemap'));
 
 function LoadingSpinner() {
   return (
@@ -62,6 +63,7 @@ export default function App() {
                 <Route path="/photos" element={<Navigate to="/profile" replace />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/sitemap" element={<Sitemap />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/track/:bookingId" element={<ProtectedRoute><TrackWalk /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
