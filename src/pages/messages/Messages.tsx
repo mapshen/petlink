@@ -253,10 +253,10 @@ export default function Messages() {
               </div>
 
               <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-stone-50/50">
-                {messages.map((msg, idx) => {
+                {messages.map((msg) => {
                   const isMe = msg.sender_id === user.id;
                   return (
-                    <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[70%] rounded-2xl p-3 ${
                         isMe
                           ? 'bg-emerald-600 text-white rounded-br-none'
@@ -372,10 +372,10 @@ function ThreadWithNewUser({
       )}
 
       <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-stone-50/50">
-        {messages.map((msg, idx) => {
+        {messages.map((msg) => {
           const isMe = msg.sender_id === user.id;
           return (
-            <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[70%] rounded-2xl p-3 ${
                 isMe
                   ? 'bg-emerald-600 text-white rounded-br-none'

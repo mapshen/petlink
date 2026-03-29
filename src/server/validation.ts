@@ -325,6 +325,24 @@ export const signedUrlSchema = z.object({
   fileSize: z.number().int().positive('fileSize must be a positive integer'),
 });
 
+// --- Sitter Search Schemas ---
+export const sitterSearchSchema = z.object({
+  serviceType: z.string().optional(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+  radius: z.coerce.number().min(1).max(500).optional(),
+  minPrice: z.coerce.number().min(0).optional(),
+  maxPrice: z.coerce.number().min(0).optional(),
+  petSize: z.string().optional(),
+  species: z.string().optional(),
+});
+
+// --- Profile View Schemas ---
+export const profileViewSchema = z.object({
+  source: z.string().max(32).optional(),
+  session_id: z.string().max(64).optional(),
+});
+
 // --- Calendar Schemas ---
 export const calendarQuerySchema = z.object({
   start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

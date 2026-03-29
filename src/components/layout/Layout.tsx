@@ -118,7 +118,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2">
               <PawPrint className="w-5 h-5 text-stone-400" />
-              <span className="text-stone-500 font-medium">PetLink &copy; 2024</span>
+              <span className="text-stone-500 font-medium">PetLink &copy; {new Date().getFullYear()}</span>
             </div>
             <div className="flex gap-6 text-sm text-stone-500">
               <a href="#" className="hover:text-stone-900">Privacy</a>
