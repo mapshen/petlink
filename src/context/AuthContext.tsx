@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { User, OAuthProvider } from '../types';
 import { API_BASE } from '../config';
 
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => controller.abort();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -89,9 +89,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(data.token);
     localStorage.setItem('petlink_user', JSON.stringify(data.user));
     localStorage.setItem('petlink_token', data.token);
-  };
+  }, []);
 
-  const signup = async (email: string, password: string, name: string, role?: string) => {
+  const signup = useCallback(async (email: string, password: string, name: string, role?: string) => {
     const res = await fetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -108,9 +108,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(data.token);
     localStorage.setItem('petlink_user', JSON.stringify(data.user));
     localStorage.setItem('petlink_token', data.token);
-  };
+  }, []);
 
-  const loginWithOAuth = async (provider: OAuthProvider, oauthToken: string): Promise<{ isNewUser: boolean }> => {
+  const loginWithOAuth = useCallback(async (provider: OAuthProvider, oauthToken: string): Promise<{ isNewUser: boolean }> => {
     const res = await fetch(`${API_BASE}/auth/oauth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -128,23 +128,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('petlink_user', JSON.stringify(data.user));
     localStorage.setItem('petlink_token', data.token);
     return { isNewUser: data.isNewUser || false };
-  };
+  }, []);
 
-  const updateUser = (updatedUser: User) => {
+  const updateUser = useCallback((updatedUser: User) => {
     setUser(updatedUser);
     localStorage.setItem('petlink_user', JSON.stringify(updatedUser));
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('petlink_user');
     localStorage.removeItem('petlink_token');
     localStorage.removeItem('petlink_mode');
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    user, token, login, signup, loginWithOAuth, logout, updateUser, loading,
+  }), [user, token, login, signup, loginWithOAuth, logout, updateUser, loading]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, signup, loginWithOAuth, logout, updateUser, loading }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

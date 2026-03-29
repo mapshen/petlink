@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './context/AuthContext';
 import { ModeProvider } from './context/ModeContext';
 import Layout from './components/layout/Layout';
@@ -33,6 +34,7 @@ function LoadingSpinner() {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <AuthProvider>
       <Router>
         <ModeProvider>
@@ -65,5 +67,6 @@ export default function App() {
         </ModeProvider>
       </Router>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }

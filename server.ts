@@ -16,7 +16,7 @@ import { createPaymentIntent, createACHPaymentIntent, createFinancialConnections
 import { getOrCreateStripeCustomer } from './src/server/stripe-customers.ts';
 import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, getPreferences, updatePreferences } from './src/server/notifications.ts';
 import { generateUploadUrl } from './src/server/storage.ts';
-import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema, calendarQuerySchema, bookingFiltersSchema, analyticsDateRangeSchema, availabilitySchema, verificationUpdateSchema, notificationPreferencesSchema, paymentIntentSchema, paymentActionSchema, applyProfileSchema, signedUrlSchema } from './src/server/validation.ts';
+import { validate, signupSchema, loginSchema, updateProfileSchema, petSchema, petVaccinationSchema, serviceSchema, createBookingSchema, updateBookingStatusSchema, createReviewSchema, createSitterPhotoSchema, updateSitterPhotoSchema, cancellationPolicySchema, oauthSchema, setPasswordSchema, updateCareInstructionsSchema, quickTapEventSchema, createRecurringBookingSchema, expenseSchema, featuredListingSchema, emptyBodySchema, approvalDecisionSchema, importPreviewSchema, verifyImportSchema, confirmImportSchema, calendarQuerySchema, bookingFiltersSchema, analyticsDateRangeSchema, availabilitySchema, verificationUpdateSchema, notificationPreferencesSchema, paymentIntentSchema, paymentActionSchema, applyProfileSchema, signedUrlSchema, sitterSearchSchema, profileViewSchema } from './src/server/validation.ts';
 import { getCalendarData } from './src/server/calendar.ts';
 import { generateCalendarToken, revokeCalendarToken, validateCalendarToken, generateICS, type ICSEvent } from './src/server/calendar-export.ts';
 import { parseRoverUrl, generateVerificationCode, scrapeRoverProfile, checkVerificationCode } from './src/server/profile-import.ts';
@@ -175,7 +175,7 @@ async function startServer() {
   v1.post('/auth/login', validate(loginSchema), async (req, res) => {
     const { email, password } = req.body;
 
-    const [user] = await sql`SELECT * FROM users WHERE email = ${email}`;
+    const [user] = await sql`SELECT id, email, name, role, bio, avatar_url, lat, lng, password_hash, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE email = ${email}`;
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -558,19 +558,17 @@ async function startServer() {
 
   // --- Sitters ---
   v1.get('/sitters', botBlockMiddleware, publicLimiter, async (req, res) => {
-    const serviceType = req.query.serviceType as string | undefined;
-    const lat = req.query.lat as string | undefined;
-    const lng = req.query.lng as string | undefined;
-    const radius = req.query.radius as string | undefined;
-    const minPrice = req.query.minPrice as string | undefined;
-    const maxPrice = req.query.maxPrice as string | undefined;
-    const petSize = req.query.petSize as string | undefined;
-    const speciesParam = req.query.species as string | undefined;
+    const parsed = sitterSearchSchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
+      return;
+    }
+    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species: speciesParam } = parsed.data;
     const validSpecies = ['dog', 'cat', 'bird', 'reptile', 'small_animal'];
     const species = speciesParam && validSpecies.includes(speciesParam) ? speciesParam : undefined;
 
-    const hasGeo = lat && lng && radius;
-    const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${Number(lng)}, ${Number(lat)}), 4326)::geography` : sql``;
+    const hasGeo = lat != null && lng != null && radius != null;
+    const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography` : sql``;
 
     const sitters = await sql`
       SELECT u.id, u.name, u.role, u.bio, u.avatar_url,
@@ -583,11 +581,11 @@ async function startServer() {
       WHERE u.role IN ('sitter', 'both')
         AND u.approval_status = 'approved'
         ${serviceType ? sql`AND s.type = ${serviceType}` : sql``}
-        ${minPrice ? sql`AND s.price >= ${Number(minPrice)}` : sql``}
-        ${maxPrice ? sql`AND s.price <= ${Number(maxPrice)}` : sql``}
+        ${minPrice != null ? sql`AND s.price >= ${minPrice}` : sql``}
+        ${maxPrice != null ? sql`AND s.price <= ${maxPrice}` : sql``}
         ${petSize ? sql`AND ${petSize} = ANY(u.accepted_pet_sizes)` : sql``}
         ${species ? sql`AND ${species} = ANY(u.accepted_species)` : sql``}
-        ${hasGeo ? sql`AND ST_DWithin(u.location, ${geoPoint}, ${Number(radius)})` : sql``}
+        ${hasGeo ? sql`AND ST_DWithin(u.location, ${geoPoint}, ${radius})` : sql``}
     `;
 
     // Compute ranking scores for each sitter
@@ -718,18 +716,16 @@ async function startServer() {
   });
 
   // --- Profile View Tracking (Issue #165) ---
-  v1.post('/sitters/:id/view', botBlockMiddleware, publicLimiter, async (req, res) => {
+  v1.post('/sitters/:id/view', botBlockMiddleware, publicLimiter, validate(profileViewSchema), async (req, res) => {
     const sitterId = Number(req.params.id);
     if (!sitterId || isNaN(sitterId)) {
       res.status(400).json({ error: 'Invalid sitter ID' });
       return;
     }
-    const { source, session_id } = req.body || {};
-    const safeSessionId = typeof session_id === 'string' ? session_id.slice(0, 64) : undefined;
-    const safeSource = typeof source === 'string' ? source.slice(0, 32) : undefined;
+    const { source, session_id } = req.body;
     // Fire-and-forget: respond immediately, insert async
     res.status(204).end();
-    recordProfileView(sitterId, safeSource, safeSessionId).catch(() => {});
+    recordProfileView(sitterId, source, session_id).catch(() => {});
   });
 
   // --- Services (sitter CRUD) ---
@@ -2070,12 +2066,43 @@ async function startServer() {
     }
   });
 
+  const userSockets = new Map<number, Set<string>>();
+  const messageLimiter = new Map<number, number[]>();
+
   io.on('connection', (socket) => {
     const userId = (socket as any).userId;
+
+    // Per-user connection limit (max 5)
+    const userSet = userSockets.get(userId) ?? new Set<string>();
+    if (userSet.size >= 5) {
+      socket.emit('error', { message: 'Too many connections' });
+      socket.disconnect(true);
+      return;
+    }
+    userSockets.set(userId, new Set([...userSet, socket.id]));
+
     socket.join(String(userId));
+
+    socket.on('disconnect', () => {
+      const set = userSockets.get(userId);
+      if (set) {
+        const next = new Set([...set].filter(id => id !== socket.id));
+        if (next.size === 0) userSockets.delete(userId);
+        else userSockets.set(userId, next);
+      }
+    });
 
     socket.on('send_message', async (data) => {
       try {
+        // Rate limit: 10 messages per 10 seconds per user
+        const now = Date.now();
+        const timestamps = (messageLimiter.get(userId) ?? []).filter(t => now - t < 10000);
+        if (timestamps.length >= 10) {
+          socket.emit('error', { message: 'Too many messages, slow down' });
+          return;
+        }
+        messageLimiter.set(userId, [...timestamps, now]);
+
         const { receiver_id, content } = data;
         if (!receiver_id || typeof receiver_id !== 'number') return;
         if (!content || typeof content !== 'string' || content.trim().length === 0) return;
@@ -2106,10 +2133,15 @@ async function startServer() {
           const msgEmail = buildNewMessageEmail({ recipientName: receiverUser.name, senderName: sender.name, messagePreview: trimmedContent.substring(0, 200) });
           sendEmail({ to: receiverUser.email, ...msgEmail }).catch(() => {});
         }
-      } catch {
-        // Silently handle — malformed message data
+      } catch (error) {
+        console.error('Socket send_message error:', error);
+        socket.emit('error', { message: 'Failed to send message' });
       }
     });
+  });
+
+  io.engine.on('connection_error', (err: Error) => {
+    console.error('Socket.io connection error:', err.message);
   });
 
   // --- Notifications ---

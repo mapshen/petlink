@@ -5,6 +5,8 @@ import {
   paymentActionSchema,
   applyProfileSchema,
   signedUrlSchema,
+  sitterSearchSchema,
+  profileViewSchema,
 } from './validation.ts';
 
 describe('notificationPreferencesSchema', () => {
@@ -129,5 +131,105 @@ describe('signedUrlSchema', () => {
       folder: 'videos', contentType: 'video/mp4', fileSize: 5000000,
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('sitterSearchSchema', () => {
+  it('accepts valid params', () => {
+    const result = sitterSearchSchema.safeParse({
+      serviceType: 'walking',
+      lat: '40.7128',
+      lng: '-74.006',
+      radius: '50',
+      minPrice: '10',
+      maxPrice: '100',
+      petSize: 'large',
+      species: 'dog',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({
+      serviceType: 'walking',
+      lat: 40.7128,
+      lng: -74.006,
+      radius: 50,
+      minPrice: 10,
+      maxPrice: 100,
+      petSize: 'large',
+      species: 'dog',
+    });
+  });
+
+  it('accepts empty object (all optional)', () => {
+    const result = sitterSearchSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects lat > 90', () => {
+    const result = sitterSearchSchema.safeParse({ lat: '91' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects lat < -90', () => {
+    const result = sitterSearchSchema.safeParse({ lat: '-91' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects lng > 180', () => {
+    const result = sitterSearchSchema.safeParse({ lng: '181' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects lng < -180', () => {
+    const result = sitterSearchSchema.safeParse({ lng: '-181' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects NaN coercion for lat', () => {
+    const result = sitterSearchSchema.safeParse({ lat: 'abc' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects NaN coercion for radius', () => {
+    const result = sitterSearchSchema.safeParse({ radius: 'xyz' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects radius below 1', () => {
+    const result = sitterSearchSchema.safeParse({ radius: '0' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects radius above 500', () => {
+    const result = sitterSearchSchema.safeParse({ radius: '501' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('profileViewSchema', () => {
+  it('accepts valid body', () => {
+    const result = profileViewSchema.safeParse({
+      source: 'search',
+      session_id: 'abc-123',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty object (all optional)', () => {
+    const result = profileViewSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects oversized session_id', () => {
+    const result = profileViewSchema.safeParse({
+      session_id: 'x'.repeat(65),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects oversized source', () => {
+    const result = profileViewSchema.safeParse({
+      source: 'x'.repeat(33),
+    });
+    expect(result.success).toBe(false);
   });
 });
