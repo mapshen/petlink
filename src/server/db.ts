@@ -69,7 +69,7 @@ export async function initDb() {
   `;
   await sql`
     DO $$ BEGIN
-      CREATE TYPE notification_type AS ENUM ('new_booking', 'booking_status', 'new_message', 'walk_started', 'walk_completed');
+      CREATE TYPE notification_type AS ENUM ('new_booking', 'booking_status', 'new_message', 'walk_started', 'walk_completed', 'payment_update', 'verification_update', 'account_update');
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
@@ -617,6 +617,18 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_sitter ON profile_views (sitter_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_viewed_at ON profile_views (viewed_at)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_dedup ON profile_views (sitter_id, session_id, viewed_at DESC) WHERE session_id IS NOT NULL`.catch(() => {});
+
+  // Issue #187: Missing notification events
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'payment_update'`.catch(() => {});
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'verification_update'`.catch(() => {});
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'account_update'`.catch(() => {});
+
+  // Performance indexes (#186)
+  await sql`CREATE INDEX IF NOT EXISTS idx_bookings_sitter_status ON bookings(sitter_id, status)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_bookings_start_time ON bookings(start_time)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_imported_reviews_profile ON imported_reviews(imported_profile_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_bookings_owner ON bookings(owner_id)`.catch(() => {});
 
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;

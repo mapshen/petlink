@@ -4,6 +4,7 @@ import { type AuthenticatedRequest } from '../auth.ts';
 import { validate, approvalDecisionSchema } from '../validation.ts';
 import { adminMiddleware } from '../admin.ts';
 import { sendEmail, buildApprovalStatusEmail } from '../email.ts';
+import { createNotification } from '../notifications.ts';
 
 export default function adminRoutes(router: Router): void {
   router.get('/admin/pending-sitters', adminMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -77,6 +78,13 @@ export default function adminRoutes(router: Router): void {
         UPDATE users SET approval_status = 'rejected', approval_rejected_reason = ${reason || null}, approved_by = ${req.userId}, approved_at = NOW()
         WHERE id = ${sitterId}
       `;
+    }
+
+    // Send in-app notification
+    if (status === 'approved') {
+      await createNotification(sitterId, 'account_update', 'Account Approved', 'Your sitter account has been approved! You can now receive bookings.');
+    } else {
+      await createNotification(sitterId, 'account_update', 'Account Not Approved', 'Your sitter application was not approved.', { reason: reason || undefined });
     }
 
     // Send email notification

@@ -82,6 +82,8 @@ export default function walkRoutes(router: Router, io: Server): void {
           booking.total_price,
           delayDays
         );
+        const payoutNotif = await createNotification(booking.sitter_id, 'payment_update', 'Payout Scheduled', 'A payout has been scheduled for your completed booking.', { booking_id: Number(req.params.bookingId) });
+        io.to(String(booking.sitter_id)).emit('notification', payoutNotif);
       }
     }
 
