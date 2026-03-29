@@ -9,15 +9,19 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
   const { login, signup } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState('');
 
   const signupNameError = isSignup && name.trim().length === 0 ? 'Name is required' : null;
-  const signupPasswordError = isSignup && password.length > 0 && password.length < 8 ? 'Password must be at least 8 characters' : null;
+  const signupPasswordError =
+    isSignup && password.length > 0 && password.length < 8
+      ? 'Password must be at least 8 characters'
+      : null;
   const isFormValid = isSignup
-    ? email.length > 0 && name.trim().length > 0 && password.length >= 8
+    ? email.length > 0 && name.trim().length > 0 && password.length >= 8 && ageConfirmed
     : email.length > 0 && password.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +41,7 @@ export default function Login() {
 
     try {
       if (isSignup) {
-        await signup(email, password, name);
+        await signup(email, password, name, undefined, ageConfirmed);
       } else {
         await login(email, password);
       }
@@ -96,7 +100,9 @@ export default function Login() {
           <div className="space-y-2">
             {isSignup && (
               <div>
-                <label htmlFor="signup-name" className="sr-only">Full name</label>
+                <label htmlFor="signup-name" className="sr-only">
+                  Full name
+                </label>
                 <input
                   id="signup-name"
                   name="name"
@@ -112,7 +118,9 @@ export default function Login() {
                 )}
               </div>
             )}
-            <label htmlFor="email-address" className="sr-only">Email address</label>
+            <label htmlFor="email-address" className="sr-only">
+              Email address
+            </label>
             <input
               id="email-address"
               name="email"
@@ -125,7 +133,9 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
             />
             <div>
-              <label htmlFor="password" className="sr-only">Password</label>
+              <label htmlFor="password" className="sr-only">
+                Password
+              </label>
               <input
                 id="password"
                 name="password"
@@ -143,6 +153,18 @@ export default function Login() {
             </div>
           </div>
 
+          {isSignup && (
+            <label className="flex items-center gap-2 text-sm text-stone-600">
+              <input
+                type="checkbox"
+                checked={ageConfirmed}
+                onChange={(e) => setAgeConfirmed(e.target.checked)}
+                className="rounded border-stone-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              I confirm I am 13 years of age or older
+            </label>
+          )}
+
           {error && <div className="text-red-500 text-sm text-center">{error}</div>}
 
           <button
@@ -158,13 +180,23 @@ export default function Login() {
           {isSignup ? (
             'Already have an account? '
           ) : import.meta.env.DEV ? (
-            <>Demo: <span className="font-mono bg-stone-100 px-1 rounded text-xs">owner@example.com</span> / <span className="font-mono bg-stone-100 px-1 rounded text-xs">password123</span>{' '}</>
+            <>
+              Demo:{' '}
+              <span className="font-mono bg-stone-100 px-1 rounded text-xs">
+                owner@example.com
+              </span>{' '}
+              /{' '}
+              <span className="font-mono bg-stone-100 px-1 rounded text-xs">password123</span>{' '}
+            </>
           ) : (
-            'Don\'t have an account? '
+            "Don't have an account? "
           )}
           <button
             type="button"
-            onClick={() => { setIsSignup(!isSignup); setError(''); }}
+            onClick={() => {
+              setIsSignup(!isSignup);
+              setError('');
+            }}
             className="text-emerald-600 hover:text-emerald-500 font-medium"
           >
             {isSignup ? 'Sign in' : 'Create account'}

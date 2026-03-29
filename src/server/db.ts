@@ -630,6 +630,9 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_owner ON bookings(owner_id)`.catch(() => {});
 
+  // Issue #81: Soft delete support
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;

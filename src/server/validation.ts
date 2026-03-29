@@ -27,6 +27,9 @@ export const signupSchema = z.object({
   password: passwordSchema,
   name: nameSchema('Name is required'),
   role: roleSchema,
+  age_confirmed: z
+    .boolean()
+    .refine((val) => val === true, 'You must confirm you are 13 years or older'),
 });
 
 export const loginSchema = z.object({

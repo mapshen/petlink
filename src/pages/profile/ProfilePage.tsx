@@ -1,8 +1,9 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { User as UserIcon, PawPrint, DollarSign, Camera, Star, Crown, Import } from 'lucide-react';
+import { User as UserIcon, PawPrint, DollarSign, Camera, Star, Crown, Import, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProfileTab from './ProfileTab';
 import PetsTab from './PetsTab';
@@ -11,6 +12,18 @@ import PhotosTab from './PhotosTab';
 import ReviewsTab from './ReviewsTab';
 import SubscriptionPage from './SubscriptionPage';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { API_BASE } from '../../config';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../../components/ui/alert-dialog';
 
 interface SectionDef {
   id: string;
@@ -30,20 +43,51 @@ const ALL_SECTIONS: SectionDef[] = [
 
 export default function ProfilePage() {
   useDocumentTitle('Profile');
-  const { user, loading } = useAuth();
+  const { user, token, logout, loading } = useAuth();
   const { mode } = useMode();
+  const navigate = useNavigate();
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   if (loading) {
-    return <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div><span className="sr-only">Loading...</span></div>;
+    return (
+      <div className="flex justify-center py-12" role="status" aria-live="polite">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <span className="sr-only">Loading...</span>
+      </div>
+    );
   }
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  const visibleSections = ALL_SECTIONS.filter(
-    (s) => s.mode === 'both' || s.mode === mode
-  );
+  const visibleSections = ALL_SECTIONS.filter((s) => s.mode === 'both' || s.mode === mode);
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError('');
+
+    try {
+      const res = await fetch(`${API_BASE}/users/me`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(token),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeleteError(data.error || 'Failed to delete account');
+        return;
+      }
+
+      logout();
+      navigate('/');
+    } catch {
+      setDeleteError('Failed to delete account. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -54,7 +98,10 @@ export default function ProfilePage() {
             {/* User mini card */}
             <div className="flex items-center gap-3 px-3 py-3 mb-2 border-b border-stone-100">
               <img
-                src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`}
+                src={
+                  user.avatar_url ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`
+                }
                 alt={user.name}
                 className="w-10 h-10 rounded-full object-cover border border-stone-200"
               />
@@ -99,32 +146,89 @@ export default function ProfilePage() {
 
         {/* Content: stacked sections */}
         <div className="flex-grow min-w-0 space-y-6">
-          <div id="section-profile" className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24">
+          <div
+            id="section-profile"
+            className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24"
+          >
             <ProfileTab />
           </div>
 
           {mode === 'owner' && (
-            <div id="section-pets" className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24">
+            <div
+              id="section-pets"
+              className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24"
+            >
               <PetsTab />
             </div>
           )}
 
           {mode === 'sitter' && (
             <>
-              <div id="section-services" className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24">
+              <div
+                id="section-services"
+                className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24"
+              >
                 <ServicesTab />
               </div>
-              <div id="section-photos" className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24">
+              <div
+                id="section-photos"
+                className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24"
+              >
                 <PhotosTab />
               </div>
-              <div id="section-reviews" className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24">
+              <div
+                id="section-reviews"
+                className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24"
+              >
                 <ReviewsTab />
               </div>
-              <div id="section-pro" className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24">
+              <div
+                id="section-pro"
+                className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24"
+              >
                 <SubscriptionPage embedded />
               </div>
             </>
           )}
+
+          {/* Account Deletion */}
+          <div className="rounded-2xl shadow-sm border-2 border-red-200 p-8">
+            <h3 className="text-lg font-semibold text-red-700 mb-2">Delete Account</h3>
+            <p className="text-sm text-stone-600 mb-4">
+              Permanently delete your PetLink account and all associated data. This action cannot be
+              undone.
+            </p>
+
+            {deleteError && <p className="text-red-500 text-sm mb-4">{deleteError}</p>}
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                  Delete My Account
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Your account will be deactivated immediately. Your data will be permanently
+                    deleted after 30 days. Active bookings must be completed first.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                  >
+                    {deleting ? 'Deleting...' : 'Yes, delete my account'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
     </div>

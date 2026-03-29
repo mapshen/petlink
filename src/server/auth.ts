@@ -91,8 +91,8 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
 
   try {
     const decoded = verifyToken(token);
-    const [user] = await sql`SELECT id, approval_status FROM users WHERE id = ${decoded.userId}`;
-    if (!user) {
+    const [user] = await sql`SELECT id, approval_status, deleted_at FROM users WHERE id = ${decoded.userId}`;
+    if (!user || user.deleted_at) {
       res.status(401).json({ error: 'User not found' });
       return;
     }

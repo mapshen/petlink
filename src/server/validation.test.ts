@@ -26,6 +26,7 @@ describe('signupSchema', () => {
       password: 'password123',
       name: '  Alice  ',
       role: 'owner',
+      age_confirmed: true,
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -40,6 +41,7 @@ describe('signupSchema', () => {
       email: 'test@example.com',
       password: 'password123',
       name: 'Alice',
+      age_confirmed: true,
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -105,6 +107,7 @@ describe('signupSchema', () => {
       email: 'test@example.com',
       password: 'password123',
       name: 'Alice',
+      age_confirmed: true,
       is_admin: true,
       password_hash: 'fake',
     });
@@ -831,7 +834,7 @@ describe('validate middleware', () => {
   it('replaces req.body with parsed data (transforms applied)', () => {
     const middleware = validate(signupSchema);
     const req: any = {
-      body: { email: '  TEST@EXAMPLE.COM  ', password: 'password123', name: '  Alice  ' },
+      body: { email: '  TEST@EXAMPLE.COM  ', password: 'password123', name: '  Alice  ', age_confirmed: true },
     };
     const res = mockRes();
     middleware(req, res, () => {});
