@@ -103,7 +103,7 @@ export default function PromotePage({ embedded = false }: { embedded?: boolean }
   };
 
   if (!embedded) {
-    if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+    if (authLoading) return <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div><span className="sr-only">Loading...</span></div>;
     if (!user) return <Navigate to="/login" replace />;
   }
 
@@ -179,7 +179,7 @@ export default function PromotePage({ embedded = false }: { embedded?: boolean }
         <Alert variant="destructive" className="mb-4">
           <AlertDescription className="flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-xs font-medium hover:underline">Dismiss</button>
           </AlertDescription>
         </Alert>
       )}
@@ -189,7 +189,7 @@ export default function PromotePage({ embedded = false }: { embedded?: boolean }
         <div className="bg-stone-50 rounded-xl border border-stone-200 p-6 mb-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-stone-900">Promote a Service</h3>
-            <button onClick={() => { setShowForm(false); setError(null); }} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
+            <button onClick={() => { setShowForm(false); setError(null); }} aria-label="Close form" className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
           </div>
           <div>
             <label className="block text-xs font-medium text-stone-600 mb-1">Service to promote</label>

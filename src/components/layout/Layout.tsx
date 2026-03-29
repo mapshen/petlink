@@ -34,6 +34,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans text-stone-900 flex flex-col">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-emerald-600 focus:text-white focus:rounded-lg">
+        Skip to content
+      </a>
       <header className="bg-white border-b border-stone-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -109,7 +112,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         onLogout={logout}
       />
 
-      <main className="flex-grow">
+      <main id="main-content" className="flex-grow">
         {children}
       </main>
 

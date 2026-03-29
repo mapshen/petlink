@@ -4,6 +4,7 @@ import { SitterWithService } from '../../types';
 import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw, Navigation, Search as SearchIcon, SlidersHorizontal, X, DollarSign } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { useAuth } from '../../context/AuthContext';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useMapViewPreference } from '../../hooks/useMapViewPreference';
 import FavoriteButton from '../../components/profile/FavoriteButton';
@@ -76,6 +77,7 @@ function useIsDesktop() {
 }
 
 export default function Search() {
+  useDocumentTitle('Search');
   const [searchParams, setSearchParams] = useSearchParams();
   const serviceType = searchParams.get('serviceType') || 'walking';
   const initialLocation = searchParams.get('location') || '';
@@ -94,10 +96,23 @@ export default function Search() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
+  const [debouncedMinPrice, setDebouncedMinPrice] = useState(minPrice);
+  const [debouncedMaxPrice, setDebouncedMaxPrice] = useState(maxPrice);
   const [petSize, setPetSize] = useState(searchParams.get('petSize') || '');
   const [species, setSpecies] = useState(searchParams.get('species') || '');
 
   const [highlightedSitterId, setHighlightedSitterId] = useState<number | null>(null);
+
+  // Debounce price inputs to avoid excessive API calls
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedMinPrice(minPrice), 300);
+    return () => clearTimeout(timer);
+  }, [minPrice]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedMaxPrice(maxPrice), 300);
+    return () => clearTimeout(timer);
+  }, [maxPrice]);
 
   const hasActiveFilters = minPrice || maxPrice || petSize || species;
   const { view, setView } = useMapViewPreference();
@@ -153,12 +168,12 @@ export default function Search() {
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
-    if (minPrice) params.set('minPrice', minPrice); else params.delete('minPrice');
-    if (maxPrice) params.set('maxPrice', maxPrice); else params.delete('maxPrice');
+    if (debouncedMinPrice) params.set('minPrice', debouncedMinPrice); else params.delete('minPrice');
+    if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice); else params.delete('maxPrice');
     if (petSize) params.set('petSize', petSize); else params.delete('petSize');
     if (species) params.set('species', species); else params.delete('species');
     setSearchParams(params, { replace: true });
-  }, [minPrice, maxPrice, petSize, species]);
+  }, [debouncedMinPrice, debouncedMaxPrice, petSize, species]);
 
   const clearFilters = () => {
     setMinPrice('');
@@ -178,8 +193,8 @@ export default function Search() {
           params.set('lng', coords.lng.toString());
           params.set('radius', radius.toString());
         }
-        if (minPrice) params.set('minPrice', minPrice);
-        if (maxPrice) params.set('maxPrice', maxPrice);
+        if (debouncedMinPrice) params.set('minPrice', debouncedMinPrice);
+        if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice);
         if (petSize) params.set('petSize', petSize);
         if (species) params.set('species', species);
         const res = await fetch(`${API_BASE}/sitters?${params}`);
@@ -194,7 +209,7 @@ export default function Search() {
     };
 
     fetchSitters();
-  }, [serviceType, coords, radius, retryCount, minPrice, maxPrice, petSize, species]);
+  }, [serviceType, coords, radius, retryCount, debouncedMinPrice, debouncedMaxPrice, petSize, species]);
 
   const { user: authUser } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
@@ -324,6 +339,7 @@ export default function Search() {
                       key={size.value}
                       type="button"
                       onClick={() => setPetSize(petSize === size.value ? '' : size.value)}
+                      aria-pressed={petSize === size.value}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                         petSize === size.value
                           ? 'bg-emerald-600 text-white'
@@ -345,6 +361,7 @@ export default function Search() {
                       key={s.value}
                       type="button"
                       onClick={() => setSpecies(species === s.value ? '' : s.value)}
+                      aria-pressed={species === s.value}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                         species === s.value
                           ? 'bg-emerald-600 text-white'
@@ -385,8 +402,9 @@ export default function Search() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12">
+        <div className="flex justify-center py-12" role="status" aria-live="polite">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+          <span className="sr-only">Loading...</span>
         </div>
       ) : (
         <div className={view === 'split' ? 'grid lg:grid-cols-2 gap-6' : ''}>

@@ -10,7 +10,7 @@ if (!/^[a-z_][a-z0-9_]*$/.test(SCHEMA_RAW)) {
 const SCHEMA = SCHEMA_RAW;
 
 const sql = postgres(DATABASE_URL, {
-  max: 20,
+  max: Number(process.env.DB_MAX_CONNECTIONS) || 20,
   idle_timeout: 20,
   connect_timeout: 10,
   connection: {

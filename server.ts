@@ -7,7 +7,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import cookieParser from 'cookie-parser';
 import crypto from 'crypto';
 import { initDb } from './src/server/db.ts';
 import sql from './src/server/db.ts';
@@ -107,7 +106,20 @@ async function startServer() {
   app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));
   app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
   app.use(express.json());
-  app.use(cookieParser());
+
+  // Request logging
+  app.use((req, res, next) => {
+    const requestId = crypto.randomUUID();
+    res.setHeader('x-request-id', requestId);
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      const log = `${req.method} ${req.path} ${res.statusCode} ${duration}ms [${requestId.slice(0, 8)}]`;
+      if (res.statusCode >= 500) console.error(log);
+      else if (res.statusCode >= 400) console.warn(log);
+    });
+    next();
+  });
 
   // robots.txt — block crawlers from API (before any middleware)
   app.get('/robots.txt', (_req, res) => {
@@ -3013,9 +3025,7 @@ async function startServer() {
   // Global error handler — catches unhandled errors from async route handlers
   const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('Unhandled route error:', message);
-    }
+    console.error('Unhandled route error:', message);
     res.status(500).json({ error: 'Internal server error' });
   };
   app.use(errorHandler);

@@ -11,9 +11,11 @@ const BookingHistory = lazy(() => import('../../components/calendar/BookingHisto
 import { format } from 'date-fns';
 import { API_BASE } from '../../config';
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useOnboardingStatus } from '../../hooks/useOnboardingStatus';
 import OnboardingChecklist from '../../components/onboarding/OnboardingChecklist';
 import { useFavorites } from '../../hooks/useFavorites';
+import { useReviewDialog } from '../../hooks/useReviewDialog';
 import FavoriteSitters from '../../components/profile/FavoriteSitters';
 import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
 import { Button } from '../../components/ui/button';
@@ -32,6 +34,7 @@ import {
 } from '../../components/ui/alert-dialog';
 
 export default function Dashboard() {
+  useDocumentTitle('Dashboard');
   const { user, token } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,15 +45,11 @@ export default function Dashboard() {
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
-  const [reviewBookingId, setReviewBookingId] = useState<number | null>(null);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState('');
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<number>>(new Set());
   const { mode } = useMode();
   const isSitterMode = mode === 'sitter';
   const onboarding = useOnboardingStatus();
   const { favorites, toggleFavorite } = useFavorites();
+  const review = useReviewDialog({ token, onError: setError });
 
   useEffect(() => {
     if (!user) return;
@@ -111,35 +110,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleSubmitReview = async () => {
-    if (!reviewBookingId) return;
-    setReviewSubmitting(true);
-    try {
-      const res = await fetch(`${API_BASE}/reviews`, {
-        method: 'POST',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({
-          booking_id: reviewBookingId,
-          rating: reviewRating,
-          comment: reviewComment || null,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to submit review');
-      }
-      setReviewedBookingIds((prev) => new Set([...prev, reviewBookingId]));
-      setReviewBookingId(null);
-      setReviewRating(5);
-      setReviewComment('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit review');
-    } finally {
-      setReviewSubmitting(false);
-    }
-  };
-
-  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
+  if (loading) return <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div><span className="sr-only">Loading...</span></div>;
 
   const statusVariant = (status: string) => {
     switch (status) {
@@ -206,7 +177,7 @@ export default function Dashboard() {
         <Alert variant="destructive" className="mb-6">
           <AlertDescription className="flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-xs font-medium hover:underline">Dismiss</button>
           </AlertDescription>
         </Alert>
       )}
@@ -289,11 +260,11 @@ export default function Dashboard() {
                           </Button>
                         )}
 
-                        {booking.status === 'completed' && !reviewedBookingIds.has(booking.id) && (
+                        {booking.status === 'completed' && !review.isReviewed(booking.id) && (
                           <Button
                             size="xs"
                             variant="outline"
-                            onClick={() => { setReviewBookingId(booking.id); setReviewRating(5); setReviewComment(''); }}
+                            onClick={() => review.openReview(booking.id)}
                           >
                             <Star className="w-3.5 h-3.5" />
                             Leave Review
@@ -353,7 +324,7 @@ export default function Dashboard() {
       </AlertDialog>
 
       {/* Review Dialog */}
-      <AlertDialog open={reviewBookingId !== null} onOpenChange={(open) => { if (!open) { setReviewBookingId(null); setReviewRating(5); setReviewComment(''); } }}>
+      <AlertDialog open={review.reviewBookingId !== null} onOpenChange={(open) => { if (!open) review.closeReview(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -371,10 +342,11 @@ export default function Dashboard() {
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
-                    onClick={() => setReviewRating(star)}
+                    onClick={() => review.setReviewRating(star)}
+                    aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
                     className="p-0.5 transition-colors"
                   >
-                    <Star className={`w-8 h-8 ${star <= reviewRating ? 'fill-amber-400 text-amber-400' : 'text-stone-200 hover:text-amber-200'}`} />
+                    <Star className={`w-8 h-8 ${star <= review.reviewRating ? 'fill-amber-400 text-amber-400' : 'text-stone-200 hover:text-amber-200'}`} />
                   </button>
                 ))}
               </div>
@@ -383,8 +355,8 @@ export default function Dashboard() {
               <label htmlFor="review-comment" className="text-sm font-medium text-stone-700 mb-2 block">Comment (optional)</label>
               <textarea
                 id="review-comment"
-                value={reviewComment}
-                onChange={(e) => setReviewComment(e.target.value)}
+                value={review.reviewComment}
+                onChange={(e) => review.setReviewComment(e.target.value)}
                 placeholder="Tell others about your experience..."
                 rows={3}
                 maxLength={1000}
@@ -394,8 +366,8 @@ export default function Dashboard() {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSubmitReview} disabled={reviewSubmitting}>
-              {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+            <AlertDialogAction onClick={review.submitReview} disabled={review.reviewSubmitting}>
+              {review.reviewSubmitting ? 'Submitting...' : 'Submit Review'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
