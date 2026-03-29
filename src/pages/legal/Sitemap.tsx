@@ -27,7 +27,6 @@ const sections = [
       { name: 'Analytics', path: '/analytics' },
       { name: 'Promote', path: '/promote' },
       { name: 'Subscription', path: '/subscription' },
-      { name: 'Import Profile', path: '/import-profile' },
     ],
   },
   {
