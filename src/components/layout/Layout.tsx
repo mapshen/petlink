@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut } from 'lucide-react';
+import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X } from 'lucide-react';
 import ModeToggle from './ModeToggle';
+import MobileMenu from './MobileMenu';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -15,6 +16,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const { mode } = useMode();
   const location = useLocation();
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
   const isSitter = mode === 'sitter' || user?.role === 'sitter';
 
@@ -32,12 +36,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-stone-50 font-sans text-stone-900 flex flex-col">
       <header className="bg-white border-b border-stone-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="bg-emerald-600 p-2 rounded-xl group-hover:bg-emerald-700 transition-colors">
-              <PawPrint className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-stone-900">PetLink</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="md:hidden p-2 text-stone-600 hover:text-stone-900 transition-colors"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            <Link to="/" className="flex items-center gap-2 group">
+              <div className="bg-emerald-600 p-2 rounded-xl group-hover:bg-emerald-700 transition-colors">
+                <PawPrint className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-xl font-bold tracking-tight text-stone-900">PetLink</span>
+            </Link>
+          </div>
 
           <nav className="hidden md:flex items-center gap-8">
             {navItems.map((item) => (
@@ -86,6 +100,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      <MobileMenu
+        open={mobileMenuOpen}
+        onClose={closeMobileMenu}
+        navItems={navItems}
+        user={user}
+        onLogout={logout}
+      />
 
       <main className="flex-grow">
         {children}
