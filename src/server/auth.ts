@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { Request, Response, NextFunction } from 'express';
@@ -9,7 +10,8 @@ if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
 }
 const resolvedSecret = JWT_SECRET || 'petlink-dev-secret-change-in-production';
 const SALT_ROUNDS = 10;
-const TOKEN_EXPIRY = '7d';
+const TOKEN_EXPIRY = '15m';
+const REFRESH_TOKEN_EXPIRY_DAYS = 30;
 
 export function hashPassword(password: string): string {
   return bcrypt.hashSync(password, SALT_ROUNDS);
@@ -29,6 +31,52 @@ export function verifyToken(token: string): { userId: number } {
 
 export interface AuthenticatedRequest extends Request {
   userId?: number;
+}
+
+// --- Refresh token utilities ---
+
+export function generateRefreshToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+export function hashRefreshToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export async function createRefreshToken(userId: number): Promise<string> {
+  const token = generateRefreshToken();
+  const tokenHash = hashRefreshToken(token);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+  await sql`
+    INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+    VALUES (${userId}, ${tokenHash}, ${expiresAt})
+  `;
+  return token;
+}
+
+export async function validateRefreshToken(token: string): Promise<number | null> {
+  const tokenHash = hashRefreshToken(token);
+  const [row] = await sql`
+    SELECT user_id, expires_at, revoked_at FROM refresh_tokens WHERE token_hash = ${tokenHash}
+  `;
+  if (!row) return null;
+  if (row.revoked_at) return null;
+  if (new Date(row.expires_at) <= new Date()) return null;
+  return row.user_id;
+}
+
+export async function revokeRefreshToken(token: string): Promise<void> {
+  const tokenHash = hashRefreshToken(token);
+  await sql`
+    UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = ${tokenHash}
+  `;
+}
+
+export async function revokeAllUserTokens(userId: number): Promise<void> {
+  await sql`
+    UPDATE refresh_tokens SET revoked_at = NOW()
+    WHERE user_id = ${userId} AND revoked_at IS NULL
+  `;
 }
 
 export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
