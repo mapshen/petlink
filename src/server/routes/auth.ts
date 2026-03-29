@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
-import { hashPassword, verifyPassword, signToken, authMiddleware, type AuthenticatedRequest } from '../auth.ts';
+import { hashPassword, verifyPassword, signToken, authMiddleware, createRefreshToken, validateRefreshToken, revokeRefreshToken, revokeAllUserTokens, type AuthenticatedRequest } from '../auth.ts';
 import { validate, signupSchema, loginSchema, oauthSchema, setPasswordSchema } from '../validation.ts';
 import { verifyOAuthToken } from '../oauth.ts';
 import { isAdminUser } from '../admin.ts';
@@ -25,6 +25,7 @@ export default function authRoutes(router: Router): void {
       RETURNING id, email, name, role, bio, avatar_url, lat, lng, approval_status
     `;
     const token = signToken({ userId: user.id });
+    const refreshToken = await createRefreshToken(user.id);
 
     const isSitter = role === 'sitter' || role === 'both';
     const welcomeEmail = isSitter
@@ -32,7 +33,7 @@ export default function authRoutes(router: Router): void {
       : buildOwnerWelcomeEmail({ ownerName: name });
     sendEmail({ to: email, ...welcomeEmail }).catch(() => {});
 
-    res.status(201).json({ user, token });
+    res.status(201).json({ user, token, refreshToken });
   });
 
   router.post('/auth/login', validate(loginSchema), async (req, res) => {
@@ -60,8 +61,9 @@ export default function authRoutes(router: Router): void {
     }
 
     const token = signToken({ userId: user.id });
+    const refreshToken = await createRefreshToken(user.id);
     const { password_hash: _, ...safeUser } = user;
-    res.json({ user: safeUser, token });
+    res.json({ user: safeUser, token, refreshToken });
   });
 
   router.post('/auth/oauth', validate(oauthSchema), async (req, res) => {
@@ -128,13 +130,14 @@ export default function authRoutes(router: Router): void {
     }
 
     const jwtToken = signToken({ userId: result.user.id });
+    const refreshToken = await createRefreshToken(result.user.id);
 
     if (result.isNewUser) {
       const welcomeEmail = buildOwnerWelcomeEmail({ ownerName: result.user.name || 'there' });
       sendEmail({ to: result.user.email, ...welcomeEmail }).catch(() => {});
     }
 
-    res.json({ user: result.user, token: jwtToken, isNewUser: result.isNewUser });
+    res.json({ user: result.user, token: jwtToken, refreshToken, isNewUser: result.isNewUser });
   });
 
   router.get('/auth/linked-accounts', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -187,6 +190,40 @@ export default function authRoutes(router: Router): void {
     await sql`UPDATE users SET password_hash = ${hashedPassword} WHERE id = ${req.userId}`;
 
     res.json({ message: 'Password set successfully' });
+  });
+
+  router.post('/auth/refresh', async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      res.status(400).json({ error: 'refreshToken is required' });
+      return;
+    }
+
+    const userId = await validateRefreshToken(refreshToken);
+    if (!userId) {
+      res.status(401).json({ error: 'Invalid or expired refresh token' });
+      return;
+    }
+
+    // Rotate: revoke old, issue new pair
+    await revokeRefreshToken(refreshToken);
+    const newToken = signToken({ userId });
+    const newRefreshToken = await createRefreshToken(userId);
+
+    res.json({ token: newToken, refreshToken: newRefreshToken });
+  });
+
+  router.post('/auth/logout', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      await revokeRefreshToken(refreshToken);
+    }
+    res.json({ message: 'Logged out' });
+  });
+
+  router.post('/auth/logout-all', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    await revokeAllUserTokens(req.userId!);
+    res.json({ message: 'All sessions logged out' });
   });
 
   router.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
