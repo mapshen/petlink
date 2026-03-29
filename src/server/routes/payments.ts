@@ -4,6 +4,7 @@ import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, paymentIntentSchema, paymentActionSchema } from '../validation.ts';
 import { createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent, listPaymentMethods, detachPaymentMethod, listCharges, createFinancialConnectionsSession, listBankAccounts, detachBankAccount } from '../payments.ts';
 import { getPayoutsForSitter, getPendingPayoutsForSitter } from '../payouts.ts';
+import { createNotification } from '../notifications.ts';
 
 export default function paymentRoutes(router: Router): void {
   // --- Payments (direct — no Stripe Connect) ---
@@ -45,6 +46,7 @@ export default function paymentRoutes(router: Router): void {
       }
       await capturePayment(booking.payment_intent_id);
       await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${booking_id}`;
+      await createNotification(booking.owner_id, 'payment_update', 'Payment Captured', 'Your payment has been processed.', { booking_id });
       res.json({ success: true });
     } catch (error) {
       console.error('Payment capture error:', error);
@@ -107,11 +109,19 @@ export default function paymentRoutes(router: Router): void {
         case 'payment_intent.succeeded': {
           const pi = event.data.object as { id: string };
           await sql`UPDATE bookings SET payment_status = 'captured' WHERE payment_intent_id = ${pi.id}`;
+          const [succeededBooking] = await sql`SELECT id, owner_id FROM bookings WHERE payment_intent_id = ${pi.id}`;
+          if (succeededBooking) {
+            await createNotification(succeededBooking.owner_id, 'payment_update', 'Payment Captured', 'Your payment has been processed.', { booking_id: succeededBooking.id });
+          }
           break;
         }
         case 'payment_intent.canceled': {
           const pi = event.data.object as { id: string };
           await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE payment_intent_id = ${pi.id}`;
+          const [cancelledBooking] = await sql`SELECT id, owner_id FROM bookings WHERE payment_intent_id = ${pi.id}`;
+          if (cancelledBooking) {
+            await createNotification(cancelledBooking.owner_id, 'payment_update', 'Payment Failed', 'Your payment could not be processed. Please update your payment method.', { booking_id: cancelledBooking.id });
+          }
           break;
         }
         case 'checkout.session.completed': {

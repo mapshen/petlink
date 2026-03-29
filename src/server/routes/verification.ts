@@ -3,8 +3,9 @@ import type { RateLimitRequestHandler } from 'express-rate-limit';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, verificationUpdateSchema } from '../validation.ts';
-import { botBlockMiddleware } from '../bot-detection.ts';
+import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
 import { createCandidate, createInvitation, verifyWebhookSignature, parseWebhookEvent, mapCheckrStatus, isCheckrConfigured } from '../checkr.ts';
+import { createNotification } from '../notifications.ts';
 
 export default function verificationRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
   router.get('/verification/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -103,6 +104,7 @@ export default function verificationRoutes(router: Router, publicLimiter: RateLi
       const [updated] = await sql`SELECT * FROM verifications WHERE checkr_candidate_id = ${report.candidate_id}`;
       if (updated.background_check_status === 'passed' && updated.id_check_status === 'approved') {
         await sql`UPDATE verifications SET completed_at = NOW() WHERE id = ${updated.id}`;
+        await createNotification(updated.sitter_id, 'verification_update', 'Verification Complete', 'Your background check has been approved!', { verification_id: updated.id });
       }
 
       res.json({ success: true });
@@ -144,13 +146,14 @@ export default function verificationRoutes(router: Router, publicLimiter: RateLi
     const [updated] = await sql`SELECT * FROM verifications WHERE sitter_id = ${sitter_id}`;
     if (updated.background_check_status === 'passed' && updated.id_check_status === 'approved') {
       await sql`UPDATE verifications SET completed_at = NOW() WHERE sitter_id = ${sitter_id}`;
+      await createNotification(updated.sitter_id, 'verification_update', 'Verification Complete', 'Your background check has been approved!', { verification_id: updated.id });
     }
 
     res.json({ success: true });
   });
 
   // Get verification status for a sitter (public)
-  router.get('/verification/:sitterId', botBlockMiddleware, publicLimiter, async (req, res) => {
+  router.get('/verification/:sitterId', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
     const [verification] = await sql`
       SELECT id_check_status, background_check_status, completed_at FROM verifications WHERE sitter_id = ${req.params.sitterId}
     `;

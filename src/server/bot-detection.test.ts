@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { isBotUserAgent, botBlockMiddleware, KNOWN_BOT_PATTERNS } from './bot-detection.ts';
+import { isBotUserAgent, botBlockMiddleware, requireUserAgent, KNOWN_BOT_PATTERNS } from './bot-detection.ts';
 import type { Request, Response, NextFunction } from 'express';
 
 describe('KNOWN_BOT_PATTERNS', () => {
@@ -137,6 +137,67 @@ describe('botBlockMiddleware', () => {
     mockReq.headers = { 'user-agent': 'Mozilla/5.0 Chrome/120.0.0.0' };
 
     botBlockMiddleware(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRes.status).not.toHaveBeenCalled();
+  });
+});
+
+describe('requireUserAgent', () => {
+  const originalEnv = process.env.NODE_ENV;
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let mockNext: NextFunction;
+
+  beforeEach(() => {
+    mockReq = { headers: {} };
+    mockRes = {
+      status: vi.fn().mockReturnThis() as any,
+      json: vi.fn().mockReturnThis() as any,
+    };
+    mockNext = vi.fn();
+  });
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalEnv;
+  });
+
+  it('skips in development mode', () => {
+    process.env.NODE_ENV = 'development';
+    mockReq.headers = {};
+
+    requireUserAgent(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRes.status).not.toHaveBeenCalled();
+  });
+
+  it('blocks missing user-agent in production', () => {
+    process.env.NODE_ENV = 'production';
+    mockReq.headers = {};
+
+    requireUserAgent(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockRes.status).toHaveBeenCalledWith(403);
+    expect(mockRes.json).toHaveBeenCalledWith({ error: 'User-Agent header is required' });
+    expect(mockNext).not.toHaveBeenCalled();
+  });
+
+  it('blocks empty user-agent in production', () => {
+    process.env.NODE_ENV = 'production';
+    mockReq.headers = { 'user-agent': '   ' };
+
+    requireUserAgent(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(mockRes.status).toHaveBeenCalledWith(403);
+    expect(mockNext).not.toHaveBeenCalled();
+  });
+
+  it('allows valid user-agent in production', () => {
+    process.env.NODE_ENV = 'production';
+    mockReq.headers = { 'user-agent': 'Mozilla/5.0 Chrome/120.0.0.0' };
+
+    requireUserAgent(mockReq as Request, mockRes as Response, mockNext);
 
     expect(mockNext).toHaveBeenCalled();
     expect(mockRes.status).not.toHaveBeenCalled();

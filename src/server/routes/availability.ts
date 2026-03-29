@@ -3,10 +3,10 @@ import type { RateLimitRequestHandler } from 'express-rate-limit';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, availabilitySchema } from '../validation.ts';
-import { botBlockMiddleware } from '../bot-detection.ts';
+import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
 
 export default function availabilityRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
-  router.get('/availability/:sitterId', botBlockMiddleware, publicLimiter, async (req, res) => {
+  router.get('/availability/:sitterId', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
     const slots = await sql`
       SELECT * FROM availability WHERE sitter_id = ${req.params.sitterId} ORDER BY day_of_week, start_time
     `;

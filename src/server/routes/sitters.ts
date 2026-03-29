@@ -2,12 +2,12 @@ import type { Router } from 'express';
 import type { RateLimitRequestHandler } from 'express-rate-limit';
 import sql from '../db.ts';
 import { validate, sitterSearchSchema, profileViewSchema } from '../validation.ts';
-import { botBlockMiddleware } from '../bot-detection.ts';
+import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
 import { calculateRankingScore, isNewSitter, type SitterStats } from '../sitter-ranking.ts';
 import { recordProfileView } from '../profile-views.ts';
 
 export default function sitterRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
-  router.get('/sitters', botBlockMiddleware, publicLimiter, async (req, res) => {
+  router.get('/sitters', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
     const parsed = sitterSearchSchema.safeParse(req.query);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.issues[0].message });
@@ -44,6 +44,23 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
 
     if (sitterIds.length > 0) {
       const stats = await sql`
+        WITH booking_stats AS (
+          SELECT
+            b.sitter_id,
+            COUNT(*) FILTER (WHERE b.status = 'completed')::int as completed,
+            COUNT(*)::int as total,
+            AVG(EXTRACT(EPOCH FROM (b.responded_at - b.created_at)) / 3600) FILTER (WHERE b.responded_at IS NOT NULL)::float as avg_response_hours,
+            COUNT(DISTINCT b.owner_id) FILTER (WHERE b.status = 'completed')::int as unique_owners,
+            COUNT(DISTINCT CASE
+              WHEN b.status = 'completed' AND (
+                SELECT COUNT(*) FROM bookings b2
+                WHERE b2.sitter_id = b.sitter_id AND b2.owner_id = b.owner_id AND b2.status = 'completed'
+              ) > 1 THEN b.owner_id
+            END)::int as repeat_owners
+          FROM bookings b
+          WHERE b.sitter_id = ANY(${sitterIds})
+          GROUP BY b.sitter_id
+        )
         SELECT
           u.id as sitter_id,
           COALESCE(rv.avg_rating, 0) as avg_rating,
@@ -60,15 +77,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
           SELECT AVG(r.rating)::float as avg_rating, COUNT(*)::int as review_count
           FROM reviews r WHERE r.reviewee_id = u.id AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
         ) rv ON true
-        LEFT JOIN LATERAL (
-          SELECT
-            COUNT(*) FILTER (WHERE b.status = 'completed')::int as completed,
-            COUNT(*)::int as total,
-            AVG(EXTRACT(EPOCH FROM (b.responded_at - b.created_at)) / 3600) FILTER (WHERE b.responded_at IS NOT NULL)::float as avg_response_hours,
-            COUNT(DISTINCT b.owner_id) FILTER (WHERE b.status = 'completed' AND b.owner_id IN (SELECT b2.owner_id FROM bookings b2 WHERE b2.sitter_id = u.id AND b2.status = 'completed' GROUP BY b2.owner_id HAVING COUNT(*) > 1))::int as repeat_owners,
-            COUNT(DISTINCT b.owner_id) FILTER (WHERE b.status = 'completed')::int as unique_owners
-          FROM bookings b WHERE b.sitter_id = u.id
-        ) bk ON true
+        LEFT JOIN booking_stats bk ON bk.sitter_id = u.id
         LEFT JOIN LATERAL (
           SELECT COUNT(*)::int as service_count FROM services sv WHERE sv.sitter_id = u.id
         ) sc ON true
@@ -113,7 +122,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     res.json({ sitters: ranked });
   });
 
-  router.get('/sitters/:id', botBlockMiddleware, publicLimiter, async (req, res) => {
+  router.get('/sitters/:id', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
     const [sitter] = await sql`
       SELECT id, name, role, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles FROM users WHERE id = ${req.params.id} AND role IN ('sitter', 'both') AND approval_status = 'approved'
     `;
@@ -166,7 +175,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
   });
 
   // --- Profile View Tracking (Issue #165) ---
-  router.post('/sitters/:id/view', botBlockMiddleware, publicLimiter, validate(profileViewSchema), async (req, res) => {
+  router.post('/sitters/:id/view', requireUserAgent, botBlockMiddleware, publicLimiter, validate(profileViewSchema), async (req, res) => {
     const sitterId = Number(req.params.id);
     if (!sitterId || isNaN(sitterId)) {
       res.status(400).json({ error: 'Invalid sitter ID' });
