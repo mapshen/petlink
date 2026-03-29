@@ -16,8 +16,8 @@ import { useFavorites } from '../../hooks/useFavorites';
 import FavoriteButton from '../../components/profile/FavoriteButton';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
-import { calculateBookingPrice } from '../../server/multi-pet-pricing';
-import { getPolicyDescription } from '../../server/cancellation';
+import { calculateBookingPrice } from '../../shared/pricing';
+import { getPolicyDescription } from '../../shared/cancellation';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
   AlertDialog,
