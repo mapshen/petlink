@@ -474,6 +474,7 @@ export async function initDb() {
   await sql`ALTER TABLE booking_care_tasks ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_scheduled_time ON booking_care_tasks (scheduled_time) WHERE scheduled_time IS NOT NULL`.catch(() => {});
   await sql`ALTER TABLE booking_care_tasks ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_bct_reminder_candidates ON booking_care_tasks (scheduled_time) WHERE scheduled_time IS NOT NULL AND completed = false AND reminder_sent_at IS NULL`.catch(() => {});
 
   // Issue #111: Checkr background check integration
   await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_candidate_id TEXT`.catch(() => {});
