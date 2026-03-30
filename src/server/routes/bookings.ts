@@ -10,7 +10,62 @@ import { calculateBookingPrice } from '../multi-pet-pricing.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
 import { format as formatDate } from 'date-fns';
 
+/**
+ * Parse a time string (e.g., "14:00", "2:00 PM") into an absolute Date
+ * on the given booking date.
+ */
+export function parseTimeToScheduled(bookingDate: Date, timeStr: string): Date | null {
+  const trimmed = timeStr.trim();
+
+  // Try HH:MM format (from <input type="time">)
+  const hhmm = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (hhmm) {
+    const d = new Date(bookingDate);
+    d.setHours(parseInt(hhmm[1], 10), parseInt(hhmm[2], 10), 0, 0);
+    return d;
+  }
+
+  // Try 12-hour format: "2:00 PM", "11:30 am"
+  const ampm = trimmed.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+  if (ampm) {
+    let hours = parseInt(ampm[1], 10);
+    const minutes = parseInt(ampm[2], 10);
+    const period = ampm[3].toLowerCase();
+    if (period === 'pm' && hours !== 12) hours += 12;
+    if (period === 'am' && hours === 12) hours = 0;
+    const d = new Date(bookingDate);
+    d.setHours(hours, minutes, 0, 0);
+    return d;
+  }
+
+  return null;
+}
+
 export default function bookingRoutes(router: Router, io: Server): void {
+  // --- Today's Care Tasks (for Home page) ---
+  router.get('/care-tasks/today', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+
+      const tasks = await sql`
+        SELECT bct.*, p.name as pet_name, b.sitter_id, b.owner_id, b.status as booking_status
+        FROM booking_care_tasks bct
+        JOIN pets p ON bct.pet_id = p.id
+        JOIN bookings b ON bct.booking_id = b.id
+        WHERE (b.owner_id = ${req.userId} OR b.sitter_id = ${req.userId})
+          AND b.status IN ('confirmed', 'in_progress')
+          AND bct.scheduled_time >= ${startOfDay}
+          AND bct.scheduled_time < ${endOfDay}
+        ORDER BY bct.scheduled_time ASC, bct.created_at ASC
+      `;
+      res.json({ tasks });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch today\'s care tasks' });
+    }
+  });
+
   // --- Booking Care Tasks ---
   router.get('/bookings/:bookingId/care-tasks', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [booking] = await sql`SELECT id, owner_id, sitter_id FROM bookings WHERE id = ${req.params.bookingId}`;
@@ -140,17 +195,23 @@ export default function bookingRoutes(router: Router, io: Server): void {
 
       // Auto-populate care tasks from pet care instructions (inside transaction)
       const petsWithCare = await tx`SELECT id, care_instructions FROM pets WHERE id = ANY(${pet_ids}) AND care_instructions IS NOT NULL AND care_instructions != '[]'::jsonb`;
-      const taskRows: { booking_id: number; pet_id: number; category: string; description: string; time: string | null; notes: string | null }[] = [];
+      const taskRows: { booking_id: number; pet_id: number; category: string; description: string; time: string | null; notes: string | null; scheduled_time: string | null }[] = [];
+      const bookingDate = new Date(start_time);
       for (const pet of petsWithCare) {
         const raw = pet.care_instructions as unknown[];
         for (const item of raw) {
           if (typeof item !== 'object' || !item || !('category' in item) || !('description' in item)) continue;
           const instr = item as { category: string; description: string; time?: string; notes?: string };
-          taskRows.push({ booking_id: b.id, pet_id: pet.id, category: instr.category, description: instr.description, time: instr.time || null, notes: instr.notes || null });
+          let scheduledTime: string | null = null;
+          if (instr.time) {
+            const parsed = parseTimeToScheduled(bookingDate, instr.time);
+            if (parsed) scheduledTime = parsed.toISOString();
+          }
+          taskRows.push({ booking_id: b.id, pet_id: pet.id, category: instr.category, description: instr.description, time: instr.time || null, notes: instr.notes || null, scheduled_time: scheduledTime });
         }
       }
       if (taskRows.length > 0) {
-        await tx`INSERT INTO booking_care_tasks ${tx(taskRows, 'booking_id', 'pet_id', 'category', 'description', 'time', 'notes')}`;
+        await tx`INSERT INTO booking_care_tasks ${tx(taskRows, 'booking_id', 'pet_id', 'category', 'description', 'time', 'notes', 'scheduled_time')}`;
       }
 
       return b;
