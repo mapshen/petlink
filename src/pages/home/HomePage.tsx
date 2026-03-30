@@ -22,6 +22,7 @@ import NeedsAttention from '../../components/home/NeedsAttention';
 import { useTodaySchedule } from '../../hooks/useTodaySchedule';
 import { buildAttentionItems } from '../../hooks/attentionItemsUtils';
 import HomeSidebar from '../../components/home/HomeSidebar';
+import BecomeSitterDialog from '../../components/profile/BecomeSitterDialog';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
@@ -199,6 +200,41 @@ export default function HomePage() {
         <Alert variant="destructive" className="mb-6">
           <AlertDescription>{homeStats.error}</AlertDescription>
         </Alert>
+      )}
+
+      {!isSitterMode && !(user?.roles?.includes('sitter')) && user?.approval_status !== 'pending_approval' && (
+        <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-5 mb-6 flex justify-between items-center">
+          <div className="flex gap-4 items-center">
+            <div className="w-12 h-12 rounded-xl bg-emerald-600 flex items-center justify-center flex-shrink-0">
+              <svg width="24" height="24" fill="white" viewBox="0 0 24 24"><circle cx="14" cy="5.5" r="2"/><circle cx="18.5" cy="9" r="2"/><circle cx="9.5" cy="5.5" r="2"/><circle cx="5" cy="9" r="2"/><path d="M7 16.5c0-2.5 2-4.5 5-4.5s5 2 5 4.5c0 1.5-1 2.5-2.5 2.5h-5C8 19 7 18 7 16.5z"/></svg>
+            </div>
+            <div>
+              <div className="font-bold text-emerald-900">Want to earn money pet sitting?</div>
+              <div className="text-sm text-emerald-700">Apply to become a sitter and start getting bookings.</div>
+            </div>
+          </div>
+          <BecomeSitterDialog
+            onSuccess={() => window.location.reload()}
+            trigger={
+              <button className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors whitespace-nowrap">
+                Apply Now
+              </button>
+            }
+          />
+        </div>
+      )}
+
+      {!isSitterMode && user?.approval_status === 'pending_approval' && !(user?.roles?.includes('sitter')) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 flex gap-3 items-center">
+          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <svg width="20" height="20" fill="none" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-amber-800">Your sitter application is under review</div>
+            <div className="text-xs text-amber-600">We'll notify you once approved. You can edit your profile while waiting.</div>
+          </div>
+          <Link to="/profile" className="text-xs font-semibold text-emerald-600 hover:underline whitespace-nowrap">Edit Profile</Link>
+        </div>
       )}
 
       <NeedsAttention

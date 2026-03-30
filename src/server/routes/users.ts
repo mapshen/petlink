@@ -72,6 +72,45 @@ export default function userRoutes(router: Router): void {
     },
   );
 
+  // --- Become a Sitter ---
+  router.post('/users/me/become-sitter', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const userId = req.userId!;
+
+    const [user] = await sql`SELECT roles, approval_status FROM users WHERE id = ${userId}`;
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (user.roles.includes('sitter')) {
+      res.status(400).json({ error: 'You are already a sitter' });
+      return;
+    }
+
+    if (user.approval_status === 'pending_approval') {
+      res.status(400).json({ error: 'Your application is already pending review' });
+      return;
+    }
+
+    if (user.approval_status === 'banned') {
+      res.status(403).json({ error: 'Your account has been suspended' });
+      return;
+    }
+
+    await sql`
+      UPDATE users SET
+        roles = array_append(roles, 'sitter'),
+        approval_status = 'pending_approval'
+      WHERE id = ${userId}
+    `;
+
+    const [updated] = await sql`
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason FROM users WHERE id = ${userId}
+    `;
+
+    res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });
+  });
+
   // --- Account Deletion (Soft Delete) ---
   router.delete('/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const userId = req.userId!;
