@@ -417,6 +417,20 @@ export interface RevenueDataPoint {
   booking_count: number;
 }
 
+export type SitterPostType = 'update' | 'walk_photo' | 'walk_video' | 'care_update';
+
+export interface SitterPost {
+  id: number;
+  sitter_id: number;
+  content?: string;
+  photo_url?: string;
+  video_url?: string;
+  booking_id?: number;
+  walk_event_id?: number;
+  post_type: SitterPostType;
+  created_at: string;
+}
+
 export interface CalendarEvent {
   id: number;
   type: 'booking' | 'availability';

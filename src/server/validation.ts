@@ -158,6 +158,17 @@ export const updateSitterPhotoSchema = z.object({
   sort_order: z.number().int().min(0).max(9).optional(),
 });
 
+// --- Sitter Post Schemas ---
+export const createSitterPostSchema = z.object({
+  content: z.string().max(2000, 'Post content must be under 2000 characters').optional(),
+  photo_url: z.string().url('A valid photo URL is required').refine((url) => url.startsWith('https://'), 'Photo URL must use HTTPS').optional(),
+  video_url: z.string().url('A valid video URL is required').refine((url) => url.startsWith('https://'), 'Video URL must use HTTPS').optional(),
+  post_type: z.enum(['update', 'walk_photo', 'walk_video', 'care_update']).default('update'),
+}).refine(
+  (data) => data.content || data.photo_url || data.video_url,
+  { message: 'Post must have content, a photo, or a video' }
+);
+
 // --- Review Schemas ---
 const subRating = z.number().int().min(1, 'Sub-rating must be 1-5').max(5, 'Sub-rating must be 1-5').optional().nullable();
 
