@@ -53,7 +53,7 @@ export default function HomePage() {
   const { mode } = useMode();
   const isSitterMode = mode === 'sitter';
   const onboarding = useOnboardingStatus();
-  const { favorites, toggleFavorite } = useFavorites();
+  const { favorites } = useFavorites();
   const review = useReviewDialog({ token, onError: setError, reviewerRole: isSitterMode ? 'sitter' : 'owner' });
   const homeStats = useHomeStats(bookings);
   const schedule = useTodaySchedule(bookings);
