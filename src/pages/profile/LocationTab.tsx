@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Save, MapPin, Navigation, Search, Loader2 } from 'lucide-react';
 import { API_BASE } from '../../config';
+
+const LocationMap = lazy(() => import('./LocationMap'));
 
 interface GeoResult {
   lat: string;
@@ -180,13 +182,18 @@ export default function LocationTab() {
         </div>
       </div>
 
-      {/* Current location display */}
+      {/* Current location display with map */}
       {hasLocation && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-emerald-600" />
-            <span className="text-sm font-semibold text-emerald-800">{address || 'Location set'}</span>
+        <div>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-semibold text-emerald-800">{address || 'Location set'}</span>
+            </div>
           </div>
+          <Suspense fallback={<div className="h-48 bg-stone-100 rounded-xl flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-stone-400" /></div>}>
+            <LocationMap lat={pendingLat} lng={pendingLng} radiusMiles={Number(serviceRadius) || 10} />
+          </Suspense>
         </div>
       )}
 
