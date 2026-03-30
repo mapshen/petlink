@@ -5,8 +5,6 @@ import { Booking } from '../../types';
 import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2 } from 'lucide-react';
 import BookingReviewDetail from '../../components/review/BookingReviewDetail';
 
-const AnalyticsPage = lazy(() => import('../sitter/AnalyticsPage'));
-const PromotePage = lazy(() => import('../sitter/PromotePage'));
 const CalendarCommandCenter = lazy(() => import('../../components/calendar/CalendarCommandCenter'));
 const BookingHistory = lazy(() => import('../../components/calendar/BookingHistory'));
 import { format } from 'date-fns';
@@ -306,16 +304,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {isSitterMode && (
-        <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
-          <div className="mt-8">
-            <AnalyticsPage embedded />
-          </div>
-          <div className="mt-8">
-            <PromotePage embedded />
-          </div>
-        </Suspense>
-      )}
 
       <AlertDialog open={cancelDialogBookingId !== null} onOpenChange={(open) => { if (!open) setCancelDialogBookingId(null); }}>
         <AlertDialogContent>
