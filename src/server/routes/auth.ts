@@ -107,10 +107,11 @@ export default function authRoutes(router: Router): void {
       }
 
       // Create new user
+      const oauthSlug = await generateUniqueSlug(profile.name || 'User');
       const [newUser] = await tx`
-        INSERT INTO users (email, password_hash, name, roles, email_verified)
-        VALUES (${profile.email}, ${null}, ${profile.name || 'User'}, ${['owner']}, ${profile.emailVerified})
-        RETURNING id, email, name, roles, bio, avatar_url
+        INSERT INTO users (email, password_hash, name, roles, email_verified, slug)
+        VALUES (${profile.email}, ${null}, ${profile.name || 'User'}, ${['owner']}, ${profile.emailVerified}, ${oauthSlug})
+        RETURNING ${USER_COLUMNS}
       `;
 
       await tx`

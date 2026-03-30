@@ -135,8 +135,9 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       return;
     }
 
-    const services = await sql`SELECT * FROM services WHERE sitter_id = ${req.params.id}`;
-    const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${req.params.id} ORDER BY sort_order, created_at`;
+    const sitterId = sitter.id;
+    const services = await sql`SELECT * FROM services WHERE sitter_id = ${sitterId}`;
+    const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${sitterId} ORDER BY sort_order, created_at`;
 
     // Public review stats (not gated behind auth)
     const [reviewStats] = await sql`
@@ -144,7 +145,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         AVG(r.rating)::float as avg_rating,
         COUNT(*)::int as review_count
       FROM reviews r
-      WHERE r.reviewee_id = ${req.params.id}
+      WHERE r.reviewee_id = ${sitterId}
         AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
     `;
 
@@ -156,7 +157,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
         FROM reviews r
         JOIN users u ON r.reviewer_id = u.id
-        WHERE r.reviewee_id = ${req.params.id} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+        WHERE r.reviewee_id = ${sitterId} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
         ORDER BY r.created_at DESC
       `;
     }
@@ -165,7 +166,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       SELECT ir.id, ir.platform, ir.reviewer_name, ir.rating, ir.comment, ir.review_date
       FROM imported_reviews ir
       JOIN imported_profiles ip ON ir.imported_profile_id = ip.id
-      WHERE ir.sitter_id = ${req.params.id} AND ip.verification_status = 'verified'
+      WHERE ir.sitter_id = ${sitterId} AND ip.verification_status = 'verified'
       ORDER BY ir.review_date DESC NULLS LAST
     `;
 
