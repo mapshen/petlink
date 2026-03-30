@@ -102,6 +102,21 @@ export default function Home() {
           </div>
         </div>
       </section>
+      {/* Become a Sitter CTA */}
+      <section className="bg-emerald-900 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl md:text-3xl font-extrabold text-white mb-3">Love pets? Earn money caring for them.</h2>
+          <p className="text-emerald-300 text-lg mb-8 max-w-xl mx-auto">Join PetLink as a sitter. Set your schedule, your prices, and start getting bookings.</p>
+          <div className="flex gap-4 justify-center">
+            <a href="/login" className="bg-white text-emerald-900 px-8 py-3 rounded-xl font-semibold hover:bg-emerald-50 transition-colors">
+              Become a Sitter
+            </a>
+            <a href="/how-it-works" className="border-2 border-white/30 text-white px-8 py-3 rounded-xl font-semibold hover:border-white/60 transition-colors">
+              Learn More
+            </a>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

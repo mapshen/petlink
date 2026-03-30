@@ -14,6 +14,7 @@ import LocationTab from './LocationTab';
 import PoliciesTab from './PoliciesTab';
 import SitterPreview from '../../components/profile/SitterPreview';
 import ProfileStrength from '../../components/profile/ProfileStrength';
+import BecomeSitterDialog from '../../components/profile/BecomeSitterDialog';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useSitterPreviewData } from '../../hooks/useSitterPreviewData';
 
@@ -114,6 +115,20 @@ export default function ProfilePage() {
                   <Import className="w-4 h-4 flex-shrink-0" />
                   Import from Rover
                 </Link>
+              </div>
+            )}
+
+            {!hasSitter && user.approval_status !== 'pending_approval' && (
+              <div className="mt-3 pt-3 border-t border-stone-100">
+                <BecomeSitterDialog onSuccess={() => window.location.reload()} />
+              </div>
+            )}
+
+            {!hasSitter && user.approval_status === 'pending_approval' && (
+              <div className="mt-3 pt-3 border-t border-stone-100">
+                <div className="px-3 py-2 rounded-lg bg-amber-50 text-xs text-amber-700 font-medium">
+                  Application pending review
+                </div>
               </div>
             )}
           </div>
