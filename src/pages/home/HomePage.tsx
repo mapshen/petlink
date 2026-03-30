@@ -12,10 +12,8 @@ import { API_BASE } from '../../config';
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useOnboardingStatus } from '../../hooks/useOnboardingStatus';
-import OnboardingChecklist from '../../components/onboarding/OnboardingChecklist';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useReviewDialog } from '../../hooks/useReviewDialog';
-import FavoriteSitters from '../../components/profile/FavoriteSitters';
 import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
 import { useHomeStats } from '../../hooks/useHomeStats';
 import { OwnerStatsRow, SitterStatsRow } from '../../components/home/HomeStats';
@@ -23,6 +21,7 @@ import TodaySchedule from '../../components/home/TodaySchedule';
 import NeedsAttention from '../../components/home/NeedsAttention';
 import { useTodaySchedule } from '../../hooks/useTodaySchedule';
 import { buildAttentionItems } from '../../hooks/attentionItemsUtils';
+import HomeSidebar from '../../components/home/HomeSidebar';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
@@ -54,7 +53,7 @@ export default function HomePage() {
   const { mode } = useMode();
   const isSitterMode = mode === 'sitter';
   const onboarding = useOnboardingStatus();
-  const { favorites, toggleFavorite } = useFavorites();
+  const { favorites } = useFavorites();
   const review = useReviewDialog({ token, onError: setError, reviewerRole: isSitterMode ? 'sitter' : 'owner' });
   const homeStats = useHomeStats(bookings);
   const schedule = useTodaySchedule(bookings);
@@ -78,6 +77,23 @@ export default function HomePage() {
     );
     return buildAttentionItems(tasks, bookings, user.id, isSitterMode, reviewedIds);
   }, [schedule.timeline, bookings, user, isSitterMode, review]);
+
+  const careProgress = useMemo(() => {
+    const tasksByPet = new Map<string, { completed: number; total: number }>();
+    for (const item of schedule.timeline) {
+      if (item.type !== 'care_task') continue;
+      const petName = item.data.pet_name as string;
+      const prev = tasksByPet.get(petName) || { completed: 0, total: 0 };
+      tasksByPet.set(petName, {
+        completed: prev.completed + (item.data.completed ? 1 : 0),
+        total: prev.total + 1,
+      });
+    }
+    return Array.from(tasksByPet.entries()).map(([petName, counts]) => ({
+      petName,
+      ...counts,
+    }));
+  }, [schedule.timeline]);
 
   const handleAcceptBooking = (bookingId: number) => updateBookingStatus(bookingId, 'confirmed');
   const handleDeclineBooking = (bookingId: number) => updateBookingStatus(bookingId, 'cancelled');
@@ -195,27 +211,6 @@ export default function HomePage() {
         onReview={review.openReview}
       />
 
-      <div className="mb-6">
-        <TodaySchedule
-          timeline={schedule.timeline}
-          loading={schedule.loading}
-          error={schedule.error}
-          isSitter={isSitterMode}
-          onCompleteTask={handleCompleteTask}
-        />
-      </div>
-
-      {isSitterMode && user?.approval_status === 'approved' && (
-        <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
-          <div className="mb-6">
-            <CalendarCommandCenter />
-          </div>
-          <div className="mb-6">
-            <BookingHistory />
-          </div>
-        </Suspense>
-      )}
-
       {isSitterMode && user?.approval_status === 'pending_approval' && (
         <Alert className="mb-6 border-amber-200 bg-amber-50">
           <AlertDescription className="text-amber-800">
@@ -243,16 +238,6 @@ export default function HomePage() {
         </Alert>
       )}
 
-      {isSitterMode && !onboarding.loading && !onboarding.isComplete && !checklistDismissed && (
-        <OnboardingChecklist
-          status={onboarding}
-          onDismiss={() => {
-            setChecklistDismissed(true);
-            localStorage.setItem('petlink_onboarding_dismissed', 'true');
-          }}
-        />
-      )}
-
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertDescription className="flex items-center justify-between">
@@ -262,14 +247,26 @@ export default function HomePage() {
         </Alert>
       )}
 
-      {!isSitterMode && favorites.length > 0 && (
-        <div className="mb-6">
-          <FavoriteSitters favorites={favorites} onToggle={toggleFavorite} />
-        </div>
-      )}
+      {/* Two-column layout: main content + sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
+        <div className="min-w-0 space-y-6">
+          <TodaySchedule
+            timeline={schedule.timeline}
+            loading={schedule.loading}
+            error={schedule.error}
+            isSitter={isSitterMode}
+            onCompleteTask={handleCompleteTask}
+          />
 
-      {!isSitterMode && (
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+          {isSitterMode && user?.approval_status === 'approved' && (
+            <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
+              <CalendarCommandCenter />
+              <BookingHistory />
+            </Suspense>
+          )}
+
+          {!isSitterMode && (
+            <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
           <div className="border-b border-stone-100 px-6 py-4 bg-stone-50">
             <h2 className="font-bold text-stone-700">Your Bookings</h2>
           </div>
@@ -381,9 +378,25 @@ export default function HomePage() {
             </div>
           );
           })()}
+            </div>
+          )}
         </div>
-      )}
 
+        {/* Sidebar */}
+        <div>
+          <HomeSidebar
+            isSitter={isSitterMode}
+            favorites={favorites}
+            onboarding={onboarding}
+            checklistDismissed={checklistDismissed}
+            onDismissChecklist={() => {
+              setChecklistDismissed(true);
+              localStorage.setItem('petlink_onboarding_dismissed', 'true');
+            }}
+            careProgress={careProgress}
+          />
+        </div>
+      </div>
 
       <AlertDialog open={cancelDialogBookingId !== null} onOpenChange={(open) => { if (!open) setCancelDialogBookingId(null); }}>
         <AlertDialogContent>
