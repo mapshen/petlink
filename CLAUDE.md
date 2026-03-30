@@ -35,12 +35,12 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 
 | Domain | Endpoints |
 |--------|-----------|
-| Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/oauth`, `GET /auth/me`, `GET /auth/linked-accounts`, `DELETE /auth/linked-accounts/:provider`, `POST /auth/set-password` |
+| Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/oauth`, `GET /auth/me`, `GET /auth/linked-accounts`, `DELETE /auth/linked-accounts/:provider`, `POST /auth/set-password`, `PUT /auth/password` |
 | Users | `PUT /users/me` |
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id`, `GET/PUT /pets/:id/care-instructions` |
 | Pet Vaccinations | `GET /pets/:petId/vaccinations`, `POST /pets/:petId/vaccinations`, `DELETE /pets/:petId/vaccinations/:id` |
-| Booking Care Tasks | `GET /bookings/:bookingId/care-tasks`, `PUT /bookings/:bookingId/care-tasks/:taskId/complete`, `PUT /bookings/:bookingId/care-tasks/:taskId/uncomplete` |
-| Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:id` |
+| Booking Care Tasks | `GET /bookings/:bookingId/care-tasks`, `PUT /bookings/:bookingId/care-tasks/:taskId/complete`, `PUT /bookings/:bookingId/care-tasks/:taskId/uncomplete`, `GET /care-tasks/today?tzOffset=` |
+| Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:idOrSlug` (accepts numeric ID or slug) |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
 | Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read) |
@@ -73,23 +73,25 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
   - `admin/` — AdminPage (sitter approval management)
   - `home/` — HomePage (bookings, reviews, favorites, onboarding checklist)
   - `search/` — Search, SitterProfile
-  - `profile/` — ProfilePage (sidebar + stacked sections), ProfileTab, PetsTab, ServicesTab, PhotosTab, SubscriptionPage, ImportProfilePage
+  - `profile/` — ProfilePage (3-column: nav | edit | preview), ProfileTab, SitterInfoTab, ServicesTab, AvailabilityTab, LocationTab, PhotosTab, PoliciesTab, PetsTab, SubscriptionPage, ImportProfilePage
+  - `settings/` — SettingsPage (account, linked accounts, subscription, notifications, delete), PasswordSection, NotificationSection
   - `messages/` — Messages
   - `payments/` — WalletPage, PaymentHistoryPage
   - `sitter/` — AnalyticsPage, PromotePage, TrackWalk
   - `Home.tsx` — landing page
 - **Role system**: Additive roles stored as `roles TEXT[]` (default `{owner}`). Roles: `owner`, `sitter`, `admin`. Everyone starts as owner; sitter granted by admin approval; admin requires both DB role and `ADMIN_EMAIL` env var. `ModeContext` provides owner/sitter toggle for users with both roles. Persisted in localStorage (`petlink_mode`). Affects Home page filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
 - **Components** (organized by domain in `src/components/`):
-  - `layout/` — Layout, ModeToggle
+  - `layout/` — Layout (avatar dropdown: Profile, Settings, Log Out), ModeToggle, MobileMenu
   - `booking/` — BookingCalendar, TimeSlotPicker, PetSelector, CareTasksChecklist, QuickTapLogger
   - `payment/` — PaymentForm, PaymentMethodSelector, SubscriptionPaymentForm, SavedPaymentMethods, BankAccountManager
-  - `profile/` — PhotoGallery, FavoriteButton, FavoriteSitters, LinkedAccounts, ImportedReviewBadge, CareInstructionsEditor
+  - `profile/` — PhotoGallery, FavoriteButton, FavoriteSitters, LinkedAccounts, ImportedReviewBadge, CareInstructionsEditor, SitterPreview, ProfileStrength
+  - `home/` — HomeStats, TodaySchedule, NeedsAttention, HomeSidebar
   - `onboarding/` — OnboardingChecklist, OnboardingProgress, OAuthButtons
   - `review/` — SubRatingPills, SubRatingBars, ReviewResponse, ReviewCard, BookingReviewDetail
   - `map/` — SitterClusterMap, SitterLocationMap, MapViewToggle
   - `ui/` — shadcn components
-- **Hooks**: `useFavorites`, `useOnboardingStatus`, `useImageUpload`, `useVideoUpload`, `usePaymentIntent`
-- **Server modules** (`src/server/`): auth, admin, analytics, payments, payouts, notifications, email, storage, validation, profile-import, stripe-customers, etc.
+- **Hooks**: `useFavorites`, `useOnboardingStatus`, `useImageUpload`, `useVideoUpload`, `usePaymentIntent`, `useHomeStats`, `useTodaySchedule`, `useSitterPreviewData`
+- **Server modules** (`src/server/`): auth, admin, analytics, payments, payouts, notifications, email, storage, validation, profile-import, stripe-customers, slugify, care-task-reminders, etc.
 - **Types**: `src/types.ts`
 - **Path alias**: `@/*` maps to project root
 
@@ -99,13 +101,13 @@ PostgreSQL with PostGIS.
 
 | Table | Key Columns / Notes |
 |-------|-------------------|
-| `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10) |
+| `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `slug` (unique, SEO-friendly URL), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `accepted_pet_sizes`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10), `max_pets_at_once`, `max_pets_per_walk`, `house_rules`, `emergency_procedures`, `has_insurance` |
 | `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
 | `pet_vaccinations` | Vaccine records with expiration tracking |
 | `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB |
 | `bookings` | Links owner, sitter, service with status/payment tracking, `payment_method` (card/ach_debit), `payment_failure_reason` |
 | `booking_pets` | Junction table for multi-pet bookings |
-| `booking_care_tasks` | Checklist items auto-populated from pet care instructions |
+| `booking_care_tasks` | Checklist items auto-populated from pet care instructions, `scheduled_time` TIMESTAMPTZ for timeline/notifications, `reminder_sent_at` for dedup |
 | `messages` | sender_id, receiver_id, content |
 | `reviews` | Double-blind reviews with `published_at` gating, sub-ratings (`pet_care_rating`, `communication_rating`, `reliability_rating`, `pet_accuracy_rating`, `preparedness_rating`), reviewee response (`response_text`, `response_at`) |
 | `availability` | Sitter availability windows |
