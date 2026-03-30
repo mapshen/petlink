@@ -27,6 +27,8 @@ export default function userRoutes(router: Router): void {
         own_pets_description,
         skills,
         service_radius_miles,
+        max_pets_at_once,
+        max_pets_per_walk,
       } = req.body;
 
       await sql`
@@ -40,11 +42,13 @@ export default function userRoutes(router: Router): void {
       ${own_pets_description !== undefined ? sql`, own_pets_description = ${own_pets_description || null}` : sql``}
       ${skills !== undefined ? sql`, skills = ${skills || []}` : sql``}
       ${service_radius_miles !== undefined ? sql`, service_radius_miles = ${service_radius_miles}` : sql``}
+      ${max_pets_at_once !== undefined ? sql`, max_pets_at_once = ${max_pets_at_once}` : sql``}
+      ${max_pets_per_walk !== undefined ? sql`, max_pets_per_walk = ${max_pets_per_walk}` : sql``}
       WHERE id = ${req.userId}
     `;
 
       const [user] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
     `;
 
       res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles) } });

@@ -34,7 +34,7 @@ export default function authRoutes(router: Router): void {
   router.post('/auth/login', validate(loginSchema), async (req, res) => {
     const { email, password } = req.body;
 
-    const [user] = await sql`SELECT id, email, name, roles, bio, avatar_url, lat, lng, password_hash, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE email = ${email}`;
+    const [user] = await sql`SELECT id, email, name, roles, bio, avatar_url, lat, lng, password_hash, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, approval_status, approval_rejected_reason FROM users WHERE email = ${email}`;
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -243,7 +243,7 @@ export default function authRoutes(router: Router): void {
 
   router.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
     `;
     if (user) {
       res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles) } });

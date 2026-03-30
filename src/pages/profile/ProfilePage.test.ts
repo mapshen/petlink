@@ -11,6 +11,7 @@ interface SectionDef {
 
 const ALL_SECTIONS: SectionDef[] = [
   { id: 'profile', label: 'About', mode: 'both' },
+  { id: 'sitter-info', label: 'Sitter Info', mode: 'sitter' },
   { id: 'pets', label: 'My Pets', mode: 'owner' },
   { id: 'services', label: 'Services', mode: 'sitter' },
   { id: 'photos', label: 'Photos', mode: 'sitter' },
@@ -31,8 +32,8 @@ describe('ProfilePage section visibility', () => {
     expect(getVisibleSectionIds('owner', false)).toEqual(['profile', 'pets']);
   });
 
-  it('sitter mode with sitter role shows profile, services, and photos', () => {
-    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'services', 'photos']);
+  it('sitter mode with sitter role shows profile, sitter info, services, and photos', () => {
+    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'sitter-info', 'services', 'photos']);
   });
 
   it('sitter mode WITHOUT sitter role only shows profile (guard)', () => {
@@ -60,7 +61,7 @@ describe('ProfilePage section visibility', () => {
   });
 
   it('owner+sitter user sees sitter sections in sitter mode', () => {
-    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'services', 'photos']);
+    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'sitter-info', 'services', 'photos']);
   });
 });
 

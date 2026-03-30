@@ -73,6 +73,9 @@ export default function SitterPreview({ user, services, photos }: Props) {
               {user.skills?.map((s) => (
                 <span key={s} className="bg-stone-50 text-stone-600 text-[11px] px-2 py-0.5 rounded-md capitalize">{s.replace(/_/g, ' ')}</span>
               ))}
+              {user.max_pets_at_once && (
+                <span className="bg-stone-50 text-stone-600 text-[11px] px-2 py-0.5 rounded-md">Max {user.max_pets_at_once} pets</span>
+              )}
             </div>
           </div>
 

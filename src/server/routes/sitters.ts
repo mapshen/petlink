@@ -124,7 +124,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
 
   router.get('/sitters/:id', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
     const [sitter] = await sql`
-      SELECT id, name, roles, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles FROM users WHERE id = ${req.params.id} AND roles @> '{sitter}'::text[] AND approval_status = 'approved'
+      SELECT id, name, roles, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk FROM users WHERE id = ${req.params.id} AND roles @> '{sitter}'::text[] AND approval_status = 'approved'
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });
