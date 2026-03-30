@@ -6,6 +6,7 @@ import { metersToMiles } from '../../lib/geo';
 interface SitterPopupData {
   readonly id: number;
   readonly name: string;
+  readonly slug?: string;
   readonly avatar_url?: string;
   readonly price: number;
   readonly avg_rating?: number | null;
@@ -58,7 +59,7 @@ export default function SitterMapPopup({ sitter }: SitterMapPopupProps) {
       </div>
 
       <Link
-        to={`/sitter/${sitter.id}`}
+        to={`/sitter/${sitter.slug || sitter.id}`}
         className="block w-full text-center bg-emerald-600 text-white text-xs font-medium py-1.5 rounded-lg hover:bg-emerald-700 transition-colors"
       >
         View Profile

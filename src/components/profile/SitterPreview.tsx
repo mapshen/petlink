@@ -112,7 +112,7 @@ export default function SitterPreview({ user, services, photos }: Props) {
 
       {/* View Public Profile link */}
       <Link
-        to={`/sitter/${user.id}`}
+        to={`/sitter/${user.slug || user.id}`}
         className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-stone-500 hover:text-emerald-600 transition-colors"
       >
         <Eye className="w-3.5 h-3.5" />
