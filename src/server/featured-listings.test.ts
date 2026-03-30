@@ -28,7 +28,7 @@ describe('featured_listings table', () => {
     const db = new Database(':memory:');
     db.pragma('foreign_keys = ON');
     db.exec(`
-      CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, name TEXT NOT NULL, role TEXT DEFAULT 'sitter');
+      CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, name TEXT NOT NULL, roles TEXT DEFAULT 'owner,sitter');
       CREATE TABLE featured_listings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -44,7 +44,7 @@ describe('featured_listings table', () => {
       );
     `);
     const hash = bcrypt.hashSync('pass', 10);
-    db.prepare("INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)").run('sitter@test.com', hash, 'Sitter', 'sitter');
+    db.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES (?, ?, ?, ?)").run('sitter@test.com', hash, 'Sitter', 'owner,sitter');
     return db;
   }
 

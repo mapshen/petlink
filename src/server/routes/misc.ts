@@ -11,8 +11,8 @@ export default function miscRoutes(router: Router): void {
   });
 
   router.put('/cancellation-policy', authMiddleware, validate(cancellationPolicySchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can set cancellation policy' });
       return;
     }
@@ -23,8 +23,8 @@ export default function miscRoutes(router: Router): void {
 
   // --- Expenses ---
   router.get('/expenses', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can access expenses' });
       return;
     }
@@ -60,8 +60,8 @@ export default function miscRoutes(router: Router): void {
   });
 
   router.get('/expenses/tax-summary', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can access tax summary' });
       return;
     }
@@ -99,8 +99,8 @@ export default function miscRoutes(router: Router): void {
   });
 
   router.post('/expenses', authMiddleware, validate(expenseSchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can create expenses' });
       return;
     }
@@ -150,8 +150,8 @@ export default function miscRoutes(router: Router): void {
   });
 
   router.post('/featured-listings', authMiddleware, validate(featuredListingSchema), async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (user.role !== 'sitter' && user.role !== 'both') {
+    const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!user.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can create featured listings' });
       return;
     }

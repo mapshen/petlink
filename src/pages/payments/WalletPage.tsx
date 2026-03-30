@@ -76,7 +76,7 @@ const PAYOUTS_PAGE_SIZE = 20;
 export default function WalletPage() {
   const { user, token, loading: authLoading } = useAuth();
   const { mode } = useMode();
-  const isSitter = mode === 'sitter' || user?.role === 'sitter';
+  const isSitter = mode === 'sitter' || (user?.roles?.includes('sitter') ?? false);
 
   const [tab, setTab] = useState<WalletTab>('earnings');
   const [year, setYear] = useState(new Date().getFullYear());

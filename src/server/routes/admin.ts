@@ -9,11 +9,11 @@ import { createNotification } from '../notifications.ts';
 export default function adminRoutes(router: Router): void {
   router.get('/admin/pending-sitters', adminMiddleware, async (req: AuthenticatedRequest, res) => {
     const sitters = await sql`
-      SELECT id, email, name, role, bio, avatar_url, created_at, approval_status,
+      SELECT id, email, name, roles, bio, avatar_url, created_at, approval_status,
              years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description,
              accepted_species, skills
       FROM users
-      WHERE approval_status = 'pending_approval' AND role IN ('sitter', 'both')
+      WHERE approval_status = 'pending_approval' AND roles @> '{sitter}'::text[]
       ORDER BY created_at ASC
     `;
     res.json({ sitters });
@@ -27,18 +27,18 @@ export default function adminRoutes(router: Router): void {
     const statusFilter = status && validStatuses.includes(status) ? status : undefined;
 
     const sitters = await sql`
-      SELECT id, email, name, role, bio, avatar_url, created_at, approval_status, approved_at, approval_rejected_reason,
+      SELECT id, email, name, roles, bio, avatar_url, created_at, approval_status, approved_at, approval_rejected_reason,
              years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description,
              accepted_species, skills
       FROM users
-      WHERE role IN ('sitter', 'both')
+      WHERE roles @> '{sitter}'::text[]
       ${statusFilter ? sql`AND approval_status = ${statusFilter}` : sql``}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
     const [{ total }] = await sql`
       SELECT count(*)::int as total FROM users
-      WHERE role IN ('sitter', 'both')
+      WHERE roles @> '{sitter}'::text[]
       ${statusFilter ? sql`AND approval_status = ${statusFilter}` : sql``}
     `;
     res.json({ sitters, total });
@@ -57,7 +57,7 @@ export default function adminRoutes(router: Router): void {
       return;
     }
 
-    const [sitter] = await sql`SELECT id, email, name, role, approval_status FROM users WHERE id = ${sitterId} AND role IN ('sitter', 'both')`;
+    const [sitter] = await sql`SELECT id, email, name, roles, approval_status FROM users WHERE id = ${sitterId} AND roles @> '{sitter}'::text[]`;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });
       return;
@@ -96,7 +96,7 @@ export default function adminRoutes(router: Router): void {
     await sendEmail({ to: sitter.email, ...email }).catch(() => {});
 
     const [updated] = await sql`
-      SELECT id, email, name, role, approval_status, approved_at, approval_rejected_reason
+      SELECT id, email, name, roles, approval_status, approved_at, approval_rejected_reason
       FROM users WHERE id = ${sitterId}
     `;
     res.json({ sitter: updated });

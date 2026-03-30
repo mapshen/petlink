@@ -18,19 +18,19 @@ describe('getPayoutDelay', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns 1 day for Pro sitters', async () => {
-    mockedSql.mockResolvedValueOnce([{ is_pro: true, role: 'sitter' }] as any);
+    mockedSql.mockResolvedValueOnce([{ is_pro: true, roles: ['owner', 'sitter'] }] as any);
     const delay = await getPayoutDelay(42);
     expect(delay).toBe(1);
   });
 
   it('returns 3 days for standard sitters', async () => {
-    mockedSql.mockResolvedValueOnce([{ is_pro: false, role: 'sitter' }] as any);
+    mockedSql.mockResolvedValueOnce([{ is_pro: false, roles: ['owner', 'sitter'] }] as any);
     const delay = await getPayoutDelay(42);
     expect(delay).toBe(3);
   });
 
   it('returns 3 days when is_pro is null/undefined', async () => {
-    mockedSql.mockResolvedValueOnce([{ is_pro: null, role: 'both' }] as any);
+    mockedSql.mockResolvedValueOnce([{ is_pro: null, roles: ['owner', 'sitter'] }] as any);
     const delay = await getPayoutDelay(42);
     expect(delay).toBe(3);
   });
@@ -41,7 +41,7 @@ describe('getPayoutDelay', () => {
   });
 
   it('throws when user is not a sitter', async () => {
-    mockedSql.mockResolvedValueOnce([{ is_pro: false, role: 'owner' }] as any);
+    mockedSql.mockResolvedValueOnce([{ is_pro: false, roles: ['owner'] }] as any);
     await expect(getPayoutDelay(42)).rejects.toThrow('User 42 is not a sitter');
   });
 });

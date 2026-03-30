@@ -7,8 +7,8 @@ import { getOrCreateStripeCustomer } from '../stripe-customers.ts';
 
 export default function subscriptionRoutes(router: Router): void {
   router.get('/subscription', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (user.role !== 'sitter' && user.role !== 'both') {
+    const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!user.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can view subscriptions' });
       return;
     }
@@ -21,8 +21,8 @@ export default function subscriptionRoutes(router: Router): void {
 
   router.post('/subscription/create-intent', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {
     try {
-      const [user] = await sql`SELECT role, email FROM users WHERE id = ${req.userId}`;
-      if (user.role !== 'sitter' && user.role !== 'both') {
+      const [user] = await sql`SELECT roles, email FROM users WHERE id = ${req.userId}`;
+      if (!user.roles.includes('sitter')) {
         res.status(403).json({ error: 'Only sitters can subscribe' });
         return;
       }
@@ -46,8 +46,8 @@ export default function subscriptionRoutes(router: Router): void {
   });
 
   router.post('/subscription/upgrade', authMiddleware, validate(emptyBodySchema), async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT role, email FROM users WHERE id = ${req.userId}`;
-    if (user.role !== 'sitter' && user.role !== 'both') {
+    const [user] = await sql`SELECT roles, email FROM users WHERE id = ${req.userId}`;
+    if (!user.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can subscribe' });
       return;
     }

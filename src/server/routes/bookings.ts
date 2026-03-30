@@ -196,8 +196,10 @@ export default function bookingRoutes(router: Router, io: Server): void {
     const { start, end, status, search, limit, offset } = parsed.data;
 
     // Determine if the user is acting as owner or sitter for search filtering
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    const userRole: string = currentUser?.role ?? 'owner';
+    const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    const isSitter = currentUser?.roles?.includes('sitter') ?? false;
+    const isOwner = currentUser?.roles?.includes('owner') ?? true;
+    const isBoth = isSitter && isOwner;
 
     // Count total matching rows for pagination
     const [{ count: totalCount }] = await sql`
@@ -211,11 +213,11 @@ export default function bookingRoutes(router: Router, io: Server): void {
         ${end ? sql`AND b.start_time < ${end}::timestamptz` : sql``}
         ${status ? sql`AND b.status = ${status}` : sql``}
         ${search
-          ? userRole === 'sitter'
-            ? sql`AND o.name ILIKE ${'%' + search + '%'}`
-            : userRole === 'owner'
-              ? sql`AND s.name ILIKE ${'%' + search + '%'}`
-              : sql`AND (o.name ILIKE ${'%' + search + '%'} OR s.name ILIKE ${'%' + search + '%'})`
+          ? isBoth
+            ? sql`AND (o.name ILIKE ${'%' + search + '%'} OR s.name ILIKE ${'%' + search + '%'})`
+            : isSitter
+              ? sql`AND o.name ILIKE ${'%' + search + '%'}`
+              : sql`AND s.name ILIKE ${'%' + search + '%'}`
           : sql``}
     `;
 
@@ -233,11 +235,11 @@ export default function bookingRoutes(router: Router, io: Server): void {
         ${end ? sql`AND b.start_time < ${end}::timestamptz` : sql``}
         ${status ? sql`AND b.status = ${status}` : sql``}
         ${search
-          ? userRole === 'sitter'
-            ? sql`AND o.name ILIKE ${'%' + search + '%'}`
-            : userRole === 'owner'
-              ? sql`AND s.name ILIKE ${'%' + search + '%'}`
-              : sql`AND (o.name ILIKE ${'%' + search + '%'} OR s.name ILIKE ${'%' + search + '%'})`
+          ? isBoth
+            ? sql`AND (o.name ILIKE ${'%' + search + '%'} OR s.name ILIKE ${'%' + search + '%'})`
+            : isSitter
+              ? sql`AND o.name ILIKE ${'%' + search + '%'}`
+              : sql`AND s.name ILIKE ${'%' + search + '%'}`
           : sql``}
       ORDER BY b.start_time DESC
       LIMIT ${limit} OFFSET ${offset}

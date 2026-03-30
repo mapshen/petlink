@@ -13,7 +13,7 @@ describe('conversation list logic', () => {
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT DEFAULT 'owner',
+        roles TEXT DEFAULT 'owner',
         avatar_url TEXT
       );
       CREATE TABLE messages (

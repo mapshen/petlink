@@ -6,8 +6,8 @@ import { parseRoverUrl, generateVerificationCode, scrapeRoverProfile, checkVerif
 
 export default function importRoutes(router: Router): void {
   router.post('/import/preview', authMiddleware, validate(importPreviewSchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can import profiles' });
       return;
     }
@@ -35,8 +35,8 @@ export default function importRoutes(router: Router): void {
       res.status(400).json({ error: (parsed as { error: string }).error });
       return;
     }
-    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (user.role !== 'sitter' && user.role !== 'both') {
+    const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!user.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can import profiles' });
       return;
     }

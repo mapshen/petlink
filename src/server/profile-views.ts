@@ -9,7 +9,7 @@ export async function recordProfileView(
 ): Promise<boolean> {
   // Validate sitter exists
   const [sitter] = await sql`
-    SELECT id FROM users WHERE id = ${sitterId} AND role IN ('sitter', 'both')
+    SELECT id FROM users WHERE id = ${sitterId} AND roles @> '{sitter}'::text[]
   `;
   if (!sitter) {
     return false;

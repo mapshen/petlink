@@ -50,7 +50,7 @@ export default function Onboarding() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate('/login'); return; }
-    if (user.role === 'owner') { navigate('/dashboard'); return; }
+    if (!user.roles?.includes('sitter')) { navigate('/dashboard'); return; }
   }, [user, authLoading, navigate]);
 
   // Initialize form state from user data + determine starting step
@@ -88,7 +88,7 @@ export default function Onboarding() {
       const res = await fetch(`${API_BASE}/users/me`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
-        body: JSON.stringify({ name, bio, avatar_url: avatarUrl || null, role: user?.role }),
+        body: JSON.stringify({ name, bio, avatar_url: avatarUrl || null }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -147,7 +147,7 @@ export default function Onboarding() {
       const res = await fetch(`${API_BASE}/users/me`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
-        body: JSON.stringify({ name: user?.name, bio: user?.bio || null, avatar_url: avatarUrl, role: user?.role }),
+        body: JSON.stringify({ name: user?.name, bio: user?.bio || null, avatar_url: avatarUrl }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

@@ -6,8 +6,8 @@ import { getProfileViewsCount } from './profile-views.ts';
 // --- Middleware ---
 
 export async function requireSitterRole(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-  const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-  if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+  const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+  if (!currentUser.roles.includes('sitter')) {
     res.status(403).json({ error: 'Only sitters can access analytics' });
     return;
   }

@@ -25,8 +25,8 @@ export default function favoriteRoutes(router: Router): void {
       res.status(400).json({ error: 'Cannot favorite yourself' });
       return;
     }
-    const [sitter] = await sql`SELECT id, role FROM users WHERE id = ${sitterId}`;
-    if (!sitter || (sitter.role !== 'sitter' && sitter.role !== 'both')) {
+    const [sitter] = await sql`SELECT id, roles FROM users WHERE id = ${sitterId}`;
+    if (!sitter || !sitter.roles.includes('sitter')) {
       res.status(404).json({ error: 'Sitter not found' });
       return;
     }

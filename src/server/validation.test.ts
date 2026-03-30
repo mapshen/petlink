@@ -25,18 +25,16 @@ describe('signupSchema', () => {
       email: ' Test@Example.COM ',
       password: 'password123',
       name: '  Alice  ',
-      role: 'owner',
       age_confirmed: true,
     });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.email).toBe('test@example.com');
       expect(result.data.name).toBe('Alice');
-      expect(result.data.role).toBe('owner');
     }
   });
 
-  it('defaults role to owner', () => {
+  it('does not include role in parsed data', () => {
     const result = signupSchema.safeParse({
       email: 'test@example.com',
       password: 'password123',
@@ -45,7 +43,7 @@ describe('signupSchema', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.role).toBe('owner');
+      expect(result.data).not.toHaveProperty('role');
     }
   });
 
@@ -118,14 +116,18 @@ describe('signupSchema', () => {
     }
   });
 
-  it('rejects invalid role', () => {
+  it('ignores role field in signup (roles assigned server-side)', () => {
     const result = signupSchema.safeParse({
       email: 'test@example.com',
       password: 'password123',
       name: 'Alice',
+      age_confirmed: true,
       role: 'admin',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty('role');
+    }
   });
 });
 
@@ -156,7 +158,6 @@ describe('updateProfileSchema', () => {
       name: '  Bob  ',
       bio: 'I love dogs',
       avatar_url: 'https://example.com/pic.jpg',
-      role: 'sitter',
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -840,7 +841,7 @@ describe('validate middleware', () => {
     middleware(req, res, () => {});
     expect(req.body.email).toBe('test@example.com');
     expect(req.body.name).toBe('Alice');
-    expect(req.body.role).toBe('owner');
+    expect(req.body).not.toHaveProperty('role');
   });
 
   it('returns 400 with error on invalid input', () => {

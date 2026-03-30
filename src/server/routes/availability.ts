@@ -14,8 +14,8 @@ export default function availabilityRoutes(router: Router, publicLimiter: RateLi
   });
 
   router.post('/availability', authMiddleware, validate(availabilitySchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can set availability.' });
       return;
     }

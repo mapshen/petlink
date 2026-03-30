@@ -47,7 +47,7 @@ export function useOnboardingStatus(): OnboardingStatus {
       return;
     }
 
-    const isSitter = user.role === 'sitter' || user.role === 'both';
+    const isSitter = user.roles?.includes('sitter') ?? false;
     if (!isSitter) {
       setLoading(false);
       return;

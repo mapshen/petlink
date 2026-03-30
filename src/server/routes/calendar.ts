@@ -13,8 +13,8 @@ export default function calendarRoutes(router: Router, publicLimiter: RateLimitR
       res.status(400).json({ error: 'start and end query params required (YYYY-MM-DD)' });
       return;
     }
-    const [currentUser] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can access the calendar' });
       return;
     }

@@ -6,11 +6,11 @@ const STANDARD_DELAY_DAYS = 3;
 const PRO_DELAY_DAYS = 1;
 
 export async function getPayoutDelay(sitterId: number): Promise<number> {
-  const [user] = await sql`SELECT is_pro, role FROM users WHERE id = ${sitterId}`;
+  const [user] = await sql`SELECT is_pro, roles FROM users WHERE id = ${sitterId}`;
   if (!user) {
     throw new Error(`Sitter not found: ${sitterId}`);
   }
-  if (user.role !== 'sitter' && user.role !== 'both') {
+  if (!user.roles.includes('sitter')) {
     throw new Error(`User ${sitterId} is not a sitter`);
   }
   return user.is_pro ? PRO_DELAY_DAYS : STANDARD_DELAY_DAYS;

@@ -75,8 +75,8 @@ export default function paymentRoutes(router: Router): void {
 
   // --- Payouts ---
   router.get('/payouts', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (user.role !== 'sitter' && user.role !== 'both') {
+    const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!user.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can view payouts' });
       return;
     }
@@ -87,8 +87,8 @@ export default function paymentRoutes(router: Router): void {
   });
 
   router.get('/payouts/pending', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT role FROM users WHERE id = ${req.userId}`;
-    if (user.role !== 'sitter' && user.role !== 'both') {
+    const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+    if (!user.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can view payouts' });
       return;
     }

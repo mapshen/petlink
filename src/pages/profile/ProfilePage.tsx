@@ -45,6 +45,7 @@ export default function ProfilePage() {
   useDocumentTitle('Profile');
   const { user, token, logout, loading } = useAuth();
   const { mode } = useMode();
+  const hasSitter = user?.roles?.includes('sitter') ?? false;
   const navigate = useNavigate();
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -62,7 +63,9 @@ export default function ProfilePage() {
     return <Navigate to="/login" replace />;
   }
 
-  const visibleSections = ALL_SECTIONS.filter((s) => s.mode === 'both' || s.mode === mode);
+  const visibleSections = ALL_SECTIONS.filter(
+    (s) => s.mode === 'both' || (s.mode === mode && (s.mode === 'owner' || hasSitter))
+  );
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
@@ -130,7 +133,7 @@ export default function ProfilePage() {
               })}
             </nav>
 
-            {mode === 'sitter' && (
+            {mode === 'sitter' && hasSitter && (
               <div className="mt-3 pt-3 border-t border-stone-100">
                 <Link
                   to="/import-profile"
@@ -162,7 +165,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {mode === 'sitter' && (
+          {mode === 'sitter' && hasSitter && (
             <>
               <div
                 id="section-services"
