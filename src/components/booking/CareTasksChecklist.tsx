@@ -10,6 +10,9 @@ const CATEGORY_ICONS: Record<string, string> = {
   exercise: '🏃',
   grooming: '✂️',
   behavioral: '🧠',
+  litter_box: '🪣',
+  cage_cleaning: '🧹',
+  habitat_maintenance: '🌡️',
   other: '📝',
 };
 

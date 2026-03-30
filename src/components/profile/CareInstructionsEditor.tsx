@@ -11,6 +11,9 @@ const CATEGORIES = [
   { value: 'exercise', label: 'Exercise', icon: '🏃' },
   { value: 'grooming', label: 'Grooming', icon: '✂️' },
   { value: 'behavioral', label: 'Behavioral', icon: '🧠' },
+  { value: 'litter_box', label: 'Litter Box', icon: '🪣' },
+  { value: 'cage_cleaning', label: 'Cage Cleaning', icon: '🧹' },
+  { value: 'habitat_maintenance', label: 'Habitat Maintenance', icon: '🌡️' },
   { value: 'other', label: 'Other', icon: '📝' },
 ] as const;
 

@@ -116,7 +116,7 @@ export interface Service {
 
 export interface CareInstruction {
   id: string;
-  category: 'feeding' | 'medication' | 'exercise' | 'grooming' | 'behavioral' | 'other';
+  category: 'feeding' | 'medication' | 'exercise' | 'grooming' | 'behavioral' | 'litter_box' | 'cage_cleaning' | 'habitat_maintenance' | 'other';
   description: string;
   time?: string;
   notes?: string;
