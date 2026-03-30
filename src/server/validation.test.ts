@@ -9,6 +9,7 @@ import {
   createBookingSchema,
   updateBookingStatusSchema,
   createReviewSchema,
+  reviewResponseSchema,
   createSitterPhotoSchema,
   updateSitterPhotoSchema,
   cancellationPolicySchema,
@@ -569,6 +570,70 @@ describe('createReviewSchema', () => {
       rating: 3.5,
     });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts review with sub-ratings', () => {
+    const result = createReviewSchema.safeParse({
+      booking_id: 1,
+      rating: 5,
+      pet_care_rating: 5,
+      communication_rating: 4,
+      reliability_rating: 5,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts review without sub-ratings (all optional)', () => {
+    const result = createReviewSchema.safeParse({
+      booking_id: 1,
+      rating: 4,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects sub-rating outside 1-5 range', () => {
+    expect(createReviewSchema.safeParse({ booking_id: 1, rating: 5, pet_care_rating: 0 }).success).toBe(false);
+    expect(createReviewSchema.safeParse({ booking_id: 1, rating: 5, communication_rating: 6 }).success).toBe(false);
+    expect(createReviewSchema.safeParse({ booking_id: 1, rating: 5, reliability_rating: -1 }).success).toBe(false);
+    expect(createReviewSchema.safeParse({ booking_id: 1, rating: 5, pet_accuracy_rating: 10 }).success).toBe(false);
+    expect(createReviewSchema.safeParse({ booking_id: 1, rating: 5, preparedness_rating: 0 }).success).toBe(false);
+  });
+
+  it('accepts null sub-ratings', () => {
+    const result = createReviewSchema.safeParse({
+      booking_id: 1,
+      rating: 4,
+      pet_care_rating: null,
+      communication_rating: null,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('reviewResponseSchema', () => {
+  it('accepts valid response', () => {
+    const result = reviewResponseSchema.safeParse({ response_text: 'Thank you!' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty response', () => {
+    const result = reviewResponseSchema.safeParse({ response_text: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects whitespace-only response', () => {
+    const result = reviewResponseSchema.safeParse({ response_text: '   ' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects response over 1000 characters', () => {
+    const result = reviewResponseSchema.safeParse({ response_text: 'x'.repeat(1001) });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts response at exactly 1000 characters', () => {
+    const result = reviewResponseSchema.safeParse({ response_text: 'x'.repeat(1000) });
+    expect(result.success).toBe(true);
   });
 });
 

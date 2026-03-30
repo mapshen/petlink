@@ -641,6 +641,16 @@ export async function initDb() {
   // Issue #81: Soft delete support
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`.catch(() => {});
 
+  // Issue #214: Review sub-ratings and responses
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS pet_care_rating INTEGER CHECK(pet_care_rating >= 1 AND pet_care_rating <= 5)`.catch(() => {});
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS communication_rating INTEGER CHECK(communication_rating >= 1 AND communication_rating <= 5)`.catch(() => {});
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS reliability_rating INTEGER CHECK(reliability_rating >= 1 AND reliability_rating <= 5)`.catch(() => {});
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS pet_accuracy_rating INTEGER CHECK(pet_accuracy_rating >= 1 AND pet_accuracy_rating <= 5)`.catch(() => {});
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS preparedness_rating INTEGER CHECK(preparedness_rating >= 1 AND preparedness_rating <= 5)`.catch(() => {});
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS response_text TEXT`.catch(() => {});
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS response_at TIMESTAMPTZ`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_id ON reviews (reviewer_id)`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;

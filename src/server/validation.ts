@@ -151,10 +151,21 @@ export const updateSitterPhotoSchema = z.object({
 });
 
 // --- Review Schemas ---
+const subRating = z.number().int().min(1, 'Sub-rating must be 1-5').max(5, 'Sub-rating must be 1-5').optional().nullable();
+
 export const createReviewSchema = z.object({
   booking_id: z.number().int().positive('Invalid booking ID'),
   rating: z.number().int().min(1, 'Rating must be 1-5').max(5, 'Rating must be 1-5'),
   comment: z.string().optional().nullable(),
+  pet_care_rating: subRating,
+  communication_rating: subRating,
+  reliability_rating: subRating,
+  pet_accuracy_rating: subRating,
+  preparedness_rating: subRating,
+});
+
+export const reviewResponseSchema = z.object({
+  response_text: z.string().trim().min(1, 'Response is required').max(1000, 'Response must be under 1000 characters'),
 });
 
 // --- Quick-Tap Care Event Schemas ---
