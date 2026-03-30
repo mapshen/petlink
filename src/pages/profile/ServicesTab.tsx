@@ -159,6 +159,7 @@ export default function ServicesTab() {
     setSaving(true);
     setError(null);
     try {
+      const editServiceDetails = buildServiceDetails(form.details);
       const res = await fetch(`${API_BASE}/services/${editingId}`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
@@ -168,7 +169,7 @@ export default function ServicesTab() {
           description: form.description || null,
           additional_pet_price: Number(form.additional_pet_price) || 0,
           max_pets: Number(form.max_pets) || 1,
-          service_details: Object.keys(buildServiceDetails(form.details)).length > 0 ? buildServiceDetails(form.details) : null,
+          service_details: Object.keys(editServiceDetails).length > 0 ? editServiceDetails : null,
         }),
       });
       if (!res.ok) {
@@ -329,7 +330,7 @@ export default function ServicesTab() {
                     </div>
                     {service.service_details && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        <ServiceDetailTags details={service.service_details as ServiceDetails} type={service.type} />
+                        <ServiceDetailTags details={service.service_details as ServiceDetails} />
                       </div>
                     )}
                     <div className="flex items-center gap-1">
@@ -435,7 +436,10 @@ const CANCELLATION_POLICIES: { value: CancellationPolicy; label: string; descrip
 
 function buildServiceDetails(details: ServiceDetails): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  if (details.walk_duration) result.walk_duration = details.walk_duration;
+  if (details.walk_duration) {
+    const duration = Number(details.walk_duration);
+    if (duration >= 15 && duration <= 120) result.walk_duration = duration;
+  }
   if (details.walk_style) result.walk_style = details.walk_style;
   if (details.boarding_location) result.boarding_location = details.boarding_location;
   if (details.pickup_available) result.pickup_available = true;
@@ -445,7 +449,7 @@ function buildServiceDetails(details: ServiceDetails): Record<string, unknown> {
   return result;
 }
 
-function ServiceDetailTags({ details, type }: { readonly details: ServiceDetails; readonly type: string }) {
+function ServiceDetailTags({ details }: { readonly details: ServiceDetails }) {
   const tags: string[] = [];
   if (details.walk_duration) tags.push(`${details.walk_duration} min walk`);
   if (details.walk_style === 'solo') tags.push('Solo walks only');
@@ -573,7 +577,7 @@ function ServiceFormFields({
         </div>
       )}
 
-      {(form.type === 'sitting' || form.type === 'boarding') && (
+      {form.type === 'sitting' && (
         <div className="space-y-4 border-t border-stone-200 pt-4">
           <h4 className="text-sm font-semibold text-stone-700">
             {form.type === 'sitting' ? 'Sitting' : 'Boarding'} Details
