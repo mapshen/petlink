@@ -19,6 +19,7 @@ export default function userRoutes(router: Router): void {
         name,
         bio,
         avatar_url,
+        accepted_pet_sizes,
         accepted_species,
         years_experience,
         home_type,
@@ -44,6 +45,7 @@ export default function userRoutes(router: Router): void {
       await sql`
       UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null}
       ${newSlug ? sql`, slug = ${newSlug}` : sql``}
+      ${accepted_pet_sizes !== undefined ? sql`, accepted_pet_sizes = ${accepted_pet_sizes || []}` : sql``}
       ${accepted_species !== undefined ? sql`, accepted_species = ${accepted_species || []}` : sql``}
       ${years_experience !== undefined ? sql`, years_experience = ${years_experience}` : sql``}
       ${home_type !== undefined ? sql`, home_type = ${home_type || null}` : sql``}
@@ -63,7 +65,7 @@ export default function userRoutes(router: Router): void {
     `;
 
       const [user] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
     `;
 
       res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles) } });

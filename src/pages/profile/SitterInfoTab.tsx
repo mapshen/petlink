@@ -28,6 +28,7 @@ function formatSpecies(s: string): string {
 export default function SitterInfoTab() {
   const { user, token, updateUser } = useAuth();
 
+  const [acceptedPetSizes, setAcceptedPetSizes] = useState<string[]>([]);
   const [acceptedSpecies, setAcceptedSpecies] = useState<string[]>([]);
   const [yearsExperience, setYearsExperience] = useState('');
   const [homeType, setHomeType] = useState('');
@@ -43,6 +44,7 @@ export default function SitterInfoTab() {
 
   useEffect(() => {
     if (!user) return;
+    setAcceptedPetSizes(user.accepted_pet_sizes || []);
     setAcceptedSpecies(user.accepted_species || []);
     setYearsExperience(user.years_experience?.toString() || '');
     setHomeType(user.home_type || '');
@@ -67,6 +69,7 @@ export default function SitterInfoTab() {
           name: user?.name,
           bio: user?.bio || null,
           avatar_url: user?.avatar_url || null,
+          accepted_pet_sizes: acceptedPetSizes,
           accepted_species: acceptedSpecies,
           years_experience: yearsExperience ? Number(yearsExperience) : null,
           home_type: homeType || null,
@@ -124,6 +127,26 @@ export default function SitterInfoTab() {
               }`}
             >
               {formatSpecies(species)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-stone-700 mb-2">Pet sizes I accept</label>
+        <div className="flex flex-wrap gap-2">
+          {(['small', 'medium', 'large', 'giant'] as const).map((size) => (
+            <button
+              key={size}
+              type="button"
+              onClick={() => setAcceptedPetSizes((prev) =>
+                prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+              )}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                acceptedPetSizes.includes(size) ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+              }`}
+            >
+              {size.charAt(0).toUpperCase() + size.slice(1)}
             </button>
           ))}
         </div>
