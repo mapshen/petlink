@@ -4,8 +4,8 @@ A page-by-page guide to the PetLink web application.
 
 ## Global Shell (Layout)
 
-- **Header**: PetLink logo (emerald paw icon), nav links (Search, Dashboard, Messages). For users with role "both", a Stripe-style Owner/Sitter mode toggle appears in the header. User avatar + logout on the right; "Log In" button when unauthenticated.
-- **Mode toggle**: Switches between Owner and Sitter views globally. Affects Dashboard (which bookings and actions are shown), Profile page (which sections are visible), and onboarding checklist visibility. Persisted in localStorage.
+- **Header**: PetLink logo (emerald paw icon), nav links (Search, Home, Messages). For users with both owner and sitter roles, a Stripe-style Owner/Sitter mode toggle appears in the header. User avatar + logout on the right; "Log In" button when unauthenticated.
+- **Mode toggle**: Switches between Owner and Sitter views globally. Affects Home page (which bookings and actions are shown), Profile page (which sections are visible), and onboarding checklist visibility. Persisted in localStorage.
 - **Footer**: Privacy, Terms, Sitemap links.
 
 ## Pages
@@ -23,7 +23,7 @@ A page-by-page guide to the PetLink web application.
 - Toggle between Sign In and Create Account.
 - Fields: email, password (+ name for signup).
 - Dev mode shows demo credentials (`owner@example.com` / `password123`).
-- Redirects to Dashboard on success.
+- Redirects to Home on success.
 
 ### `/search` — Sitter Search
 
@@ -51,7 +51,7 @@ Two-column layout:
 - Cancellation policy info
 - "Message [sitter name]" link
 
-### `/dashboard` — Dashboard
+### `/home` — Home
 
 - **Onboarding checklist** for new sitters (dismissible)
 - **Favorite sitters** row (if any saved)
