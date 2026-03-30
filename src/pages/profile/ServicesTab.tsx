@@ -27,15 +27,27 @@ const SERVICE_TYPES = [
   { value: 'meet_greet', label: 'Meet & Greet', icon: '🤝' },
 ] as const;
 
+interface ServiceDetails {
+  walk_duration?: string;
+  walk_style?: 'solo' | 'group';
+  boarding_location?: 'sitter_home' | 'owner_home';
+  pickup_available?: boolean;
+  dropoff_available?: boolean;
+  pickup_fee?: string;
+  dropoff_fee?: string;
+}
+
 interface ServiceForm {
   type: string;
   price: string;
   description: string;
   additional_pet_price: string;
   max_pets: string;
+  details: ServiceDetails;
 }
 
-const EMPTY_FORM: ServiceForm = { type: 'walking', price: '', description: '', additional_pet_price: '', max_pets: '1' };
+const EMPTY_DETAILS: ServiceDetails = {};
+const EMPTY_FORM: ServiceForm = { type: 'walking', price: '', description: '', additional_pet_price: '', max_pets: '1', details: EMPTY_DETAILS };
 
 export default function ServicesTab() {
   const { user, token } = useAuth();
@@ -112,6 +124,7 @@ export default function ServicesTab() {
     setSaving(true);
     setError(null);
     try {
+      const serviceDetails = buildServiceDetails(form.details);
       const res = await fetch(`${API_BASE}/services`, {
         method: 'POST',
         headers: getAuthHeaders(token),
@@ -121,6 +134,7 @@ export default function ServicesTab() {
           description: form.description || null,
           additional_pet_price: Number(form.additional_pet_price) || 0,
           max_pets: Number(form.max_pets) || 1,
+          service_details: Object.keys(serviceDetails).length > 0 ? serviceDetails : null,
         }),
       });
       if (!res.ok) {
@@ -145,6 +159,7 @@ export default function ServicesTab() {
     setSaving(true);
     setError(null);
     try {
+      const editServiceDetails = buildServiceDetails(form.details);
       const res = await fetch(`${API_BASE}/services/${editingId}`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
@@ -154,6 +169,7 @@ export default function ServicesTab() {
           description: form.description || null,
           additional_pet_price: Number(form.additional_pet_price) || 0,
           max_pets: Number(form.max_pets) || 1,
+          service_details: Object.keys(editServiceDetails).length > 0 ? editServiceDetails : null,
         }),
       });
       if (!res.ok) {
@@ -191,12 +207,22 @@ export default function ServicesTab() {
   const startEdit = (service: Service) => {
     setEditingId(service.id);
     setShowAddForm(false);
+    const sd = (service.service_details || {}) as ServiceDetails;
     setForm({
       type: service.type,
       price: service.price.toString(),
       description: service.description || '',
       additional_pet_price: (service.additional_pet_price || 0).toString(),
       max_pets: (service.max_pets || 1).toString(),
+      details: {
+        walk_duration: sd.walk_duration || '',
+        walk_style: sd.walk_style,
+        boarding_location: sd.boarding_location,
+        pickup_available: sd.pickup_available,
+        dropoff_available: sd.dropoff_available,
+        pickup_fee: sd.pickup_fee || '',
+        dropoff_fee: sd.dropoff_fee || '',
+      },
     });
   };
 
@@ -302,6 +328,11 @@ export default function ServicesTab() {
                         <span className="text-xs text-stone-400 block">Up to {service.max_pets} pets</span>
                       )}
                     </div>
+                    {service.service_details && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <ServiceDetailTags details={service.service_details as ServiceDetails} />
+                      </div>
+                    )}
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => startEdit(service)}
@@ -403,6 +434,40 @@ const CANCELLATION_POLICIES: { value: CancellationPolicy; label: string; descrip
   { value: 'strict', label: 'Strict', description: 'No refund within 7 days of the booking.' },
 ];
 
+function buildServiceDetails(details: ServiceDetails): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  if (details.walk_duration) {
+    const duration = Number(details.walk_duration);
+    if (duration >= 15 && duration <= 120) result.walk_duration = duration;
+  }
+  if (details.walk_style) result.walk_style = details.walk_style;
+  if (details.boarding_location) result.boarding_location = details.boarding_location;
+  if (details.pickup_available) result.pickup_available = true;
+  if (details.dropoff_available) result.dropoff_available = true;
+  if (details.pickup_fee && Number(details.pickup_fee) > 0) result.pickup_fee = Number(details.pickup_fee);
+  if (details.dropoff_fee && Number(details.dropoff_fee) > 0) result.dropoff_fee = Number(details.dropoff_fee);
+  return result;
+}
+
+function ServiceDetailTags({ details }: { readonly details: ServiceDetails }) {
+  const tags: string[] = [];
+  if (details.walk_duration) tags.push(`${details.walk_duration} min walk`);
+  if (details.walk_style === 'solo') tags.push('Solo walks only');
+  if (details.walk_style === 'group') tags.push('Group walks');
+  if (details.boarding_location === 'sitter_home') tags.push("At sitter's home");
+  if (details.boarding_location === 'owner_home') tags.push("At owner's home");
+  if (details.pickup_available) tags.push(details.pickup_fee ? `Pickup: $${details.pickup_fee}` : 'Free pickup');
+  if (details.dropoff_available) tags.push(details.dropoff_fee ? `Dropoff: $${details.dropoff_fee}` : 'Free dropoff');
+  if (tags.length === 0) return null;
+  return (
+    <>
+      {tags.map((tag) => (
+        <span key={tag} className="bg-stone-100 text-stone-600 text-xs px-2 py-0.5 rounded-md">{tag}</span>
+      ))}
+    </>
+  );
+}
+
 function ServiceFormFields({
   form,
   setForm,
@@ -478,6 +543,114 @@ function ServiceFormFields({
             <p className="text-xs text-stone-400 mt-1">Maximum number of pets you can handle per booking</p>
           </div>
         </>
+      )}
+
+      {/* Service-specific details */}
+      {form.type === 'walking' && (
+        <div className="space-y-4 border-t border-stone-200 pt-4">
+          <h4 className="text-sm font-semibold text-stone-700">Walk Details</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Duration (minutes)</label>
+              <Input
+                type="number"
+                min={15}
+                max={120}
+                value={form.details.walk_duration || ''}
+                onChange={(e) => setForm((prev) => ({ ...prev, details: { ...prev.details, walk_duration: e.target.value } }))}
+                placeholder="30"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Walk style</label>
+              <select
+                value={form.details.walk_style || ''}
+                onChange={(e) => setForm((prev) => ({ ...prev, details: { ...prev.details, walk_style: (e.target.value || undefined) as ServiceDetails['walk_style'] } }))}
+                className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              >
+                <option value="">Select...</option>
+                <option value="solo">Solo walks only</option>
+                <option value="group">Group walks</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {form.type === 'sitting' && (
+        <div className="space-y-4 border-t border-stone-200 pt-4">
+          <h4 className="text-sm font-semibold text-stone-700">
+            {form.type === 'sitting' ? 'Sitting' : 'Boarding'} Details
+          </h4>
+          <div>
+            <label className="block text-xs text-stone-500 mb-1">Location</label>
+            <select
+              value={form.details.boarding_location || ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, details: { ...prev.details, boarding_location: (e.target.value || undefined) as ServiceDetails['boarding_location'] } }))}
+              className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              <option value="">Select...</option>
+              <option value="owner_home">At owner's home</option>
+              <option value="sitter_home">At sitter's home</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {form.type !== 'meet_greet' && (
+        <div className="space-y-4 border-t border-stone-200 pt-4">
+          <h4 className="text-sm font-semibold text-stone-700">Pickup & Dropoff</h4>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.details.pickup_available || false}
+                onChange={(e) => setForm((prev) => ({ ...prev, details: { ...prev.details, pickup_available: e.target.checked } }))}
+                className="rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="text-sm text-stone-700">Offer pickup</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.details.dropoff_available || false}
+                onChange={(e) => setForm((prev) => ({ ...prev, details: { ...prev.details, dropoff_available: e.target.checked } }))}
+                className="rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="text-sm text-stone-700">Offer dropoff</span>
+            </label>
+          </div>
+          {(form.details.pickup_available || form.details.dropoff_available) && (
+            <div className="grid grid-cols-2 gap-4">
+              {form.details.pickup_available && (
+                <div>
+                  <label className="block text-xs text-stone-500 mb-1">Pickup fee ($)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.details.pickup_fee || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, details: { ...prev.details, pickup_fee: e.target.value } }))}
+                    placeholder="0 (free)"
+                  />
+                </div>
+              )}
+              {form.details.dropoff_available && (
+                <div>
+                  <label className="block text-xs text-stone-500 mb-1">Dropoff fee ($)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.details.dropoff_fee || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, details: { ...prev.details, dropoff_fee: e.target.value } }))}
+                    placeholder="0 (free)"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       <div>
