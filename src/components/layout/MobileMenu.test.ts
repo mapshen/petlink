@@ -12,11 +12,15 @@ function isNavItemActive(itemPath: string, currentPath: string): boolean {
 }
 
 function getVisibleNavItems(
-  baseItems: readonly NavItem[],
   user: { is_admin?: boolean } | null
 ): readonly NavItem[] {
-  const items = [...baseItems];
+  const items: NavItem[] = [];
   if (user) {
+    items.push({ name: 'Home', path: '/home' });
+  }
+  items.push({ name: 'Search', path: '/search' });
+  if (user) {
+    items.push({ name: 'Messages', path: '/messages' });
     items.push({ name: 'Wallet', path: '/wallet' });
   }
   if (user?.is_admin) {
@@ -26,12 +30,6 @@ function getVisibleNavItems(
 }
 
 describe('MobileMenu nav item logic', () => {
-  const baseItems: NavItem[] = [
-    { name: 'Search', path: '/search' },
-    { name: 'Home', path: '/home' },
-    { name: 'Messages', path: '/messages' },
-  ];
-
   describe('isNavItemActive', () => {
     it('returns true when paths match', () => {
       expect(isNavItemActive('/search', '/search')).toBe(true);
@@ -47,28 +45,33 @@ describe('MobileMenu nav item logic', () => {
   });
 
   describe('getVisibleNavItems', () => {
-    it('shows base items when no user logged in', () => {
-      const items = getVisibleNavItems(baseItems, null);
-      expect(items).toHaveLength(3);
-      expect(items.map((i) => i.name)).toEqual(['Search', 'Home', 'Messages']);
+    it('shows only Search when no user logged in', () => {
+      const items = getVisibleNavItems(null);
+      expect(items).toHaveLength(1);
+      expect(items.map((i) => i.name)).toEqual(['Search']);
     });
 
-    it('includes Wallet for logged-in user', () => {
-      const items = getVisibleNavItems(baseItems, {});
+    it('shows Home, Search, Messages, Wallet for logged-in user', () => {
+      const items = getVisibleNavItems({});
       expect(items).toHaveLength(4);
-      expect(items[3].name).toBe('Wallet');
+      expect(items.map((i) => i.name)).toEqual(['Home', 'Search', 'Messages', 'Wallet']);
     });
 
     it('includes Admin for admin user', () => {
-      const items = getVisibleNavItems(baseItems, { is_admin: true });
+      const items = getVisibleNavItems({ is_admin: true });
       expect(items).toHaveLength(5);
       expect(items[4].name).toBe('Admin');
     });
 
     it('does not include Admin for non-admin user', () => {
-      const items = getVisibleNavItems(baseItems, { is_admin: false });
+      const items = getVisibleNavItems({ is_admin: false });
       expect(items).toHaveLength(4);
       expect(items.find((i) => i.name === 'Admin')).toBeUndefined();
+    });
+
+    it('Home is first for logged-in users', () => {
+      const items = getVisibleNavItems({});
+      expect(items[0].name).toBe('Home');
     });
   });
 });

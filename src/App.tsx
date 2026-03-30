@@ -4,9 +4,17 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './context/AuthContext';
 import { ModeProvider } from './context/ModeContext';
 import Layout from './components/layout/Layout';
-import Home from './pages/Home';
+import LandingPage from './pages/Home';
 import Login from './pages/auth/Login';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
+
+function HomeOrLanding() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/home" replace />;
+  return <LandingPage />;
+}
 import AdminRoute from './components/auth/AdminRoute';
 
 const Search = React.lazy(() => import('./pages/search/Search'));
@@ -44,7 +52,7 @@ export default function App() {
           <Layout>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
-                <Route path="/" element={<Home />} />
+                <Route path="/" element={<HomeOrLanding />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/sitter/:id" element={<SitterProfile />} />

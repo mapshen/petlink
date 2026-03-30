@@ -23,10 +23,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isSitter = mode === 'sitter' || (user?.roles?.includes('sitter') ?? false);
 
   const navItems = [
-    { name: 'Search', path: '/search', icon: MapPin },
-    { name: 'Home', path: '/home', icon: Calendar },
-    { name: 'Messages', path: '/messages', icon: MessageSquare },
     ...(user ? [
+      { name: 'Home', path: '/home', icon: Calendar },
+    ] : []),
+    { name: 'Search', path: '/search', icon: MapPin },
+    ...(user ? [
+      { name: 'Messages', path: '/messages', icon: MessageSquare },
       { name: 'Wallet', path: '/wallet', icon: Wallet },
     ] : []),
     ...(user?.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
