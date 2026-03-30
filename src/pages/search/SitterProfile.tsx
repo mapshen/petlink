@@ -2,6 +2,9 @@ import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview } from '../../types';
 import ImportedReviewBadge from '../../components/profile/ImportedReviewBadge';
+import SubRatingBars from '../../components/review/SubRatingBars';
+import SubRatingPills from '../../components/review/SubRatingPills';
+import ReviewResponse from '../../components/review/ReviewResponse';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle, Home, Award, PawPrint, CreditCard } from 'lucide-react';
 import { API_BASE } from '../../config';
@@ -353,13 +356,21 @@ export default function SitterProfile() {
 
           <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
             <h2 className="text-xl font-bold mb-6 text-stone-900">Reviews</h2>
+
+            {/* Sub-rating breakdown bars */}
+            {reviews.length > 0 && (
+              <div className="mb-6 p-4 bg-stone-50 rounded-xl border border-stone-200">
+                <SubRatingBars reviews={reviews} />
+              </div>
+            )}
+
             <div className="space-y-6">
               {reviews.map((review) => (
                 <div key={review.id} className="border-b border-stone-100 pb-6 last:border-0 last:pb-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <img 
-                      src={review.reviewer_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.reviewer_name)}`} 
-                      alt={review.reviewer_name} 
+                    <img
+                      src={review.reviewer_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.reviewer_name ?? 'U')}`}
+                      alt={review.reviewer_name ?? 'Reviewer'}
                       className="w-10 h-10 rounded-full"
                     />
                     <div>
@@ -374,7 +385,15 @@ export default function SitterProfile() {
                       {new Date(review.created_at).toLocaleDateString()}
                     </div>
                   </div>
-                  <p className="text-stone-600 text-sm">{review.comment}</p>
+                  <SubRatingPills review={review} />
+                  {review.comment && <p className="text-stone-600 text-sm mt-2">{review.comment}</p>}
+                  {review.response_text && review.response_at && sitter && (
+                    <ReviewResponse
+                      responseText={review.response_text}
+                      responseAt={review.response_at}
+                      respondentName={sitter.name}
+                    />
+                  )}
                 </div>
               ))}
               {reviews.length === 0 && importedReviews.length === 0 && (

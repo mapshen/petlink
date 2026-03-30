@@ -3,6 +3,7 @@ import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Booking } from '../../types';
 import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2 } from 'lucide-react';
+import BookingReviewDetail from '../../components/review/BookingReviewDetail';
 
 const AnalyticsPage = lazy(() => import('../sitter/AnalyticsPage'));
 const PromotePage = lazy(() => import('../sitter/PromotePage'));
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [cancelDialogBookingId, setCancelDialogBookingId] = useState<number | null>(null);
   const [refundMessage, setRefundMessage] = useState<string | null>(null);
+  const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
@@ -49,7 +51,7 @@ export default function Dashboard() {
   const isSitterMode = mode === 'sitter';
   const onboarding = useOnboardingStatus();
   const { favorites, toggleFavorite } = useFavorites();
-  const review = useReviewDialog({ token, onError: setError });
+  const review = useReviewDialog({ token, onError: setError, reviewerRole: isSitterMode ? 'sitter' : 'owner' });
 
   useEffect(() => {
     if (!user) return;
@@ -260,17 +262,6 @@ export default function Dashboard() {
                           </Button>
                         )}
 
-                        {booking.status === 'completed' && !review.isReviewed(booking.id) && (
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            onClick={() => review.openReview(booking.id)}
-                          >
-                            <Star className="w-3.5 h-3.5" />
-                            Leave Review
-                          </Button>
-                        )}
-
                         {booking.status === 'completed' && (
                           <Button size="xs" variant="outline" asChild>
                             <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
@@ -285,6 +276,26 @@ export default function Dashboard() {
                     {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
                       <div className="mt-4">
                         <CareTasksChecklist bookingId={booking.id} token={token} isSitter={false} />
+                      </div>
+                    )}
+
+                    {booking.status === 'completed' && (
+                      <div className="mt-3 pt-3 border-t border-stone-100">
+                        <button
+                          onClick={() => setExpandedReviewId(expandedReviewId === booking.id ? null : booking.id)}
+                          className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                          {expandedReviewId === booking.id ? 'Hide Reviews' : 'Show Reviews'}
+                        </button>
+                        {expandedReviewId === booking.id && (
+                          <BookingReviewDetail
+                            bookingId={booking.id}
+                            userId={user?.id ?? 0}
+                            token={token}
+                            onLeaveReview={(id) => review.openReview(id)}
+                          />
+                        )}
                       </div>
                     )}
                   </div>
@@ -337,7 +348,7 @@ export default function Dashboard() {
           </AlertDialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <label className="text-sm font-medium text-stone-700 mb-2 block">Rating</label>
+              <label className="text-sm font-medium text-stone-700 mb-2 block">Overall Rating</label>
               <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -351,6 +362,33 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+
+            {/* Sub-ratings */}
+            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200">
+              <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-2.5 block">
+                Rate specific areas (optional)
+              </label>
+              <div className="space-y-2.5">
+                {review.subRatingCategories.map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <span className="text-xs text-stone-700">{label}</span>
+                    <div className="flex gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => review.setSubRating(key, review.subRatings[key] === star ? null : star)}
+                          aria-label={`Rate ${label} ${star} star${star > 1 ? 's' : ''}`}
+                          className="p-0.5"
+                        >
+                          <Star className={`w-5 h-5 ${star <= (review.subRatings[key] ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-stone-200 hover:text-amber-200'}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label htmlFor="review-comment" className="text-sm font-medium text-stone-700 mb-2 block">Comment (optional)</label>
               <textarea
@@ -362,6 +400,10 @@ export default function Dashboard() {
                 maxLength={1000}
                 className="w-full px-3 py-2 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
+              <p className="text-[10px] text-blue-700">🔒 Your review will be visible after both parties submit or after 3 days.</p>
             </div>
           </div>
           <AlertDialogFooter>

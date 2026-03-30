@@ -3,13 +3,12 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { User as UserIcon, PawPrint, DollarSign, Camera, Star, Crown, Import, Trash2 } from 'lucide-react';
+import { User as UserIcon, PawPrint, DollarSign, Camera, Crown, Import, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProfileTab from './ProfileTab';
 import PetsTab from './PetsTab';
 import ServicesTab from './ServicesTab';
 import PhotosTab from './PhotosTab';
-import ReviewsTab from './ReviewsTab';
 import SubscriptionPage from './SubscriptionPage';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { API_BASE } from '../../config';
@@ -37,7 +36,6 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'pets', label: 'My Pets', icon: PawPrint, mode: 'owner' },
   { id: 'services', label: 'Services', icon: DollarSign, mode: 'sitter' },
   { id: 'photos', label: 'Photos', icon: Camera, mode: 'sitter' },
-  { id: 'reviews', label: 'Reviews', icon: Star, mode: 'sitter' },
   { id: 'pro', label: 'Pro', icon: Crown, mode: 'sitter' },
 ];
 
@@ -178,12 +176,6 @@ export default function ProfilePage() {
                 className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24"
               >
                 <PhotosTab />
-              </div>
-              <div
-                id="section-reviews"
-                className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24"
-              >
-                <ReviewsTab />
               </div>
               <div
                 id="section-pro"

@@ -44,7 +44,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
 | Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read) |
-| Reviews | `POST /reviews` (3-day blind window), `GET /reviews/:userId` (auth required) |
+| Reviews | `POST /reviews` (3-day blind window, optional sub-ratings), `GET /reviews/:userId` (auth required), `GET /reviews/booking/:bookingId` (both reviews + can_review/can_respond), `PUT /reviews/:id/respond` |
 | Verification | `GET /verification/me`, `POST /verification/start`, `PUT /verification/update`, `GET /verification/:sitterId` |
 | Availability | `GET /availability/:sitterId`, `POST /availability`, `DELETE /availability/:id` |
 | Sitter Photos | `GET /sitter-photos/:sitterId`, `POST /sitter-photos`, `PUT/DELETE /sitter-photos/:id` |
@@ -73,7 +73,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
   - `admin/` — AdminPage (sitter approval management)
   - `dashboard/` — Dashboard (bookings, reviews, favorites, onboarding checklist)
   - `search/` — Search, SitterProfile
-  - `profile/` — ProfilePage (sidebar + stacked sections), ProfileTab, PetsTab, ServicesTab, PhotosTab, ReviewsTab, SubscriptionPage, ImportProfilePage
+  - `profile/` — ProfilePage (sidebar + stacked sections), ProfileTab, PetsTab, ServicesTab, PhotosTab, SubscriptionPage, ImportProfilePage
   - `messages/` — Messages
   - `payments/` — WalletPage, PaymentHistoryPage
   - `sitter/` — AnalyticsPage, PromotePage, TrackWalk
@@ -85,6 +85,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
   - `payment/` — PaymentForm, PaymentMethodSelector, SubscriptionPaymentForm, SavedPaymentMethods, BankAccountManager
   - `profile/` — PhotoGallery, FavoriteButton, FavoriteSitters, LinkedAccounts, ImportedReviewBadge, CareInstructionsEditor
   - `onboarding/` — OnboardingChecklist, OnboardingProgress, OAuthButtons
+  - `review/` — SubRatingPills, SubRatingBars, ReviewResponse, ReviewCard, BookingReviewDetail
   - `map/` — SitterClusterMap, SitterLocationMap, MapViewToggle
   - `ui/` — shadcn components
 - **Hooks**: `useFavorites`, `useOnboardingStatus`, `useImageUpload`, `useVideoUpload`, `usePaymentIntent`
@@ -106,7 +107,7 @@ PostgreSQL with PostGIS.
 | `booking_pets` | Junction table for multi-pet bookings |
 | `booking_care_tasks` | Checklist items auto-populated from pet care instructions |
 | `messages` | sender_id, receiver_id, content |
-| `reviews` | Double-blind reviews with `published_at` gating |
+| `reviews` | Double-blind reviews with `published_at` gating, sub-ratings (`pet_care_rating`, `communication_rating`, `reliability_rating`, `pet_accuracy_rating`, `preparedness_rating`), reviewee response (`response_text`, `response_at`) |
 | `availability` | Sitter availability windows |
 | `walk_events` | GPS tracking, `photo_url`, `video_url`, `video` event type (max 5 clips/booking, 15s/10MB limit) |
 | `verifications` | ID check, background check (Checkr integration) |

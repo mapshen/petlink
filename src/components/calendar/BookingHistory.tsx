@@ -1,9 +1,11 @@
-import React from 'react';
-import { Search, ChevronLeft, ChevronRight, Calendar, Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, ChevronLeft, ChevronRight, Calendar, Loader2, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { useBookingHistory, type BookingHistoryItem } from '../../hooks/useBookingHistory';
+import { useAuth } from '../../context/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Button } from '../ui/button';
+import BookingReviewDetail from '../review/BookingReviewDetail';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
@@ -49,44 +51,83 @@ function formatStatusLabel(status: string): string {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function BookingRow({ booking }: { readonly booking: BookingHistoryItem }) {
+interface BookingRowProps {
+  readonly booking: BookingHistoryItem;
+  readonly expanded: boolean;
+  readonly onToggle: () => void;
+  readonly userId: number;
+  readonly token: string | null;
+  readonly onLeaveReview?: (bookingId: number) => void;
+}
+
+function BookingRow({ booking, expanded, onToggle, userId, token, onLeaveReview }: BookingRowProps) {
+  const isCompleted = booking.status === 'completed';
+
   return (
-    <tr className="border-b border-stone-100 hover:bg-stone-50 transition-colors">
-      <td className="px-4 py-3 text-xs text-stone-700 whitespace-nowrap">
-        {formatBookingDate(booking.start_time)}
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Avatar className="h-7 w-7 border border-stone-200">
-            <AvatarImage src={booking.owner_avatar || undefined} alt={booking.owner_name || 'Customer'} />
-            <AvatarFallback className="text-[10px]">
-              {booking.owner_name?.charAt(0)?.toUpperCase() || '?'}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-xs text-stone-700 truncate max-w-[120px]">
-            {booking.owner_name || 'Unknown'}
+    <>
+      <tr
+        className={`border-b border-stone-100 hover:bg-stone-50 transition-colors ${isCompleted ? 'cursor-pointer' : ''}`}
+        onClick={isCompleted ? onToggle : undefined}
+      >
+        <td className="px-4 py-3 text-xs text-stone-700 whitespace-nowrap">
+          {formatBookingDate(booking.start_time)}
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Avatar className="h-7 w-7 border border-stone-200">
+              <AvatarImage src={booking.owner_avatar || undefined} alt={booking.owner_name || 'Customer'} />
+              <AvatarFallback className="text-[10px]">
+                {booking.owner_name?.charAt(0)?.toUpperCase() || '?'}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-xs text-stone-700 truncate max-w-[120px]">
+              {booking.owner_name || 'Unknown'}
+            </span>
+          </div>
+        </td>
+        <td className="px-4 py-3 text-xs text-stone-600 capitalize whitespace-nowrap">
+          {formatServiceType(booking.service_type)}
+        </td>
+        <td className="px-4 py-3 text-xs text-stone-500 truncate max-w-[150px]">
+          {booking.pets.length > 0 ? booking.pets.map((p) => p.name).join(', ') : '-'}
+        </td>
+        <td className="px-4 py-3">
+          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${getStatusBadgeClasses(booking.status)}`}>
+            {formatStatusLabel(booking.status)}
           </span>
-        </div>
-      </td>
-      <td className="px-4 py-3 text-xs text-stone-600 capitalize whitespace-nowrap">
-        {formatServiceType(booking.service_type)}
-      </td>
-      <td className="px-4 py-3 text-xs text-stone-500 truncate max-w-[150px]">
-        {booking.pets.length > 0 ? booking.pets.map((p) => p.name).join(', ') : '-'}
-      </td>
-      <td className="px-4 py-3">
-        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${getStatusBadgeClasses(booking.status)}`}>
-          {formatStatusLabel(booking.status)}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-xs font-medium text-stone-800 text-right whitespace-nowrap">
-        {formatCurrency(booking.total_price)}
-      </td>
-    </tr>
+        </td>
+        <td className="px-4 py-3 text-xs font-medium text-stone-800 text-right whitespace-nowrap">
+          {formatCurrency(booking.total_price)}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {isCompleted ? (
+            <ChevronDown className={`w-3.5 h-3.5 text-stone-400 inline-block transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          ) : (
+            <span className="text-[10px] text-stone-300">—</span>
+          )}
+        </td>
+      </tr>
+      {expanded && isCompleted && (
+        <tr className="bg-stone-50/50 border-b border-stone-100">
+          <td colSpan={7} className="px-4 py-0">
+            <div className="py-4 pl-8 pr-4">
+              <BookingReviewDetail
+                bookingId={booking.id}
+                userId={userId}
+                token={token}
+                onLeaveReview={onLeaveReview}
+                compact
+              />
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
 export default function BookingHistory() {
+  const { user, token } = useAuth();
   const {
     bookings,
     total,
@@ -99,11 +140,13 @@ export default function BookingHistory() {
     setSearch,
     setPage,
   } = useBookingHistory();
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const { page, limit, search, startDate, endDate, status } = filters;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const showingFrom = total === 0 ? 0 : (page - 1) * limit + 1;
   const showingTo = Math.min(page * limit, total);
+
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
@@ -182,11 +225,19 @@ export default function BookingHistory() {
                   <th className="px-4 py-2 text-left text-[10px] font-medium text-stone-500 uppercase tracking-wider">Pets</th>
                   <th className="px-4 py-2 text-left text-[10px] font-medium text-stone-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-2 text-right text-[10px] font-medium text-stone-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-2 text-center text-[10px] font-medium text-stone-500 uppercase tracking-wider">Review</th>
                 </tr>
               </thead>
               <tbody>
                 {bookings.map((booking) => (
-                  <BookingRow key={booking.id} booking={booking} />
+                  <BookingRow
+                    key={booking.id}
+                    booking={booking}
+                    expanded={expandedId === booking.id}
+                    onToggle={() => setExpandedId(expandedId === booking.id ? null : booking.id)}
+                    userId={user?.id ?? 0}
+                    token={token}
+                  />
                 ))}
               </tbody>
             </table>

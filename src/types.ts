@@ -207,9 +207,26 @@ export interface Review {
   reviewee_id: number;
   rating: number;
   comment?: string;
+  pet_care_rating?: number | null;
+  communication_rating?: number | null;
+  reliability_rating?: number | null;
+  pet_accuracy_rating?: number | null;
+  preparedness_rating?: number | null;
+  response_text?: string | null;
+  response_at?: string | null;
   created_at: string;
+  published_at?: string | null;
   reviewer_name?: string;
   reviewer_avatar?: string;
+  reviewee_name?: string;
+  reviewee_avatar?: string;
+  service_type?: string;
+}
+
+export interface BookingReviewState {
+  reviews: Review[];
+  can_review: boolean;
+  can_respond: Record<number, boolean>;
 }
 
 export interface Availability {
