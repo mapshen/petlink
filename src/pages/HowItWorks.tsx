@@ -6,7 +6,7 @@ interface StepProps {
   readonly step: number;
   readonly title: string;
   readonly description: string;
-  readonly features: string[];
+  readonly features: readonly string[];
   readonly icon: React.ReactNode;
   readonly reversed?: boolean;
 }
@@ -39,7 +39,7 @@ function Step({ step, title, description, features, icon, reversed }: StepProps)
   );
 
   return (
-    <div className={`flex gap-10 items-center py-12 ${reversed ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex flex-col md:flex-row gap-10 items-center py-12 ${reversed ? 'md:flex-row-reverse' : ''}`}>
       {content}
       {illustration}
     </div>
