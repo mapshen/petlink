@@ -1,4 +1,4 @@
-import React, { useEffect, useState, lazy, Suspense } from 'react';
+import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Booking } from '../../types';
@@ -20,7 +20,9 @@ import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
 import { useHomeStats } from '../../hooks/useHomeStats';
 import { OwnerStatsRow, SitterStatsRow } from '../../components/home/HomeStats';
 import TodaySchedule from '../../components/home/TodaySchedule';
+import NeedsAttention from '../../components/home/NeedsAttention';
 import { useTodaySchedule } from '../../hooks/useTodaySchedule';
+import { buildAttentionItems } from '../../hooks/attentionItemsUtils';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
@@ -56,6 +58,29 @@ export default function HomePage() {
   const review = useReviewDialog({ token, onError: setError, reviewerRole: isSitterMode ? 'sitter' : 'owner' });
   const homeStats = useHomeStats(bookings);
   const schedule = useTodaySchedule(bookings);
+
+  const attentionItems = useMemo(() => {
+    if (!user) return [];
+    const tasks = schedule.timeline
+      .filter((item) => item.type === 'care_task')
+      .map((item) => ({
+        id: item.id,
+        scheduled_time: item.data.scheduled_time as string | null,
+        completed: item.data.completed as boolean,
+        description: item.data.description as string,
+        pet_name: item.data.pet_name as string,
+        category: item.data.category as string,
+        booking_id: item.data.booking_id as number,
+        notes: item.data.notes as string | null,
+      }));
+    const reviewedIds = new Set(
+      bookings.filter((b) => b.status === 'completed' && review.isReviewed(b.id)).map((b) => b.id),
+    );
+    return buildAttentionItems(tasks, bookings, user.id, isSitterMode, reviewedIds);
+  }, [schedule.timeline, bookings, user, isSitterMode, review]);
+
+  const handleAcceptBooking = (bookingId: number) => updateBookingStatus(bookingId, 'confirmed');
+  const handleDeclineBooking = (bookingId: number) => updateBookingStatus(bookingId, 'cancelled');
 
   const handleCompleteTask = async (taskId: number, bookingId: number, completed: boolean) => {
     const endpoint = completed ? 'complete' : 'uncomplete';
@@ -159,6 +184,16 @@ export default function HomePage() {
           <AlertDescription>{homeStats.error}</AlertDescription>
         </Alert>
       )}
+
+      <NeedsAttention
+        items={attentionItems}
+        isSitter={isSitterMode}
+        updatingIds={updatingIds}
+        onAcceptBooking={handleAcceptBooking}
+        onDeclineBooking={handleDeclineBooking}
+        onCompleteTask={handleCompleteTask}
+        onReview={review.openReview}
+      />
 
       <div className="mb-6">
         <TodaySchedule
