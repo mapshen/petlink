@@ -50,7 +50,7 @@ const PROVIDERS: { id: OAuthProvider; label: string; icon: React.ReactNode; colo
   },
 ];
 
-export default function LinkedAccounts() {
+export default function LinkedAccounts({ embedded = false }: { readonly embedded?: boolean } = {}) {
   const { token } = useAuth();
   const [accounts, setAccounts] = useState<LinkedAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,11 +98,11 @@ export default function LinkedAccounts() {
     }
   };
 
-  if (loading) return null;
+  if (loading) return <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-stone-400" /></div>;
 
   return (
-    <div className="mt-8 pt-6 border-t border-stone-100">
-      <h3 className="text-sm font-bold text-stone-900 mb-4">Linked Accounts</h3>
+    <div className={embedded ? '' : 'mt-8 pt-6 border-t border-stone-100'}>
+      {!embedded && <h3 className="text-sm font-bold text-stone-900 mb-4">Linked Accounts</h3>}
 
       {error && (
         <div className="text-xs text-red-600 mb-3 bg-red-50 p-2 rounded-lg">
