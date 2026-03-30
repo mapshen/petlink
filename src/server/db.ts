@@ -546,7 +546,7 @@ export async function initDb() {
         WHEN role::text IN ('sitter', 'both') THEN '{owner,sitter}'::text[]
         ELSE '{owner}'::text[]
       END
-      WHERE roles = '{owner}'
+      WHERE NOT (roles @> '{sitter}'::text[])
     `.catch(() => {});
     await sql`ALTER TABLE users DROP COLUMN IF EXISTS role`.catch(() => {});
   }

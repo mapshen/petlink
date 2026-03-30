@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 
 type Mode = 'owner' | 'sitter';
@@ -18,6 +18,10 @@ const ModeContext = createContext<ModeContextType>({
 export function ModeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
+  const rolesKey = useMemo(
+    () => user?.roles?.slice().sort().join(',') ?? '',
+    [user?.roles]
+  );
   const hasOwner = user?.roles?.includes('owner') ?? false;
   const hasSitter = user?.roles?.includes('sitter') ?? false;
   const canToggle = hasOwner && hasSitter;
@@ -47,7 +51,7 @@ export function ModeProvider({ children }: { children: React.ReactNode }) {
     } else {
       setModeState('owner');
     }
-  }, [user?.roles?.slice().sort().join(',')]);
+  }, [rolesKey]);
 
   const setMode = useCallback((newMode: Mode) => {
     setModeState(newMode);
