@@ -9,6 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { initDb } from './src/server/db.ts';
+import { startCareTaskReminderScheduler, stopCareTaskReminderScheduler } from './src/server/care-task-reminders.ts';
 import sql from './src/server/db.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/server/rate-limit.ts';
 import {
@@ -190,9 +191,11 @@ async function startServer() {
 
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    startCareTaskReminderScheduler(io);
   });
 
   const shutdown = () => {
+    stopCareTaskReminderScheduler();
     io.close();
     httpServer.close(() => {
       sql.end({ timeout: 5 }).then(() => process.exit(0)).catch(() => process.exit(1));

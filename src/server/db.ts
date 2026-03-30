@@ -473,6 +473,7 @@ export async function initDb() {
   // Care task scheduling: absolute scheduled_time for timeline and notifications
   await sql`ALTER TABLE booking_care_tasks ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_scheduled_time ON booking_care_tasks (scheduled_time) WHERE scheduled_time IS NOT NULL`.catch(() => {});
+  await sql`ALTER TABLE booking_care_tasks ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ`.catch(() => {});
 
   // Issue #111: Checkr background check integration
   await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_candidate_id TEXT`.catch(() => {});
@@ -634,6 +635,7 @@ export async function initDb() {
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'payment_update'`.catch(() => {});
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'verification_update'`.catch(() => {});
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'account_update'`.catch(() => {});
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'care_task_reminder'`.catch(() => {});
 
   // Performance indexes (#186)
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_sitter_status ON bookings(sitter_id, status)`.catch(() => {});
