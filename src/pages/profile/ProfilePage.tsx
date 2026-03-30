@@ -13,6 +13,7 @@ import AvailabilityTab from './AvailabilityTab';
 import LocationTab from './LocationTab';
 import PoliciesTab from './PoliciesTab';
 import SitterPreview from '../../components/profile/SitterPreview';
+import ProfileStrength from '../../components/profile/ProfileStrength';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useSitterPreviewData } from '../../hooks/useSitterPreviewData';
 
@@ -182,6 +183,11 @@ export default function ProfilePage() {
         {isSitterMode && (
           <div className="hidden lg:block">
             <SitterPreview
+              user={user}
+              services={previewData.services}
+              photos={previewData.photos}
+            />
+            <ProfileStrength
               user={user}
               services={previewData.services}
               photos={previewData.photos}
