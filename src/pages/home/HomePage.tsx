@@ -20,7 +20,9 @@ import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
 import { useHomeStats } from '../../hooks/useHomeStats';
 import { OwnerStatsRow, SitterStatsRow } from '../../components/home/HomeStats';
 import TodaySchedule from '../../components/home/TodaySchedule';
+import NeedsAttention from '../../components/home/NeedsAttention';
 import { useTodaySchedule } from '../../hooks/useTodaySchedule';
+import { buildAttentionItems } from '../../hooks/attentionItemsUtils';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
@@ -56,6 +58,44 @@ export default function HomePage() {
   const review = useReviewDialog({ token, onError: setError, reviewerRole: isSitterMode ? 'sitter' : 'owner' });
   const homeStats = useHomeStats(bookings);
   const schedule = useTodaySchedule(bookings);
+
+  const careTasks = schedule.timeline
+    .filter((item) => item.type === 'care_task')
+    .map((item) => item.data as Record<string, unknown>);
+  const reviewedBookingIds = new Set(
+    bookings.filter((b) => b.status === 'completed' && review.isReviewed(b.id)).map((b) => b.id),
+  );
+  const attentionItems = user
+    ? buildAttentionItems(careTasks as any[], bookings, user.id, isSitterMode, reviewedBookingIds)
+    : [];
+
+  const handleAcceptBooking = async (bookingId: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({ status: 'confirmed' }),
+      });
+      if (!res.ok) throw new Error('Failed to accept booking');
+      setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, status: 'confirmed' } : b)));
+    } catch {
+      setError('Failed to accept booking');
+    }
+  };
+
+  const handleDeclineBooking = async (bookingId: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+      if (!res.ok) throw new Error('Failed to decline booking');
+      setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, status: 'cancelled' } : b)));
+    } catch {
+      setError('Failed to decline booking');
+    }
+  };
 
   const handleCompleteTask = async (taskId: number, bookingId: number, completed: boolean) => {
     const endpoint = completed ? 'complete' : 'uncomplete';
@@ -159,6 +199,14 @@ export default function HomePage() {
           <AlertDescription>{homeStats.error}</AlertDescription>
         </Alert>
       )}
+
+      <NeedsAttention
+        items={attentionItems}
+        isSitter={isSitterMode}
+        onAcceptBooking={handleAcceptBooking}
+        onDeclineBooking={handleDeclineBooking}
+        onCompleteTask={handleCompleteTask}
+      />
 
       <div className="mb-6">
         <TodaySchedule
