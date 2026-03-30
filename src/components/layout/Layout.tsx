@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X } from 'lucide-react';
+import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X, HelpCircle } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import MobileMenu from './MobileMenu';
 import { clsx } from 'clsx';
@@ -22,14 +22,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const isSitter = mode === 'sitter' || (user?.roles?.includes('sitter') ?? false);
 
-  const navItems = [
-    { name: 'Search', path: '/search', icon: MapPin },
+  const navItems = user ? [
     { name: 'Home', path: '/home', icon: Calendar },
+    { name: 'Search', path: '/search', icon: MapPin },
     { name: 'Messages', path: '/messages', icon: MessageSquare },
-    ...(user ? [
-      { name: 'Wallet', path: '/wallet', icon: Wallet },
-    ] : []),
-    ...(user?.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
+    { name: 'Wallet', path: '/wallet', icon: Wallet },
+    ...(user.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
+  ] : [
+    { name: 'Search', path: '/search', icon: MapPin },
+    { name: 'How It Works', path: '/how-it-works', icon: HelpCircle },
   ];
 
   return (
@@ -124,6 +125,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-stone-500 font-medium">PetLink &copy; {new Date().getFullYear()}</span>
             </div>
             <div className="flex gap-6 text-sm text-stone-500">
+              <Link to="/how-it-works" className="hover:text-stone-900">How It Works</Link>
               <Link to="/privacy" className="hover:text-stone-900">Privacy</Link>
               <Link to="/terms" className="hover:text-stone-900">Terms</Link>
               <Link to="/sitemap" className="hover:text-stone-900">Sitemap</Link>
