@@ -122,6 +122,12 @@ export default function userRoutes(router: Router): void {
       WHERE reviewer_id = ${userId}
     `;
 
+    // 6. Clean up child data (soft delete doesn't trigger CASCADE)
+    await sql`DELETE FROM oauth_accounts WHERE user_id = ${userId}`.catch(() => {});
+    await sql`DELETE FROM favorites WHERE user_id = ${userId} OR sitter_id = ${userId}`.catch(() => {});
+    await sql`DELETE FROM notification_preferences WHERE user_id = ${userId}`.catch(() => {});
+    await sql`DELETE FROM push_subscriptions WHERE user_id = ${userId}`.catch(() => {});
+
     res.json({ success: true });
   });
 }
