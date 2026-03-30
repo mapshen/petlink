@@ -83,10 +83,11 @@ export default function HomePage() {
     for (const item of schedule.timeline) {
       if (item.type !== 'care_task') continue;
       const petName = item.data.pet_name as string;
-      const entry = tasksByPet.get(petName) || { completed: 0, total: 0 };
-      entry.total += 1;
-      if (item.data.completed) entry.completed += 1;
-      tasksByPet.set(petName, entry);
+      const prev = tasksByPet.get(petName) || { completed: 0, total: 0 };
+      tasksByPet.set(petName, {
+        completed: prev.completed + (item.data.completed ? 1 : 0),
+        total: prev.total + 1,
+      });
     }
     return Array.from(tasksByPet.entries()).map(([petName, counts]) => ({
       petName,
@@ -382,11 +383,10 @@ export default function HomePage() {
         </div>
 
         {/* Sidebar */}
-        <div className="hidden lg:block">
+        <div>
           <HomeSidebar
             isSitter={isSitterMode}
             favorites={favorites}
-            onToggleFavorite={toggleFavorite}
             onboarding={onboarding}
             checklistDismissed={checklistDismissed}
             onDismissChecklist={() => {

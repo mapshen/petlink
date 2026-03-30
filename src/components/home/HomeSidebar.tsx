@@ -1,15 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Search, PawPrint, MessageSquare, Calendar, BarChart3, Megaphone, Wallet } from 'lucide-react';
-import FavoriteSitters from '../profile/FavoriteSitters';
 import OnboardingChecklist from '../onboarding/OnboardingChecklist';
 import type { OnboardingStatus } from '../../hooks/useOnboardingStatus';
-
-interface Favorite {
-  sitter_id: number;
-  sitter_name: string;
-  sitter_avatar?: string | null;
-  sitter_bio?: string | null;
-}
+import type { FavoriteSitter } from '../../types';
 
 interface CareProgress {
   petName: string;
@@ -19,8 +12,7 @@ interface CareProgress {
 
 interface Props {
   readonly isSitter: boolean;
-  readonly favorites: Favorite[];
-  readonly onToggleFavorite: (sitterId: number) => void;
+  readonly favorites: FavoriteSitter[];
   readonly onboarding: OnboardingStatus;
   readonly checklistDismissed: boolean;
   readonly onDismissChecklist: () => void;
@@ -55,7 +47,13 @@ function CareProgressCard({ progress }: { readonly progress: CareProgress[] }) {
                 {p.completed}/{p.total} done
               </span>
             </div>
-            <div className="h-1 bg-stone-100 rounded-full">
+            <div
+              className="h-1 bg-stone-100 rounded-full"
+              role="progressbar"
+              aria-valuenow={p.completed}
+              aria-valuemax={p.total}
+              aria-label={`${p.petName} care progress`}
+            >
               <div
                 className={`h-1 rounded-full transition-all ${p.completed === p.total ? 'bg-emerald-500' : 'bg-amber-400'}`}
                 style={{ width: p.total > 0 ? `${(p.completed / p.total) * 100}%` : '0%' }}
@@ -68,7 +66,7 @@ function CareProgressCard({ progress }: { readonly progress: CareProgress[] }) {
   );
 }
 
-export default function HomeSidebar({ isSitter, favorites, onToggleFavorite, onboarding, checklistDismissed, onDismissChecklist, careProgress }: Props) {
+export default function HomeSidebar({ isSitter, favorites, onboarding, checklistDismissed, onDismissChecklist, careProgress }: Props) {
   return (
     <div className="flex flex-col gap-3">
       {/* Owner: Favorite Sitters */}
