@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
 
-// Test pure logic extracted from MobileMenu behavior
-
 interface NavItem {
   readonly name: string;
   readonly path: string;
@@ -14,16 +12,14 @@ function isNavItemActive(itemPath: string, currentPath: string): boolean {
 function getVisibleNavItems(
   user: { is_admin?: boolean } | null
 ): readonly NavItem[] {
-  const items: NavItem[] = [];
-  if (user) {
-    items.push({ name: 'Home', path: '/home' });
-  }
-  items.push({ name: 'Search', path: '/search' });
-  if (user) {
-    items.push({ name: 'Messages', path: '/messages' });
-    items.push({ name: 'Wallet', path: '/wallet' });
-  }
-  if (user?.is_admin) {
+  if (!user) return [];
+  const items: NavItem[] = [
+    { name: 'Home', path: '/home' },
+    { name: 'Search', path: '/search' },
+    { name: 'Messages', path: '/messages' },
+    { name: 'Wallet', path: '/wallet' },
+  ];
+  if (user.is_admin) {
     items.push({ name: 'Admin', path: '/admin' });
   }
   return items;
@@ -45,10 +41,9 @@ describe('MobileMenu nav item logic', () => {
   });
 
   describe('getVisibleNavItems', () => {
-    it('shows only Search when no user logged in', () => {
+    it('shows no nav items when no user logged in', () => {
       const items = getVisibleNavItems(null);
-      expect(items).toHaveLength(1);
-      expect(items.map((i) => i.name)).toEqual(['Search']);
+      expect(items).toHaveLength(0);
     });
 
     it('shows Home, Search, Messages, Wallet for logged-in user', () => {

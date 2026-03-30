@@ -22,17 +22,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const isSitter = mode === 'sitter' || (user?.roles?.includes('sitter') ?? false);
 
-  const navItems = [
-    ...(user ? [
-      { name: 'Home', path: '/home', icon: Calendar },
-    ] : []),
+  const navItems = user ? [
+    { name: 'Home', path: '/home', icon: Calendar },
     { name: 'Search', path: '/search', icon: MapPin },
-    ...(user ? [
-      { name: 'Messages', path: '/messages', icon: MessageSquare },
-      { name: 'Wallet', path: '/wallet', icon: Wallet },
-    ] : []),
-    ...(user?.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
-  ];
+    { name: 'Messages', path: '/messages', icon: MessageSquare },
+    { name: 'Wallet', path: '/wallet', icon: Wallet },
+    ...(user.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
+  ] : [];
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans text-stone-900 flex flex-col">
