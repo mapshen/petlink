@@ -43,6 +43,7 @@ export const updateProfileSchema = z.object({
   name: nameSchema('Name is required'),
   bio: z.string().optional().nullable(),
   avatar_url: z.string().url().optional().nullable().or(z.literal('')),
+  accepted_pet_sizes: z.array(z.enum(['small', 'medium', 'large', 'giant'])).optional(),
   accepted_species: z.array(z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal'])).optional(),
   years_experience: z.number().int().min(0).max(50).optional().nullable(),
   home_type: z.enum(homeTypes).optional().nullable(),

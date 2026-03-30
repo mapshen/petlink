@@ -110,14 +110,21 @@ export default function SitterPreview({ user, services, photos }: Props) {
         </div>
       </div>
 
-      {/* View Public Profile link */}
-      <Link
-        to={`/sitter/${user.slug || user.id}`}
-        className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-stone-500 hover:text-emerald-600 transition-colors"
-      >
-        <Eye className="w-3.5 h-3.5" />
-        View full public profile
-      </Link>
+      {/* View Public Profile link — only for approved sitters */}
+      {user.approval_status === 'approved' && (
+        <Link
+          to={`/sitter/${user.slug || user.id}`}
+          className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-stone-500 hover:text-emerald-600 transition-colors"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          View full public profile
+        </Link>
+      )}
+      {user.approval_status !== 'approved' && (
+        <p className="mt-3 text-center text-xs text-stone-400">
+          Public profile visible after approval
+        </p>
+      )}
     </div>
   );
 }
