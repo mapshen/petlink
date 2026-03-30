@@ -34,8 +34,8 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 
-export default function Dashboard() {
-  useDocumentTitle('Dashboard');
+export default function HomePage() {
+  useDocumentTitle('Home');
   const { user, token } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +125,7 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="text-3xl font-bold text-stone-900 mb-8">Dashboard</h1>
+      <h1 className="text-3xl font-bold text-stone-900 mb-8">Home</h1>
 
       {isSitterMode && user?.approval_status === 'approved' && (
         <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>

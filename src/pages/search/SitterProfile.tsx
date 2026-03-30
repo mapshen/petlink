@@ -174,7 +174,7 @@ export default function SitterProfile() {
       const isFree = selectedSvcObj?.type === 'meet_greet' || selectedSvcObj?.price === 0;
 
       if (isFree) {
-        navigate('/dashboard');
+        navigate('/home');
         return;
       }
 
@@ -190,10 +190,10 @@ export default function SitterProfile() {
           return;
         }
         // Payment setup failed — show the specific error
-        setBookingError(`Booking created but payment setup failed: ${result.error || 'unknown error'}. You can pay later from the dashboard.`);
+        setBookingError(`Booking created but payment setup failed: ${result.error || 'unknown error'}. You can pay later from the Home page.`);
         return;
       } else {
-        navigate('/dashboard');
+        navigate('/home');
       }
     } catch (err) {
       setBookingError(err instanceof Error ? err.message : 'Failed to create booking. Please try again.');
@@ -585,7 +585,7 @@ export default function SitterProfile() {
               amount={paymentAmount}
               onSuccess={() => {
                 setShowPayment(false);
-                navigate('/dashboard');
+                navigate('/home');
               }}
               onError={(msg) => setBookingError(msg)}
             />
@@ -601,7 +601,7 @@ export default function SitterProfile() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {
               setShowPayment(false);
-              navigate('/dashboard');
+              navigate('/home');
             }}>
               Pay Later
             </AlertDialogCancel>

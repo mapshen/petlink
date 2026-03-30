@@ -65,7 +65,7 @@ describe('ProfilePage section visibility', () => {
   });
 });
 
-describe('Dashboard booking filtering logic', () => {
+describe('Home page booking filtering logic', () => {
   interface Booking {
     id: number;
     sitter_id: number;
