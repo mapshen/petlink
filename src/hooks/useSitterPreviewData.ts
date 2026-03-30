@@ -1,29 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { API_BASE } from '../config';
-
-interface Service {
-  id: number;
-  type: string;
-  price: number;
-  description?: string;
-}
-
-interface SitterPhoto {
-  id: number;
-  photo_url: string;
-}
+import type { Service, SitterPhoto } from '../types';
 
 export function useSitterPreviewData() {
   const { user, token } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
   const [photos, setPhotos] = useState<SitterPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !token) return;
+    if (!user || !token) {
+      setLoading(false);
+      return;
+    }
 
     const isSitter = user.roles?.includes('sitter') ?? false;
-    if (!isSitter) return;
+    if (!isSitter) {
+      setLoading(false);
+      return;
+    }
 
     const controller = new AbortController();
     const headers = getAuthHeaders(token);
@@ -37,11 +33,14 @@ export function useSitterPreviewData() {
         if (controller.signal.aborted) return;
         setServices(svcData.services || []);
         setPhotos(photoData.photos || []);
+        setLoading(false);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
 
     return () => controller.abort();
   }, [user, token]);
 
-  return { services, photos };
+  return { services, photos, loading };
 }

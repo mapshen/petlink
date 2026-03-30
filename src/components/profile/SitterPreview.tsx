@@ -1,18 +1,6 @@
 import { Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { User } from '../../types';
-
-interface Service {
-  id: number;
-  type: string;
-  price: number;
-  description?: string;
-}
-
-interface SitterPhoto {
-  id: number;
-  photo_url: string;
-}
+import type { User, Service, SitterPhoto } from '../../types';
 
 interface Props {
   readonly user: User;
@@ -31,7 +19,7 @@ export default function SitterPreview({ user, services, photos }: Props) {
         <div className="px-4 py-3 border-b border-stone-100 bg-stone-50 flex justify-between items-center">
           <div className="flex items-center gap-1.5">
             <Eye className="w-3.5 h-3.5 text-stone-500" />
-            <span className="text-xs font-semibold text-stone-500">Live Preview</span>
+            <span className="text-xs font-semibold text-stone-500">Preview</span>
           </div>
           <span className="text-[10px] text-stone-400">How owners see you</span>
         </div>
@@ -45,7 +33,7 @@ export default function SitterPreview({ user, services, photos }: Props) {
               className="w-16 h-16 rounded-full border-2 border-emerald-50 mx-auto mb-2 object-cover"
             />
             <h3 className="text-lg font-extrabold">{user.name}</h3>
-            <div className="flex justify-content center gap-1.5 mt-1 flex-wrap justify-center">
+            <div className="flex gap-1.5 mt-1 flex-wrap justify-center">
               {user.avg_rating !== null && user.avg_rating !== undefined && (
                 <span className="bg-amber-50 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
                   {user.avg_rating.toFixed(1)} ({user.review_count || 0})
@@ -80,7 +68,7 @@ export default function SitterPreview({ user, services, photos }: Props) {
                 </span>
               )}
               {user.accepted_species?.map((s) => (
-                <span key={s} className="bg-stone-50 text-stone-600 text-[11px] px-2 py-0.5 rounded-md capitalize">{s.replace('_', ' ')}</span>
+                <span key={s} className="bg-stone-50 text-stone-600 text-[11px] px-2 py-0.5 rounded-md capitalize">{s.replace(/_/g, ' ')}</span>
               ))}
               {user.skills?.map((s) => (
                 <span key={s} className="bg-stone-50 text-stone-600 text-[11px] px-2 py-0.5 rounded-md capitalize">{s.replace(/_/g, ' ')}</span>

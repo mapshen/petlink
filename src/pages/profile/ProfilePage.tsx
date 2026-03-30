@@ -61,7 +61,7 @@ export default function ProfilePage() {
       </div>
 
       {/* 3-column grid: Nav | Edit | Preview */}
-      <div className={`grid gap-6 ${isSitterMode ? 'grid-cols-1 lg:grid-cols-[180px_1fr_340px]' : 'grid-cols-1 md:grid-cols-[180px_1fr]'}`}>
+      <div className={`grid gap-6 ${isSitterMode ? 'grid-cols-1 md:grid-cols-[180px_1fr] lg:grid-cols-[180px_1fr_340px]' : 'grid-cols-1 md:grid-cols-[180px_1fr]'}`}>
 
         {/* LEFT: Section Navigation */}
         <div>
