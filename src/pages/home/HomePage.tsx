@@ -59,12 +59,16 @@ export default function HomePage() {
 
   const handleCompleteTask = async (taskId: number, bookingId: number, completed: boolean) => {
     const endpoint = completed ? 'complete' : 'uncomplete';
+    schedule.updateTask(taskId, { completed, completed_at: completed ? new Date().toISOString() : null });
     try {
       const res = await fetch(`${API_BASE}/bookings/${bookingId}/care-tasks/${taskId}/${endpoint}`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
       });
-      if (!res.ok) throw new Error('Failed to update task');
+      if (!res.ok) {
+        schedule.updateTask(taskId, { completed: !completed, completed_at: null });
+        throw new Error('Failed to update task');
+      }
     } catch {
       setError('Failed to update care task');
     }

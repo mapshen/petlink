@@ -1,16 +1,15 @@
-import React from 'react';
 import { format } from 'date-fns';
 import { CheckCircle2, Circle, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { TimelineItem } from '../../hooks/useTodaySchedule';
 
 const CATEGORY_ICONS: Record<string, string> = {
-  feeding: '\uD83C\uDF5D',
-  medication: '\uD83D\uDC8A',
-  exercise: '\uD83C\uDFC3',
+  feeding: '\u{1F37D}\uFE0F',
+  medication: '\u{1F48A}',
+  exercise: '\u{1F3C3}',
   grooming: '\u2702\uFE0F',
-  behavioral: '\uD83E\uDDE0',
-  other: '\uD83D\uDCDD',
+  behavioral: '\u{1F9E0}',
+  other: '\u{1F4DD}',
 };
 
 interface Props {
@@ -156,9 +155,10 @@ function AvailabilityItem({ item }: { readonly item: TimelineItem }) {
 export default function TodaySchedule({ timeline, loading, error, isSitter, onCompleteTask }: Props) {
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl border border-stone-100 p-6">
+      <div className="bg-white rounded-2xl border border-stone-100 p-6" role="status" aria-live="polite">
         <div className="flex justify-center py-4">
-          <Clock className="w-5 h-5 animate-spin text-stone-400" />
+          <Clock className="w-5 h-5 animate-spin text-stone-400" aria-hidden="true" />
+          <span className="sr-only">Loading schedule...</span>
         </div>
       </div>
     );
@@ -172,7 +172,7 @@ export default function TodaySchedule({ timeline, loading, error, isSitter, onCo
       </div>
 
       {error && (
-        <div className="px-5 py-3 text-sm text-red-600 bg-red-50">{error}</div>
+        <div role="alert" className="px-5 py-3 text-sm text-red-600 bg-red-50">{error}</div>
       )}
 
       {timeline.length === 0 && !error && (

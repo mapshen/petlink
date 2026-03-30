@@ -139,6 +139,8 @@ export function useTodaySchedule(bookings: Booking[]) {
         }
       }
 
+      if (controller.signal.aborted) return;
+
       setTimeline(mergeTimeline(todayBookings, careTasks, availabilities));
       setLoading(false);
     };
@@ -153,5 +155,15 @@ export function useTodaySchedule(bookings: Booking[]) {
     return () => controller.abort();
   }, [user, token, mode, bookings]);
 
-  return { timeline, loading, error };
+  const updateTask = (taskId: number, patch: Record<string, unknown>) => {
+    setTimeline((prev) =>
+      prev.map((item) =>
+        item.type === 'care_task' && item.id === taskId
+          ? { ...item, data: { ...item.data, ...patch } }
+          : item,
+      ),
+    );
+  };
+
+  return { timeline, loading, error, updateTask };
 }
