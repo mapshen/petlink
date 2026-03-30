@@ -25,14 +25,6 @@ export async function initDb() {
   // Enable PostGIS in dedicated schema
   await sql`CREATE EXTENSION IF NOT EXISTS postgis SCHEMA ${sql(SCHEMA)}`.catch(() => {});
 
-  // Legacy: user_role enum no longer used — roles are stored as TEXT[]
-  // Keep the type around so ALTER TABLE migration doesn't fail on existing DBs
-  await sql`
-    DO $$ BEGIN
-      CREATE TYPE user_role AS ENUM ('owner', 'sitter', 'both');
-    EXCEPTION WHEN duplicate_object THEN null;
-    END $$
-  `;
   await sql`
     DO $$ BEGIN
       CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'in_progress', 'completed', 'cancelled');
@@ -534,22 +526,7 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users (approval_status)`.catch(() => {});
 
-  // Role system redesign: single role enum → additive roles array
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS roles TEXT[] NOT NULL DEFAULT '{owner}'`.catch(() => {});
-  const [hasOldRole] = await sql`
-    SELECT column_name FROM information_schema.columns
-    WHERE table_schema = ${SCHEMA} AND table_name = 'users' AND column_name = 'role'
-  `.catch(() => []);
-  if (hasOldRole) {
-    await sql`
-      UPDATE users SET roles = CASE
-        WHEN role::text IN ('sitter', 'both') THEN '{owner,sitter}'::text[]
-        ELSE '{owner}'::text[]
-      END
-      WHERE NOT (roles @> '{sitter}'::text[])
-    `.catch(() => {});
-    await sql`ALTER TABLE users DROP COLUMN IF EXISTS role`.catch(() => {});
-  }
+  // Roles constraint and index
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_roles_check`.catch(() => {});
   await sql`ALTER TABLE users ADD CONSTRAINT users_roles_check CHECK(roles <@ '{owner,sitter,admin}'::text[])`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_roles ON users USING GIN (roles)`.catch(() => {});
