@@ -15,6 +15,7 @@ function escapeHtml(str: string): string {
 export interface MapSitter {
   readonly id: number;
   readonly name: string;
+  readonly slug?: string;
   readonly avatar_url?: string;
   readonly lat?: number;
   readonly lng?: number;
@@ -120,7 +121,7 @@ function MarkerClusterWrapper({ sitters, serviceType, highlightedSitterId }: {
               ${sitter.price === 0 ? 'Free' : `$${sitter.price}`}
             </span>
           </div>
-          <a href="/sitter/${sitter.id}" style="display: block; text-align: center; background: #059669; color: white; font-size: 12px; font-weight: 500; padding: 6px; border-radius: 8px; text-decoration: none;">
+          <a href="/sitter/${sitter.slug || sitter.id}" style="display: block; text-align: center; background: #059669; color: white; font-size: 12px; font-weight: 500; padding: 6px; border-radius: 8px; text-decoration: none;">
             View Profile
           </a>
         </div>`;

@@ -68,9 +68,9 @@ export default function SitterProfile() {
     setSelectedTime(null);
   }, []);
 
-  // Track profile view on mount (fire-and-forget)
+  // Track profile view after sitter data loads (uses numeric ID)
   useEffect(() => {
-    if (!id) return;
+    if (!sitter) return;
     const fromParam = searchParams.get('from');
     const source = fromParam === 'search' ? 'search' : fromParam === 'favorites' ? 'favorites' : 'direct';
 
@@ -80,12 +80,12 @@ export default function SitterProfile() {
       sessionStorage.setItem('petlink_view_session', sessionId);
     }
 
-    fetch(`${API_BASE}/sitters/${id}/view`, {
+    fetch(`${API_BASE}/sitters/${sitter.id}/view`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source, session_id: sessionId }),
     }).catch(() => {});
-  }, [id, searchParams]);
+  }, [sitter, searchParams]);
 
   useEffect(() => {
     const fetchSitter = async () => {
