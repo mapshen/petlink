@@ -1,34 +1,126 @@
 import { useState, useEffect } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Save, MapPin } from 'lucide-react';
+import { Save, MapPin, Navigation, Search, Loader2 } from 'lucide-react';
 import { API_BASE } from '../../config';
+
+interface GeoResult {
+  lat: string;
+  lon: string;
+  display_name: string;
+}
 
 export default function LocationTab() {
   const { user, token, updateUser } = useAuth();
 
   const [serviceRadius, setServiceRadius] = useState('10');
+  const [address, setAddress] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [geolocating, setGeolocating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [pendingLat, setPendingLat] = useState<number | null>(null);
+  const [pendingLng, setPendingLng] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
     setServiceRadius(user.service_radius_miles?.toString() || '10');
+    if (user.lat && user.lng) {
+      setPendingLat(user.lat);
+      setPendingLng(user.lng);
+      reverseGeocode(user.lat, user.lng);
+    }
   }, [user]);
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=12`,
+        { headers: { 'Accept-Language': 'en' } },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const parts = [
+          data.address?.city || data.address?.town || data.address?.village,
+          data.address?.state,
+        ].filter(Boolean);
+        setAddress(parts.join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || 'Location set');
+      }
+    } catch {
+      setAddress('Location set');
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    setMessage('');
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`,
+        { headers: { 'Accept-Language': 'en' } },
+      );
+      if (!res.ok) throw new Error('Search failed');
+      const results: GeoResult[] = await res.json();
+      if (results.length === 0) {
+        setMessage('No results found. Try a different address.');
+        return;
+      }
+      const lat = parseFloat(results[0].lat);
+      const lng = parseFloat(results[0].lon);
+      setPendingLat(lat);
+      setPendingLng(lng);
+      setAddress(results[0].display_name.split(',').slice(0, 2).join(',').trim());
+      setSearchQuery('');
+    } catch {
+      setMessage('Search failed. Please try again.');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleGeolocate = () => {
+    if (!navigator.geolocation) {
+      setMessage('Geolocation is not supported by your browser.');
+      return;
+    }
+    setGeolocating(true);
+    setMessage('');
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setPendingLat(lat);
+        setPendingLng(lng);
+        await reverseGeocode(lat, lng);
+        setGeolocating(false);
+      },
+      () => {
+        setMessage('Unable to get your location. Please check browser permissions.');
+        setGeolocating(false);
+      },
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setMessage('');
     try {
+      const body: Record<string, unknown> = {
+        name: user?.name,
+        bio: user?.bio || null,
+        avatar_url: user?.avatar_url || null,
+        service_radius_miles: serviceRadius ? Number(serviceRadius) : null,
+      };
+      if (pendingLat !== null && pendingLng !== null) {
+        body.lat = pendingLat;
+        body.lng = pendingLng;
+      }
       const res = await fetch(`${API_BASE}/users/me`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
-        body: JSON.stringify({
-          name: user?.name,
-          bio: user?.bio || null,
-          avatar_url: user?.avatar_url || null,
-          service_radius_miles: serviceRadius ? Number(serviceRadius) : null,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -36,7 +128,7 @@ export default function LocationTab() {
       }
       const data = await res.json();
       updateUser(data.user);
-      setMessage('Location settings updated successfully');
+      setMessage('Location settings saved');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Update failed');
     } finally {
@@ -46,36 +138,64 @@ export default function LocationTab() {
 
   if (!user) return null;
 
-  const hasLocation = user.lat !== undefined && user.lng !== undefined && user.lat !== null && user.lng !== null;
+  const hasLocation = pendingLat !== null && pendingLng !== null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-lg font-bold text-stone-900">Location</h2>
 
-      {/* Service Area Display */}
+      {/* Address search */}
       <div>
-        <label className="block text-sm font-medium text-stone-700 mb-2">Service Area</label>
-        {hasLocation ? (
-          <div className="bg-stone-50 rounded-xl border border-stone-200 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <MapPin className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm text-stone-700">
-                {user.lat?.toFixed(4)}, {user.lng?.toFixed(4)}
-              </span>
-            </div>
-            <div className="bg-stone-200 rounded-lg h-40 flex items-center justify-center text-stone-500 text-sm">
-              Map preview ({serviceRadius} mi radius)
-            </div>
+        <label className="block text-sm font-medium text-stone-700 mb-2">Set your location</label>
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
+              placeholder="Enter city, address, or zip code..."
+              className="w-full p-3 pl-10 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+            />
+            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-3.5" />
           </div>
-        ) : (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            <p className="font-medium mb-1">No location set</p>
-            <p className="text-amber-600">
-              Your location is set automatically when you search. Visit the search page and use "My Location" to set it.
-            </p>
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={handleSearch}
+            disabled={searching || !searchQuery.trim()}
+            className="bg-emerald-600 text-white px-4 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+          >
+            {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+          </button>
+          <button
+            type="button"
+            onClick={handleGeolocate}
+            disabled={geolocating}
+            className="bg-stone-100 text-stone-700 px-4 rounded-lg text-sm font-medium hover:bg-stone-200 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            title="Use my current location"
+          >
+            {geolocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
+            <span className="hidden sm:inline">My Location</span>
+          </button>
+        </div>
       </div>
+
+      {/* Current location display */}
+      {hasLocation && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-emerald-600" />
+            <span className="text-sm font-semibold text-emerald-800">{address || 'Location set'}</span>
+          </div>
+        </div>
+      )}
+
+      {!hasLocation && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          <p className="font-medium mb-1">No location set</p>
+          <p className="text-amber-600">Search for your address or use "My Location" to set your service area.</p>
+        </div>
+      )}
 
       {/* Service Radius */}
       <div>
@@ -96,7 +216,7 @@ export default function LocationTab() {
 
       {message && (
         <div className={`text-sm text-center p-2 rounded-lg ${
-          message.includes('success') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+          message.includes('saved') || message.includes('success') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
         }`}>
           {message}
         </div>
@@ -108,7 +228,7 @@ export default function LocationTab() {
         className="w-full bg-emerald-600 text-white py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
       >
         <Save className="w-4 h-4" />
-        {saving ? 'Saving...' : 'Save Location Settings'}
+        {saving ? 'Saving...' : 'Save Location'}
       </button>
     </form>
   );
