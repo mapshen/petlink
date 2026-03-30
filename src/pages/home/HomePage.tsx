@@ -17,6 +17,8 @@ import { useFavorites } from '../../hooks/useFavorites';
 import { useReviewDialog } from '../../hooks/useReviewDialog';
 import FavoriteSitters from '../../components/profile/FavoriteSitters';
 import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
+import { useHomeStats } from '../../hooks/useHomeStats';
+import { OwnerStatsRow, SitterStatsRow } from '../../components/home/HomeStats';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
@@ -50,6 +52,7 @@ export default function HomePage() {
   const onboarding = useOnboardingStatus();
   const { favorites, toggleFavorite } = useFavorites();
   const review = useReviewDialog({ token, onError: setError, reviewerRole: isSitterMode ? 'sitter' : 'owner' });
+  const homeStats = useHomeStats();
 
   useEffect(() => {
     if (!user) return;
@@ -124,6 +127,13 @@ export default function HomePage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="text-3xl font-bold text-stone-900 mb-8">Home</h1>
+
+      {!homeStats.loading && homeStats.ownerStats && (
+        <OwnerStatsRow stats={homeStats.ownerStats} />
+      )}
+      {!homeStats.loading && homeStats.sitterStats && (
+        <SitterStatsRow stats={homeStats.sitterStats} />
+      )}
 
       {isSitterMode && user?.approval_status === 'approved' && (
         <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
