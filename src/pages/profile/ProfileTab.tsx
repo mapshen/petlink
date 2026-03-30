@@ -3,7 +3,6 @@ import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Save, Camera, Loader2, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { useImageUpload } from '../../hooks/useImageUpload';
-import LinkedAccounts from '../../components/profile/LinkedAccounts';
 
 const SPECIES_OPTIONS = ['dog', 'cat', 'bird', 'reptile', 'small_animal'] as const;
 const HOME_TYPES = [
@@ -299,7 +298,6 @@ export default function ProfileTab() {
         {saving ? 'Saving...' : 'Save Changes'}
       </button>
 
-      <LinkedAccounts />
     </form>
   );
 }

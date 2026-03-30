@@ -1,7 +1,7 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
 import { hashPassword, verifyPassword, signToken, authMiddleware, createRefreshToken, validateRefreshToken, revokeRefreshToken, revokeAllUserTokens, type AuthenticatedRequest } from '../auth.ts';
-import { validate, signupSchema, loginSchema, oauthSchema, setPasswordSchema } from '../validation.ts';
+import { validate, signupSchema, loginSchema, oauthSchema, setPasswordSchema, changePasswordSchema } from '../validation.ts';
 import { verifyOAuthToken } from '../oauth.ts';
 import { isAdminUser } from '../admin.ts';
 import { sendEmail, buildOwnerWelcomeEmail } from '../email.ts';
@@ -185,6 +185,26 @@ export default function authRoutes(router: Router): void {
     await sql`UPDATE users SET password_hash = ${hashedPassword} WHERE id = ${req.userId}`;
 
     res.json({ message: 'Password set successfully' });
+  });
+
+  router.put('/auth/password', authMiddleware, validate(changePasswordSchema), async (req: AuthenticatedRequest, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    const [user] = await sql`SELECT password_hash FROM users WHERE id = ${req.userId}`;
+    if (!user.password_hash) {
+      res.status(400).json({ error: 'No password set. Use set-password instead.' });
+      return;
+    }
+
+    if (!verifyPassword(currentPassword, user.password_hash)) {
+      res.status(401).json({ error: 'Current password is incorrect' });
+      return;
+    }
+
+    const hashedPassword = hashPassword(newPassword);
+    await sql`UPDATE users SET password_hash = ${hashedPassword} WHERE id = ${req.userId}`;
+
+    res.json({ message: 'Password changed successfully' });
   });
 
   router.post('/auth/refresh', async (req, res) => {

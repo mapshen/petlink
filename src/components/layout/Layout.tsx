@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X, HelpCircle } from 'lucide-react';
+import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X, HelpCircle, Settings, User } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import MobileMenu from './MobileMenu';
 import { clsx } from 'clsx';
@@ -18,6 +18,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
   const isSitter = mode === 'sitter' || (user?.roles?.includes('sitter') ?? false);
@@ -77,21 +78,50 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {user ? (
               <div className="flex items-center gap-4">
                 <ModeToggle />
-                <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                  <img
-                    src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`}
-                    alt={user.name}
-                    className="w-8 h-8 rounded-full border border-stone-200"
-                  />
-                  <span className="text-sm font-medium hidden sm:block">{user.name}</span>
-                </Link>
-                <button 
-                  onClick={logout}
-                  className="p-2 text-stone-400 hover:text-red-500 transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setAvatarMenuOpen((prev) => !prev)}
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  >
+                    <img
+                      src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-full border border-stone-200"
+                    />
+                    <span className="text-sm font-medium hidden sm:block">{user.name}</span>
+                  </button>
+                  {avatarMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setAvatarMenuOpen(false)} />
+                      <div className="absolute right-0 top-10 z-50 bg-white border border-stone-200 rounded-xl shadow-lg w-48 py-1">
+                        <Link
+                          to="/profile"
+                          onClick={() => setAvatarMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+                        >
+                          <User className="w-4 h-4" />
+                          Profile
+                        </Link>
+                        <Link
+                          to="/settings"
+                          onClick={() => setAvatarMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+                        >
+                          <Settings className="w-4 h-4" />
+                          Settings
+                        </Link>
+                        <div className="border-t border-stone-100 my-1" />
+                        <button
+                          onClick={() => { setAvatarMenuOpen(false); logout(); }}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-stone-50 transition-colors w-full text-left"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Log Out
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             ) : (
               <Link 
