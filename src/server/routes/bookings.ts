@@ -12,7 +12,8 @@ import { format as formatDate } from 'date-fns';
 
 /**
  * Parse a time string (e.g., "14:00", "2:00 PM") into an absolute Date
- * on the given booking date.
+ * on the given booking date. All times are computed in UTC to avoid
+ * server-timezone dependency.
  */
 export function parseTimeToScheduled(bookingDate: Date, timeStr: string): Date | null {
   const trimmed = timeStr.trim();
@@ -20,8 +21,11 @@ export function parseTimeToScheduled(bookingDate: Date, timeStr: string): Date |
   // Try HH:MM format (from <input type="time">)
   const hhmm = trimmed.match(/^(\d{1,2}):(\d{2})$/);
   if (hhmm) {
+    const hours = parseInt(hhmm[1], 10);
+    const minutes = parseInt(hhmm[2], 10);
+    if (hours > 23 || minutes > 59) return null;
     const d = new Date(bookingDate);
-    d.setHours(parseInt(hhmm[1], 10), parseInt(hhmm[2], 10), 0, 0);
+    d.setUTCHours(hours, minutes, 0, 0);
     return d;
   }
 
@@ -30,11 +34,12 @@ export function parseTimeToScheduled(bookingDate: Date, timeStr: string): Date |
   if (ampm) {
     let hours = parseInt(ampm[1], 10);
     const minutes = parseInt(ampm[2], 10);
+    if (hours < 1 || hours > 12 || minutes > 59) return null;
     const period = ampm[3].toLowerCase();
     if (period === 'pm' && hours !== 12) hours += 12;
     if (period === 'am' && hours === 12) hours = 0;
     const d = new Date(bookingDate);
-    d.setHours(hours, minutes, 0, 0);
+    d.setUTCHours(hours, minutes, 0, 0);
     return d;
   }
 
@@ -45,9 +50,12 @@ export default function bookingRoutes(router: Router, io: Server): void {
   // --- Today's Care Tasks (for Home page) ---
   router.get('/care-tasks/today', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
+      // Offset in minutes from UTC (e.g., -420 for UTC-7). Defaults to UTC.
+      const offsetMin = parseInt(req.query.tzOffset as string, 10) || 0;
       const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+      const localNow = new Date(now.getTime() - offsetMin * 60000);
+      const startOfDay = new Date(Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate()) + offsetMin * 60000).toISOString();
+      const endOfDay = new Date(Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate() + 1) + offsetMin * 60000).toISOString();
 
       const tasks = await sql`
         SELECT bct.*, p.name as pet_name, b.sitter_id, b.owner_id, b.status as booking_status
