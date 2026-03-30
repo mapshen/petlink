@@ -2,13 +2,14 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { User as UserIcon, PawPrint, DollarSign, Camera, Import, Info } from 'lucide-react';
+import { User as UserIcon, PawPrint, DollarSign, Camera, Import, Info, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProfileTab from './ProfileTab';
 import SitterInfoTab from './SitterInfoTab';
 import PetsTab from './PetsTab';
 import ServicesTab from './ServicesTab';
 import PhotosTab from './PhotosTab';
+import AvailabilityTab from './AvailabilityTab';
 import SitterPreview from '../../components/profile/SitterPreview';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useSitterPreviewData } from '../../hooks/useSitterPreviewData';
@@ -25,6 +26,7 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'sitter-info', label: 'Sitter Info', icon: Info, mode: 'sitter' },
   { id: 'pets', label: 'My Pets', icon: PawPrint, mode: 'owner' },
   { id: 'services', label: 'Services', icon: DollarSign, mode: 'sitter' },
+  { id: 'availability', label: 'Availability', icon: Calendar, mode: 'sitter' },
   { id: 'photos', label: 'Photos', icon: Camera, mode: 'sitter' },
 ];
 
@@ -143,6 +145,12 @@ export default function ProfilePage() {
                 className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 scroll-mt-24"
               >
                 <ServicesTab />
+              </div>
+              <div
+                id="section-availability"
+                className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 scroll-mt-24"
+              >
+                <AvailabilityTab />
               </div>
               <div
                 id="section-photos"
