@@ -10,7 +10,6 @@ interface AuthContextType {
     email: string,
     password: string,
     name: string,
-    role?: string,
     ageConfirmed?: boolean,
   ) => Promise<void>;
   loginWithOAuth: (provider: OAuthProvider, token: string) => Promise<{ isNewUser: boolean }>;
@@ -211,11 +210,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signup = useCallback(
-    async (email: string, password: string, name: string, role?: string, ageConfirmed?: boolean) => {
+    async (email: string, password: string, name: string, ageConfirmed?: boolean) => {
       const res = await fetch(`${API_BASE}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name, role, age_confirmed: ageConfirmed }),
+        body: JSON.stringify({ email, password, name, age_confirmed: ageConfirmed }),
       });
 
       if (!res.ok) {

@@ -35,7 +35,7 @@ export interface User {
   id: number;
   email: string;
   name: string;
-  role: 'owner' | 'sitter' | 'both';
+  roles: string[];
   bio?: string;
   avatar_url?: string;
   lat?: number;

@@ -4,11 +4,11 @@ import { hashPassword, verifyPassword, signToken, authMiddleware, createRefreshT
 import { validate, signupSchema, loginSchema, oauthSchema, setPasswordSchema } from '../validation.ts';
 import { verifyOAuthToken } from '../oauth.ts';
 import { isAdminUser } from '../admin.ts';
-import { sendEmail, buildOwnerWelcomeEmail, buildSitterWelcomeEmail } from '../email.ts';
+import { sendEmail, buildOwnerWelcomeEmail } from '../email.ts';
 
 export default function authRoutes(router: Router): void {
   router.post('/auth/signup', validate(signupSchema), async (req, res) => {
-    const { email, password, name, role } = req.body;
+    const { email, password, name } = req.body;
 
     const [existing] = await sql`SELECT id FROM users WHERE email = ${email}`;
     if (existing) {
@@ -17,20 +17,15 @@ export default function authRoutes(router: Router): void {
     }
 
     const passwordHash = hashPassword(password);
-    const isSitterRole = role === 'sitter' || role === 'both';
-    const approvalStatus = isSitterRole ? 'pending_approval' : 'approved';
     const [user] = await sql`
-      INSERT INTO users (email, password_hash, name, role, approval_status)
-      VALUES (${email}, ${passwordHash}, ${name}, ${role}, ${approvalStatus})
-      RETURNING id, email, name, role, bio, avatar_url, lat, lng, approval_status
+      INSERT INTO users (email, password_hash, name, roles, approval_status)
+      VALUES (${email}, ${passwordHash}, ${name}, ${['owner']}, ${'approved'})
+      RETURNING id, email, name, roles, bio, avatar_url, lat, lng, approval_status
     `;
     const token = signToken({ userId: user.id });
     const refreshToken = await createRefreshToken(user.id);
 
-    const isSitter = role === 'sitter' || role === 'both';
-    const welcomeEmail = isSitter
-      ? buildSitterWelcomeEmail({ sitterName: name })
-      : buildOwnerWelcomeEmail({ ownerName: name });
+    const welcomeEmail = buildOwnerWelcomeEmail({ ownerName: name });
     sendEmail({ to: email, ...welcomeEmail }).catch(() => {});
 
     res.status(201).json({ user, token, refreshToken });
@@ -39,7 +34,7 @@ export default function authRoutes(router: Router): void {
   router.post('/auth/login', validate(loginSchema), async (req, res) => {
     const { email, password } = req.body;
 
-    const [user] = await sql`SELECT id, email, name, role, bio, avatar_url, lat, lng, password_hash, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE email = ${email}`;
+    const [user] = await sql`SELECT id, email, name, roles, bio, avatar_url, lat, lng, password_hash, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE email = ${email}`;
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -81,7 +76,7 @@ export default function authRoutes(router: Router): void {
 
       if (existingOAuth) {
         const [user] = await tx`
-          SELECT id, email, name, role, bio, avatar_url FROM users WHERE id = ${existingOAuth.user_id}
+          SELECT id, email, name, roles, bio, avatar_url FROM users WHERE id = ${existingOAuth.user_id}
         `;
         return { user, isNewUser: false };
       }
@@ -89,7 +84,7 @@ export default function authRoutes(router: Router): void {
       // Check for existing user by email (only auto-link if provider verified the email)
       if (profile.email && profile.emailVerified) {
         const [existingUser] = await tx`
-          SELECT id, email, name, role, bio, avatar_url FROM users WHERE email = ${profile.email}
+          SELECT id, email, name, roles, bio, avatar_url FROM users WHERE email = ${profile.email}
         `;
 
         if (existingUser) {
@@ -108,9 +103,9 @@ export default function authRoutes(router: Router): void {
 
       // Create new user
       const [newUser] = await tx`
-        INSERT INTO users (email, password_hash, name, role, email_verified)
-        VALUES (${profile.email}, ${null}, ${profile.name || 'User'}, ${'owner'}, ${profile.emailVerified})
-        RETURNING id, email, name, role, bio, avatar_url
+        INSERT INTO users (email, password_hash, name, roles, email_verified)
+        VALUES (${profile.email}, ${null}, ${profile.name || 'User'}, ${['owner']}, ${profile.emailVerified})
+        RETURNING id, email, name, roles, bio, avatar_url
       `;
 
       await tx`
@@ -228,10 +223,10 @@ export default function authRoutes(router: Router): void {
 
   router.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`
-      SELECT id, email, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
     `;
     if (user) {
-      res.json({ user: { ...user, is_admin: isAdminUser(user.email) } });
+      res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles) } });
     } else {
       res.status(401).json({ error: 'User not found' });
     }

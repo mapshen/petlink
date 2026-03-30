@@ -14,8 +14,8 @@ export default function verificationRoutes(router: Router, publicLimiter: RateLi
   });
 
   router.post('/verification/start', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT role, email, name FROM users WHERE id = ${req.userId}`;
-    if (user.role !== 'sitter' && user.role !== 'both') {
+    const [user] = await sql`SELECT roles, email, name FROM users WHERE id = ${req.userId}`;
+    if (!user.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can start verification' });
       return;
     }

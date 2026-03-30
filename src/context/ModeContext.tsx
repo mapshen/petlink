@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 
 type Mode = 'owner' | 'sitter';
@@ -18,32 +18,40 @@ const ModeContext = createContext<ModeContextType>({
 export function ModeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
-  const canToggle = user?.role === 'both';
+  const rolesKey = useMemo(
+    () => user?.roles?.slice().sort().join(',') ?? '',
+    [user?.roles]
+  );
+  const hasOwner = user?.roles?.includes('owner') ?? false;
+  const hasSitter = user?.roles?.includes('sitter') ?? false;
+  const canToggle = hasOwner && hasSitter;
 
   const [mode, setModeState] = useState<Mode>(() => {
     if (!user) return 'owner';
-    if (user.role === 'owner') return 'owner';
-    if (user.role === 'sitter') return 'sitter';
-    const stored = localStorage.getItem('petlink_mode');
-    if (stored === 'owner' || stored === 'sitter') return stored;
+    if (hasOwner && hasSitter) {
+      const stored = localStorage.getItem('petlink_mode');
+      if (stored === 'owner' || stored === 'sitter') return stored;
+      return 'owner';
+    }
+    if (hasSitter) return 'sitter';
     return 'owner';
   });
 
-  // Sync mode when user/role changes
   useEffect(() => {
     if (!user) return;
-    if (user.role === 'owner') {
-      setModeState('owner');
-    } else if (user.role === 'sitter') {
-      setModeState('sitter');
-    } else {
-      // role === 'both' — restore from localStorage or default to owner
+    const owns = user.roles?.includes('owner') ?? false;
+    const sits = user.roles?.includes('sitter') ?? false;
+    if (owns && sits) {
       const stored = localStorage.getItem('petlink_mode');
       if (stored === 'owner' || stored === 'sitter') {
         setModeState(stored);
       }
+    } else if (sits) {
+      setModeState('sitter');
+    } else {
+      setModeState('owner');
     }
-  }, [user?.role]);
+  }, [rolesKey]);
 
   const setMode = useCallback((newMode: Mode) => {
     setModeState(newMode);

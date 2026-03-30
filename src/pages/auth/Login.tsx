@@ -41,7 +41,7 @@ export default function Login() {
 
     try {
       if (isSignup) {
-        await signup(email, password, name, undefined, ageConfirmed);
+        await signup(email, password, name, ageConfirmed);
       } else {
         await login(email, password);
       }

@@ -42,40 +42,30 @@ describe('approvalDecisionSchema', () => {
 describe('approval status logic', () => {
   type ApprovalStatus = 'approved' | 'pending_approval' | 'rejected';
 
-  function getInitialApprovalStatus(role: string): ApprovalStatus {
-    return role === 'sitter' || role === 'both' ? 'pending_approval' : 'approved';
+  // Signup no longer accepts role — all signups are owner-only and approved
+  function getInitialApprovalStatus(): ApprovalStatus {
+    return 'approved';
   }
 
-  function shouldSetPending(currentRole: string, newRole: string): boolean {
-    return currentRole === 'owner' && (newRole === 'sitter' || newRole === 'both');
+  // Sitter role is granted later; adding sitter role sets pending
+  function shouldSetPendingOnRoleGrant(currentRoles: string[], newRole: string): boolean {
+    return newRole === 'sitter' && !currentRoles.includes('sitter');
   }
 
-  it('sitter signup gets pending_approval', () => {
-    expect(getInitialApprovalStatus('sitter')).toBe('pending_approval');
+  it('signup always gets approved (owner-only)', () => {
+    expect(getInitialApprovalStatus()).toBe('approved');
   });
 
-  it('both role signup gets pending_approval', () => {
-    expect(getInitialApprovalStatus('both')).toBe('pending_approval');
+  it('granting sitter role to owner sets pending', () => {
+    expect(shouldSetPendingOnRoleGrant(['owner'], 'sitter')).toBe(true);
   });
 
-  it('owner signup gets approved', () => {
-    expect(getInitialApprovalStatus('owner')).toBe('approved');
+  it('granting sitter role when already a sitter does not set pending', () => {
+    expect(shouldSetPendingOnRoleGrant(['owner', 'sitter'], 'sitter')).toBe(false);
   });
 
-  it('owner switching to sitter sets pending', () => {
-    expect(shouldSetPending('owner', 'sitter')).toBe(true);
-  });
-
-  it('owner switching to both sets pending', () => {
-    expect(shouldSetPending('owner', 'both')).toBe(true);
-  });
-
-  it('sitter switching to both does not set pending', () => {
-    expect(shouldSetPending('sitter', 'both')).toBe(false);
-  });
-
-  it('sitter staying sitter does not set pending', () => {
-    expect(shouldSetPending('sitter', 'sitter')).toBe(false);
+  it('granting owner role does not set pending', () => {
+    expect(shouldSetPendingOnRoleGrant(['owner'], 'owner')).toBe(false);
   });
 });
 

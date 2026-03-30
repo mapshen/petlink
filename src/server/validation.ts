@@ -18,7 +18,6 @@ export function validate<T extends z.ZodType>(schema: T) {
 // --- Shared refinements ---
 const emailSchema = z.string().trim().toLowerCase().email('A valid email address is required');
 export const passwordSchema = z.string().min(8, 'Password must be at least 8 characters').max(72, 'Password must not exceed 72 characters');
-const roleSchema = z.enum(['owner', 'sitter', 'both']).optional().default('owner');
 const nameSchema = (msg: string) => z.string().transform((v) => v.trim()).pipe(z.string().min(1, msg));
 
 // --- Auth Schemas ---
@@ -26,7 +25,6 @@ export const signupSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   name: nameSchema('Name is required'),
-  role: roleSchema,
   age_confirmed: z
     .boolean()
     .refine((val) => val === true, 'You must confirm you are 13 years or older'),
@@ -45,7 +43,6 @@ export const updateProfileSchema = z.object({
   name: nameSchema('Name is required'),
   bio: z.string().optional().nullable(),
   avatar_url: z.string().url().optional().nullable().or(z.literal('')),
-  role: z.enum(['owner', 'sitter', 'both']).optional(),
   accepted_species: z.array(z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal'])).optional(),
   years_experience: z.number().int().min(0).max(50).optional().nullable(),
   home_type: z.enum(homeTypes).optional().nullable(),

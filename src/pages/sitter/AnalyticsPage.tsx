@@ -186,7 +186,7 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const isSitter = user?.role === 'sitter' || user?.role === 'both';
+  const isSitter = user?.roles?.includes('sitter') ?? false;
 
   useEffect(() => {
     if (!user || !isSitter) return;

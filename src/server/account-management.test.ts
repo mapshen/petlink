@@ -13,7 +13,7 @@ function createTestDb() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT,
       name TEXT NOT NULL,
-      role TEXT DEFAULT 'owner',
+      roles TEXT DEFAULT 'owner',
       bio TEXT,
       avatar_url TEXT,
       lat REAL,
@@ -119,11 +119,11 @@ function createTestDb() {
 
   const hash = bcrypt.hashSync('password123', 10);
   db.prepare(
-    "INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO users (email, password_hash, name, roles, bio, avatar_url, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
   ).run('owner@test.com', hash, 'Test Owner', 'owner', 'I love pets', 'https://example.com/avatar.jpg', 37.77, -122.42);
   db.prepare(
-    "INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)",
-  ).run('sitter@test.com', hash, 'Test Sitter', 'sitter');
+    "INSERT INTO users (email, password_hash, name, roles) VALUES (?, ?, ?, ?)",
+  ).run('sitter@test.com', hash, 'Test Sitter', 'owner,sitter');
 
   // Seed some data for export tests
   db.prepare("INSERT INTO pets (owner_id, name, species, breed, age) VALUES (?, ?, ?, ?, ?)").run(

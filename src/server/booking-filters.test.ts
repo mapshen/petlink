@@ -14,7 +14,7 @@ function createTestDb() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL DEFAULT 'hash',
       name TEXT NOT NULL,
-      role TEXT DEFAULT 'owner',
+      roles TEXT DEFAULT 'owner',
       avatar_url TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -51,9 +51,9 @@ function createTestDb() {
   `);
 
   // Seed users
-  db.prepare("INSERT INTO users (email, name, role) VALUES (?, ?, ?)").run('owner@test.com', 'Alice Owner', 'owner');
-  db.prepare("INSERT INTO users (email, name, role) VALUES (?, ?, ?)").run('sitter@test.com', 'Bob Sitter', 'sitter');
-  db.prepare("INSERT INTO users (email, name, role) VALUES (?, ?, ?)").run('owner2@test.com', 'Carol Owner', 'owner');
+  db.prepare("INSERT INTO users (email, name, roles) VALUES (?, ?, ?)").run('owner@test.com', 'Alice Owner', 'owner');
+  db.prepare("INSERT INTO users (email, name, roles) VALUES (?, ?, ?)").run('sitter@test.com', 'Bob Sitter', 'owner,sitter');
+  db.prepare("INSERT INTO users (email, name, roles) VALUES (?, ?, ?)").run('owner2@test.com', 'Carol Owner', 'owner');
 
   // Seed pets
   db.prepare("INSERT INTO pets (owner_id, name, breed) VALUES (?, ?, ?)").run(1, 'Buddy', 'Labrador');

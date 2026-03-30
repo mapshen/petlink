@@ -78,7 +78,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
   - `payments/` — WalletPage, PaymentHistoryPage
   - `sitter/` — AnalyticsPage, PromotePage, TrackWalk
   - `Home.tsx` — landing page
-- **Mode system**: `ModeContext` provides global owner/sitter toggle for "both" role users. Persisted in localStorage (`petlink_mode`). Affects Dashboard filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
+- **Role system**: Additive roles stored as `roles TEXT[]` (default `{owner}`). Roles: `owner`, `sitter`, `admin`. Everyone starts as owner; sitter granted by admin approval; admin requires both DB role and `ADMIN_EMAIL` env var. `ModeContext` provides owner/sitter toggle for users with both roles. Persisted in localStorage (`petlink_mode`). Affects Dashboard filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
 - **Components** (organized by domain in `src/components/`):
   - `layout/` — Layout, ModeToggle
   - `booking/` — BookingCalendar, TimeSlotPicker, PetSelector, CareTasksChecklist, QuickTapLogger
@@ -98,7 +98,7 @@ PostgreSQL with PostGIS.
 
 | Table | Key Columns / Notes |
 |-------|-------------------|
-| `users` | `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10) |
+| `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10) |
 | `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
 | `pet_vaccinations` | Vaccine records with expiration tracking |
 | `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB |
@@ -119,9 +119,9 @@ PostgreSQL with PostGIS.
 | `sitter_subscriptions` | Pro tier with status tracking, Stripe billing, billing period |
 | `sitter_payouts` | Delayed payout scheduling, `amount_cents` INTEGER, `status` CHECK, unique `booking_id` |
 
-PostgreSQL enums: `user_role`, `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`.
+PostgreSQL enums: `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`. User roles use `TEXT[]` (not an enum).
 
-Auto-seeded with 3 demo accounts on empty DB: `owner@example.com`, `sitter@example.com`, `dual@example.com` (password: `password123`).
+Auto-seeded with 3 demo accounts on empty DB: `owner@example.com` (owner only), `sitter@example.com` (owner+sitter), `dual@example.com` (owner+sitter) (password: `password123`).
 
 ### Key Libraries
 

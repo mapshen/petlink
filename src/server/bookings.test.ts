@@ -13,7 +13,7 @@ describe('booking status management', () => {
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT DEFAULT 'owner'
+        roles TEXT DEFAULT 'owner'
       );
       CREATE TABLE services (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,8 +37,8 @@ describe('booking status management', () => {
       );
     `);
 
-    testDb.prepare("INSERT INTO users (email, password_hash, name, role) VALUES ('owner@test.com', 'hash', 'Owner', 'owner')").run();
-    testDb.prepare("INSERT INTO users (email, password_hash, name, role) VALUES ('sitter@test.com', 'hash', 'Sitter', 'sitter')").run();
+    testDb.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES ('owner@test.com', 'hash', 'Owner', 'owner')").run();
+    testDb.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES ('sitter@test.com', 'hash', 'Sitter', 'owner,sitter')").run();
     testDb.prepare("INSERT INTO services (sitter_id, type, price) VALUES (2, 'walking', 25)").run();
   });
 
@@ -95,7 +95,7 @@ describe('booking status management', () => {
   });
 
   it('unrelated user cannot update booking status', () => {
-    testDb.prepare("INSERT INTO users (email, password_hash, name, role) VALUES ('other@test.com', 'hash', 'Other', 'owner')").run();
+    testDb.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES ('other@test.com', 'hash', 'Other', 'owner')").run();
     testDb.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time) VALUES (2, 1, 1, 'pending', '2026-03-07T10:00:00Z', '2026-03-07T11:00:00Z')").run();
     const info = testDb.prepare("UPDATE bookings SET status = 'confirmed' WHERE id = 7 AND (sitter_id = 3 OR owner_id = 3) AND status = 'pending'").run();
     expect(info.changes).toBe(0);

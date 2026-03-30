@@ -4,7 +4,6 @@ import { Save, Camera, Loader2, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import LinkedAccounts from '../../components/profile/LinkedAccounts';
-import { useMode } from '../../context/ModeContext';
 
 const SPECIES_OPTIONS = ['dog', 'cat', 'bird', 'reptile', 'small_animal'] as const;
 const HOME_TYPES = [
@@ -31,12 +30,10 @@ function formatSpecies(s: string): string {
 
 export default function ProfileTab() {
   const { user, token, updateUser } = useAuth();
-  const { mode } = useMode();
 
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [role, setRole] = useState<'owner' | 'sitter' | 'both'>('owner');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,7 +63,6 @@ export default function ProfileTab() {
     setName(user.name);
     setBio(user.bio || '');
     setAvatarUrl(user.avatar_url || '');
-    setRole(user.role);
     setAcceptedSpecies(user.accepted_species || []);
     setYearsExperience(user.years_experience?.toString() || '');
     setHomeType(user.home_type || '');
@@ -87,7 +83,7 @@ export default function ProfileTab() {
         method: 'PUT',
         headers: getAuthHeaders(token),
         body: JSON.stringify({
-          name, bio, avatar_url: avatarUrl, role,
+          name, bio, avatar_url: avatarUrl,
           accepted_species: acceptedSpecies,
           years_experience: yearsExperience ? Number(yearsExperience) : null,
           home_type: homeType || null,
@@ -114,8 +110,6 @@ export default function ProfileTab() {
     }
   };
 
-  const enableBothRoles = () => setRole('both');
-
   const toggleSpecies = (species: string) => {
     setAcceptedSpecies(prev =>
       prev.includes(species) ? prev.filter(s => s !== species) : [...prev, species]
@@ -128,8 +122,8 @@ export default function ProfileTab() {
     );
   };
 
-  const isSitter = role === 'sitter' || role === 'both';
-  const showSitterFields = isSitter && (mode === 'sitter' || role !== 'both');
+  const isSitter = user?.roles?.includes('sitter') ?? false;
+  const showSitterFields = isSitter;
 
   if (!user) return null;
 
@@ -205,46 +199,6 @@ export default function ProfileTab() {
           placeholder="Tell us about yourself..."
           className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
         />
-      </div>
-
-      {/* Role toggle */}
-      <div>
-        <label className="block text-sm font-medium text-stone-700 mb-3">Account Mode</label>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => setRole('owner')}
-            className={`flex-1 p-3 rounded-lg border text-sm font-medium transition-all ${
-              role === 'owner' || role === 'both'
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                : 'border-stone-200 text-stone-500 hover:border-emerald-200'
-            }`}
-          >
-            Pet Parent
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole('sitter')}
-            className={`flex-1 p-3 rounded-lg border text-sm font-medium transition-all ${
-              role === 'sitter' || role === 'both'
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                : 'border-stone-200 text-stone-500 hover:border-emerald-200'
-            }`}
-          >
-            Sitter
-          </button>
-          <button
-            type="button"
-            onClick={enableBothRoles}
-            className={`flex-1 p-3 rounded-lg border text-sm font-medium transition-all ${
-              role === 'both'
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                : 'border-stone-200 text-stone-500 hover:border-emerald-200'
-            }`}
-          >
-            Both
-          </button>
-        </div>
       </div>
 
       {/* Sitter-specific fields */}

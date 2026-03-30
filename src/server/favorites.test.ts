@@ -12,7 +12,7 @@ function createTestDb() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       name TEXT NOT NULL,
-      role TEXT DEFAULT 'owner',
+      roles TEXT DEFAULT 'owner',
       bio TEXT, avatar_url TEXT, lat REAL, lng REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -27,9 +27,9 @@ function createTestDb() {
   `);
 
   const hash = bcrypt.hashSync('pass', 10);
-  db.prepare("INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)").run('owner@test.com', hash, 'Owner', 'owner');
-  db.prepare("INSERT INTO users (email, password_hash, name, role, bio, avatar_url) VALUES (?, ?, ?, ?, ?, ?)").run('sitter@test.com', hash, 'Sitter', 'sitter', 'I love dogs', 'https://example.com/sitter.jpg');
-  db.prepare("INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)").run('sitter2@test.com', hash, 'Sitter2', 'both');
+  db.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES (?, ?, ?, ?)").run('owner@test.com', hash, 'Owner', 'owner');
+  db.prepare("INSERT INTO users (email, password_hash, name, roles, bio, avatar_url) VALUES (?, ?, ?, ?, ?, ?)").run('sitter@test.com', hash, 'Sitter', 'owner,sitter', 'I love dogs', 'https://example.com/sitter.jpg');
+  db.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES (?, ?, ?, ?)").run('sitter2@test.com', hash, 'Sitter2', 'owner,sitter');
 
   return db;
 }

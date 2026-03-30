@@ -10,8 +10,8 @@ export default function serviceRoutes(router: Router): void {
   });
 
   router.post('/services', authMiddleware, validate(serviceSchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can manage services' });
       return;
     }
@@ -34,8 +34,8 @@ export default function serviceRoutes(router: Router): void {
   });
 
   router.put('/services/:id', authMiddleware, validate(serviceSchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can manage services' });
       return;
     }
@@ -59,8 +59,8 @@ export default function serviceRoutes(router: Router): void {
   });
 
   router.delete('/services/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT role, approval_status FROM users WHERE id = ${req.userId}`;
-    if (currentUser.role !== 'sitter' && currentUser.role !== 'both') {
+    const [currentUser] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
+    if (!currentUser.roles.includes('sitter')) {
       res.status(403).json({ error: 'Only sitters can manage services' });
       return;
     }

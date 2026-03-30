@@ -25,6 +25,8 @@ export async function initDb() {
   // Enable PostGIS in dedicated schema
   await sql`CREATE EXTENSION IF NOT EXISTS postgis SCHEMA ${sql(SCHEMA)}`.catch(() => {});
 
+  // Legacy: user_role enum no longer used — roles are stored as TEXT[]
+  // Keep the type around so ALTER TABLE migration doesn't fail on existing DBs
   await sql`
     DO $$ BEGIN
       CREATE TYPE user_role AS ENUM ('owner', 'sitter', 'both');
@@ -92,7 +94,7 @@ export async function initDb() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       name TEXT NOT NULL,
-      role user_role NOT NULL DEFAULT 'owner',
+      roles TEXT[] NOT NULL DEFAULT '{owner}',
       bio TEXT,
       avatar_url TEXT,
       lat DOUBLE PRECISION,
@@ -532,6 +534,35 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users (approval_status)`.catch(() => {});
 
+  // Role system redesign: single role enum → additive roles array
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS roles TEXT[] NOT NULL DEFAULT '{owner}'`.catch(() => {});
+  const [hasOldRole] = await sql`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_schema = ${SCHEMA} AND table_name = 'users' AND column_name = 'role'
+  `.catch(() => []);
+  if (hasOldRole) {
+    await sql`
+      UPDATE users SET roles = CASE
+        WHEN role::text IN ('sitter', 'both') THEN '{owner,sitter}'::text[]
+        ELSE '{owner}'::text[]
+      END
+      WHERE NOT (roles @> '{sitter}'::text[])
+    `.catch(() => {});
+    await sql`ALTER TABLE users DROP COLUMN IF EXISTS role`.catch(() => {});
+  }
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_roles_check`.catch(() => {});
+  await sql`ALTER TABLE users ADD CONSTRAINT users_roles_check CHECK(roles <@ '{owner,sitter,admin}'::text[])`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_users_roles ON users USING GIN (roles)`.catch(() => {});
+
+  // Bootstrap admin role for ADMIN_EMAIL user
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (adminEmail) {
+    await sql`
+      UPDATE users SET roles = array_append(roles, 'admin')
+      WHERE lower(email) = ${adminEmail.toLowerCase()} AND NOT (roles @> '{admin}'::text[])
+    `.catch(() => {});
+  }
+
   // Issue #149: service radius for sitter map
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS service_radius_miles INTEGER DEFAULT 10`.catch(() => {});
 
@@ -641,8 +672,8 @@ export async function initDb() {
     const demoPassword = bcrypt.hashSync('password123', 10);
 
     const [owner] = await sql`
-      INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng)
-      VALUES (${'owner@example.com'}, ${demoPassword}, ${'Alice Owner'}, ${'owner'}, ${'I love my dog!'}, ${'https://i.pravatar.cc/150?u=alice'}, ${37.7749}, ${-122.4194})
+      INSERT INTO users (email, password_hash, name, roles, bio, avatar_url, lat, lng)
+      VALUES (${'owner@example.com'}, ${demoPassword}, ${'Alice Owner'}, ${['owner']}, ${'I love my dog!'}, ${'https://i.pravatar.cc/150?u=alice'}, ${37.7749}, ${-122.4194})
       RETURNING id
     `;
     await sql`
@@ -651,16 +682,16 @@ export async function initDb() {
     `;
 
     const [sitter] = await sql`
-      INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, skills)
-      VALUES (${'sitter@example.com'}, ${demoPassword}, ${'Bob Sitter'}, ${'sitter'}, ${'Experienced dog walker and sitter.'}, ${'https://i.pravatar.cc/150?u=bob'}, ${37.7750}, ${-122.4180}, ${['small', 'medium', 'large']}, ${['dog', 'cat']}, ${5}, ${'house'}, ${true}, ${true}, ${['pet_first_aid', 'dog_training']})
+      INSERT INTO users (email, password_hash, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, skills)
+      VALUES (${'sitter@example.com'}, ${demoPassword}, ${'Bob Sitter'}, ${['owner', 'sitter']}, ${'Experienced dog walker and sitter.'}, ${'https://i.pravatar.cc/150?u=bob'}, ${37.7750}, ${-122.4180}, ${['small', 'medium', 'large']}, ${['dog', 'cat']}, ${5}, ${'house'}, ${true}, ${true}, ${['pet_first_aid', 'dog_training']})
       RETURNING id
     `;
     await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${sitter.id}, ${'walking'}, ${25}, ${'30 minute walk around the neighborhood.'})`;
     await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${sitter.id}, ${'sitting'}, ${50}, ${'Overnight sitting at your home.'})`;
 
     const [dual] = await sql`
-      INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes)
-      VALUES (${'dual@example.com'}, ${demoPassword}, ${'Charlie Dual'}, ${'both'}, ${'I walk dogs and have a cat.'}, ${'https://i.pravatar.cc/150?u=charlie'}, ${37.7760}, ${-122.4200}, ${['small', 'medium', 'large', 'giant']})
+      INSERT INTO users (email, password_hash, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes)
+      VALUES (${'dual@example.com'}, ${demoPassword}, ${'Charlie Dual'}, ${['owner', 'sitter']}, ${'I walk dogs and have a cat.'}, ${'https://i.pravatar.cc/150?u=charlie'}, ${37.7760}, ${-122.4200}, ${['small', 'medium', 'large', 'giant']})
       RETURNING id
     `;
     await sql`
@@ -685,8 +716,8 @@ export async function initDb() {
 
     for (const s of sitters) {
       const [u] = await sql`
-        INSERT INTO users (email, password_hash, name, role, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, skills)
-        VALUES (${s.email}, ${demoPassword}, ${s.name}, ${'sitter'}, ${s.bio}, ${s.avatar}, ${s.lat}, ${s.lng}, ${s.sizes}, ${s.species}, ${s.experience}, ${s.home}, ${s.yard}, ${s.fenced}, ${s.skills})
+        INSERT INTO users (email, password_hash, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, skills)
+        VALUES (${s.email}, ${demoPassword}, ${s.name}, ${['owner', 'sitter']}, ${s.bio}, ${s.avatar}, ${s.lat}, ${s.lng}, ${s.sizes}, ${s.species}, ${s.experience}, ${s.home}, ${s.yard}, ${s.fenced}, ${s.skills})
         RETURNING id
       `;
       for (const svc of s.services) {
@@ -694,7 +725,7 @@ export async function initDb() {
       }
     }
 
-    console.log('Database seeded with 13 users (1 owner, 12 sitters)!');
+    console.log('Database seeded with 13 users (1 owner-only, 12 owner+sitter)!');
   }
 }
 

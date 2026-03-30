@@ -20,7 +20,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
-  const isSitter = mode === 'sitter' || user?.role === 'sitter';
+  const isSitter = mode === 'sitter' || (user?.roles?.includes('sitter') ?? false);
 
   const navItems = [
     { name: 'Search', path: '/search', icon: MapPin },

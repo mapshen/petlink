@@ -18,7 +18,7 @@ describe('notifications', () => {
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         name TEXT NOT NULL,
-        role TEXT DEFAULT 'owner'
+        roles TEXT DEFAULT 'owner'
       );
       CREATE TABLE IF NOT EXISTS notifications (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
