@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Service } from '../../types';
-import { Plus, Pencil, Trash2, DollarSign, Save, X, ShieldCheck, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, DollarSign, Save, X } from 'lucide-react';
 import { API_BASE } from '../../config';
-import type { CancellationPolicy } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Input } from '../../components/ui/input';
@@ -60,14 +59,10 @@ export default function ServicesTab() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
-  const [policy, setPolicy] = useState<CancellationPolicy>('flexible');
-  const [policySaving, setPolicySaving] = useState(false);
-  const [policySaved, setPolicySaved] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     fetchServices();
-    fetchPolicy();
   }, [user]);
 
   const fetchServices = async () => {
@@ -80,40 +75,6 @@ export default function ServicesTab() {
       setError('Failed to load services.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchPolicy = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/cancellation-policy`, { headers: getAuthHeaders(token) });
-      if (res.ok) {
-        const data = await res.json();
-        setPolicy(data.cancellation_policy);
-      }
-    } catch {
-      // Non-critical — default to flexible
-    }
-  };
-
-  const savePolicy = async (newPolicy: CancellationPolicy) => {
-    const previousPolicy = policy;
-    setPolicy(newPolicy);
-    setPolicySaving(true);
-    setPolicySaved(false);
-    try {
-      const res = await fetch(`${API_BASE}/cancellation-policy`, {
-        method: 'PUT',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({ cancellation_policy: newPolicy }),
-      });
-      if (!res.ok) throw new Error('Failed to save policy');
-      setPolicySaved(true);
-      setTimeout(() => setPolicySaved(false), 2000);
-    } catch {
-      setPolicy(previousPolicy);
-      setError('Failed to save cancellation policy.');
-    } finally {
-      setPolicySaving(false);
     }
   };
 
@@ -372,42 +333,6 @@ export default function ServicesTab() {
         )}
       </div>
 
-      {/* Cancellation Policy */}
-      <div className="mt-10">
-        <div className="flex items-center gap-2 mb-4">
-          <ShieldCheck className="w-5 h-5 text-emerald-600" />
-          <h2 className="text-lg font-bold text-stone-900">Cancellation Policy</h2>
-          {policySaving && <span className="text-xs text-stone-400">Saving...</span>}
-          {policySaved && <span className="text-xs text-emerald-600 flex items-center gap-1"><Check className="w-3 h-3" /> Saved</span>}
-        </div>
-        <div className="space-y-3">
-          {CANCELLATION_POLICIES.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => savePolicy(p.value)}
-              disabled={policySaving}
-              className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${
-                policy === p.value
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-stone-200 hover:border-stone-300 bg-white'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-semibold text-stone-900">{p.label}</span>
-                  <p className="text-sm text-stone-500 mt-1">{p.description}</p>
-                </div>
-                {policy === p.value && (
-                  <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                    <Check className="w-3 h-3 text-white" />
-                  </div>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
       <AlertDialog open={deleteDialogId !== null} onOpenChange={(open) => { if (!open) setDeleteDialogId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -427,12 +352,6 @@ export default function ServicesTab() {
     </div>
   );
 }
-
-const CANCELLATION_POLICIES: { value: CancellationPolicy; label: string; description: string }[] = [
-  { value: 'flexible', label: 'Flexible', description: 'Full refund if cancelled at least 24 hours before the booking.' },
-  { value: 'moderate', label: 'Moderate', description: '50% refund if cancelled at least 48 hours before the booking.' },
-  { value: 'strict', label: 'Strict', description: 'No refund within 7 days of the booking.' },
-];
 
 function buildServiceDetails(details: ServiceDetails): Record<string, unknown> {
   const result: Record<string, unknown> = {};

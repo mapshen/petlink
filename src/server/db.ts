@@ -532,6 +532,11 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users (approval_status)`.catch(() => {});
 
+  // Sitter policies
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS house_rules TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_procedures TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_insurance BOOLEAN DEFAULT FALSE`.catch(() => {});
+
   // Sitter pet capacity
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_pets_at_once INTEGER DEFAULT 3`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_pets_per_walk INTEGER DEFAULT 2`.catch(() => {});
