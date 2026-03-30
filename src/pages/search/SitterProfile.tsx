@@ -190,7 +190,7 @@ export default function SitterProfile() {
           return;
         }
         // Payment setup failed — show the specific error
-        setBookingError(`Booking created but payment setup failed: ${result.error || 'unknown error'}. You can pay later from the dashboard.`);
+        setBookingError(`Booking created but payment setup failed: ${result.error || 'unknown error'}. You can pay later from the Home page.`);
         return;
       } else {
         navigate('/home');
