@@ -1,4 +1,4 @@
-import React, { useEffect, useState, lazy, Suspense } from 'react';
+import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Booking } from '../../types';
@@ -59,43 +59,28 @@ export default function HomePage() {
   const homeStats = useHomeStats(bookings);
   const schedule = useTodaySchedule(bookings);
 
-  const careTasks = schedule.timeline
-    .filter((item) => item.type === 'care_task')
-    .map((item) => item.data as Record<string, unknown>);
-  const reviewedBookingIds = new Set(
-    bookings.filter((b) => b.status === 'completed' && review.isReviewed(b.id)).map((b) => b.id),
-  );
-  const attentionItems = user
-    ? buildAttentionItems(careTasks as any[], bookings, user.id, isSitterMode, reviewedBookingIds)
-    : [];
+  const attentionItems = useMemo(() => {
+    if (!user) return [];
+    const tasks = schedule.timeline
+      .filter((item) => item.type === 'care_task')
+      .map((item) => ({
+        id: item.id,
+        scheduled_time: item.data.scheduled_time as string | null,
+        completed: item.data.completed as boolean,
+        description: item.data.description as string,
+        pet_name: item.data.pet_name as string,
+        category: item.data.category as string,
+        booking_id: item.data.booking_id as number,
+        notes: item.data.notes as string | null,
+      }));
+    const reviewedIds = new Set(
+      bookings.filter((b) => b.status === 'completed' && review.isReviewed(b.id)).map((b) => b.id),
+    );
+    return buildAttentionItems(tasks, bookings, user.id, isSitterMode, reviewedIds);
+  }, [schedule.timeline, bookings, user, isSitterMode, review]);
 
-  const handleAcceptBooking = async (bookingId: number) => {
-    try {
-      const res = await fetch(`${API_BASE}/bookings/${bookingId}/status`, {
-        method: 'PUT',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({ status: 'confirmed' }),
-      });
-      if (!res.ok) throw new Error('Failed to accept booking');
-      setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, status: 'confirmed' } : b)));
-    } catch {
-      setError('Failed to accept booking');
-    }
-  };
-
-  const handleDeclineBooking = async (bookingId: number) => {
-    try {
-      const res = await fetch(`${API_BASE}/bookings/${bookingId}/status`, {
-        method: 'PUT',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({ status: 'cancelled' }),
-      });
-      if (!res.ok) throw new Error('Failed to decline booking');
-      setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, status: 'cancelled' } : b)));
-    } catch {
-      setError('Failed to decline booking');
-    }
-  };
+  const handleAcceptBooking = (bookingId: number) => updateBookingStatus(bookingId, 'confirmed');
+  const handleDeclineBooking = (bookingId: number) => updateBookingStatus(bookingId, 'cancelled');
 
   const handleCompleteTask = async (taskId: number, bookingId: number, completed: boolean) => {
     const endpoint = completed ? 'complete' : 'uncomplete';
@@ -203,9 +188,11 @@ export default function HomePage() {
       <NeedsAttention
         items={attentionItems}
         isSitter={isSitterMode}
+        updatingIds={updatingIds}
         onAcceptBooking={handleAcceptBooking}
         onDeclineBooking={handleDeclineBooking}
         onCompleteTask={handleCompleteTask}
+        onReview={review.openReview}
       />
 
       <div className="mb-6">

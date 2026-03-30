@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { AlertTriangle, CheckCircle2, Circle } from 'lucide-react';
+import { AlertTriangle, Circle } from 'lucide-react';
 import type { AttentionItem } from '../../hooks/attentionItemsUtils';
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -14,9 +14,11 @@ const CATEGORY_ICONS: Record<string, string> = {
 interface Props {
   readonly items: AttentionItem[];
   readonly isSitter: boolean;
+  readonly updatingIds?: Set<number>;
   readonly onAcceptBooking?: (bookingId: number) => void;
   readonly onDeclineBooking?: (bookingId: number) => void;
   readonly onCompleteTask?: (taskId: number, bookingId: number, completed: boolean) => void;
+  readonly onReview?: (bookingId: number) => void;
 }
 
 function CareTaskDueItem({
@@ -74,11 +76,13 @@ function CareTaskDueItem({
 function PendingBookingItem({
   item,
   isSitter,
+  updating,
   onAccept,
   onDecline,
 }: {
   readonly item: AttentionItem;
   readonly isSitter: boolean;
+  readonly updating?: boolean;
   readonly onAccept?: (bookingId: number) => void;
   readonly onDecline?: (bookingId: number) => void;
 }) {
@@ -102,13 +106,17 @@ function PendingBookingItem({
         <div className="flex gap-1.5">
           <button
             onClick={() => onAccept(d.id as number)}
-            className="bg-emerald-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors"
+            disabled={updating}
+            aria-label={`Accept booking from ${counterparty}`}
+            className="bg-emerald-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
           >
             Accept
           </button>
           <button
             onClick={() => onDecline(d.id as number)}
-            className="bg-white text-red-700 border border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+            disabled={updating}
+            aria-label={`Decline booking from ${counterparty}`}
+            className="bg-white text-red-700 border border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
           >
             Decline
           </button>
@@ -121,7 +129,7 @@ function PendingBookingItem({
   );
 }
 
-function PendingReviewItem({ item }: { readonly item: AttentionItem }) {
+function PendingReviewItem({ item, onReview }: { readonly item: AttentionItem; readonly onReview?: (bookingId: number) => void }) {
   const d = item.data;
   return (
     <div className="px-5 py-3 border-b border-amber-200 flex items-center gap-3">
@@ -133,12 +141,19 @@ function PendingReviewItem({ item }: { readonly item: AttentionItem }) {
           {d.start_time && <span> &middot; {format(new Date(d.start_time as string), 'MMM d')}</span>}
         </div>
       </div>
-      <span className="text-xs text-emerald-600 font-semibold cursor-pointer hover:underline">Review</span>
+      {onReview && (
+        <button
+          onClick={() => onReview(d.id as number)}
+          className="text-xs text-emerald-600 font-semibold hover:underline"
+        >
+          Review
+        </button>
+      )}
     </div>
   );
 }
 
-export default function NeedsAttention({ items, isSitter, onAcceptBooking, onDeclineBooking, onCompleteTask }: Props) {
+export default function NeedsAttention({ items, isSitter, updatingIds, onAcceptBooking, onDeclineBooking, onCompleteTask, onReview }: Props) {
   if (items.length === 0) return null;
 
   return (
@@ -153,10 +168,10 @@ export default function NeedsAttention({ items, isSitter, onAcceptBooking, onDec
           return <CareTaskDueItem key={item.id} item={item} isSitter={isSitter} onComplete={onCompleteTask} />;
         }
         if (item.type === 'pending_booking') {
-          return <PendingBookingItem key={item.id} item={item} isSitter={isSitter} onAccept={onAcceptBooking} onDecline={onDeclineBooking} />;
+          return <PendingBookingItem key={item.id} item={item} isSitter={isSitter} updating={updatingIds?.has(item.data.id as number)} onAccept={onAcceptBooking} onDecline={onDeclineBooking} />;
         }
         if (item.type === 'pending_review') {
-          return <PendingReviewItem key={item.id} item={item} />;
+          return <PendingReviewItem key={item.id} item={item} onReview={onReview} />;
         }
         return null;
       })}

@@ -47,6 +47,12 @@ describe('buildAttentionItems', () => {
     expect(items[0].type).toBe('care_task_upcoming');
   });
 
+  it('excludes care tasks with null scheduled_time', () => {
+    const task = { ...baseTask, scheduled_time: null };
+    const items = buildAttentionItems([task], [], 1, false, new Set());
+    expect(items).toHaveLength(0);
+  });
+
   it('excludes care tasks more than 30 min away', () => {
     const task = { ...baseTask, id: 3, scheduled_time: later };
     const items = buildAttentionItems([task], [], 1, false, new Set());
