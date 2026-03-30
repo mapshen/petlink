@@ -81,6 +81,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <div className="relative">
                   <button
                     onClick={() => setAvatarMenuOpen((prev) => !prev)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setAvatarMenuOpen(false); }}
+                    aria-expanded={avatarMenuOpen}
+                    aria-haspopup="true"
                     className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                   >
                     <img
