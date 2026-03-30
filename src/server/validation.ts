@@ -51,6 +51,8 @@ export const updateProfileSchema = z.object({
   has_own_pets: z.boolean().optional().nullable(),
   own_pets_description: z.string().max(500).optional().nullable(),
   skills: z.array(z.enum(sitterSkills)).max(10).optional(),
+  lat: z.number().min(-90).max(90).optional().nullable(),
+  lng: z.number().min(-180).max(180).optional().nullable(),
   service_radius_miles: z.number().int().min(1).max(100).optional().nullable(),
   max_pets_at_once: z.number().int().min(1).max(20).optional().nullable(),
   max_pets_per_walk: z.number().int().min(1).max(10).optional().nullable(),

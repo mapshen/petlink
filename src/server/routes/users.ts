@@ -26,6 +26,8 @@ export default function userRoutes(router: Router): void {
         has_own_pets,
         own_pets_description,
         skills,
+        lat,
+        lng,
         service_radius_miles,
         max_pets_at_once,
         max_pets_per_walk,
@@ -44,6 +46,7 @@ export default function userRoutes(router: Router): void {
       ${has_own_pets !== undefined ? sql`, has_own_pets = ${has_own_pets ?? false}` : sql``}
       ${own_pets_description !== undefined ? sql`, own_pets_description = ${own_pets_description || null}` : sql``}
       ${skills !== undefined ? sql`, skills = ${skills || []}` : sql``}
+      ${lat !== undefined && lng !== undefined ? sql`, lat = ${lat}, lng = ${lng}, location = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography` : sql``}
       ${service_radius_miles !== undefined ? sql`, service_radius_miles = ${service_radius_miles}` : sql``}
       ${max_pets_at_once !== undefined ? sql`, max_pets_at_once = ${max_pets_at_once}` : sql``}
       ${max_pets_per_walk !== undefined ? sql`, max_pets_per_walk = ${max_pets_per_walk}` : sql``}
