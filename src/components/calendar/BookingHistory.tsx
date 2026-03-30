@@ -57,7 +57,7 @@ interface BookingRowProps {
   readonly onToggle: () => void;
   readonly userId: number;
   readonly token: string | null;
-  readonly onLeaveReview: (bookingId: number) => void;
+  readonly onLeaveReview?: (bookingId: number) => void;
 }
 
 function BookingRow({ booking, expanded, onToggle, userId, token, onLeaveReview }: BookingRowProps) {
@@ -147,11 +147,6 @@ export default function BookingHistory() {
   const showingFrom = total === 0 ? 0 : (page - 1) * limit + 1;
   const showingTo = Math.min(page * limit, total);
 
-  // Review dialog handled in BookingReviewDetail — leave review triggers the embedded component's own CTA
-  const handleLeaveReview = () => {
-    // No-op: "Leave Review" in expanded rows is handled by BookingReviewDetail's onLeaveReview
-    // which isn't wired to a dialog here. The expand action itself shows the review state.
-  };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
@@ -242,7 +237,6 @@ export default function BookingHistory() {
                     onToggle={() => setExpandedId(expandedId === booking.id ? null : booking.id)}
                     userId={user?.id ?? 0}
                     token={token}
-                    onLeaveReview={handleLeaveReview}
                   />
                 ))}
               </tbody>

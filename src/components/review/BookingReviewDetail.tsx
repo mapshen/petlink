@@ -10,7 +10,7 @@ interface BookingReviewDetailProps {
   bookingId: number;
   userId: number;
   token: string | null;
-  onLeaveReview: (bookingId: number) => void;
+  onLeaveReview?: (bookingId: number) => void;
   compact?: boolean;
 }
 
@@ -96,7 +96,7 @@ export default function BookingReviewDetail({ bookingId, userId, token, onLeaveR
                 respondentName={myRevieweeName}
               />
             </div>
-          ) : state.can_review ? (
+          ) : state.can_review && onLeaveReview ? (
             <div className="flex items-center justify-between">
               <span className="text-xs text-stone-400">How was your experience?</span>
               <Button
@@ -109,6 +109,8 @@ export default function BookingReviewDetail({ bookingId, userId, token, onLeaveR
                 Leave Review
               </Button>
             </div>
+          ) : state.can_review ? (
+            <p className="text-xs text-stone-400">Leave a review from the Dashboard.</p>
           ) : (
             <div>
               <div className="flex items-center gap-2 mb-1">
