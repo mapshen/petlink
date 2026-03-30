@@ -51,7 +51,8 @@ export default function bookingRoutes(router: Router, io: Server): void {
   router.get('/care-tasks/today', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       // Offset in minutes from UTC (e.g., -420 for UTC-7). Defaults to UTC.
-      const offsetMin = parseInt(req.query.tzOffset as string, 10) || 0;
+      const rawOffset = parseInt(req.query.tzOffset as string, 10);
+      const offsetMin = Number.isNaN(rawOffset) ? 0 : Math.max(-720, Math.min(840, rawOffset));
       const now = new Date();
       const localNow = new Date(now.getTime() - offsetMin * 60000);
       const startOfDay = new Date(Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate()) + offsetMin * 60000).toISOString();
