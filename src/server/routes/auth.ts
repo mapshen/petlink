@@ -6,6 +6,9 @@ import { verifyOAuthToken } from '../oauth.ts';
 import { isAdminUser } from '../admin.ts';
 import { sendEmail, buildOwnerWelcomeEmail } from '../email.ts';
 
+// Shared column list for user queries — keep in sync with User type
+const USER_COLUMNS = sql`id, email, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, approval_status, approval_rejected_reason`;
+
 export default function authRoutes(router: Router): void {
   router.post('/auth/signup', validate(signupSchema), async (req, res) => {
     const { email, password, name } = req.body;
@@ -34,7 +37,7 @@ export default function authRoutes(router: Router): void {
   router.post('/auth/login', validate(loginSchema), async (req, res) => {
     const { email, password } = req.body;
 
-    const [user] = await sql`SELECT id, email, name, roles, bio, avatar_url, lat, lng, password_hash, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, approval_status, approval_rejected_reason FROM users WHERE email = ${email}`;
+    const [user] = await sql`SELECT ${USER_COLUMNS}, password_hash FROM users WHERE email = ${email}`;
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -76,7 +79,7 @@ export default function authRoutes(router: Router): void {
 
       if (existingOAuth) {
         const [user] = await tx`
-          SELECT id, email, name, roles, bio, avatar_url FROM users WHERE id = ${existingOAuth.user_id}
+          SELECT ${USER_COLUMNS} FROM users WHERE id = ${existingOAuth.user_id}
         `;
         return { user, isNewUser: false };
       }
@@ -84,7 +87,7 @@ export default function authRoutes(router: Router): void {
       // Check for existing user by email (only auto-link if provider verified the email)
       if (profile.email && profile.emailVerified) {
         const [existingUser] = await tx`
-          SELECT id, email, name, roles, bio, avatar_url FROM users WHERE email = ${profile.email}
+          SELECT ${USER_COLUMNS} FROM users WHERE email = ${profile.email}
         `;
 
         if (existingUser) {
@@ -243,7 +246,7 @@ export default function authRoutes(router: Router): void {
 
   router.get('/auth/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [user] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
+      SELECT ${USER_COLUMNS} FROM users WHERE id = ${req.userId}
     `;
     if (user) {
       res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles) } });
