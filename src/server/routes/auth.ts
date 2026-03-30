@@ -5,9 +5,10 @@ import { validate, signupSchema, loginSchema, oauthSchema, setPasswordSchema, ch
 import { verifyOAuthToken } from '../oauth.ts';
 import { isAdminUser } from '../admin.ts';
 import { sendEmail, buildOwnerWelcomeEmail } from '../email.ts';
+import { generateUniqueSlug } from '../slugify.ts';
 
 // Shared column list for user queries — keep in sync with User type
-const USER_COLUMNS = sql`id, email, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, approval_status, approval_rejected_reason`;
+const USER_COLUMNS = sql`id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, approval_status, approval_rejected_reason`;
 
 export default function authRoutes(router: Router): void {
   router.post('/auth/signup', validate(signupSchema), async (req, res) => {
@@ -20,10 +21,11 @@ export default function authRoutes(router: Router): void {
     }
 
     const passwordHash = hashPassword(password);
+    const slug = await generateUniqueSlug(name);
     const [user] = await sql`
-      INSERT INTO users (email, password_hash, name, roles, approval_status)
-      VALUES (${email}, ${passwordHash}, ${name}, ${['owner']}, ${'approved'})
-      RETURNING id, email, name, roles, bio, avatar_url, lat, lng, approval_status
+      INSERT INTO users (email, password_hash, name, roles, approval_status, slug)
+      VALUES (${email}, ${passwordHash}, ${name}, ${['owner']}, ${'approved'}, ${slug})
+      RETURNING id, email, name, roles, bio, avatar_url, lat, lng, slug, approval_status
     `;
     const token = signToken({ userId: user.id });
     const refreshToken = await createRefreshToken(user.id);

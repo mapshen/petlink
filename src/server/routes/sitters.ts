@@ -21,7 +21,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography` : sql``;
 
     const sitters = await sql`
-      SELECT u.id, u.name, u.roles, u.bio, u.avatar_url,
+      SELECT u.id, u.name, u.roles, u.bio, u.avatar_url, u.slug,
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
              u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at,
              s.price, s.type as service_type, s.max_pets
@@ -122,9 +122,13 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     res.json({ sitters: ranked });
   });
 
-  router.get('/sitters/:id', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
+  router.get('/sitters/:idOrSlug', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
+    const param = req.params.idOrSlug;
+    const isNumeric = /^\d+$/.test(param);
     const [sitter] = await sql`
-      SELECT id, name, roles, bio, avatar_url, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance FROM users WHERE id = ${req.params.id} AND roles @> '{sitter}'::text[] AND approval_status = 'approved'
+      SELECT id, name, roles, bio, avatar_url, slug, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance FROM users
+      WHERE ${isNumeric ? sql`id = ${Number(param)}` : sql`slug = ${param}`}
+        AND roles @> '{sitter}'::text[] AND approval_status = 'approved'
     `;
     if (!sitter) {
       res.status(404).json({ error: 'Sitter not found' });

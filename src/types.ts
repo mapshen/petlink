@@ -36,6 +36,7 @@ export interface User {
   email: string;
   name: string;
   roles: string[];
+  slug?: string;
   bio?: string;
   avatar_url?: string;
   lat?: number;

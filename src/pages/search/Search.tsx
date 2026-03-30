@@ -415,7 +415,7 @@ export default function Search() {
                 {sitters.map((sitter) => (
                   <Link
                     key={sitter.id}
-                    to={`/sitter/${sitter.id}`}
+                    to={`/sitter/${sitter.slug || sitter.id}`}
                     className="block group"
                     onMouseEnter={() => setHighlightedSitterId(sitter.id)}
                     onMouseLeave={() => setHighlightedSitterId(null)}

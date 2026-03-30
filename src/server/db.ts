@@ -537,6 +537,15 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_procedures TEXT`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_insurance BOOLEAN DEFAULT FALSE`.catch(() => {});
 
+  // SEO-friendly slugs for sitter profiles
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_users_slug ON users (slug) WHERE slug IS NOT NULL`.catch(() => {});
+  // Backfill slugs for existing users without one
+  await sql`
+    UPDATE users SET slug = LOWER(REPLACE(REPLACE(name, ' ', '-'), '''', '')) || '-' || id
+    WHERE slug IS NULL AND name IS NOT NULL
+  `.catch(() => {});
+
   // Sitter pet capacity
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_pets_at_once INTEGER DEFAULT 3`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_pets_per_walk INTEGER DEFAULT 2`.catch(() => {});
