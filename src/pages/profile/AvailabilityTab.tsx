@@ -29,21 +29,26 @@ export default function AvailabilityTab() {
 
   useEffect(() => {
     if (!user) return;
+    const controller = new AbortController();
     const fetchSlots = async () => {
       try {
         const res = await fetch(`${API_BASE}/availability/${user.id}`, {
           headers: getAuthHeaders(token),
+          signal: controller.signal,
         });
         if (!res.ok) throw new Error('Failed to load availability');
         const data = await res.json();
-        setSlots(data.slots || []);
-      } catch {
-        setError('Failed to load availability.');
+        if (!controller.signal.aborted) setSlots(data.slots || []);
+      } catch (err) {
+        if (err instanceof Error && err.name !== 'AbortError') {
+          setError('Failed to load availability.');
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
     fetchSlots();
+    return () => controller.abort();
   }, [user, token]);
 
   const recurringSlots = slots.filter((s) => s.recurring);
@@ -172,6 +177,7 @@ export default function AvailabilityTab() {
                         type="time"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
+                        aria-label={`Start time for ${day}`}
                         className="px-2 py-1.5 border border-stone-200 rounded-lg text-sm"
                       />
                       <span className="text-stone-400">—</span>
@@ -179,6 +185,7 @@ export default function AvailabilityTab() {
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
+                        aria-label={`End time for ${day}`}
                         className="px-2 py-1.5 border border-stone-200 rounded-lg text-sm"
                       />
                       <button
