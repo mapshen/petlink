@@ -552,6 +552,16 @@ export async function initDb() {
   }
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_roles_check`.catch(() => {});
   await sql`ALTER TABLE users ADD CONSTRAINT users_roles_check CHECK(roles <@ '{owner,sitter,admin}'::text[])`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_users_roles ON users USING GIN (roles)`.catch(() => {});
+
+  // Bootstrap admin role for ADMIN_EMAIL user
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (adminEmail) {
+    await sql`
+      UPDATE users SET roles = array_append(roles, 'admin')
+      WHERE lower(email) = ${adminEmail.toLowerCase()} AND NOT (roles @> '{admin}'::text[])
+    `.catch(() => {});
+  }
 
   // Issue #149: service radius for sitter map
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS service_radius_miles INTEGER DEFAULT 10`.catch(() => {});

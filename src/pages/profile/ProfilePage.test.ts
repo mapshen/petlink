@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-// Test the section visibility logic extracted from ProfilePage.
-// ProfilePage renders sections based on mode, not role directly.
+// Test the section visibility logic matching ProfilePage.tsx.
+// Sections are filtered by mode AND hasSitter guard.
 
 interface SectionDef {
   id: string;
@@ -17,46 +17,51 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'reviews', label: 'Reviews', mode: 'sitter' },
 ];
 
-function getVisibleSections(mode: 'owner' | 'sitter'): SectionDef[] {
-  return ALL_SECTIONS.filter((s) => s.mode === 'both' || s.mode === mode);
+function getVisibleSections(mode: 'owner' | 'sitter', hasSitter: boolean): SectionDef[] {
+  return ALL_SECTIONS.filter(
+    (s) => s.mode === 'both' || (s.mode === mode && (s.mode === 'owner' || hasSitter))
+  );
 }
 
-function getVisibleSectionIds(mode: 'owner' | 'sitter'): string[] {
-  return getVisibleSections(mode).map((s) => s.id);
+function getVisibleSectionIds(mode: 'owner' | 'sitter', hasSitter: boolean): string[] {
+  return getVisibleSections(mode, hasSitter).map((s) => s.id);
 }
 
 describe('ProfilePage section visibility', () => {
   it('owner mode shows profile and pets', () => {
-    expect(getVisibleSectionIds('owner')).toEqual(['profile', 'pets']);
+    expect(getVisibleSectionIds('owner', false)).toEqual(['profile', 'pets']);
   });
 
-  it('sitter mode shows profile, services, photos, and reviews', () => {
-    expect(getVisibleSectionIds('sitter')).toEqual(['profile', 'services', 'photos', 'reviews']);
+  it('sitter mode with sitter role shows profile, services, photos, and reviews', () => {
+    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'services', 'photos', 'reviews']);
+  });
+
+  it('sitter mode WITHOUT sitter role only shows profile (guard)', () => {
+    expect(getVisibleSectionIds('sitter', false)).toEqual(['profile']);
   });
 
   it('profile section is always visible', () => {
-    expect(getVisibleSectionIds('owner')).toContain('profile');
-    expect(getVisibleSectionIds('sitter')).toContain('profile');
+    expect(getVisibleSectionIds('owner', false)).toContain('profile');
+    expect(getVisibleSectionIds('sitter', true)).toContain('profile');
   });
 
   it('pets section is only visible in owner mode', () => {
-    expect(getVisibleSectionIds('owner')).toContain('pets');
-    expect(getVisibleSectionIds('sitter')).not.toContain('pets');
+    expect(getVisibleSectionIds('owner', false)).toContain('pets');
+    expect(getVisibleSectionIds('sitter', true)).not.toContain('pets');
   });
 
-  it('services section is only visible in sitter mode', () => {
-    expect(getVisibleSectionIds('sitter')).toContain('services');
-    expect(getVisibleSectionIds('owner')).not.toContain('services');
+  it('services section requires sitter mode and sitter role', () => {
+    expect(getVisibleSectionIds('sitter', true)).toContain('services');
+    expect(getVisibleSectionIds('owner', true)).not.toContain('services');
+    expect(getVisibleSectionIds('sitter', false)).not.toContain('services');
   });
 
-  it('photos section is only visible in sitter mode', () => {
-    expect(getVisibleSectionIds('sitter')).toContain('photos');
-    expect(getVisibleSectionIds('owner')).not.toContain('photos');
+  it('owner+sitter user sees owner sections in owner mode', () => {
+    expect(getVisibleSectionIds('owner', true)).toEqual(['profile', 'pets']);
   });
 
-  it('reviews section is only visible in sitter mode', () => {
-    expect(getVisibleSectionIds('sitter')).toContain('reviews');
-    expect(getVisibleSectionIds('owner')).not.toContain('reviews');
+  it('owner+sitter user sees sitter sections in sitter mode', () => {
+    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'services', 'photos', 'reviews']);
   });
 });
 

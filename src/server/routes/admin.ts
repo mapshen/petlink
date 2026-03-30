@@ -65,7 +65,10 @@ export default function adminRoutes(router: Router): void {
 
     if (status === 'approved') {
       await sql`
-        UPDATE users SET approval_status = 'approved', approved_by = ${req.userId}, approved_at = NOW(), approval_rejected_reason = NULL
+        UPDATE users SET
+          approval_status = 'approved',
+          roles = CASE WHEN NOT (roles @> '{sitter}'::text[]) THEN array_append(roles, 'sitter') ELSE roles END,
+          approved_by = ${req.userId}, approved_at = NOW(), approval_rejected_reason = NULL
         WHERE id = ${sitterId}
       `;
     } else if (status === 'banned') {

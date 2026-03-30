@@ -47,7 +47,7 @@ export function ModeProvider({ children }: { children: React.ReactNode }) {
     } else {
       setModeState('owner');
     }
-  }, [user?.roles?.join(',')]);
+  }, [user?.roles?.slice().sort().join(',')]);
 
   const setMode = useCallback((newMode: Mode) => {
     setModeState(newMode);
