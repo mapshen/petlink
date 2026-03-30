@@ -8,6 +8,9 @@ const CATEGORY_ICONS: Record<string, string> = {
   exercise: '\u{1F3C3}',
   grooming: '\u2702\uFE0F',
   behavioral: '\u{1F9E0}',
+  litter_box: '\u{1FAA3}',
+  cage_cleaning: '\u{1F9F9}',
+  habitat_maintenance: '\u{1F321}\uFE0F',
   other: '\u{1F4DD}',
 };
 

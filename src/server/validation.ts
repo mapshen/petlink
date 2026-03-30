@@ -97,7 +97,7 @@ export const petVaccinationSchema = z.object({
 });
 
 // --- Care Instruction Schemas ---
-const careCategory = ['feeding', 'medication', 'exercise', 'grooming', 'behavioral', 'other'] as const;
+const careCategory = ['feeding', 'medication', 'exercise', 'grooming', 'behavioral', 'litter_box', 'cage_cleaning', 'habitat_maintenance', 'other'] as const;
 
 export const careInstructionSchema = z.object({
   id: z.string().min(1),
