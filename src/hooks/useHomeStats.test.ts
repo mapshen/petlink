@@ -1,62 +1,5 @@
 import { describe, it, expect } from 'vitest';
-
-interface OwnerStats {
-  upcomingBookings: number;
-  inProgressBookings: number;
-  petCount: number;
-  favoriteSitters: number;
-}
-
-interface SitterStats {
-  revenueThisMonth: number;
-  upcomingBookings: number;
-  avgRating: number | null;
-  reviewCount: number;
-  avgResponseHours: number | null;
-}
-
-interface Booking {
-  status: string;
-  start_time: string;
-  owner_id: number;
-  sitter_id: number;
-}
-
-function computeOwnerStats(
-  bookings: Booking[],
-  userId: number,
-  petCount: number,
-  favoriteCount: number,
-): OwnerStats {
-  const myBookings = bookings.filter((b) => b.owner_id === userId);
-  const now = new Date();
-  return {
-    upcomingBookings: myBookings.filter(
-      (b) => (b.status === 'confirmed' || b.status === 'pending') && new Date(b.start_time) > now,
-    ).length,
-    inProgressBookings: myBookings.filter((b) => b.status === 'in_progress').length,
-    petCount,
-    favoriteSitters: favoriteCount,
-  };
-}
-
-function computeSitterStats(
-  bookings: Booking[],
-  userId: number,
-  analytics: { total_revenue: number; avg_rating: number | null; review_count: number; avg_response_hours: number | null } | null,
-): SitterStats {
-  const myBookings = bookings.filter((b) => b.sitter_id === userId);
-  const now = new Date();
-  return {
-    revenueThisMonth: analytics?.total_revenue ?? 0,
-    upcomingBookings: myBookings.filter(
-      (b) => (b.status === 'confirmed' || b.status === 'pending') && new Date(b.start_time) > now,
-    ).length,
-    avgRating: analytics?.avg_rating ?? null,
-    reviewCount: analytics?.review_count ?? 0,
-    avgResponseHours: analytics?.avg_response_hours ?? null,
-  };
-}
+import { computeOwnerStats, computeSitterStats, formatHours } from './homeStatsUtils';
 
 describe('computeOwnerStats', () => {
   const now = new Date();
@@ -64,7 +7,7 @@ describe('computeOwnerStats', () => {
   const past = new Date(now.getTime() - 86400000).toISOString();
 
   it('counts upcoming confirmed and pending bookings', () => {
-    const bookings: Booking[] = [
+    const bookings = [
       { status: 'confirmed', start_time: future, owner_id: 1, sitter_id: 2 },
       { status: 'pending', start_time: future, owner_id: 1, sitter_id: 2 },
       { status: 'cancelled', start_time: future, owner_id: 1, sitter_id: 2 },
@@ -75,7 +18,7 @@ describe('computeOwnerStats', () => {
   });
 
   it('counts in-progress bookings', () => {
-    const bookings: Booking[] = [
+    const bookings = [
       { status: 'in_progress', start_time: past, owner_id: 1, sitter_id: 2 },
       { status: 'in_progress', start_time: past, owner_id: 1, sitter_id: 2 },
       { status: 'confirmed', start_time: future, owner_id: 1, sitter_id: 2 },
@@ -85,7 +28,7 @@ describe('computeOwnerStats', () => {
   });
 
   it('only counts bookings for this user', () => {
-    const bookings: Booking[] = [
+    const bookings = [
       { status: 'confirmed', start_time: future, owner_id: 1, sitter_id: 2 },
       { status: 'confirmed', start_time: future, owner_id: 99, sitter_id: 2 },
     ];
@@ -127,12 +70,29 @@ describe('computeSitterStats', () => {
   });
 
   it('counts upcoming sitter bookings', () => {
-    const bookings: Booking[] = [
+    const bookings = [
       { status: 'confirmed', start_time: future, owner_id: 1, sitter_id: 2 },
       { status: 'pending', start_time: future, owner_id: 1, sitter_id: 2 },
       { status: 'confirmed', start_time: future, owner_id: 1, sitter_id: 99 },
     ];
     const stats = computeSitterStats(bookings, 2, null);
     expect(stats.upcomingBookings).toBe(2);
+  });
+});
+
+describe('formatHours', () => {
+  it('returns -- for null', () => {
+    expect(formatHours(null)).toBe('--');
+  });
+
+  it('formats sub-hour as minutes', () => {
+    expect(formatHours(0.5)).toBe('30m');
+    expect(formatHours(0.25)).toBe('15m');
+  });
+
+  it('formats hours as rounded whole numbers', () => {
+    expect(formatHours(2)).toBe('2h');
+    expect(formatHours(2.7)).toBe('3h');
+    expect(formatHours(1)).toBe('1h');
   });
 });

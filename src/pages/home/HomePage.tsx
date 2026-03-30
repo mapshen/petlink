@@ -52,7 +52,7 @@ export default function HomePage() {
   const onboarding = useOnboardingStatus();
   const { favorites, toggleFavorite } = useFavorites();
   const review = useReviewDialog({ token, onError: setError, reviewerRole: isSitterMode ? 'sitter' : 'owner' });
-  const homeStats = useHomeStats();
+  const homeStats = useHomeStats(bookings);
 
   useEffect(() => {
     if (!user) return;
