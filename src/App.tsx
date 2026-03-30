@@ -35,6 +35,7 @@ const PrivacyPolicy = React.lazy(() => import('./pages/legal/PrivacyPolicy'));
 const TermsOfService = React.lazy(() => import('./pages/legal/TermsOfService'));
 const Sitemap = React.lazy(() => import('./pages/legal/Sitemap'));
 const HowItWorks = React.lazy(() => import('./pages/HowItWorks'));
+const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'));
 
 function LoadingSpinner() {
   return (
@@ -61,6 +62,7 @@ export default function App() {
                 <Route path="/dashboard" element={<Navigate to="/home" replace />} />
                 <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                 <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
                 <Route path="/promote" element={<ProtectedRoute><PromotePage /></ProtectedRoute>} />
                 <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />

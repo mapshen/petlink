@@ -15,6 +15,7 @@ import {
   cancellationPolicySchema,
   oauthSchema,
   setPasswordSchema,
+  changePasswordSchema,
   validate,
 } from './validation.ts';
 
@@ -873,6 +874,33 @@ describe('setPasswordSchema', () => {
 
   it('rejects password over 72 chars', () => {
     const result = setPasswordSchema.safeParse({ password: 'a'.repeat(73) });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('changePasswordSchema', () => {
+  it('accepts valid current and new password', () => {
+    const result = changePasswordSchema.safeParse({ currentPassword: 'oldpass123', newPassword: 'newpass123' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects missing currentPassword', () => {
+    const result = changePasswordSchema.safeParse({ newPassword: 'newpass123' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty currentPassword', () => {
+    const result = changePasswordSchema.safeParse({ currentPassword: '', newPassword: 'newpass123' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects short newPassword', () => {
+    const result = changePasswordSchema.safeParse({ currentPassword: 'oldpass123', newPassword: 'short' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects newPassword over 72 chars', () => {
+    const result = changePasswordSchema.safeParse({ currentPassword: 'oldpass123', newPassword: 'a'.repeat(73) });
     expect(result.success).toBe(false);
   });
 });

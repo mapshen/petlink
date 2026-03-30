@@ -1,28 +1,14 @@
-import React, { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { User as UserIcon, PawPrint, DollarSign, Camera, Crown, Import, Trash2 } from 'lucide-react';
+import { User as UserIcon, PawPrint, DollarSign, Camera, Import } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProfileTab from './ProfileTab';
 import PetsTab from './PetsTab';
 import ServicesTab from './ServicesTab';
 import PhotosTab from './PhotosTab';
-import SubscriptionPage from './SubscriptionPage';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { API_BASE } from '../../config';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '../../components/ui/alert-dialog';
 
 interface SectionDef {
   id: string;
@@ -36,17 +22,13 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'pets', label: 'My Pets', icon: PawPrint, mode: 'owner' },
   { id: 'services', label: 'Services', icon: DollarSign, mode: 'sitter' },
   { id: 'photos', label: 'Photos', icon: Camera, mode: 'sitter' },
-  { id: 'pro', label: 'Pro', icon: Crown, mode: 'sitter' },
 ];
 
 export default function ProfilePage() {
   useDocumentTitle('Profile');
-  const { user, token, logout, loading } = useAuth();
+  const { user, loading } = useAuth();
   const { mode } = useMode();
   const hasSitter = user?.roles?.includes('sitter') ?? false;
-  const navigate = useNavigate();
-  const [deleteError, setDeleteError] = useState('');
-  const [deleting, setDeleting] = useState(false);
 
   if (loading) {
     return (
@@ -65,38 +47,12 @@ export default function ProfilePage() {
     (s) => s.mode === 'both' || (s.mode === mode && (s.mode === 'owner' || hasSitter))
   );
 
-  const handleDeleteAccount = async () => {
-    setDeleting(true);
-    setDeleteError('');
-
-    try {
-      const res = await fetch(`${API_BASE}/users/me`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(token),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setDeleteError(data.error || 'Failed to delete account');
-        return;
-      }
-
-      logout();
-      navigate('/');
-    } catch {
-      setDeleteError('Failed to delete account. Please try again.');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="flex flex-col md:flex-row gap-8">
         {/* Sidebar */}
         <div className="w-full md:w-56 flex-shrink-0">
           <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-3 md:sticky md:top-24">
-            {/* User mini card */}
             <div className="flex items-center gap-3 px-3 py-3 mb-2 border-b border-stone-100">
               <img
                 src={
@@ -114,7 +70,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Section anchor links */}
             <nav className="flex md:flex-col gap-0.5 overflow-x-auto md:overflow-x-visible">
               {visibleSections.map((section) => {
                 const Icon = section.icon;
@@ -177,53 +132,8 @@ export default function ProfilePage() {
               >
                 <PhotosTab />
               </div>
-              <div
-                id="section-pro"
-                className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 scroll-mt-24"
-              >
-                <SubscriptionPage embedded />
-              </div>
             </>
           )}
-
-          {/* Account Deletion */}
-          <div className="rounded-2xl shadow-sm border-2 border-red-200 p-8">
-            <h3 className="text-lg font-semibold text-red-700 mb-2">Delete Account</h3>
-            <p className="text-sm text-stone-600 mb-4">
-              Permanently delete your PetLink account and all associated data. This action cannot be
-              undone.
-            </p>
-
-            {deleteError && <p className="text-red-500 text-sm mb-4">{deleteError}</p>}
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
-                  <Trash2 className="w-4 h-4" />
-                  Delete My Account
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Your account will be deactivated immediately. Your data will be permanently
-                    deleted after 30 days. Active bookings must be completed first.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteAccount}
-                    disabled={deleting}
-                    className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
-                  >
-                    {deleting ? 'Deleting...' : 'Yes, delete my account'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
         </div>
       </div>
     </div>
