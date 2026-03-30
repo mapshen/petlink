@@ -10,7 +10,7 @@ interface SectionDef {
 }
 
 const ALL_SECTIONS: SectionDef[] = [
-  { id: 'profile', label: 'Profile', mode: 'both' },
+  { id: 'profile', label: 'About', mode: 'both' },
   { id: 'pets', label: 'My Pets', mode: 'owner' },
   { id: 'services', label: 'Services', mode: 'sitter' },
   { id: 'photos', label: 'Photos', mode: 'sitter' },
