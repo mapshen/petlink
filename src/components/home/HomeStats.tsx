@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Activity, PawPrint, Heart, DollarSign, Star, Clock } from 'lucide-react';
-import type { OwnerStats, SitterStats } from '../../hooks/homeStatsUtils';
+import { formatHours, type OwnerStats, type SitterStats } from '../../hooks/homeStatsUtils';
 
 interface StatCardProps {
   readonly label: string;
@@ -84,11 +84,7 @@ export function SitterStatsRow({ stats }: { readonly stats: SitterStats }) {
       />
       <StatCard
         label="Response"
-        value={stats.avgResponseHours !== null
-          ? (stats.avgResponseHours < 1
-            ? `${Math.round(stats.avgResponseHours * 60)}m`
-            : `${Math.round(stats.avgResponseHours)}h`)
-          : '--'}
+        value={formatHours(stats.avgResponseHours)}
         subtitle="avg response time"
         icon={<Clock className="w-3.5 h-3.5" />}
         color="text-stone-900"

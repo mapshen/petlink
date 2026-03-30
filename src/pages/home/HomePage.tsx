@@ -134,6 +134,11 @@ export default function HomePage() {
       {!homeStats.loading && homeStats.sitterStats && (
         <SitterStatsRow stats={homeStats.sitterStats} />
       )}
+      {homeStats.error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>{homeStats.error}</AlertDescription>
+        </Alert>
+      )}
 
       {isSitterMode && user?.approval_status === 'approved' && (
         <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
