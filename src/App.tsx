@@ -7,6 +7,7 @@ import Layout from './components/layout/Layout';
 import LandingPage from './pages/Home';
 import Login from './pages/auth/Login';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AdminRoute from './components/auth/AdminRoute';
 import { useAuth } from './context/AuthContext';
 
 function HomeOrLanding() {
@@ -15,7 +16,6 @@ function HomeOrLanding() {
   if (user) return <Navigate to="/home" replace />;
   return <LandingPage />;
 }
-import AdminRoute from './components/auth/AdminRoute';
 
 const Search = React.lazy(() => import('./pages/search/Search'));
 const SitterProfile = React.lazy(() => import('./pages/search/SitterProfile'));
@@ -34,6 +34,7 @@ const Onboarding = React.lazy(() => import('./pages/auth/Onboarding'));
 const PrivacyPolicy = React.lazy(() => import('./pages/legal/PrivacyPolicy'));
 const TermsOfService = React.lazy(() => import('./pages/legal/TermsOfService'));
 const Sitemap = React.lazy(() => import('./pages/legal/Sitemap'));
+const HowItWorks = React.lazy(() => import('./pages/HowItWorks'));
 
 function LoadingSpinner() {
   return (
@@ -73,6 +74,7 @@ export default function App() {
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/sitemap" element={<Sitemap />} />
+                <Route path="/how-it-works" element={<HowItWorks />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/track/:bookingId" element={<ProtectedRoute><TrackWalk /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />

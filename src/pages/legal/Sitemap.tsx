@@ -8,6 +8,7 @@ const sections = [
     links: [
       { name: 'Home', path: '/' },
       { name: 'Search Sitters', path: '/search' },
+      { name: 'How It Works', path: '/how-it-works' },
       { name: 'Login / Sign Up', path: '/login' },
     ],
   },
