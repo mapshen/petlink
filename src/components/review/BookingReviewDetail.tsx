@@ -110,7 +110,7 @@ export default function BookingReviewDetail({ bookingId, userId, token, onLeaveR
               </Button>
             </div>
           ) : state.can_review ? (
-            <p className="text-xs text-stone-400">Leave a review from the Dashboard.</p>
+            <p className="text-xs text-stone-400">Leave a review from the Home page.</p>
           ) : (
             <div>
               <div className="flex items-center gap-2 mb-1">

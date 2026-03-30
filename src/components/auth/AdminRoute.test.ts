@@ -17,7 +17,7 @@ describe('AdminRoute', () => {
     mockUseAuth.mockReset();
   });
 
-  it('redirects to /dashboard when user is not admin', () => {
+  it('redirects to /home when user is not admin', () => {
     mockUseAuth.mockReturnValue({
       user: { id: '1', name: 'Test', email: 'test@example.com', is_admin: false },
       loading: false,
@@ -26,17 +26,17 @@ describe('AdminRoute', () => {
     const result = AdminRoute({ children: createElement('div', null, 'admin content') });
 
     expect(result).not.toBeNull();
-    expect((result as any).props.to).toBe('/dashboard');
+    expect((result as any).props.to).toBe('/home');
     expect((result as any).props.replace).toBe(true);
   });
 
-  it('redirects to /dashboard when user is null', () => {
+  it('redirects to /home when user is null', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false });
 
     const result = AdminRoute({ children: createElement('div', null, 'admin content') });
 
     expect(result).not.toBeNull();
-    expect((result as any).props.to).toBe('/dashboard');
+    expect((result as any).props.to).toBe('/home');
     expect((result as any).props.replace).toBe(true);
   });
 

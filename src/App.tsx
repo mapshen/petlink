@@ -11,7 +11,7 @@ import AdminRoute from './components/auth/AdminRoute';
 
 const Search = React.lazy(() => import('./pages/search/Search'));
 const SitterProfile = React.lazy(() => import('./pages/search/SitterProfile'));
-const Dashboard = React.lazy(() => import('./pages/dashboard/Dashboard'));
+const HomePage = React.lazy(() => import('./pages/home/HomePage'));
 const Messages = React.lazy(() => import('./pages/messages/Messages'));
 const TrackWalk = React.lazy(() => import('./pages/sitter/TrackWalk'));
 const ProfilePage = React.lazy(() => import('./pages/profile/ProfilePage'));
@@ -48,7 +48,8 @@ export default function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/sitter/:id" element={<SitterProfile />} />
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<Navigate to="/home" replace />} />
                 <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                 <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />

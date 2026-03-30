@@ -28,7 +28,7 @@ function getVisibleNavItems(
 describe('MobileMenu nav item logic', () => {
   const baseItems: NavItem[] = [
     { name: 'Search', path: '/search' },
-    { name: 'Dashboard', path: '/dashboard' },
+    { name: 'Home', path: '/home' },
     { name: 'Messages', path: '/messages' },
   ];
 
@@ -38,7 +38,7 @@ describe('MobileMenu nav item logic', () => {
     });
 
     it('returns false when paths differ', () => {
-      expect(isNavItemActive('/search', '/dashboard')).toBe(false);
+      expect(isNavItemActive('/search', '/home')).toBe(false);
     });
 
     it('does not match partial paths', () => {
@@ -50,7 +50,7 @@ describe('MobileMenu nav item logic', () => {
     it('shows base items when no user logged in', () => {
       const items = getVisibleNavItems(baseItems, null);
       expect(items).toHaveLength(3);
-      expect(items.map((i) => i.name)).toEqual(['Search', 'Dashboard', 'Messages']);
+      expect(items.map((i) => i.name)).toEqual(['Search', 'Home', 'Messages']);
     });
 
     it('includes Wallet for logged-in user', () => {

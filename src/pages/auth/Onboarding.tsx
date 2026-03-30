@@ -50,7 +50,7 @@ export default function Onboarding() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate('/login'); return; }
-    if (!user.roles?.includes('sitter')) { navigate('/dashboard'); return; }
+    if (!user.roles?.includes('sitter')) { navigate('/home'); return; }
   }, [user, authLoading, navigate]);
 
   // Initialize form state from user data + determine starting step
@@ -486,10 +486,10 @@ export default function Onboarding() {
             )}
 
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/home')}
               className="inline-flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
             >
-              Go to Dashboard
+              Go to Home
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

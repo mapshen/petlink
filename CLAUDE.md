@@ -71,14 +71,14 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
 - **Pages** (organized by feature in `src/pages/`):
   - `auth/` — Login, Onboarding
   - `admin/` — AdminPage (sitter approval management)
-  - `dashboard/` — Dashboard (bookings, reviews, favorites, onboarding checklist)
+  - `home/` — HomePage (bookings, reviews, favorites, onboarding checklist)
   - `search/` — Search, SitterProfile
   - `profile/` — ProfilePage (sidebar + stacked sections), ProfileTab, PetsTab, ServicesTab, PhotosTab, SubscriptionPage, ImportProfilePage
   - `messages/` — Messages
   - `payments/` — WalletPage, PaymentHistoryPage
   - `sitter/` — AnalyticsPage, PromotePage, TrackWalk
   - `Home.tsx` — landing page
-- **Role system**: Additive roles stored as `roles TEXT[]` (default `{owner}`). Roles: `owner`, `sitter`, `admin`. Everyone starts as owner; sitter granted by admin approval; admin requires both DB role and `ADMIN_EMAIL` env var. `ModeContext` provides owner/sitter toggle for users with both roles. Persisted in localStorage (`petlink_mode`). Affects Dashboard filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
+- **Role system**: Additive roles stored as `roles TEXT[]` (default `{owner}`). Roles: `owner`, `sitter`, `admin`. Everyone starts as owner; sitter granted by admin approval; admin requires both DB role and `ADMIN_EMAIL` env var. `ModeContext` provides owner/sitter toggle for users with both roles. Persisted in localStorage (`petlink_mode`). Affects Home page filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
 - **Components** (organized by domain in `src/components/`):
   - `layout/` — Layout, ModeToggle
   - `booking/` — BookingCalendar, TimeSlotPicker, PetSelector, CareTasksChecklist, QuickTapLogger

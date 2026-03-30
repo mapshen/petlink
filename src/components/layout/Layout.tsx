@@ -24,7 +24,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { name: 'Search', path: '/search', icon: MapPin },
-    { name: 'Dashboard', path: '/dashboard', icon: Calendar },
+    { name: 'Home', path: '/home', icon: Calendar },
     { name: 'Messages', path: '/messages', icon: MessageSquare },
     ...(user ? [
       { name: 'Wallet', path: '/wallet', icon: Wallet },

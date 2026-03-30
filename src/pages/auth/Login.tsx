@@ -45,14 +45,14 @@ export default function Login() {
       } else {
         await login(email, password);
       }
-      navigate('/dashboard');
+      navigate('/home');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed');
     }
   };
 
   const handleOAuthSuccess = (result: { isNewUser: boolean }) => {
-    navigate(result.isNewUser ? '/onboarding' : '/dashboard');
+    navigate(result.isNewUser ? '/onboarding' : '/home');
   };
 
   const hasOAuthProviders = !!(

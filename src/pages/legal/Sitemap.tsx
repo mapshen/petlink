@@ -14,7 +14,7 @@ const sections = [
   {
     title: 'Your Account',
     links: [
-      { name: 'Dashboard', path: '/dashboard' },
+      { name: 'Home', path: '/home' },
       { name: 'Messages', path: '/messages' },
       { name: 'Profile', path: '/profile' },
       { name: 'Wallet', path: '/wallet' },
