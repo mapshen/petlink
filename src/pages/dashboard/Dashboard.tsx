@@ -43,6 +43,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [cancelDialogBookingId, setCancelDialogBookingId] = useState<number | null>(null);
   const [refundMessage, setRefundMessage] = useState<string | null>(null);
+  const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
@@ -279,12 +280,23 @@ export default function Dashboard() {
                     )}
 
                     {booking.status === 'completed' && (
-                      <BookingReviewDetail
-                        bookingId={booking.id}
-                        userId={user?.id ?? 0}
-                        token={token}
-                        onLeaveReview={(id) => review.openReview(id)}
-                      />
+                      <div className="mt-3 pt-3 border-t border-stone-100">
+                        <button
+                          onClick={() => setExpandedReviewId(expandedReviewId === booking.id ? null : booking.id)}
+                          className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                          {expandedReviewId === booking.id ? 'Hide Reviews' : 'Show Reviews'}
+                        </button>
+                        {expandedReviewId === booking.id && (
+                          <BookingReviewDetail
+                            bookingId={booking.id}
+                            userId={user?.id ?? 0}
+                            token={token}
+                            onLeaveReview={(id) => review.openReview(id)}
+                          />
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}

@@ -147,8 +147,10 @@ export default function BookingHistory() {
   const showingFrom = total === 0 ? 0 : (page - 1) * limit + 1;
   const showingTo = Math.min(page * limit, total);
 
-  const handleLeaveReview = (_bookingId: number) => {
-    // TODO: Wire to review dialog — will be handled by parent Dashboard
+  // Review dialog handled in BookingReviewDetail — leave review triggers the embedded component's own CTA
+  const handleLeaveReview = () => {
+    // No-op: "Leave Review" in expanded rows is handled by BookingReviewDetail's onLeaveReview
+    // which isn't wired to a dialog here. The expand action itself shows the review state.
   };
 
   return (

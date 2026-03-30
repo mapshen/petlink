@@ -156,7 +156,7 @@ const subRating = z.number().int().min(1, 'Sub-rating must be 1-5').max(5, 'Sub-
 export const createReviewSchema = z.object({
   booking_id: z.number().int().positive('Invalid booking ID'),
   rating: z.number().int().min(1, 'Rating must be 1-5').max(5, 'Rating must be 1-5'),
-  comment: z.string().optional().nullable(),
+  comment: z.string().max(2000, 'Comment must be under 2000 characters').optional().nullable(),
   pet_care_rating: subRating,
   communication_rating: subRating,
   reliability_rating: subRating,

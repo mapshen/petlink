@@ -199,9 +199,14 @@ export default function reviewRoutes(router: Router): void {
     const { response_text } = req.body;
     const [updated] = await sql`
       UPDATE reviews SET response_text = ${response_text}, response_at = NOW()
-      WHERE id = ${reviewId}
+      WHERE id = ${reviewId} AND response_text IS NULL
       RETURNING *
     `;
+
+    if (!updated) {
+      res.status(409).json({ error: 'You have already responded to this review' });
+      return;
+    }
 
     res.json({ review: updated });
   });
