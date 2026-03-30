@@ -51,6 +51,8 @@ export interface User {
   own_pets_description?: string;
   skills?: string[];
   service_radius_miles?: number;
+  max_pets_at_once?: number;
+  max_pets_per_walk?: number;
   subscription_tier?: SubscriptionTier;
   approval_status?: 'approved' | 'pending_approval' | 'rejected' | 'banned';
   approval_rejected_reason?: string;

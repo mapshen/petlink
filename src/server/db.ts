@@ -532,6 +532,10 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users (approval_status)`.catch(() => {});
 
+  // Sitter pet capacity
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_pets_at_once INTEGER DEFAULT 3`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_pets_per_walk INTEGER DEFAULT 2`.catch(() => {});
+
   // Roles constraint and index
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_roles_check`.catch(() => {});
   await sql`ALTER TABLE users ADD CONSTRAINT users_roles_check CHECK(roles <@ '{owner,sitter,admin}'::text[])`.catch(() => {});
