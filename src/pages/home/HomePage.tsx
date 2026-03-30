@@ -19,6 +19,8 @@ import FavoriteSitters from '../../components/profile/FavoriteSitters';
 import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
 import { useHomeStats } from '../../hooks/useHomeStats';
 import { OwnerStatsRow, SitterStatsRow } from '../../components/home/HomeStats';
+import TodaySchedule from '../../components/home/TodaySchedule';
+import { useTodaySchedule } from '../../hooks/useTodaySchedule';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
@@ -53,6 +55,24 @@ export default function HomePage() {
   const { favorites, toggleFavorite } = useFavorites();
   const review = useReviewDialog({ token, onError: setError, reviewerRole: isSitterMode ? 'sitter' : 'owner' });
   const homeStats = useHomeStats(bookings);
+  const schedule = useTodaySchedule(bookings);
+
+  const handleCompleteTask = async (taskId: number, bookingId: number, completed: boolean) => {
+    const endpoint = completed ? 'complete' : 'uncomplete';
+    schedule.updateTask(taskId, { completed, completed_at: completed ? new Date().toISOString() : null });
+    try {
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}/care-tasks/${taskId}/${endpoint}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+      });
+      if (!res.ok) {
+        schedule.updateTask(taskId, { completed: !completed, completed_at: null });
+        throw new Error('Failed to update task');
+      }
+    } catch {
+      setError('Failed to update care task');
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -139,6 +159,16 @@ export default function HomePage() {
           <AlertDescription>{homeStats.error}</AlertDescription>
         </Alert>
       )}
+
+      <div className="mb-6">
+        <TodaySchedule
+          timeline={schedule.timeline}
+          loading={schedule.loading}
+          error={schedule.error}
+          isSitter={isSitterMode}
+          onCompleteTask={handleCompleteTask}
+        />
+      </div>
 
       {isSitterMode && user?.approval_status === 'approved' && (
         <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
