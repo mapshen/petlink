@@ -54,6 +54,9 @@ export const updateProfileSchema = z.object({
   service_radius_miles: z.number().int().min(1).max(100).optional().nullable(),
   max_pets_at_once: z.number().int().min(1).max(20).optional().nullable(),
   max_pets_per_walk: z.number().int().min(1).max(10).optional().nullable(),
+  house_rules: z.string().max(2000).optional().nullable(),
+  emergency_procedures: z.string().max(2000).optional().nullable(),
+  has_insurance: z.boolean().optional().nullable(),
 });
 
 // --- Pet Schemas ---

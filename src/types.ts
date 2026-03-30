@@ -53,6 +53,9 @@ export interface User {
   service_radius_miles?: number;
   max_pets_at_once?: number;
   max_pets_per_walk?: number;
+  house_rules?: string;
+  emergency_procedures?: string;
+  has_insurance?: boolean;
   subscription_tier?: SubscriptionTier;
   approval_status?: 'approved' | 'pending_approval' | 'rejected' | 'banned';
   approval_rejected_reason?: string;
