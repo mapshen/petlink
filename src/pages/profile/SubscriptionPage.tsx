@@ -141,10 +141,12 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
 
   return (
     <div className={embedded ? '' : 'max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
-      <div className="flex items-center gap-3 mb-6">
-        <Crown className={`w-6 h-6 ${isPro ? 'text-amber-500' : 'text-stone-400'}`} />
-        <h1 className="text-2xl font-bold text-stone-900">Subscription</h1>
-      </div>
+      {!embedded && (
+        <div className="flex items-center gap-3 mb-6">
+          <Crown className={`w-6 h-6 ${isPro ? 'text-amber-500' : 'text-stone-400'}`} />
+          <h1 className="text-2xl font-bold text-stone-900">Subscription</h1>
+        </div>
+      )}
 
       {successMessage && (
         <Alert className="mb-4 border-emerald-200 bg-emerald-50">
