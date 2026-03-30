@@ -470,6 +470,10 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_booking_id ON booking_care_tasks (booking_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_pet_id ON booking_care_tasks (pet_id)`.catch(() => {});
 
+  // Care task scheduling: absolute scheduled_time for timeline and notifications
+  await sql`ALTER TABLE booking_care_tasks ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMPTZ`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_scheduled_time ON booking_care_tasks (scheduled_time) WHERE scheduled_time IS NOT NULL`.catch(() => {});
+
   // Issue #111: Checkr background check integration
   await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_candidate_id TEXT`.catch(() => {});
   await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_invitation_url TEXT`.catch(() => {});
