@@ -260,7 +260,7 @@ export default function SitterProfile() {
         {/* Posts Tab */}
         {activeTab === 'posts' && (
           <div role="tabpanel" aria-label="Posts">
-            {user && user.id === sitter.id && (
+            {user && user.id === sitter.id && user.roles?.includes('sitter') && (
               <div className="flex justify-end px-4 py-3">
                 <button
                   onClick={() => setShowCreatePost(true)}

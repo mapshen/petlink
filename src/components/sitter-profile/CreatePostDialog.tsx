@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { ImagePlus, Video, Loader2, X } from 'lucide-react';
+import { ImagePlus, Loader2, X } from 'lucide-react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { API_BASE } from '../../config';
@@ -67,6 +67,7 @@ export default function CreatePostDialog({ open, onOpenChange, onPostCreated }: 
       setPhotoUrl(url);
     } else {
       setPhotoPreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       setError('Failed to upload photo');
     }
   };
@@ -88,7 +89,7 @@ export default function CreatePostDialog({ open, onOpenChange, onPostCreated }: 
     setError(null);
 
     try {
-      const body: Record<string, string> = { post_type: photoUrl ? 'update' : 'update' };
+      const body: Record<string, string> = { post_type: 'update' };
       if (content.trim()) body.content = content.trim();
       if (photoUrl) body.photo_url = photoUrl;
 
