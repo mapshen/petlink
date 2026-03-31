@@ -5,6 +5,7 @@ import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, quickTapEventSchema } from '../validation.ts';
 import { createNotification } from '../notifications.ts';
 import { schedulePayoutForBooking, getPayoutDelay } from '../payouts.ts';
+import { MAX_POSTS_PER_SITTER } from './posts.ts';
 
 export default function walkRoutes(router: Router, io: Server): void {
   router.get('/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -56,6 +57,16 @@ export default function walkRoutes(router: Router, io: Server): void {
       VALUES (${req.params.bookingId}, ${event_type}, ${lat || null}, ${lng || null}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${pet_id || null})
       RETURNING *
     `;
+
+    // Auto-create sitter post for photo/video events (#275)
+    if ((event_type === 'photo' && photo_url) || (event_type === 'video' && video_url)) {
+      const postType = event_type === 'photo' ? 'walk_photo' : 'walk_video';
+      await sql`
+        INSERT INTO sitter_posts (sitter_id, content, photo_url, video_url, booking_id, walk_event_id, post_type)
+        SELECT ${req.userId}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${Number(req.params.bookingId)}, ${event.id}, ${postType}
+        WHERE (SELECT COUNT(*) FROM sitter_posts WHERE sitter_id = ${req.userId}) < ${MAX_POSTS_PER_SITTER}
+      `.catch((err) => { console.error('auto-post creation failed:', err); });
+    }
 
     // If event is 'start', update booking to in_progress and notify owner
     if (event_type === 'start') {
