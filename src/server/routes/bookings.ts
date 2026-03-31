@@ -175,9 +175,13 @@ export default function bookingRoutes(router: Router, io: Server): void {
       res.status(400).json({ error: 'This sitter is not currently available for bookings' });
       return;
     }
-    const [service] = await sql`SELECT id, price, type, additional_pet_price FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    const [service] = await sql`SELECT id, price, type, additional_pet_price, max_pets FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
     if (!service) {
       res.status(400).json({ error: 'Invalid service for this sitter' });
+      return;
+    }
+    if (pet_ids.length > (service.max_pets || 1)) {
+      res.status(400).json({ error: `This service accepts a maximum of ${service.max_pets || 1} pets` });
       return;
     }
 

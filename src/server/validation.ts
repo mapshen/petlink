@@ -362,14 +362,14 @@ export const signedUrlSchema = z.object({
 
 // --- Sitter Search Schemas ---
 export const sitterSearchSchema = z.object({
-  serviceType: z.string().optional(),
+  serviceType: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet']).optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
   radius: z.coerce.number().min(1).max(500).optional(),
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),
-  petSize: z.string().optional(),
-  species: z.string().optional(),
+  petSize: z.enum(['small', 'medium', 'large', 'giant']).optional(),
+  species: z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal']).optional(),
 });
 
 // --- Profile View Schemas ---
