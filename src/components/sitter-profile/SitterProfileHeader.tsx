@@ -13,6 +13,8 @@ interface Props {
   readonly onMessageClick: () => void;
 }
 
+const BIO_TRUNCATE_LIMIT = 150;
+
 export function formatSkill(skill: string): string {
   return skill.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -22,9 +24,13 @@ export function buildHeaderTags(sitter: User): string[] {
   if (sitter.accepted_species) {
     tags.push(...sitter.accepted_species.map((s) => s.replace(/_/g, ' ')));
   }
+  if (sitter.accepted_pet_sizes && sitter.accepted_pet_sizes.length > 0) {
+    tags.push(...sitter.accepted_pet_sizes);
+  }
   if (sitter.home_type) tags.push(sitter.home_type);
   if (sitter.has_fenced_yard) tags.push('fenced yard');
   else if (sitter.has_yard) tags.push('yard');
+  if (sitter.has_own_pets) tags.push('has own pets');
   if (sitter.skills) {
     tags.push(...sitter.skills.map(formatSkill));
   }
@@ -47,9 +53,8 @@ export default function SitterProfileHeader({
   const tags = buildHeaderTags(sitter);
 
   const bio = sitter.bio || '';
-  const BIO_LIMIT = 150;
-  const shouldTruncate = bio.length > BIO_LIMIT;
-  const displayBio = shouldTruncate && !bioExpanded ? bio.slice(0, BIO_LIMIT) + '...' : bio;
+  const shouldTruncate = bio.length > BIO_TRUNCATE_LIMIT;
+  const displayBio = shouldTruncate && !bioExpanded ? bio.slice(0, BIO_TRUNCATE_LIMIT) + '...' : bio;
 
   return (
     <div className="bg-white border-b border-stone-200">
@@ -70,6 +75,7 @@ export default function SitterProfileHeader({
           {/* Name + badges */}
           <div className="flex items-center gap-3 mb-2.5 flex-wrap">
             <h1 className="text-2xl font-extrabold text-stone-900">{sitter.name}</h1>
+            {/* All approved sitters show as verified — approval requires admin review. Future: check verifications table for ID/background check status */}
             <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
               Verified
@@ -129,7 +135,7 @@ export default function SitterProfileHeader({
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3.5">
               {tags.map((tag) => (
-                <span key={tag} className="bg-stone-100 text-stone-700 text-xs font-medium px-2.5 py-1 rounded-lg">
+                <span key={tag} className="bg-stone-100 text-stone-700 text-xs font-medium px-2.5 py-1 rounded-lg capitalize">
                   {tag}
                 </span>
               ))}

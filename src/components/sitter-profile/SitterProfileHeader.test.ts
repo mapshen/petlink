@@ -37,10 +37,13 @@ describe('formatSkill', () => {
 });
 
 describe('buildHeaderTags', () => {
-  it('includes species, home type, yard, and skills', () => {
+  it('includes species, pet sizes, home type, yard, and skills', () => {
     const tags = buildHeaderTags(baseSitter);
     expect(tags).toContain('dog');
     expect(tags).toContain('cat');
+    expect(tags).toContain('small');
+    expect(tags).toContain('medium');
+    expect(tags).toContain('large');
     expect(tags).toContain('house');
     expect(tags).toContain('fenced yard');
     expect(tags).toContain('Pet First Aid');
@@ -90,5 +93,29 @@ describe('buildHeaderTags', () => {
   it('replaces underscores in species names', () => {
     const tags = buildHeaderTags({ ...baseSitter, accepted_species: ['small_animal'] });
     expect(tags).toContain('small animal');
+  });
+
+  it('includes accepted pet sizes', () => {
+    const tags = buildHeaderTags(baseSitter);
+    expect(tags).toContain('small');
+    expect(tags).toContain('medium');
+    expect(tags).toContain('large');
+  });
+
+  it('omits pet sizes when empty', () => {
+    const tags = buildHeaderTags({ ...baseSitter, accepted_pet_sizes: [] });
+    expect(tags).not.toContain('small');
+    expect(tags).not.toContain('medium');
+    expect(tags).not.toContain('large');
+  });
+
+  it('includes has own pets tag', () => {
+    const tags = buildHeaderTags({ ...baseSitter, has_own_pets: true });
+    expect(tags).toContain('has own pets');
+  });
+
+  it('omits has own pets when false', () => {
+    const tags = buildHeaderTags(baseSitter);
+    expect(tags).not.toContain('has own pets');
   });
 });

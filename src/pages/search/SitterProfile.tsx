@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
+import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview } from '../../types';
 import ImportedReviewBadge from '../../components/profile/ImportedReviewBadge';
@@ -59,6 +59,11 @@ export default function SitterProfile() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [cityName, setCityName] = useState<string | null>(null);
   const [postCount, setPostCount] = useState(0);
+  const bookingRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBooking = useCallback(() => {
+    bookingRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
   const handleAvailabilityLoaded = useCallback((data: Availability[]) => {
     setAvailability(data);
@@ -111,18 +116,22 @@ export default function SitterProfile() {
     fetchSitter();
   }, [id, serviceIdParam]);
 
+  const sitterId = sitter?.id;
+  const sitterLat = sitter?.lat;
+  const sitterLng = sitter?.lng;
+
   useEffect(() => {
-    if (!sitter) return;
-    if (sitter.lat != null && sitter.lng != null) {
-      reverseGeocode(sitter.lat, sitter.lng).then((city) => {
+    if (sitterId == null) return;
+    if (sitterLat != null && sitterLng != null) {
+      reverseGeocode(sitterLat, sitterLng).then((city) => {
         if (city) setCityName(city);
       });
     }
-    fetch(`${API_BASE}/sitter-posts/${sitter.id}?limit=1`)
+    fetch(`${API_BASE}/sitter-posts/${sitterId}?limit=1`)
       .then((res) => res.ok ? res.json() : null)
       .then((data) => { if (data) setPostCount(data.total); })
       .catch(() => {});
-  }, [sitter?.id, sitter?.lat, sitter?.lng]);
+  }, [sitterId, sitterLat, sitterLng]);
 
   useEffect(() => {
     if (!user || !token) return;
@@ -221,11 +230,6 @@ export default function SitterProfile() {
       )}
     </div>
   );
-
-  const scrollToBooking = () => {
-    const el = document.getElementById('booking-card');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-  };
 
   return (
     <div>
@@ -353,7 +357,7 @@ export default function SitterProfile() {
         </div>
 
         {/* Right Column: Booking Card */}
-        <div className="lg:col-span-1" id="booking-card">
+        <div className="lg:col-span-1" ref={bookingRef}>
           <div className="bg-white p-6 rounded-2xl shadow-lg border border-stone-100 sticky top-24">
             <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
             
