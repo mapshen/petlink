@@ -7,7 +7,7 @@ import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
 
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 50;
-const MAX_POSTS_PER_SITTER = 100;
+export const MAX_POSTS_PER_SITTER = 100;
 
 export default function postRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
   // Public: get posts for a sitter (paginated)
