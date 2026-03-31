@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Video, ImageIcon } from 'lucide-react';
+import { Video, ImageIcon, AlertCircle } from 'lucide-react';
+import { isToday, isYesterday, format } from 'date-fns';
 import { API_BASE } from '../../config';
 import type { SitterPost } from '../../types';
 
@@ -7,43 +8,74 @@ const PAGE_SIZE = 12;
 
 export function formatPostDate(dateStr: string): string {
   const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (isToday(date)) return 'Today';
+  if (isYesterday(date)) return 'Yesterday';
+  return format(date, 'MMM d');
 }
 
 interface Props {
   readonly sitterId: number;
+  readonly onTotalLoaded?: (total: number) => void;
 }
 
-export default function PostsGrid({ sitterId }: Props) {
+export default function PostsGrid({ sitterId, onTotalLoaded }: Props) {
   const [posts, setPosts] = useState<SitterPost[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [offset, setOffset] = useState(0);
 
+  // Reset state when sitterId changes
   useEffect(() => {
+    setPosts([]);
+    setTotal(0);
+    setOffset(0);
+    setFetchError(false);
+  }, [sitterId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
-    fetch(`${API_BASE}/sitter-posts/${sitterId}?limit=${PAGE_SIZE}&offset=${offset}`)
+    setFetchError(false);
+
+    fetch(`${API_BASE}/sitter-posts/${sitterId}?limit=${PAGE_SIZE}&offset=${offset}`, {
+      signal: controller.signal,
+    })
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (data) {
           setPosts((prev) => offset === 0 ? data.posts : [...prev, ...data.posts]);
           setTotal(data.total);
+          onTotalLoaded?.(data.total);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (err.name !== 'AbortError') setFetchError(true);
+      })
       .finally(() => setLoading(false));
+
+    return () => controller.abort();
   }, [sitterId, offset]);
 
   if (loading && posts.length === 0) {
     return (
       <div className="flex justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+      </div>
+    );
+  }
+
+  if (fetchError && posts.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="w-12 h-12 text-red-300 mx-auto mb-3" />
+        <p className="text-stone-500">Failed to load posts</p>
+        <button
+          onClick={() => { setFetchError(false); setOffset(0); }}
+          className="text-sm text-emerald-600 mt-2 hover:text-emerald-700"
+        >
+          Retry
+        </button>
       </div>
     );
   }

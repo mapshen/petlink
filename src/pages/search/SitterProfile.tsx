@@ -131,10 +131,6 @@ export default function SitterProfile() {
         if (city) setCityName(city);
       });
     }
-    fetch(`${API_BASE}/sitter-posts/${sitterId}?limit=1`)
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => { if (data) setPostCount(data.total); })
-      .catch(() => {});
   }, [sitterId, sitterLat, sitterLng]);
 
   useEffect(() => {
@@ -260,12 +256,14 @@ export default function SitterProfile() {
       <div className="max-w-[960px] mx-auto">
         {/* Posts Tab */}
         {activeTab === 'posts' && (
-          <PostsGrid sitterId={sitter.id} />
+          <div role="tabpanel" aria-label="Posts">
+            <PostsGrid key={sitter.id} sitterId={sitter.id} onTotalLoaded={setPostCount} />
+          </div>
         )}
 
         {/* Reviews Tab */}
         {activeTab === 'reviews' && (
-          <div className="py-6 px-4">
+          <div className="py-6 px-4" role="tabpanel" aria-label="Reviews">
             <div className="max-w-2xl mx-auto">
               {/* Rating summary */}
               {reviews.length > 0 && (
@@ -355,7 +353,7 @@ export default function SitterProfile() {
 
         {/* Availability Tab */}
         {activeTab === 'availability' && (
-          <div className="py-6 px-4" ref={bookingRef}>
+          <div className="py-6 px-4" ref={bookingRef} role="tabpanel" aria-label="Availability">
             <div className="max-w-2xl mx-auto space-y-6">
               {/* Location */}
               {sitter.lat != null && sitter.lng != null && (

@@ -17,7 +17,7 @@ interface Props {
 export default function ProfileTabs({ activeTab, onTabChange }: Props) {
   return (
     <div className="bg-white border-t border-stone-200">
-      <div className="max-w-[960px] mx-auto flex">
+      <div className="max-w-[960px] mx-auto flex" role="tablist">
         {TABS.map((tab) => {
           const { label, icon: Icon } = TAB_CONFIG[tab];
           const isActive = activeTab === tab;

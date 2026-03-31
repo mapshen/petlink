@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
-
-const TABS = ['posts', 'reviews', 'availability'] as const;
-type TabId = typeof TABS[number];
+import { TABS, type TabId } from './ProfileTabs';
 
 describe('ProfileTabs constants', () => {
   it('has 3 tabs', () => {
