@@ -6,6 +6,7 @@ import { validate, verificationUpdateSchema } from '../validation.ts';
 import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
 import { createCandidate, createInvitation, verifyWebhookSignature, parseWebhookEvent, mapCheckrStatus, isCheckrConfigured } from '../checkr.ts';
 import { createNotification } from '../notifications.ts';
+import logger, { sanitizeError } from '../logger.ts';
 
 export default function verificationRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
   router.get('/verification/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -40,7 +41,7 @@ export default function verificationRoutes(router: Router, publicLimiter: RateLi
         const invitation = await createInvitation(candidate.id);
         checkrInvitationUrl = invitation.invitation_url;
       } catch (err) {
-        console.error('Checkr integration error:', err);
+        logger.error({ err: sanitizeError(err) }, 'Checkr integration error');
         // Fall through — create verification record without Checkr
       }
     }

@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import logger from './logger.ts';
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -36,7 +37,7 @@ export async function sendEmail(payload: EmailPayload): Promise<{ id: string } |
   });
 
   if (error) {
-    console.warn('Email send failed:', error);
+    logger.warn({ err: error }, 'Email send failed');
     return null;
   }
 

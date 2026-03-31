@@ -8,6 +8,7 @@ import { capturePayment, cancelPayment, refundPayment } from '../payments.ts';
 import { calculateRefund } from '../cancellation.ts';
 import { calculateBookingPrice } from '../multi-pet-pricing.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
+import logger, { sanitizeError } from '../logger.ts';
 import { format as formatDate } from 'date-fns';
 
 /**
@@ -441,7 +442,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
           await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${bookingId}`;
         }
       } catch (err) {
-        console.error(`Refund failed for booking ${bookingId}:`, err);
+        logger.error({ err: sanitizeError(err), bookingId }, 'Refund failed for booking');
         refund = null; // Don't send misleading refund info to client
       }
     } else if (status === 'cancelled' && updated.payment_intent_id && updated.payment_status === 'held') {
@@ -450,7 +451,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
         await cancelPayment(updated.payment_intent_id);
         await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE id = ${bookingId}`;
       } catch (err) {
-        console.error(`Payment cancellation failed for booking ${bookingId}:`, err);
+        logger.error({ err: sanitizeError(err), bookingId }, 'Payment cancellation failed for booking');
       }
     }
 

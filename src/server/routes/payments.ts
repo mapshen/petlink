@@ -5,6 +5,7 @@ import { validate, paymentIntentSchema, paymentActionSchema } from '../validatio
 import { createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent, listPaymentMethods, detachPaymentMethod, listCharges, createFinancialConnectionsSession, listBankAccounts, detachBankAccount } from '../payments.ts';
 import { getPayoutsForSitter, getPendingPayoutsForSitter } from '../payouts.ts';
 import { createNotification } from '../notifications.ts';
+import logger, { sanitizeError } from '../logger.ts';
 
 export default function paymentRoutes(router: Router): void {
   // --- Payments (direct — no Stripe Connect) ---
@@ -29,7 +30,7 @@ export default function paymentRoutes(router: Router): void {
       await sql`UPDATE bookings SET payment_intent_id = ${paymentIntentId}, payment_status = 'held' WHERE id = ${booking_id}`;
       res.json({ clientSecret, paymentIntentId });
     } catch (error) {
-      console.error('Payment intent error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Payment intent error');
       res.status(500).json({ error: 'Failed to create payment' });
     }
   });
@@ -49,7 +50,7 @@ export default function paymentRoutes(router: Router): void {
       await createNotification(booking.owner_id, 'payment_update', 'Payment Captured', 'Your payment has been processed.', { booking_id });
       res.json({ success: true });
     } catch (error) {
-      console.error('Payment capture error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Payment capture error');
       res.status(500).json({ error: 'Failed to capture payment' });
     }
   });
@@ -68,7 +69,7 @@ export default function paymentRoutes(router: Router): void {
       await sql`UPDATE bookings SET payment_status = 'cancelled', status = 'cancelled' WHERE id = ${booking_id}`;
       res.json({ success: true });
     } catch (error) {
-      console.error('Payment cancel error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Payment cancel error');
       res.status(500).json({ error: 'Failed to cancel payment' });
     }
   });
@@ -183,7 +184,7 @@ export default function paymentRoutes(router: Router): void {
       }
       res.json({ received: true });
     } catch (error) {
-      console.error('Stripe webhook error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Stripe webhook error');
       res.status(400).json({ error: 'Webhook verification failed' });
     }
   });
@@ -199,7 +200,7 @@ export default function paymentRoutes(router: Router): void {
       const methods = await listPaymentMethods(user.stripe_customer_id);
       res.json({ payment_methods: methods });
     } catch (error) {
-      console.error('Payment methods error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Payment methods error');
       res.status(500).json({ error: 'Failed to load payment methods' });
     }
   });
@@ -225,7 +226,7 @@ export default function paymentRoutes(router: Router): void {
       await detachPaymentMethod(req.params.id);
       res.json({ success: true });
     } catch (error) {
-      console.error('Delete payment method error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Delete payment method error');
       res.status(500).json({ error: 'Failed to remove payment method' });
     }
   });
@@ -241,7 +242,7 @@ export default function paymentRoutes(router: Router): void {
       const payments = await listCharges(user.stripe_customer_id, limit);
       res.json({ payments });
     } catch (error) {
-      console.error('Payment history error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Payment history error');
       res.status(500).json({ error: 'Failed to load payment history' });
     }
   });
@@ -257,7 +258,7 @@ export default function paymentRoutes(router: Router): void {
       const result = await createFinancialConnectionsSession(user.stripe_customer_id);
       res.json(result);
     } catch (error) {
-      console.error('Bank linking error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Bank linking error');
       res.status(500).json({ error: 'Failed to start bank linking' });
     }
   });
@@ -272,7 +273,7 @@ export default function paymentRoutes(router: Router): void {
       const accounts = await listBankAccounts(user.stripe_customer_id);
       res.json({ bank_accounts: accounts });
     } catch (error) {
-      console.error('Bank accounts error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Bank accounts error');
       res.status(500).json({ error: 'Failed to load bank accounts' });
     }
   });
@@ -297,7 +298,7 @@ export default function paymentRoutes(router: Router): void {
       await detachBankAccount(req.params.id);
       res.json({ success: true });
     } catch (error) {
-      console.error('Bank account deletion error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Bank account deletion error');
       res.status(500).json({ error: 'Failed to remove bank account' });
     }
   });

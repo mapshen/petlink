@@ -1,6 +1,7 @@
 import type { Server } from 'socket.io';
 import sql from './db.ts';
 import { createNotification } from './notifications.ts';
+import logger, { sanitizeError } from './logger.ts';
 
 const REMINDER_AHEAD_MINUTES = 15;
 const CHECK_INTERVAL_MS = 60_000; // 1 minute
@@ -91,7 +92,7 @@ export async function checkCareTaskReminders(io: Server): Promise<number> {
         sentCount++;
       }
     } catch (err) {
-      console.error(`Failed to send reminder for task ${task.id}:`, err);
+      logger.error({ err: sanitizeError(err), taskId: task.id }, 'Failed to send care task reminder');
     }
   }
 
@@ -104,7 +105,7 @@ export function startCareTaskReminderScheduler(io: Server): void {
   if (intervalId) return;
   intervalId = setInterval(() => {
     checkCareTaskReminders(io).catch((err) => {
-      console.error('Care task reminder check failed:', err);
+      logger.error({ err: sanitizeError(err) }, 'Care task reminder check failed');
     });
   }, CHECK_INTERVAL_MS);
 }

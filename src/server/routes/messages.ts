@@ -4,6 +4,7 @@ import sql from '../db.ts';
 import { authMiddleware, verifyToken, type AuthenticatedRequest } from '../auth.ts';
 import { createNotification, getPreferences } from '../notifications.ts';
 import { sendEmail, buildNewMessageEmail } from '../email.ts';
+import logger, { sanitizeError } from '../logger.ts';
 
 export default function messageRoutes(router: Router, io: Server): void {
   router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -151,13 +152,13 @@ export default function messageRoutes(router: Router, io: Server): void {
           sendEmail({ to: receiverUser.email, ...msgEmail }).catch(() => {});
         }
       } catch (error) {
-        console.error('Socket send_message error:', error);
+        logger.error({ err: sanitizeError(error) }, 'Socket send_message error');
         socket.emit('error', { message: 'Failed to send message' });
       }
     });
   });
 
   io.engine.on('connection_error', (err: Error) => {
-    console.error('Socket.io connection error:', err.message);
+    logger.error({ err: sanitizeError(err) }, 'Socket.io connection error');
   });
 }

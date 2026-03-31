@@ -6,6 +6,7 @@ import { validate, quickTapEventSchema } from '../validation.ts';
 import { createNotification } from '../notifications.ts';
 import { schedulePayoutForBooking, getPayoutDelay } from '../payouts.ts';
 import { MAX_POSTS_PER_SITTER } from './posts.ts';
+import logger, { sanitizeError } from '../logger.ts';
 
 export default function walkRoutes(router: Router, io: Server): void {
   router.get('/walks/:bookingId/events', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -69,7 +70,7 @@ export default function walkRoutes(router: Router, io: Server): void {
         INSERT INTO sitter_posts (sitter_id, content, photo_url, video_url, booking_id, walk_event_id, post_type)
         SELECT ${req.userId}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${Number(req.params.bookingId)}, ${event.id}, ${postType}
         WHERE (SELECT COUNT(*) FROM sitter_posts WHERE sitter_id = ${req.userId}) < ${MAX_POSTS_PER_SITTER}
-      `.catch((err) => { console.error('auto-post creation failed:', err); });
+      `.catch((err) => { logger.error({ err: sanitizeError(err) }, 'Auto-post creation failed'); });
     }
 
     // If event is 'start', update booking to in_progress and notify owner
