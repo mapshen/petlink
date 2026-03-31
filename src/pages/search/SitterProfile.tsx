@@ -83,9 +83,13 @@ export default function SitterProfile() {
   }, []);
 
   // Track profile view after sitter data loads
+  // Track profile view once per sitter load
+  const viewTrackedRef = useRef(false);
   useEffect(() => {
-    if (!sitter) return;
-    const fromParam = searchParams.get('from');
+    if (!sitter || viewTrackedRef.current) return;
+    viewTrackedRef.current = true;
+
+    const fromParam = new URLSearchParams(window.location.search).get('from');
     const source = fromParam === 'search' ? 'search' : fromParam === 'favorites' ? 'favorites' : 'direct';
 
     let sessionId = sessionStorage.getItem('petlink_view_session');
@@ -99,7 +103,7 @@ export default function SitterProfile() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source, session_id: sessionId }),
     }).catch(() => {});
-  }, [sitter, searchParams]);
+  }, [sitter]);
 
   useEffect(() => {
     const fetchSitter = async () => {
@@ -153,11 +157,14 @@ export default function SitterProfile() {
     fetchPets();
   }, [user, token]);
 
+  const isOwnProfile = user != null && user.id === sitter?.id;
+
   const handleBooking = async () => {
     if (!user) {
       navigate('/login');
       return;
     }
+    if (isOwnProfile) return;
 
     if (!selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0) return;
     setBookingError(null);
@@ -392,8 +399,8 @@ export default function SitterProfile() {
                 </div>
               )}
 
-              {/* Booking Card */}
-              <div className="bg-white rounded-2xl border border-stone-200 p-6">
+              {/* Booking Card — hidden on own profile */}
+              {!isOwnProfile && <div className="bg-white rounded-2xl border border-stone-200 p-6">
                 <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
 
                 <div className="space-y-4 mb-6">
@@ -512,7 +519,7 @@ export default function SitterProfile() {
                     </p>
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
           </div>
         )}

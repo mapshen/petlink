@@ -134,8 +134,8 @@ export default function SitterProfileHeader({
           {/* Tags */}
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3.5">
-              {tags.map((tag) => (
-                <span key={tag} className="bg-stone-100 text-stone-700 text-xs font-medium px-2.5 py-1 rounded-lg capitalize">
+              {tags.map((tag, idx) => (
+                <span key={`${tag}-${idx}`} className="bg-stone-100 text-stone-700 text-xs font-medium px-2.5 py-1 rounded-lg capitalize">
                   {tag}
                 </span>
               ))}
@@ -150,13 +150,15 @@ export default function SitterProfileHeader({
             >
               Book Now
             </button>
-            <button
-              onClick={onMessageClick}
-              className="bg-white text-stone-900 border border-stone-200 px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Message
-            </button>
+            {currentUser && (
+              <button
+                onClick={onMessageClick}
+                className="bg-white text-stone-900 border border-stone-200 px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Message
+              </button>
+            )}
             {showFavorite && (
               <button
                 onClick={() => onToggleFavorite(sitter.id)}

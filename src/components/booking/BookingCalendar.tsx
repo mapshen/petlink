@@ -85,7 +85,8 @@ export default function BookingCalendar({ sitterId, selectedDate, onDateSelect, 
           type="button"
           aria-label="Previous month"
           onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-          className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 transition-colors"
+          disabled={isSameMonth(currentMonth, new Date())}
+          className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>

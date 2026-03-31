@@ -17,7 +17,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '../../components/ui/alert-dialog';
 
 interface SectionDef {
@@ -42,6 +41,7 @@ export default function SettingsPage() {
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const isSitter = user?.roles?.includes('sitter') ?? false;
 
@@ -171,13 +171,14 @@ export default function SettingsPage() {
                 Permanently delete your PetLink account and all associated data. This action cannot be undone.
               </p>
               {deleteError && <p className="text-red-500 text-sm mb-4" role="alert">{deleteError}</p>}
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                    Delete My Account
-                  </button>
-                </AlertDialogTrigger>
+              <button
+                onClick={() => setDeleteDialogOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete My Account
+              </button>
+              <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteConfirmText(''); }}>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
