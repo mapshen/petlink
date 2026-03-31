@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getServiceIcon, getServiceLabel, ALL_SERVICE_TYPES } from './ServiceHighlights';
+import { getServiceLabel, ALL_SERVICE_TYPES } from './ServiceHighlights';
 import type { Service } from '../../types';
 
 describe('getServiceLabel', () => {
@@ -22,13 +22,9 @@ describe('getServiceLabel', () => {
   it('formats meet_greet', () => {
     expect(getServiceLabel('meet_greet')).toBe('Meet & Greet');
   });
-});
 
-describe('getServiceIcon', () => {
-  it('returns a string for each service type', () => {
-    for (const type of ALL_SERVICE_TYPES) {
-      expect(typeof getServiceIcon(type)).toBe('string');
-    }
+  it('handles unknown type gracefully', () => {
+    expect(getServiceLabel('boarding')).toBe('Boarding');
   });
 });
 

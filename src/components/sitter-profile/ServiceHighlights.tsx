@@ -19,10 +19,6 @@ const SERVICE_LABELS: Record<string, string> = {
   meet_greet: 'Meet & Greet',
 };
 
-export function getServiceIcon(type: string): string {
-  return SERVICE_LABELS[type] || type;
-}
-
 export function getServiceLabel(type: string): string {
   return SERVICE_LABELS[type] || type.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -43,11 +39,15 @@ export default function ServiceHighlights({ services, onServiceClick }: Props) {
           const isActive = activeTypes.has(type);
           const Icon = SERVICE_ICONS[type] || Clock;
 
+          const label = getServiceLabel(type);
+          const priceText = service ? (service.price === 0 ? 'Free' : `$${service.price}`) : 'not offered';
+
           return (
             <button
               key={type}
               onClick={() => service && onServiceClick?.(service)}
               disabled={!isActive}
+              aria-label={`${label}: ${priceText}`}
               className="flex flex-col items-center gap-1 flex-shrink-0"
             >
               <div
@@ -67,7 +67,7 @@ export default function ServiceHighlights({ services, onServiceClick }: Props) {
                 {getServiceLabel(type)}
               </span>
               <span className={`text-[11px] font-bold ${isActive ? 'text-emerald-600' : 'text-stone-400'}`}>
-                {service ? (service.price === 0 ? 'Free' : `$${service.price}`) : '—'}
+                {service ? (service.price === 0 ? 'Free' : `$${service.price}`) : '\u2014'}
               </span>
             </button>
           );
