@@ -14,9 +14,10 @@ import { API_BASE } from '../../config';
 const STEPS = ['Profile', 'Services', 'Photos', 'Verification', 'Done'];
 
 const SERVICE_TYPES = [
-  { value: 'walking', label: 'Dog Walking', icon: '🚶' },
+  { value: 'walking', label: 'Pet Walking', icon: '🚶' },
   { value: 'sitting', label: 'House Sitting', icon: '🏠' },
   { value: 'drop-in', label: 'Drop-in Visit', icon: '👋' },
+  { value: 'daycare', label: 'Daycare', icon: '🏠' },
   { value: 'grooming', label: 'Grooming', icon: '✂️' },
 ] as const;
 

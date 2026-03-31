@@ -29,7 +29,7 @@ export default function Home() {
             Loving pet care in your neighborhood
           </h1>
           <p className="text-xl text-emerald-100 max-w-2xl mx-auto mb-12">
-            Book trusted sitters and dog walkers who'll treat your pets like family.
+            Book trusted pet sitters and walkers who'll treat your pets like family.
           </p>
 
           <div className="bg-white p-4 rounded-2xl shadow-xl max-w-4xl mx-auto">
@@ -41,8 +41,9 @@ export default function Home() {
                   onChange={(e) => setServiceType(e.target.value)}
                   className="w-full p-3 bg-stone-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 text-stone-900 font-medium"
                 >
-                  <option value="walking">Dog Walking</option>
+                  <option value="walking">Pet Walking</option>
                   <option value="sitting">House Sitting</option>
+                  <option value="daycare">Daycare</option>
                   <option value="drop-in">Drop-in Visits</option>
                   <option value="grooming">Grooming</option>
                   <option value="meet_greet">Meet & Greet</option>
@@ -84,7 +85,7 @@ export default function Home() {
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { title: 'Dog Walking', desc: 'Your dog gets a walk around your neighborhood.', img: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?auto=format&fit=crop&w=600&q=80' },
+              { title: 'Pet Walking', desc: 'Your pets get exercise and outdoor time in your neighborhood.', img: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?auto=format&fit=crop&w=600&q=80' },
               { title: 'House Sitting', desc: 'Great for pets who are more comfortable at home.', img: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=600&q=80' },
               { title: 'Drop-in Visits', desc: 'Sitters stop by to feed and play with your pets.', img: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=600&q=80' },
               { title: 'Grooming', desc: 'Professional grooming services at your home.', img: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&w=600&q=80' },

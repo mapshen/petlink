@@ -19,9 +19,10 @@ import {
 } from '../../components/ui/alert-dialog';
 
 const SERVICE_TYPES = [
-  { value: 'walking', label: 'Dog Walking', icon: '🚶' },
+  { value: 'walking', label: 'Pet Walking', icon: '🚶' },
   { value: 'sitting', label: 'House Sitting', icon: '🏠' },
   { value: 'drop-in', label: 'Drop-in Visit', icon: '👋' },
+  { value: 'daycare', label: 'Daycare', icon: '🏠' },
   { value: 'grooming', label: 'Grooming', icon: '✂️' },
   { value: 'meet_greet', label: 'Meet & Greet', icon: '🤝' },
 ] as const;
@@ -370,9 +371,9 @@ function buildServiceDetails(details: ServiceDetails): Record<string, unknown> {
 
 function ServiceDetailTags({ details }: { readonly details: ServiceDetails }) {
   const tags: string[] = [];
-  if (details.walk_duration) tags.push(`${details.walk_duration} min walk`);
-  if (details.walk_style === 'solo') tags.push('Solo walks only');
-  if (details.walk_style === 'group') tags.push('Group walks');
+  if (details.walk_duration) tags.push(`${details.walk_duration} min session`);
+  if (details.walk_style === 'solo') tags.push('One-on-one');
+  if (details.walk_style === 'group') tags.push('Multi-pet');
   if (details.boarding_location === 'sitter_home') tags.push("At sitter's home");
   if (details.boarding_location === 'owner_home') tags.push("At owner's home");
   if (details.pickup_available) tags.push(details.pickup_fee ? `Pickup: $${details.pickup_fee}` : 'Free pickup');
@@ -467,7 +468,7 @@ function ServiceFormFields({
       {/* Service-specific details */}
       {form.type === 'walking' && (
         <div className="space-y-4 border-t border-stone-200 pt-4">
-          <h4 className="text-sm font-semibold text-stone-700">Walk Details</h4>
+          <h4 className="text-sm font-semibold text-stone-700">Session Details</h4>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-stone-500 mb-1">Duration (minutes)</label>
@@ -481,15 +482,15 @@ function ServiceFormFields({
               />
             </div>
             <div>
-              <label className="block text-xs text-stone-500 mb-1">Walk style</label>
+              <label className="block text-xs text-stone-500 mb-1">Service style</label>
               <select
                 value={form.details.walk_style || ''}
                 onChange={(e) => setForm((prev) => ({ ...prev, details: { ...prev.details, walk_style: (e.target.value || undefined) as ServiceDetails['walk_style'] } }))}
                 className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               >
                 <option value="">Select...</option>
-                <option value="solo">Solo walks only</option>
-                <option value="group">Group walks</option>
+                <option value="solo">One-on-one</option>
+                <option value="group">Multi-pet</option>
               </select>
             </div>
           </div>

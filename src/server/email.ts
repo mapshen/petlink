@@ -194,8 +194,8 @@ export function buildOwnerWelcomeEmail(params: {
 <p style="color:#44403c;line-height:1.6;font-weight:600">Here's what you can do:</p>
 <ul style="color:#44403c;line-height:1.8;padding-left:20px">
 <li>🔍 Search for nearby sitters by service, location, and price</li>
-<li>📅 Book services like dog walking, boarding, and drop-in visits</li>
-<li>📍 Track your pet's walks in real time</li>
+<li>📅 Book services like pet walking, house sitting, and drop-in visits</li>
+<li>📍 Track your pet's care sessions in real time</li>
 </ul>
 <div style="text-align:center;margin:24px 0">
 <a href="https://petlink.app/search" style="display:inline-block;background:#059669;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Find a Sitter</a>

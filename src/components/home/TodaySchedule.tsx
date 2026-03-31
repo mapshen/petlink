@@ -71,7 +71,7 @@ function BookingItem({ item }: { readonly item: TimelineItem }) {
           to={`/track/${item.id}`}
           className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700"
         >
-          Track Walk
+          Track Session
         </Link>
       )}
     </div>
