@@ -20,7 +20,7 @@ export default function authRoutes(router: Router): void {
       return;
     }
 
-    const passwordHash = hashPassword(password);
+    const passwordHash = await hashPassword(password);
     const slug = await generateUniqueSlug(name);
     const [user] = await sql`
       INSERT INTO users (email, password_hash, name, roles, approval_status, slug)
@@ -50,7 +50,7 @@ export default function authRoutes(router: Router): void {
       return;
     }
 
-    if (!verifyPassword(password, user.password_hash)) {
+    if (!await verifyPassword(password, user.password_hash)) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
@@ -187,7 +187,7 @@ export default function authRoutes(router: Router): void {
       return;
     }
 
-    const hashedPassword = hashPassword(password);
+    const hashedPassword = await hashPassword(password);
     await sql`UPDATE users SET password_hash = ${hashedPassword} WHERE id = ${req.userId}`;
 
     res.json({ message: 'Password set successfully' });
@@ -202,12 +202,12 @@ export default function authRoutes(router: Router): void {
       return;
     }
 
-    if (!verifyPassword(currentPassword, user.password_hash)) {
+    if (!await verifyPassword(currentPassword, user.password_hash)) {
       res.status(401).json({ error: 'Current password is incorrect' });
       return;
     }
 
-    const hashedPassword = hashPassword(newPassword);
+    const hashedPassword = await hashPassword(newPassword);
     await sql`UPDATE users SET password_hash = ${hashedPassword} WHERE id = ${req.userId}`;
 
     res.json({ message: 'Password changed successfully' });
