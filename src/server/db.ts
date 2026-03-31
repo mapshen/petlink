@@ -45,7 +45,7 @@ export async function initDb() {
   `;
   await sql`
     DO $$ BEGIN
-      CREATE TYPE walk_event_type AS ENUM ('start', 'pee', 'poop', 'photo', 'end');
+      CREATE TYPE walk_event_type AS ENUM ('start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play', 'video');
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
@@ -63,7 +63,7 @@ export async function initDb() {
   `;
   await sql`
     DO $$ BEGIN
-      CREATE TYPE notification_type AS ENUM ('new_booking', 'booking_status', 'new_message', 'walk_started', 'walk_completed', 'payment_update', 'verification_update', 'account_update');
+      CREATE TYPE notification_type AS ENUM ('new_booking', 'booking_status', 'new_message', 'walk_started', 'walk_completed', 'payment_update', 'verification_update', 'account_update', 'care_task_reminder');
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
@@ -84,7 +84,7 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
+      password_hash TEXT,
       name TEXT NOT NULL,
       roles TEXT[] NOT NULL DEFAULT '{owner}',
       bio TEXT,
@@ -92,7 +92,33 @@ export async function initDb() {
       lat DOUBLE PRECISION,
       lng DOUBLE PRECISION,
       location GEOGRAPHY(Point, 4326),
+      slug TEXT UNIQUE,
       stripe_account_id TEXT,
+      stripe_customer_id TEXT,
+      subscription_tier TEXT DEFAULT 'free',
+      approval_status TEXT DEFAULT 'approved' CHECK(approval_status IN ('approved', 'pending_approval', 'rejected', 'banned')),
+      approval_rejected_reason TEXT,
+      approved_by INTEGER,
+      approved_at TIMESTAMPTZ,
+      accepted_pet_sizes TEXT[] DEFAULT '{}',
+      accepted_species TEXT[] DEFAULT '{}',
+      cancellation_policy cancellation_policy DEFAULT 'flexible',
+      years_experience INTEGER,
+      home_type TEXT,
+      has_yard BOOLEAN DEFAULT false,
+      has_fenced_yard BOOLEAN DEFAULT false,
+      has_own_pets BOOLEAN DEFAULT false,
+      own_pets_description TEXT,
+      skills TEXT[] DEFAULT '{}',
+      service_radius_miles INTEGER DEFAULT 10,
+      max_pets_at_once INTEGER DEFAULT 3,
+      max_pets_per_walk INTEGER DEFAULT 2,
+      house_rules TEXT,
+      emergency_procedures TEXT,
+      has_insurance BOOLEAN DEFAULT false,
+      email_verified BOOLEAN DEFAULT false,
+      is_pro BOOLEAN DEFAULT false,
+      deleted_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
@@ -102,11 +128,24 @@ export async function initDb() {
       id SERIAL PRIMARY KEY,
       owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
+      species TEXT DEFAULT 'dog',
       breed TEXT,
       age INTEGER,
       weight DOUBLE PRECISION,
+      gender TEXT,
+      spayed_neutered BOOLEAN,
+      energy_level TEXT,
+      house_trained BOOLEAN,
+      temperament TEXT[] DEFAULT '{}',
+      special_needs TEXT,
+      microchip_number TEXT,
+      vet_name TEXT,
+      vet_phone TEXT,
+      emergency_contact_name TEXT,
+      emergency_contact_phone TEXT,
       medical_history TEXT,
-      photo_url TEXT
+      photo_url TEXT,
+      care_instructions JSONB DEFAULT '[]'
     )
   `;
 
@@ -116,7 +155,10 @@ export async function initDb() {
       sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       type service_type NOT NULL,
       price DOUBLE PRECISION NOT NULL,
-      description TEXT
+      description TEXT,
+      additional_pet_price DOUBLE PRECISION DEFAULT 0,
+      max_pets INTEGER DEFAULT 1,
+      service_details JSONB
     )
   `;
 
@@ -133,6 +175,9 @@ export async function initDb() {
       total_price DOUBLE PRECISION,
       payment_intent_id TEXT,
       payment_status payment_status DEFAULT 'pending',
+      payment_method TEXT DEFAULT 'card' CHECK(payment_method IN ('card', 'ach_debit')),
+      payment_failure_reason TEXT,
+      responded_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
@@ -169,6 +214,13 @@ export async function initDb() {
       reviewee_id INTEGER NOT NULL REFERENCES users(id),
       rating INTEGER CHECK(rating >= 1 AND rating <= 5),
       comment TEXT,
+      pet_care_rating INTEGER CHECK(pet_care_rating >= 1 AND pet_care_rating <= 5),
+      communication_rating INTEGER CHECK(communication_rating >= 1 AND communication_rating <= 5),
+      reliability_rating INTEGER CHECK(reliability_rating >= 1 AND reliability_rating <= 5),
+      pet_accuracy_rating INTEGER CHECK(pet_accuracy_rating >= 1 AND pet_accuracy_rating <= 5),
+      preparedness_rating INTEGER CHECK(preparedness_rating >= 1 AND preparedness_rating <= 5),
+      response_text TEXT,
+      response_at TIMESTAMPTZ,
       published_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(booking_id, reviewer_id)
@@ -197,6 +249,8 @@ export async function initDb() {
       lng DOUBLE PRECISION,
       note TEXT,
       photo_url TEXT,
+      video_url TEXT,
+      pet_id INTEGER REFERENCES pets(id),
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
@@ -208,6 +262,9 @@ export async function initDb() {
       id_check_status id_check_status DEFAULT 'pending',
       background_check_status bg_check_status DEFAULT 'pending',
       house_photos_url TEXT,
+      checkr_candidate_id TEXT,
+      checkr_invitation_url TEXT,
+      checkr_report_id TEXT,
       submitted_at TIMESTAMPTZ,
       completed_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
@@ -361,28 +418,7 @@ export async function initDb() {
     END $$
   `.catch(() => {});
 
-  // Schema migrations — add new columns/enums safely
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_pet_sizes TEXT[] DEFAULT '{}'`.catch(() => {});
-  await sql`ALTER TYPE service_type ADD VALUE IF NOT EXISTS 'meet_greet'`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cancellation_policy cancellation_policy DEFAULT 'flexible'`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS additional_pet_price DOUBLE PRECISION DEFAULT 0`.catch(() => {});
-  await sql`ALTER TABLE walk_events ADD COLUMN IF NOT EXISTS pet_id INTEGER REFERENCES pets(id)`.catch(() => {});
-  await sql`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`.catch(() => {});
-
-  // Issue #88: Smart sitter ranking — track booking response time
-  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS responded_at TIMESTAMPTZ`.catch(() => {});
-
-  // Issue #112: Quick-tap care logging — extend walk_event_type enum
-  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'fed'`.catch(() => {});
-  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'water'`.catch(() => {});
-  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'medication'`.catch(() => {});
-  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'nap_start'`.catch(() => {});
-  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'nap_end'`.catch(() => {});
-  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'play'`.catch(() => {});
-
-  // Issue #129: Video clip support for care updates
-  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'video'`.catch(() => {});
-  await sql`ALTER TABLE walk_events ADD COLUMN IF NOT EXISTS video_url TEXT`.catch(() => {});
+  // Schema migrations for existing databases (columns now baked into CREATE TABLE above)
 
   // Issue #98: Recurring bookings
   await sql`
@@ -403,24 +439,6 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_recurring_bookings_owner ON recurring_bookings (owner_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_recurring_bookings_active ON recurring_bookings (active, next_occurrence)`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false`.catch(() => {});
-  // is_pro: admin-only flag for now — no public API surface to set this
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro BOOLEAN DEFAULT false`.catch(() => {});
-
-  // Issue #109: Granular pet profiles
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS species TEXT DEFAULT 'dog'`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS gender TEXT`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS spayed_neutered BOOLEAN`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS energy_level TEXT`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS house_trained BOOLEAN`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS temperament TEXT[] DEFAULT '{}'`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS special_needs TEXT`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS microchip_number TEXT`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS vet_name TEXT`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS vet_phone TEXT`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT`.catch(() => {});
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT`.catch(() => {});
-
   // Issue #109: Pet vaccinations table
   await sql`
     CREATE TABLE IF NOT EXISTS pet_vaccinations (
@@ -435,23 +453,6 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_pet_vaccinations_pet_id ON pet_vaccinations (pet_id)`.catch(() => {});
 
-  // Issue #109: Sitter profile details
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_species TEXT[] DEFAULT '{}'`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS years_experience INTEGER`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS home_type TEXT`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_yard BOOLEAN DEFAULT false`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_fenced_yard BOOLEAN DEFAULT false`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_own_pets BOOLEAN DEFAULT false`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS own_pets_description TEXT`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS skills TEXT[] DEFAULT '{}'`.catch(() => {});
-
-  // Issue #109: Service details
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS max_pets INTEGER DEFAULT 1`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS service_details JSONB`.catch(() => {});
-
-  // Issue #100: Pet care instructions
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS care_instructions JSONB DEFAULT '[]'`.catch(() => {});
-
   // Issue #100: Booking care tasks (checklist items derived from pet care instructions)
   await sql`
     CREATE TABLE IF NOT EXISTS booking_care_tasks (
@@ -464,22 +465,15 @@ export async function initDb() {
       notes TEXT,
       completed BOOLEAN DEFAULT FALSE,
       completed_at TIMESTAMPTZ,
+      scheduled_time TIMESTAMPTZ,
+      reminder_sent_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_booking_id ON booking_care_tasks (booking_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_pet_id ON booking_care_tasks (pet_id)`.catch(() => {});
-
-  // Care task scheduling: absolute scheduled_time for timeline and notifications
-  await sql`ALTER TABLE booking_care_tasks ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_care_tasks_scheduled_time ON booking_care_tasks (scheduled_time) WHERE scheduled_time IS NOT NULL`.catch(() => {});
-  await sql`ALTER TABLE booking_care_tasks ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_bct_reminder_candidates ON booking_care_tasks (scheduled_time) WHERE scheduled_time IS NOT NULL AND completed = false AND reminder_sent_at IS NULL`.catch(() => {});
-
-  // Issue #111: Checkr background check integration
-  await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_candidate_id TEXT`.catch(() => {});
-  await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_invitation_url TEXT`.catch(() => {});
-  await sql`ALTER TABLE verifications ADD COLUMN IF NOT EXISTS checkr_report_id TEXT`.catch(() => {});
 
   // Issue #90: Featured/sponsored sitter listings (per-booking commission model)
   await sql`
@@ -499,13 +493,6 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_featured_listings_active ON featured_listings (active, service_type)`.catch(() => {});
 
-  // Migration: drop old budget columns if they exist, add new commission columns
-  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS commission_rate DOUBLE PRECISION DEFAULT 0.15`.catch(() => {});
-  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS impressions INTEGER DEFAULT 0`.catch(() => {});
-  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS clicks INTEGER DEFAULT 0`.catch(() => {});
-  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS bookings_from_promotion INTEGER DEFAULT 0`.catch(() => {});
-  await sql`ALTER TABLE featured_listings ADD COLUMN IF NOT EXISTS commission_earned_cents INTEGER DEFAULT 0`.catch(() => {});
-
   // Issue #89: Sitter Pro membership
   await sql`
     CREATE TABLE IF NOT EXISTS sitter_subscriptions (
@@ -520,40 +507,17 @@ export async function initDb() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'free'`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`.catch(() => {});
-
-  // Issue #110: Sitter approval workflow
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approval_status TEXT DEFAULT 'approved'`.catch(() => {});
-  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_approval_status_check`.catch(() => {});
-  await sql`ALTER TABLE users ADD CONSTRAINT users_approval_status_check CHECK(approval_status IN ('approved', 'pending_approval', 'rejected', 'banned'))`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approval_rejected_reason TEXT`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES users(id)`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`.catch(() => {});
+  // User indexes and constraints
   await sql`CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users (approval_status)`.catch(() => {});
-
-  // Sitter policies
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS house_rules TEXT`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_procedures TEXT`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_insurance BOOLEAN DEFAULT FALSE`.catch(() => {});
-
-  // SEO-friendly slugs for sitter profiles
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_slug ON users (slug) WHERE slug IS NOT NULL`.catch(() => {});
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_roles_check`.catch(() => {});
+  await sql`ALTER TABLE users ADD CONSTRAINT users_roles_check CHECK(roles <@ '{owner,sitter,admin}'::text[])`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_users_roles ON users USING GIN (roles)`.catch(() => {});
   // Backfill slugs for existing users without one
   await sql`
     UPDATE users SET slug = LOWER(REPLACE(REPLACE(name, ' ', '-'), '''', '')) || '-' || id
     WHERE slug IS NULL AND name IS NOT NULL
   `.catch(() => {});
-
-  // Sitter pet capacity
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_pets_at_once INTEGER DEFAULT 3`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_pets_per_walk INTEGER DEFAULT 2`.catch(() => {});
-
-  // Roles constraint and index
-  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_roles_check`.catch(() => {});
-  await sql`ALTER TABLE users ADD CONSTRAINT users_roles_check CHECK(roles <@ '{owner,sitter,admin}'::text[])`.catch(() => {});
-  await sql`CREATE INDEX IF NOT EXISTS idx_users_roles ON users USING GIN (roles)`.catch(() => {});
 
   // Bootstrap admin role for ADMIN_EMAIL user
   const adminEmail = process.env.ADMIN_EMAIL;
@@ -563,16 +527,6 @@ export async function initDb() {
       WHERE lower(email) = ${adminEmail.toLowerCase()} AND NOT (roles @> '{admin}'::text[])
     `.catch(() => {});
   }
-
-  // Issue #149: service radius for sitter map
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS service_radius_miles INTEGER DEFAULT 10`.catch(() => {});
-
-  // Issue #99: ACH bank transfer payment option
-  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'card'`.catch(() => {});
-  await sql`ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_payment_method_check`.catch(() => {});
-  await sql`ALTER TABLE bookings ADD CONSTRAINT bookings_payment_method_check CHECK(payment_method IN ('card', 'ach_debit'))`.catch(() => {});
-  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_failure_reason TEXT`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`.catch(() => {});
 
   // Issue #97: Imported profiles and reviews
   await sql`
@@ -654,30 +608,13 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_viewed_at ON profile_views (viewed_at)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_profile_views_dedup ON profile_views (sitter_id, session_id, viewed_at DESC) WHERE session_id IS NOT NULL`.catch(() => {});
 
-  // Issue #187: Missing notification events
-  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'payment_update'`.catch(() => {});
-  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'verification_update'`.catch(() => {});
-  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'account_update'`.catch(() => {});
-  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'care_task_reminder'`.catch(() => {});
-
-  // Performance indexes (#186)
+  // Performance indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_sitter_status ON bookings(sitter_id, status)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_start_time ON bookings(start_time)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_imported_reviews_profile ON imported_reviews(imported_profile_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_owner ON bookings(owner_id)`.catch(() => {});
 
-  // Issue #81: Soft delete support
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`.catch(() => {});
-
-  // Issue #214: Review sub-ratings and responses
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS pet_care_rating INTEGER CHECK(pet_care_rating >= 1 AND pet_care_rating <= 5)`.catch(() => {});
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS communication_rating INTEGER CHECK(communication_rating >= 1 AND communication_rating <= 5)`.catch(() => {});
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS reliability_rating INTEGER CHECK(reliability_rating >= 1 AND reliability_rating <= 5)`.catch(() => {});
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS pet_accuracy_rating INTEGER CHECK(pet_accuracy_rating >= 1 AND pet_accuracy_rating <= 5)`.catch(() => {});
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS preparedness_rating INTEGER CHECK(preparedness_rating >= 1 AND preparedness_rating <= 5)`.catch(() => {});
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS response_text TEXT`.catch(() => {});
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS response_at TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_id ON reviews (reviewer_id)`.catch(() => {});
 
   // Issue #266: Sitter posts (Instagram-style profile content)
