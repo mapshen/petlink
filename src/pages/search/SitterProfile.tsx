@@ -5,8 +5,9 @@ import ImportedReviewBadge from '../../components/profile/ImportedReviewBadge';
 import SubRatingBars from '../../components/review/SubRatingBars';
 import SubRatingPills from '../../components/review/SubRatingPills';
 import ReviewResponse from '../../components/review/ReviewResponse';
+import SitterProfileHeader from '../../components/sitter-profile/SitterProfileHeader';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { MapPin, Star, MessageSquare, ShieldCheck, AlertCircle, Home, Award, PawPrint, CreditCard } from 'lucide-react';
+import { Star, AlertCircle, CreditCard, ShieldCheck } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { reverseGeocode } from '../../lib/geo';
 
@@ -16,7 +17,6 @@ import TimeSlotPicker from '../../components/booking/TimeSlotPicker';
 import PhotoGallery from '../../components/profile/PhotoGallery';
 import PetSelector from '../../components/booking/PetSelector';
 import { useFavorites } from '../../hooks/useFavorites';
-import FavoriteButton from '../../components/profile/FavoriteButton';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
 import { calculateBookingPrice } from '../../shared/pricing';
@@ -58,6 +58,7 @@ export default function SitterProfile() {
   const { clientSecret, loading: paymentLoading, error: paymentError, createIntent } = usePaymentIntent();
   const [bookingLoading, setBookingLoading] = useState(false);
   const [cityName, setCityName] = useState<string | null>(null);
+  const [postCount, setPostCount] = useState(0);
 
   const handleAvailabilityLoaded = useCallback((data: Availability[]) => {
     setAvailability(data);
@@ -111,12 +112,17 @@ export default function SitterProfile() {
   }, [id, serviceIdParam]);
 
   useEffect(() => {
-    if (sitter?.lat != null && sitter?.lng != null) {
+    if (!sitter) return;
+    if (sitter.lat != null && sitter.lng != null) {
       reverseGeocode(sitter.lat, sitter.lng).then((city) => {
         if (city) setCityName(city);
       });
     }
-  }, [sitter?.lat, sitter?.lng]);
+    fetch(`${API_BASE}/sitter-posts/${sitter.id}?limit=1`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data) setPostCount(data.total); })
+      .catch(() => {});
+  }, [sitter?.id, sitter?.lat, sitter?.lng]);
 
   useEffect(() => {
     if (!user || !token) return;
@@ -216,114 +222,28 @@ export default function SitterProfile() {
     </div>
   );
 
+  const scrollToBooking = () => {
+    const el = document.getElementById('booking-card');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div>
+      <SitterProfileHeader
+        sitter={sitter}
+        postCount={postCount}
+        cityName={cityName}
+        currentUser={user}
+        isFavorited={isFavorited(sitter.id)}
+        onToggleFavorite={toggleFavorite}
+        onBookClick={scrollToBooking}
+        onMessageClick={() => navigate(`/messages?recipient=${sitter.id}`)}
+      />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="grid lg:grid-cols-3 gap-12">
-        {/* Left Column: Profile Info */}
+        {/* Left Column: Profile Content */}
         <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
-            <div className="flex items-start gap-6">
-              <img 
-                src={sitter.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sitter.name)}`} 
-                alt={sitter.name} 
-                className="w-24 h-24 rounded-full object-cover border-4 border-emerald-50"
-              />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-3xl font-bold text-stone-900">{sitter.name}</h1>
-                  {user && user.id !== sitter.id && (
-                    <FavoriteButton
-                      sitterId={sitter.id}
-                      isFavorited={isFavorited(sitter.id)}
-                      onToggle={toggleFavorite}
-                    />
-                  )}
-                </div>
-                <div className="flex items-center text-stone-500 mt-2">
-                  <MapPin className="w-4 h-4 mr-1" />
-                  <span>{cityName || (sitter.lat != null ? 'Approximate location' : 'Location not shared')}</span>
-                </div>
-                <div className="flex items-center gap-4 mt-4 text-sm font-medium">
-                  <div className="flex items-center gap-1 text-amber-500 bg-amber-50 px-3 py-1 rounded-full">
-                    <Star className="w-4 h-4 fill-current" />
-                    <span>
-                      {sitter.review_count > 0
-                        ? `${sitter.avg_rating} (${sitter.review_count} ${sitter.review_count === 1 ? 'review' : 'reviews'})`
-                        : 'No reviews'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Identity Verified</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <h2 className="text-xl font-bold mb-4 text-stone-900">About {sitter.name}</h2>
-              <p className="text-stone-600 leading-relaxed">{sitter.bio}</p>
-
-              {/* Accepted animals */}
-              <div className="mt-4 flex flex-wrap gap-3">
-                {sitter.accepted_species && sitter.accepted_species.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <PawPrint className="w-4 h-4 text-stone-400" />
-                    <span className="text-sm text-stone-500">Accepts:</span>
-                    {sitter.accepted_species.map((s: string) => (
-                      <span key={s} className="bg-emerald-50 text-emerald-700 text-xs px-2 py-1 rounded-full capitalize">{s.replace(/_/g, ' ')}</span>
-                    ))}
-                  </div>
-                )}
-                {sitter.accepted_pet_sizes && sitter.accepted_pet_sizes.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-stone-500">Sizes:</span>
-                    {sitter.accepted_pet_sizes.map((size: string) => (
-                      <span key={size} className="bg-stone-100 text-stone-600 text-xs px-2 py-1 rounded-full capitalize">{size}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Skills & Experience */}
-              {(sitter.years_experience || (sitter.skills && sitter.skills.length > 0)) && (
-                <div className="mt-4 flex items-start gap-2">
-                  <Award className="w-4 h-4 text-stone-400 mt-0.5" />
-                  <div>
-                    {sitter.years_experience != null && (
-                      <span className="text-sm text-stone-600">{sitter.years_experience} years experience</span>
-                    )}
-                    {sitter.skills && sitter.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        {sitter.skills.map((skill: string) => (
-                          <span key={skill} className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">
-                            {skill.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Home Environment */}
-              {(sitter.home_type || sitter.has_yard || sitter.has_own_pets) && (
-                <div className="mt-4 flex items-start gap-2">
-                  <Home className="w-4 h-4 text-stone-400 mt-0.5" />
-                  <div className="text-sm text-stone-600">
-                    <div className="flex flex-wrap gap-2">
-                      {sitter.home_type && <span className="capitalize">{sitter.home_type}</span>}
-                      {sitter.has_yard && <span>{sitter.has_fenced_yard ? 'Fenced yard' : 'Yard'}</span>}
-                      {sitter.has_own_pets && <span>Has own pets</span>}
-                    </div>
-                    {sitter.own_pets_description && (
-                      <p className="text-xs text-stone-400 mt-1">{sitter.own_pets_description}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
 
           {sitter.lat != null && sitter.lng != null && (
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
@@ -433,7 +353,7 @@ export default function SitterProfile() {
         </div>
 
         {/* Right Column: Booking Card */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1" id="booking-card">
           <div className="bg-white p-6 rounded-2xl shadow-lg border border-stone-100 sticky top-24">
             <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
             
@@ -554,17 +474,9 @@ export default function SitterProfile() {
               </div>
             )}
 
-            <div className="mt-6 pt-6 border-t border-stone-100 text-center">
-              <button 
-                onClick={() => navigate(`/messages?recipient=${sitter.id}`)}
-                className="text-emerald-600 font-medium hover:text-emerald-700 flex items-center justify-center gap-2 mx-auto"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Message {sitter.name}
-              </button>
-            </div>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Payment Dialog */}

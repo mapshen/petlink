@@ -1,0 +1,172 @@
+import { useState } from 'react';
+import { MapPin, ShieldCheck, Crown, Heart, MessageSquare } from 'lucide-react';
+import type { User } from '../../types';
+
+interface Props {
+  readonly sitter: User;
+  readonly postCount: number;
+  readonly cityName: string | null;
+  readonly currentUser: User | null;
+  readonly isFavorited: boolean;
+  readonly onToggleFavorite: (sitterId: number) => void;
+  readonly onBookClick: () => void;
+  readonly onMessageClick: () => void;
+}
+
+export function formatSkill(skill: string): string {
+  return skill.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function buildHeaderTags(sitter: User): string[] {
+  const tags: string[] = [];
+  if (sitter.accepted_species) {
+    tags.push(...sitter.accepted_species.map((s) => s.replace(/_/g, ' ')));
+  }
+  if (sitter.home_type) tags.push(sitter.home_type);
+  if (sitter.has_fenced_yard) tags.push('fenced yard');
+  else if (sitter.has_yard) tags.push('yard');
+  if (sitter.skills) {
+    tags.push(...sitter.skills.map(formatSkill));
+  }
+  return tags;
+}
+
+export default function SitterProfileHeader({
+  sitter,
+  postCount,
+  cityName,
+  currentUser,
+  isFavorited,
+  onToggleFavorite,
+  onBookClick,
+  onMessageClick,
+}: Props) {
+  const [bioExpanded, setBioExpanded] = useState(false);
+  const showFavorite = currentUser != null && currentUser.id !== sitter.id;
+  const isPro = sitter.subscription_tier === 'pro';
+  const tags = buildHeaderTags(sitter);
+
+  const bio = sitter.bio || '';
+  const BIO_LIMIT = 150;
+  const shouldTruncate = bio.length > BIO_LIMIT;
+  const displayBio = shouldTruncate && !bioExpanded ? bio.slice(0, BIO_LIMIT) + '...' : bio;
+
+  return (
+    <div className="bg-white border-b border-stone-200">
+      <div className="max-w-[960px] mx-auto px-6 py-8 flex gap-8 items-start">
+        {/* Avatar */}
+        <div className="flex-shrink-0">
+          <div className="w-[130px] h-[130px] rounded-full border-4 border-emerald-50 overflow-hidden bg-stone-300">
+            <img
+              src={sitter.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sitter.name)}&size=130`}
+              alt={sitter.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          {/* Name + badges */}
+          <div className="flex items-center gap-3 mb-2.5 flex-wrap">
+            <h1 className="text-2xl font-extrabold text-stone-900">{sitter.name}</h1>
+            <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              Verified
+            </span>
+            {isPro && (
+              <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <Crown className="w-3 h-3" />
+                Pro
+              </span>
+            )}
+          </div>
+
+          {/* Location */}
+          <div className="flex items-center text-stone-500 text-sm mb-3">
+            <MapPin className="w-3.5 h-3.5 mr-1" />
+            <span>{cityName || 'Location not shared'}</span>
+          </div>
+
+          {/* Stats row */}
+          <div className="flex gap-8 mb-3">
+            <div>
+              <span className="font-extrabold text-lg">{postCount}</span>
+              <span className="text-sm text-stone-500 ml-1">posts</span>
+            </div>
+            <div>
+              <span className="font-extrabold text-lg">{sitter.avg_rating ?? '—'}</span>
+              <span className="text-sm text-stone-500 ml-1">rating</span>
+            </div>
+            <div>
+              <span className="font-extrabold text-lg">{sitter.review_count ?? 0}</span>
+              <span className="text-sm text-stone-500 ml-1">reviews</span>
+            </div>
+            {sitter.years_experience != null && (
+              <div>
+                <span className="font-extrabold text-lg">{sitter.years_experience}</span>
+                <span className="text-sm text-stone-500 ml-1">years exp</span>
+              </div>
+            )}
+          </div>
+
+          {/* Bio */}
+          {bio && (
+            <p className="text-sm text-stone-600 leading-relaxed mb-2.5">
+              {displayBio}
+              {shouldTruncate && (
+                <button
+                  onClick={() => setBioExpanded(!bioExpanded)}
+                  className="text-stone-400 font-medium ml-1 hover:text-stone-600"
+                >
+                  {bioExpanded ? 'less' : 'more'}
+                </button>
+              )}
+            </p>
+          )}
+
+          {/* Tags */}
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3.5">
+              {tags.map((tag) => (
+                <span key={tag} className="bg-stone-100 text-stone-700 text-xs font-medium px-2.5 py-1 rounded-lg">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={onBookClick}
+              className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors"
+            >
+              Book Now
+            </button>
+            <button
+              onClick={onMessageClick}
+              className="bg-white text-stone-900 border border-stone-200 px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Message
+            </button>
+            {showFavorite && (
+              <button
+                onClick={() => onToggleFavorite(sitter.id)}
+                aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                className={`border px-2.5 py-2.5 rounded-xl transition-colors ${
+                  isFavorited
+                    ? 'bg-red-50 border-red-200 text-red-500'
+                    : 'bg-white border-stone-200 text-stone-400 hover:text-red-400 hover:border-red-200'
+                }`}
+              >
+                <Heart className={`w-4.5 h-4.5 ${isFavorited ? 'fill-current' : ''}`} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
