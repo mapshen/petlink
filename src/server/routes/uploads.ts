@@ -14,6 +14,7 @@ export default function uploadRoutes(router: Router): void {
         verifications: 5 * 1024 * 1024,
         walks: 5 * 1024 * 1024,
         videos: 10 * 1024 * 1024,
+        posts: 5 * 1024 * 1024,
       };
       const maxBytes = MAX_SIZE[folder];
       if (fileSize > maxBytes) {
