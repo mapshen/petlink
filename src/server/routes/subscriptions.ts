@@ -4,6 +4,7 @@ import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, emptyBodySchema } from '../validation.ts';
 import { createSubscriptionCheckout, createSubscriptionIntent, cancelStripeSubscription } from '../payments.ts';
 import { getOrCreateStripeCustomer } from '../stripe-customers.ts';
+import logger, { sanitizeError } from '../logger.ts';
 
 export default function subscriptionRoutes(router: Router): void {
   router.get('/subscription', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -40,7 +41,7 @@ export default function subscriptionRoutes(router: Router): void {
       const result = await createSubscriptionIntent(customerId, priceId);
       res.json(result);
     } catch (error) {
-      console.error('Subscription intent error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Subscription intent error');
       res.status(500).json({ error: 'Failed to create subscription' });
     }
   });
@@ -110,7 +111,7 @@ export default function subscriptionRoutes(router: Router): void {
       try {
         await cancelStripeSubscription(sub.stripe_subscription_id);
       } catch (error) {
-        console.error('Stripe cancel error:', error);
+        logger.error({ err: sanitizeError(error) }, 'Stripe cancel error');
       }
     }
 

@@ -2,6 +2,7 @@ import type { Router } from 'express';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, signedUrlSchema } from '../validation.ts';
 import { generateUploadUrl } from '../storage.ts';
+import logger, { sanitizeError } from '../logger.ts';
 
 export default function uploadRoutes(router: Router): void {
   router.post('/uploads/signed-url', authMiddleware, validate(signedUrlSchema), async (req: AuthenticatedRequest, res) => {
@@ -25,7 +26,7 @@ export default function uploadRoutes(router: Router): void {
       const result = await generateUploadUrl(folder, contentType, req.userId!);
       res.json(result);
     } catch (error) {
-      console.error('Upload URL error:', error);
+      logger.error({ err: sanitizeError(error) }, 'Upload URL error');
       res.status(500).json({ error: 'Failed to generate upload URL. Is S3 configured?' });
     }
   });

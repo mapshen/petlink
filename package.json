@@ -40,6 +40,7 @@
     "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "pino": "^10.3.1",
     "postgres": "^3.4.8",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",

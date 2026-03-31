@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import bcrypt from 'bcryptjs';
+import logger from './logger.ts';
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://localhost:5432/petlink';
 
@@ -637,7 +638,7 @@ export async function initDb() {
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
   if (count === 0) {
-    console.log('Seeding database...');
+    logger.info('Seeding database...');
     const demoPassword = await bcrypt.hash('password123', 10);
 
     const [owner] = await sql`
@@ -694,7 +695,7 @@ export async function initDb() {
       }
     }
 
-    console.log('Database seeded with 13 users (1 owner-only, 12 owner+sitter)!');
+    logger.info('Database seeded with 13 users (1 owner-only, 12 owner+sitter)');
   }
 }
 

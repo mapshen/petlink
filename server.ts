@@ -20,6 +20,7 @@ import {
   adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes,
 } from './src/server/routes/index.ts';
 import type { ErrorRequestHandler } from 'express';
+import logger, { sanitizeError } from './src/server/logger.ts';
 
 // Wraps async route handlers to forward rejected promises to Express error middleware
 function asyncHandler(fn: (...args: any[]) => Promise<any>) {
@@ -102,8 +103,8 @@ async function startServer() {
     res.on('finish', () => {
       const duration = Date.now() - start;
       const log = `${req.method} ${req.path} ${res.statusCode} ${duration}ms [${requestId.slice(0, 8)}]`;
-      if (res.statusCode >= 500) console.error(log);
-      else if (res.statusCode >= 400) console.warn(log);
+      if (res.statusCode >= 500) logger.error(log);
+      else if (res.statusCode >= 400) logger.warn(log);
     });
     next();
   });
@@ -173,8 +174,7 @@ async function startServer() {
 
   // Global error handler — catches unhandled errors from async route handlers
   const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('Unhandled route error:', message);
+    logger.error({ err: sanitizeError(err) }, 'Unhandled route error');
     res.status(500).json({ error: 'Internal server error' });
   };
   app.use(errorHandler);
@@ -191,7 +191,7 @@ async function startServer() {
   }
 
   httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    logger.info(`Server running on http://localhost:${PORT}`);
     startCareTaskReminderScheduler(io);
   });
 
