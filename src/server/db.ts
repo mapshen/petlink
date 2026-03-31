@@ -98,7 +98,7 @@ export async function initDb() {
       subscription_tier TEXT DEFAULT 'free',
       approval_status TEXT DEFAULT 'approved' CHECK(approval_status IN ('approved', 'pending_approval', 'rejected', 'banned')),
       approval_rejected_reason TEXT,
-      approved_by INTEGER,
+      approved_by INTEGER REFERENCES users(id),
       approved_at TIMESTAMPTZ,
       accepted_pet_sizes TEXT[] DEFAULT '{}',
       accepted_species TEXT[] DEFAULT '{}',
