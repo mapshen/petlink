@@ -160,7 +160,7 @@ export const updateSitterPhotoSchema = z.object({
 
 // --- Sitter Post Schemas ---
 export const createSitterPostSchema = z.object({
-  content: z.string().max(2000, 'Post content must be under 2000 characters').optional(),
+  content: z.string().trim().min(1, 'Content cannot be empty').max(2000, 'Post content must be under 2000 characters').optional(),
   photo_url: z.string().url('A valid photo URL is required').refine((url) => url.startsWith('https://'), 'Photo URL must use HTTPS').optional(),
   video_url: z.string().url('A valid video URL is required').refine((url) => url.startsWith('https://'), 'Video URL must use HTTPS').optional(),
   post_type: z.enum(['update', 'walk_photo', 'walk_video', 'care_update']).default('update'),

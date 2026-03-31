@@ -48,6 +48,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Verification | `GET /verification/me`, `POST /verification/start`, `PUT /verification/update`, `GET /verification/:sitterId` |
 | Availability | `GET /availability/:sitterId`, `POST /availability`, `DELETE /availability/:id` |
 | Sitter Photos | `GET /sitter-photos/:sitterId`, `POST /sitter-photos`, `PUT/DELETE /sitter-photos/:id` |
+| Sitter Posts | `GET /sitter-posts/:sitterId` (paginated: `?limit=&offset=`), `POST /sitter-posts`, `DELETE /sitter-posts/:id` |
 | Favorites | `GET /favorites`, `POST /favorites/:sitterId`, `DELETE /favorites/:sitterId` |
 | Cancellation Policy | `GET /cancellation-policy`, `PUT /cancellation-policy` |
 | Walk Events | `GET/POST /walks/:bookingId/events` |
@@ -117,6 +118,7 @@ PostgreSQL with PostGIS.
 | `notification_preferences` | Per-user notification settings |
 | `push_subscriptions` | Web push subscription storage |
 | `sitter_photos` | Portfolio photos with ordering |
+| `sitter_posts` | Instagram-style posts with content, photo/video, post type (`update`, `walk_photo`, `walk_video`, `care_update`), optional booking/walk event links |
 | `favorites` | Owner favorite sitters |
 | `oauth_accounts` | Provider links (`provider`, `provider_id`, unique constraints) |
 | `sitter_subscriptions` | Pro tier with status tracking, Stripe billing, billing period |

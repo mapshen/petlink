@@ -684,8 +684,8 @@ export async function initDb() {
       content TEXT,
       photo_url TEXT,
       video_url TEXT,
-      booking_id INTEGER REFERENCES bookings(id),
-      walk_event_id INTEGER REFERENCES walk_events(id),
+      booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+      walk_event_id INTEGER REFERENCES walk_events(id) ON DELETE SET NULL,
       post_type TEXT NOT NULL DEFAULT 'update' CHECK (post_type IN ('update', 'walk_photo', 'walk_video', 'care_update')),
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
