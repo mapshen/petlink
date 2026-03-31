@@ -24,6 +24,7 @@ export default function PostsGrid({ sitterId, onTotalLoaded }: Props) {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Reset state when sitterId changes
   useEffect(() => {
@@ -41,13 +42,14 @@ export default function PostsGrid({ sitterId, onTotalLoaded }: Props) {
     fetch(`${API_BASE}/sitter-posts/${sitterId}?limit=${PAGE_SIZE}&offset=${offset}`, {
       signal: controller.signal,
     })
-      .then((res) => res.ok ? res.json() : null)
+      .then((res) => {
+        if (!res.ok) throw new Error('fetch failed');
+        return res.json();
+      })
       .then((data) => {
-        if (data) {
-          setPosts((prev) => offset === 0 ? data.posts : [...prev, ...data.posts]);
-          setTotal(data.total);
-          onTotalLoaded?.(data.total);
-        }
+        setPosts((prev) => offset === 0 ? data.posts : [...prev, ...data.posts]);
+        setTotal(data.total);
+        onTotalLoaded?.(data.total);
       })
       .catch((err) => {
         if (err.name !== 'AbortError') setFetchError(true);
@@ -55,7 +57,7 @@ export default function PostsGrid({ sitterId, onTotalLoaded }: Props) {
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [sitterId, offset]);
+  }, [sitterId, offset, retryCount]);
 
   if (loading && posts.length === 0) {
     return (
@@ -71,7 +73,7 @@ export default function PostsGrid({ sitterId, onTotalLoaded }: Props) {
         <AlertCircle className="w-12 h-12 text-red-300 mx-auto mb-3" />
         <p className="text-stone-500">Failed to load posts</p>
         <button
-          onClick={() => { setFetchError(false); setOffset(0); }}
+          onClick={() => { setFetchError(false); setRetryCount((c) => c + 1); }}
           className="text-sm text-emerald-600 mt-2 hover:text-emerald-700"
         >
           Retry
