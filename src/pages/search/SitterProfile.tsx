@@ -7,6 +7,8 @@ import SubRatingPills from '../../components/review/SubRatingPills';
 import ReviewResponse from '../../components/review/ReviewResponse';
 import SitterProfileHeader from '../../components/sitter-profile/SitterProfileHeader';
 import ServiceHighlights from '../../components/sitter-profile/ServiceHighlights';
+import ProfileTabs, { type TabId } from '../../components/sitter-profile/ProfileTabs';
+import PostsGrid from '../../components/sitter-profile/PostsGrid';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Star, AlertCircle, CreditCard, ShieldCheck } from 'lucide-react';
 import { API_BASE } from '../../config';
@@ -15,7 +17,6 @@ import { reverseGeocode } from '../../lib/geo';
 const SitterLocationMap = lazy(() => import('../../components/map/SitterLocationMap'));
 import BookingCalendar from '../../components/booking/BookingCalendar';
 import TimeSlotPicker from '../../components/booking/TimeSlotPicker';
-import PhotoGallery from '../../components/profile/PhotoGallery';
 import PetSelector from '../../components/booking/PetSelector';
 import { useFavorites } from '../../hooks/useFavorites';
 import PaymentForm from '../../components/payment/PaymentForm';
@@ -43,7 +44,6 @@ export default function SitterProfile() {
   const [sitter, setSitter] = useState<User | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [photos, setPhotos] = useState<SitterPhoto[]>([]);
   const [importedReviews, setImportedReviews] = useState<ImportedReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<number | null>(null);
@@ -60,10 +60,14 @@ export default function SitterProfile() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [cityName, setCityName] = useState<string | null>(null);
   const [postCount, setPostCount] = useState(0);
+  const [activeTab, setActiveTab] = useState<TabId>('posts');
   const bookingRef = useRef<HTMLDivElement>(null);
 
   const scrollToBooking = useCallback(() => {
-    bookingRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setActiveTab('availability');
+    setTimeout(() => {
+      bookingRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   }, []);
 
   const handleAvailabilityLoaded = useCallback((data: Availability[]) => {
@@ -75,7 +79,7 @@ export default function SitterProfile() {
     setSelectedTime(null);
   }, []);
 
-  // Track profile view after sitter data loads (uses numeric ID)
+  // Track profile view after sitter data loads
   useEffect(() => {
     if (!sitter) return;
     const fromParam = searchParams.get('from');
@@ -103,7 +107,6 @@ export default function SitterProfile() {
         setSitter(data.sitter);
         setServices(data.services);
         setReviews(data.reviews);
-        setPhotos(data.photos || []);
         setImportedReviews(data.imported_reviews || []);
         const rebookServiceId = Number(serviceIdParam);
         const matchedService = rebookServiceId && data.services.find((s: Service) => s.id === rebookServiceId);
@@ -128,10 +131,6 @@ export default function SitterProfile() {
         if (city) setCityName(city);
       });
     }
-    fetch(`${API_BASE}/sitter-posts/${sitterId}?limit=1`)
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => { if (data) setPostCount(data.total); })
-      .catch(() => {});
   }, [sitterId, sitterLat, sitterLng]);
 
   useEffect(() => {
@@ -166,7 +165,7 @@ export default function SitterProfile() {
       const startDate = new Date(selectedDate);
       startDate.setHours(hours, minutes, 0, 0);
       const selectedSvc = services.find((s) => s.id === selectedService);
-      const durationMs = selectedSvc?.type === 'meet_greet' ? 1800000 : 3600000; // 30 min or 1 hour
+      const durationMs = selectedSvc?.type === 'meet_greet' ? 1800000 : 3600000;
       const endDate = new Date(startDate.getTime() + durationMs);
 
       const res = await fetch(`${API_BASE}/bookings`, {
@@ -194,7 +193,6 @@ export default function SitterProfile() {
         return;
       }
 
-      // Initiate payment for paid bookings
       const bookingId = bookingData.id ?? bookingData.booking?.id;
       if (bookingId) {
         const totalPrice = calculateBookingPrice(selectedSvcObj!.price, selectedSvcObj!.additional_pet_price || 0, selectedPetIds.length);
@@ -205,7 +203,6 @@ export default function SitterProfile() {
           setShowPayment(true);
           return;
         }
-        // Payment setup failed — show the specific error
         setBookingError(`Booking created but payment setup failed: ${result.error || 'unknown error'}. You can pay later from the Home page.`);
         return;
       } else {
@@ -253,243 +250,258 @@ export default function SitterProfile() {
         }}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="grid lg:grid-cols-3 gap-12">
-        {/* Left Column: Profile Content */}
-        <div className="lg:col-span-2 space-y-8">
+      <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {sitter.lat != null && sitter.lng != null && (
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
-              <h2 className="text-xl font-bold mb-4 text-stone-900">Location</h2>
-              <Suspense fallback={
-                <div className="h-64 md:h-80 bg-stone-100 rounded-2xl flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+      {/* Tab Content */}
+      <div className="max-w-[960px] mx-auto">
+        {/* Posts Tab */}
+        {activeTab === 'posts' && (
+          <div role="tabpanel" aria-label="Posts">
+            <PostsGrid key={sitter.id} sitterId={sitter.id} onTotalLoaded={setPostCount} />
+          </div>
+        )}
+
+        {/* Reviews Tab */}
+        {activeTab === 'reviews' && (
+          <div className="py-6 px-4" role="tabpanel" aria-label="Reviews">
+            <div className="max-w-2xl mx-auto">
+              {/* Rating summary */}
+              {reviews.length > 0 && (
+                <div className="bg-white rounded-2xl border border-stone-200 p-5 mb-4 text-center">
+                  <div className="text-5xl font-extrabold text-amber-500">{sitter.avg_rating}</div>
+                  <div className="flex justify-center gap-0.5 my-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className={`w-4 h-4 ${i < Math.round(sitter.avg_rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-stone-200'}`} />
+                    ))}
+                  </div>
+                  <p className="text-sm text-stone-500">Based on {sitter.review_count} reviews</p>
+                  <div className="mt-4">
+                    <SubRatingBars reviews={reviews} />
+                  </div>
                 </div>
-              }>
-                <SitterLocationMap
-                  lat={sitter.lat}
-                  lng={sitter.lng}
-                  name={sitter.name}
-                  serviceRadiusMiles={sitter.service_radius_miles}
-                />
-              </Suspense>
-              <p className="text-xs text-stone-400 mt-3">
-                {cityName ? `${cityName} — ` : ''}Approximate location shown for privacy
-                {sitter.service_radius_miles && ` · Serves within ${sitter.service_radius_miles} miles`}
-              </p>
-            </div>
-          )}
+              )}
 
-          {photos.length > 0 && (
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
-              <h2 className="text-xl font-bold mb-4 text-stone-900">Photos</h2>
-              <PhotoGallery photos={photos} />
-            </div>
-          )}
-
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
-            <h2 className="text-xl font-bold mb-6 text-stone-900">Reviews</h2>
-
-            {/* Sub-rating breakdown bars */}
-            {reviews.length > 0 && (
-              <div className="mb-6 p-4 bg-stone-50 rounded-xl border border-stone-200">
-                <SubRatingBars reviews={reviews} />
-              </div>
-            )}
-
-            <div className="space-y-6">
-              {reviews.map((review) => (
-                <div key={review.id} className="border-b border-stone-100 pb-6 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <img
-                      src={review.reviewer_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.reviewer_name ?? 'U')}`}
-                      alt={review.reviewer_name ?? 'Reviewer'}
-                      className="w-10 h-10 rounded-full"
-                    />
-                    <div>
-                      <div className="font-bold text-stone-900">{review.reviewer_name}</div>
-                      <div className="flex text-amber-400 text-xs">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'fill-current' : 'text-stone-200'}`} />
-                        ))}
+              {/* Individual reviews */}
+              <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+                {reviews.map((review, idx) => (
+                  <div key={review.id} className={`p-5 ${idx < reviews.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <img
+                        src={review.reviewer_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.reviewer_name ?? 'U')}&size=36`}
+                        alt={review.reviewer_name ?? 'Reviewer'}
+                        className="w-9 h-9 rounded-full"
+                      />
+                      <div>
+                        <div className="text-sm font-semibold text-stone-900">{review.reviewer_name}</div>
+                        <div className="text-xs text-stone-500">{new Date(review.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                       </div>
                     </div>
-                    <div className="ml-auto text-xs text-stone-400">
-                      {new Date(review.created_at).toLocaleDateString()}
+                    <div className="flex gap-0.5 mb-1.5">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-200'}`} />
+                      ))}
                     </div>
+                    <SubRatingPills review={review} />
+                    {review.comment && <p className="text-sm text-stone-600 leading-relaxed mt-1.5">{review.comment}</p>}
+                    {review.response_text && review.response_at && (
+                      <ReviewResponse
+                        responseText={review.response_text}
+                        responseAt={review.response_at}
+                        respondentName={sitter.name}
+                      />
+                    )}
                   </div>
-                  <SubRatingPills review={review} />
-                  {review.comment && <p className="text-stone-600 text-sm mt-2">{review.comment}</p>}
-                  {review.response_text && review.response_at && sitter && (
-                    <ReviewResponse
-                      responseText={review.response_text}
-                      responseAt={review.response_at}
-                      respondentName={sitter.name}
-                    />
-                  )}
+                ))}
+                {reviews.length === 0 && importedReviews.length === 0 && (
+                  <div className="p-8 text-center">
+                    <p className="text-stone-500 italic">
+                      {user ? 'No reviews yet.' : 'Log in to see reviews.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {importedReviews.length > 0 && (
+                <div className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h3 className="text-lg font-bold text-stone-900">Imported Reviews</h3>
+                    <ImportedReviewBadge platform={importedReviews[0].platform} />
+                  </div>
+                  <div className="space-y-4">
+                    {importedReviews.map((review) => (
+                      <div key={review.id} className="border-b border-stone-100 pb-4 last:border-0 last:pb-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-sm text-stone-900">{review.reviewer_name}</span>
+                          <div className="flex text-amber-400 text-xs">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className={`w-3 h-3 ${i < (review.rating ?? 5) ? 'fill-current' : 'text-stone-200'}`} />
+                            ))}
+                          </div>
+                          {review.review_date && (
+                            <span className="text-xs text-stone-400 ml-auto">{review.review_date}</span>
+                          )}
+                        </div>
+                        {review.comment && <p className="text-sm text-stone-600">{review.comment}</p>}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-              {reviews.length === 0 && importedReviews.length === 0 && (
-                <p className="text-stone-500 italic">
-                  {user ? 'No reviews yet.' : 'Log in to see reviews.'}
-                </p>
               )}
             </div>
+          </div>
+        )}
 
-            {importedReviews.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-stone-200">
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-lg font-bold text-stone-900">Imported Reviews</h3>
-                  <ImportedReviewBadge platform={importedReviews[0].platform} />
+        {/* Availability Tab */}
+        {activeTab === 'availability' && (
+          <div className="py-6 px-4" ref={bookingRef} role="tabpanel" aria-label="Availability">
+            <div className="max-w-2xl mx-auto space-y-6">
+              {/* Location */}
+              {sitter.lat != null && sitter.lng != null && (
+                <div className="bg-white rounded-2xl border border-stone-200 p-5">
+                  <h3 className="text-lg font-bold text-stone-900 mb-3">Location</h3>
+                  <Suspense fallback={
+                    <div className="h-48 bg-stone-100 rounded-xl flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+                    </div>
+                  }>
+                    <SitterLocationMap
+                      lat={sitter.lat}
+                      lng={sitter.lng}
+                      name={sitter.name}
+                      serviceRadiusMiles={sitter.service_radius_miles}
+                    />
+                  </Suspense>
+                  <p className="text-xs text-stone-400 mt-2">
+                    {cityName ? `${cityName} — ` : ''}Approximate location shown for privacy
+                    {sitter.service_radius_miles && ` · Serves within ${sitter.service_radius_miles} miles`}
+                  </p>
                 </div>
-                <div className="space-y-4">
-                  {importedReviews.map((review) => (
-                    <div key={review.id} className="border-b border-stone-100 pb-4 last:border-0 last:pb-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm text-stone-900">{review.reviewer_name}</span>
-                        <div className="flex text-amber-400 text-xs">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={`w-3 h-3 ${i < (review.rating ?? 5) ? 'fill-current' : 'text-stone-200'}`} />
-                          ))}
+              )}
+
+              {/* Booking Card */}
+              <div className="bg-white rounded-2xl border border-stone-200 p-6">
+                <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
+
+                <div className="space-y-4 mb-6">
+                  <label className="block text-sm font-medium text-stone-700">Service</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {services.map((service) => (
+                      <button
+                        key={service.id}
+                        onClick={() => setSelectedService(service.id)}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          selectedService === service.id
+                            ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
+                            : 'border-stone-200 hover:border-emerald-200'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium text-stone-900 capitalize">{service.type.replace(/[-_]/g, ' ')}</span>
+                          <span className="font-bold text-emerald-600">{service.price === 0 ? 'Free' : `$${service.price}`}</span>
                         </div>
-                        {review.review_date && (
-                          <span className="text-xs text-stone-400 ml-auto">{review.review_date}</span>
+                        <p className="text-xs text-stone-500 mt-1">{service.description}</p>
+                        {(service.additional_pet_price || 0) > 0 && (
+                          <p className="text-xs text-stone-400 mt-0.5">+${service.additional_pet_price}/extra pet</p>
                         )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 mb-6">
+                  <label className="block text-sm font-medium text-stone-700">Date</label>
+                  <BookingCalendar
+                    sitterId={sitter.id}
+                    selectedDate={selectedDate}
+                    onDateSelect={handleDateSelect}
+                    onAvailabilityLoaded={handleAvailabilityLoaded}
+                  />
+                </div>
+
+                {selectedDate && (
+                  <div className="space-y-2 mb-6">
+                    <label className="block text-sm font-medium text-stone-700">Time</label>
+                    <TimeSlotPicker
+                      selectedDate={selectedDate}
+                      availability={availability}
+                      selectedTime={selectedTime}
+                      onTimeSelect={setSelectedTime}
+                    />
+                  </div>
+                )}
+
+                {user && pets.length > 0 && (
+                  <div className="space-y-2 mb-6">
+                    <label className="block text-sm font-medium text-stone-700">Your Pets</label>
+                    <PetSelector
+                      pets={pets}
+                      selectedPetIds={selectedPetIds}
+                      onSelectionChange={setSelectedPetIds}
+                    />
+                  </div>
+                )}
+
+                {selectedPetIds.length > 0 && selectedService && (() => {
+                  const svc = services.find((s) => s.id === selectedService);
+                  if (!svc || svc.price === 0) return null;
+                  const total = calculateBookingPrice(svc.price, svc.additional_pet_price || 0, selectedPetIds.length);
+                  return (
+                    <div className="mb-6 p-3 bg-stone-50 rounded-xl space-y-1">
+                      <div className="flex justify-between text-sm text-stone-600">
+                        <span>Base price</span>
+                        <span>${svc.price}</span>
                       </div>
-                      {review.comment && <p className="text-sm text-stone-600">{review.comment}</p>}
+                      {selectedPetIds.length > 1 && (svc.additional_pet_price || 0) > 0 && (
+                        <div className="flex justify-between text-sm text-stone-600">
+                          <span>{selectedPetIds.length - 1} extra pet{selectedPetIds.length > 2 ? 's' : ''} × ${svc.additional_pet_price}</span>
+                          <span>${((selectedPetIds.length - 1) * (svc.additional_pet_price || 0)).toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
+                        <span>Total</span>
+                        <span>${total.toFixed(2)}</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+                  );
+                })()}
 
-        {/* Right Column: Booking Card */}
-        <div className="lg:col-span-1" ref={bookingRef}>
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-stone-100 sticky top-24">
-            <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
-            
-            <div className="space-y-4 mb-6">
-              <label className="block text-sm font-medium text-stone-700">Service</label>
-              <div className="grid grid-cols-1 gap-2">
-                {services.map((service) => (
-                  <button
-                    key={service.id}
-                    onClick={() => setSelectedService(service.id)}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      selectedService === service.id 
-                        ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' 
-                        : 'border-stone-200 hover:border-emerald-200'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-stone-900 capitalize">{service.type.replace(/[-_]/g, ' ')}</span>
-                      <span className="font-bold text-emerald-600">{service.price === 0 ? 'Free' : `$${service.price}`}</span>
-                    </div>
-                    <p className="text-xs text-stone-500 mt-1">{service.description}</p>
-                    {(service.additional_pet_price || 0) > 0 && (
-                      <p className="text-xs text-stone-400 mt-0.5">+${service.additional_pet_price}/extra pet</p>
-                    )}
-                  </button>
-                ))}
+                {bookingError && (
+                  <div role="alert" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs mb-4">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="flex-grow">{bookingError}</span>
+                    <button onClick={() => setBookingError(null)} aria-label="Dismiss error" className="text-red-400 hover:text-red-600 font-medium">Dismiss</button>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleBooking}
+                  disabled={bookingLoading || !selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
+                  className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bookingLoading ? 'Submitting...' : selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet' ? 'Request Booking' : 'Request Booking & Pay'}
+                </button>
+
+                <p className="text-xs text-center text-stone-400 mt-4">
+                  {selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet'
+                    ? 'This is a free meet & greet — no payment required.'
+                    : 'You won\'t be charged until the sitter confirms.'}
+                </p>
+
+                {sitter.cancellation_policy && (
+                  <div className="mt-4 p-3 bg-stone-50 rounded-xl">
+                    <p className="text-xs font-medium text-stone-600 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      Cancellation: <span className="capitalize">{sitter.cancellation_policy}</span>
+                    </p>
+                    <p className="text-xs text-stone-400 mt-1">
+                      {getPolicyDescription(sitter.cancellation_policy)}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-
-            <div className="space-y-4 mb-6">
-              <label className="block text-sm font-medium text-stone-700">Date</label>
-              <BookingCalendar
-                sitterId={sitter.id}
-                selectedDate={selectedDate}
-                onDateSelect={handleDateSelect}
-                onAvailabilityLoaded={handleAvailabilityLoaded}
-              />
-            </div>
-
-            {selectedDate && (
-              <div className="space-y-2 mb-6">
-                <label className="block text-sm font-medium text-stone-700">Time</label>
-                <TimeSlotPicker
-                  selectedDate={selectedDate}
-                  availability={availability}
-                  selectedTime={selectedTime}
-                  onTimeSelect={setSelectedTime}
-                />
-              </div>
-            )}
-
-            {user && pets.length > 0 && (
-              <div className="space-y-2 mb-6">
-                <label className="block text-sm font-medium text-stone-700">Your Pets</label>
-                <PetSelector
-                  pets={pets}
-                  selectedPetIds={selectedPetIds}
-                  onSelectionChange={setSelectedPetIds}
-                />
-              </div>
-            )}
-
-            {selectedPetIds.length > 0 && selectedService && (() => {
-              const svc = services.find((s) => s.id === selectedService);
-              if (!svc || svc.price === 0) return null;
-              const total = calculateBookingPrice(svc.price, svc.additional_pet_price || 0, selectedPetIds.length);
-              return (
-                <div className="mb-6 p-3 bg-stone-50 rounded-xl space-y-1">
-                  <div className="flex justify-between text-sm text-stone-600">
-                    <span>Base price</span>
-                    <span>${svc.price}</span>
-                  </div>
-                  {selectedPetIds.length > 1 && (svc.additional_pet_price || 0) > 0 && (
-                    <div className="flex justify-between text-sm text-stone-600">
-                      <span>{selectedPetIds.length - 1} extra pet{selectedPetIds.length > 2 ? 's' : ''} × ${svc.additional_pet_price}</span>
-                      <span>${((selectedPetIds.length - 1) * (svc.additional_pet_price || 0)).toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
-                    <span>Total</span>
-                    <span>${total.toFixed(2)}</span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {bookingError && (
-              <div role="alert" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
-                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="flex-grow">{bookingError}</span>
-                <button onClick={() => setBookingError(null)} aria-label="Dismiss error" className="text-red-400 hover:text-red-600 font-medium">Dismiss</button>
-              </div>
-            )}
-
-            <button
-              onClick={handleBooking}
-              disabled={bookingLoading || !selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
-              className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {bookingLoading ? 'Submitting...' : selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet' ? 'Request Booking' : 'Request Booking & Pay'}
-            </button>
-            
-            <p className="text-xs text-center text-stone-400 mt-4">
-              {selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet'
-                ? 'This is a free meet & greet — no payment required.'
-                : 'You won\'t be charged until the sitter confirms.'}
-            </p>
-
-            {sitter.cancellation_policy && (
-              <div className="mt-4 p-3 bg-stone-50 rounded-xl">
-                <p className="text-xs font-medium text-stone-600 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Cancellation: <span className="capitalize">{sitter.cancellation_policy}</span>
-                </p>
-                <p className="text-xs text-stone-400 mt-1">
-                  {getPolicyDescription(sitter.cancellation_policy)}
-                </p>
-              </div>
-            )}
-
           </div>
-        </div>
-      </div>
+        )}
       </div>
 
       {/* Payment Dialog */}
