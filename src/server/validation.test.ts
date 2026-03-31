@@ -659,9 +659,9 @@ describe('serviceSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects price of 0 for non-meet_greet services', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 0 });
-    expect(result.success).toBe(false);
+  it('accepts price of 0 for any service', () => {
+    expect(serviceSchema.safeParse({ type: 'walking', price: 0 }).success).toBe(true);
+    expect(serviceSchema.safeParse({ type: 'meet_greet', price: 0 }).success).toBe(true);
   });
 
   it('rejects price above 9999', () => {
@@ -670,19 +670,18 @@ describe('serviceSchema', () => {
   });
 
   it('accepts all valid service types', () => {
-    for (const type of ['walking', 'sitting', 'drop-in', 'grooming']) {
+    for (const type of ['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare']) {
       expect(serviceSchema.safeParse({ type, price: 30 }).success).toBe(true);
     }
   });
 
-  it('accepts meet_greet with price 0', () => {
-    const result = serviceSchema.safeParse({ type: 'meet_greet', price: 0, description: 'Quick intro meeting' });
-    expect(result.success).toBe(true);
+  it('accepts meet_greet with any price', () => {
+    expect(serviceSchema.safeParse({ type: 'meet_greet', price: 0 }).success).toBe(true);
+    expect(serviceSchema.safeParse({ type: 'meet_greet', price: 25 }).success).toBe(true);
   });
 
-  it('rejects meet_greet with non-zero price', () => {
-    const result = serviceSchema.safeParse({ type: 'meet_greet', price: 10 });
-    expect(result.success).toBe(false);
+  it('accepts daycare service type', () => {
+    expect(serviceSchema.safeParse({ type: 'daycare', price: 45 }).success).toBe(true);
   });
 
   it('rejects description over 1000 characters', () => {
