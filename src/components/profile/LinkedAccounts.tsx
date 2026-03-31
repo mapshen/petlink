@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { LinkedAccount, OAuthProvider } from '../../types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Link2 } from 'lucide-react';
 import { API_BASE } from '../../config';
 import {
   AlertDialog,
@@ -57,6 +57,7 @@ export default function LinkedAccounts({ embedded = false }: { readonly embedded
   const [error, setError] = useState<string | null>(null);
   const [unlinkingProvider, setUnlinkingProvider] = useState<OAuthProvider | null>(null);
   const [unlinkDialogProvider, setUnlinkDialogProvider] = useState<OAuthProvider | null>(null);
+  const [linkingProvider, setLinkingProvider] = useState<OAuthProvider | null>(null);
 
   useEffect(() => {
     fetchAccounts();
@@ -98,6 +99,66 @@ export default function LinkedAccounts({ embedded = false }: { readonly embedded
     }
   };
 
+  const handleLink = async (provider: OAuthProvider, oauthToken: string) => {
+    setLinkingProvider(provider);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/auth/oauth`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, token: oauthToken }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to link account');
+      }
+      fetchAccounts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to link account.');
+    } finally {
+      setLinkingProvider(null);
+    }
+  };
+
+  const handleConnectGoogle = async () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) { setError('Google sign-in is not configured.'); return; }
+    setLinkingProvider('google');
+    try {
+      const script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (!script) {
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://accounts.google.com/gsi/client';
+          s.async = true;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error('Failed to load Google'));
+          document.body.appendChild(s);
+        });
+      }
+      const google = (window as unknown as Record<string, unknown>).google as {
+        accounts: { id: { initialize: (c: Record<string, unknown>) => void; prompt: (cb?: (n: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) => void } };
+      };
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response: { credential: string }) => { handleLink('google', response.credential); },
+      });
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          setLinkingProvider(null);
+          setError('Google sign-in popup was blocked or dismissed.');
+        }
+      });
+    } catch {
+      setLinkingProvider(null);
+      setError('Failed to load Google sign-in.');
+    }
+  };
+
+  const connectHandlers: Partial<Record<OAuthProvider, () => void>> = {
+    google: handleConnectGoogle,
+  };
+
   if (loading) return <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-stone-400" /></div>;
 
   return (
@@ -136,8 +197,17 @@ export default function LinkedAccounts({ embedded = false }: { readonly embedded
                     {unlinkingProvider === provider.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Unlink'}
                   </button>
                 </div>
+              ) : connectHandlers[provider.id] ? (
+                <button
+                  onClick={connectHandlers[provider.id]}
+                  disabled={linkingProvider !== null}
+                  className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium disabled:opacity-50"
+                >
+                  {linkingProvider === provider.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
+                  Connect
+                </button>
               ) : (
-                <span className="text-xs text-stone-400">Not linked</span>
+                <span className="text-xs text-stone-400">Not available</span>
               )}
             </div>
           );
