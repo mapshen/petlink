@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getServiceLabel, getServiceLabelPlural, getAvailableServices, SPECIES_SERVICES, ALL_SERVICE_TYPES } from './service-labels';
+import { getServiceLabel, getServiceLabelPlural, getAvailableServices, getAvailableSkills, getSkillGroups, areSizesRelevant, isWalkCapacityRelevant, SPECIES_SERVICES, ALL_SERVICE_TYPES } from './service-labels';
 
 describe('getServiceLabel', () => {
   it('returns generic label with no species', () => {
@@ -105,5 +105,74 @@ describe('SPECIES_SERVICES', () => {
     expect(SPECIES_SERVICES.cat).not.toContain('daycare');
     expect(SPECIES_SERVICES.bird).not.toContain('walking');
     expect(SPECIES_SERVICES.reptile).not.toContain('walking');
+  });
+});
+
+describe('getAvailableSkills', () => {
+  it('returns all skills with no species', () => {
+    expect(getAvailableSkills().length).toBeGreaterThan(10);
+  });
+
+  it('includes universal + dog skills for dog sitters', () => {
+    const skills = getAvailableSkills(['dog']);
+    expect(skills.map((s) => s.value)).toContain('pet_first_aid');
+    expect(skills.map((s) => s.value)).toContain('dog_training');
+    expect(skills.map((s) => s.value)).toContain('puppy_care');
+    expect(skills.map((s) => s.value)).not.toContain('cat_behavior');
+    expect(skills.map((s) => s.value)).not.toContain('avian_care');
+  });
+
+  it('includes universal + cat skills for cat sitters', () => {
+    const skills = getAvailableSkills(['cat']);
+    expect(skills.map((s) => s.value)).toContain('pet_first_aid');
+    expect(skills.map((s) => s.value)).toContain('cat_behavior');
+    expect(skills.map((s) => s.value)).not.toContain('dog_training');
+  });
+
+  it('combines dog + cat skills for multi-species sitter', () => {
+    const skills = getAvailableSkills(['dog', 'cat']);
+    expect(skills.map((s) => s.value)).toContain('dog_training');
+    expect(skills.map((s) => s.value)).toContain('cat_behavior');
+  });
+});
+
+describe('getSkillGroups', () => {
+  it('groups skills by species', () => {
+    const groups = getSkillGroups(['dog', 'cat']);
+    expect(groups.map((g) => g.label)).toContain('Universal');
+    expect(groups.map((g) => g.label)).toContain('Dog');
+    expect(groups.map((g) => g.label)).toContain('Cat');
+  });
+
+  it('omits species groups for unselected species', () => {
+    const groups = getSkillGroups(['cat']);
+    expect(groups.map((g) => g.label)).not.toContain('Dog');
+  });
+});
+
+describe('areSizesRelevant', () => {
+  it('returns true for dog/cat/small_animal', () => {
+    expect(areSizesRelevant(['dog'])).toBe(true);
+    expect(areSizesRelevant(['cat'])).toBe(true);
+    expect(areSizesRelevant(['small_animal'])).toBe(true);
+  });
+
+  it('returns false for bird/reptile only', () => {
+    expect(areSizesRelevant(['bird'])).toBe(false);
+    expect(areSizesRelevant(['reptile'])).toBe(false);
+    expect(areSizesRelevant(['bird', 'reptile'])).toBe(false);
+  });
+
+  it('returns true for mixed with dog', () => {
+    expect(areSizesRelevant(['bird', 'dog'])).toBe(true);
+  });
+});
+
+describe('isWalkCapacityRelevant', () => {
+  it('returns true only when dog is included', () => {
+    expect(isWalkCapacityRelevant(['dog'])).toBe(true);
+    expect(isWalkCapacityRelevant(['dog', 'cat'])).toBe(true);
+    expect(isWalkCapacityRelevant(['cat'])).toBe(false);
+    expect(isWalkCapacityRelevant(['bird'])).toBe(false);
   });
 });
