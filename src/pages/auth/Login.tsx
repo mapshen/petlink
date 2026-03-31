@@ -181,20 +181,7 @@ export default function Login() {
         </form>
 
         <p className="text-center text-sm text-stone-600">
-          {isSignup ? (
-            'Already have an account? '
-          ) : import.meta.env.DEV ? (
-            <>
-              Demo:{' '}
-              <span className="font-mono bg-stone-100 px-1 rounded text-xs">
-                owner@example.com
-              </span>{' '}
-              /{' '}
-              <span className="font-mono bg-stone-100 px-1 rounded text-xs">password123</span>{' '}
-            </>
-          ) : (
-            "Don't have an account? "
-          )}
+          {isSignup ? 'Already have an account? ' : "Don't have an account? "}
           <button
             type="button"
             onClick={() => {

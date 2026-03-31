@@ -172,8 +172,7 @@ export default function SitterProfile() {
 
     try {
       const [hours, minutes] = selectedTime.split(':').map(Number);
-      const startDate = new Date(selectedDate);
-      startDate.setHours(hours, minutes, 0, 0);
+      const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), hours, minutes, 0, 0);
       const selectedSvc = services.find((s) => s.id === selectedService);
       const durationMs = selectedSvc?.type === 'meet_greet' ? 1800000 : 3600000;
       const endDate = new Date(startDate.getTime() + durationMs);
@@ -507,6 +506,9 @@ export default function SitterProfile() {
                   {selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet'
                     ? 'This is a free meet & greet — no payment required.'
                     : 'You won\'t be charged until the sitter confirms.'}
+                </p>
+                <p className="text-xs text-center text-stone-400 mt-1">
+                  Times shown in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
                 </p>
 
                 {sitter.cancellation_policy && (
