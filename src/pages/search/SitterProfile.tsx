@@ -9,8 +9,9 @@ import SitterProfileHeader from '../../components/sitter-profile/SitterProfileHe
 import ServiceHighlights from '../../components/sitter-profile/ServiceHighlights';
 import ProfileTabs, { type TabId } from '../../components/sitter-profile/ProfileTabs';
 import PostsGrid from '../../components/sitter-profile/PostsGrid';
+import CreatePostDialog from '../../components/sitter-profile/CreatePostDialog';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Star, AlertCircle, CreditCard, ShieldCheck } from 'lucide-react';
+import { Star, AlertCircle, CreditCard, ShieldCheck, ImagePlus } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { reverseGeocode } from '../../lib/geo';
 
@@ -61,6 +62,8 @@ export default function SitterProfile() {
   const [cityName, setCityName] = useState<string | null>(null);
   const [postCount, setPostCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('posts');
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [postsKey, setPostsKey] = useState(0);
   const bookingRef = useRef<HTMLDivElement>(null);
 
   const scrollToBooking = useCallback(() => {
@@ -257,7 +260,18 @@ export default function SitterProfile() {
         {/* Posts Tab */}
         {activeTab === 'posts' && (
           <div role="tabpanel" aria-label="Posts">
-            <PostsGrid key={sitter.id} sitterId={sitter.id} onTotalLoaded={setPostCount} />
+            {user && user.id === sitter.id && user.roles?.includes('sitter') && (
+              <div className="flex justify-end px-4 py-3">
+                <button
+                  onClick={() => setShowCreatePost(true)}
+                  className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1.5"
+                >
+                  <ImagePlus className="w-4 h-4" />
+                  New Post
+                </button>
+              </div>
+            )}
+            <PostsGrid key={`${sitter.id}-${postsKey}`} sitterId={sitter.id} onTotalLoaded={setPostCount} />
           </div>
         )}
 
@@ -503,6 +517,13 @@ export default function SitterProfile() {
           </div>
         )}
       </div>
+
+      {/* Create Post Dialog */}
+      <CreatePostDialog
+        open={showCreatePost}
+        onOpenChange={setShowCreatePost}
+        onPostCreated={() => setPostsKey((k) => k + 1)}
+      />
 
       {/* Payment Dialog */}
       <AlertDialog open={showPayment} onOpenChange={(open) => { if (!open) setShowPayment(false); }}>

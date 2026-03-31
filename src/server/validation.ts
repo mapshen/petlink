@@ -351,11 +351,11 @@ export const applyProfileSchema = z.object({
 });
 
 // --- Upload Signed URL Schema ---
-const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos'] as const;
+const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts'] as const;
 const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;
 
 export const signedUrlSchema = z.object({
-  folder: z.enum(validFolders, { message: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos' }),
+  folder: z.enum(validFolders, { message: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos, posts' }),
   contentType: z.enum(allowedContentTypes, { message: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/quicktime, video/webm' }),
   fileSize: z.number().int().positive('fileSize must be a positive integer'),
 });
