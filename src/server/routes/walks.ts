@@ -34,6 +34,10 @@ export default function walkRoutes(router: Router, io: Server): void {
       res.status(403).json({ error: 'Only the sitter can log walk events' });
       return;
     }
+    if (!['confirmed', 'in_progress'].includes(booking.status)) {
+      res.status(400).json({ error: 'Walk events can only be logged on active bookings' });
+      return;
+    }
     const { event_type, lat, lng, note, photo_url, video_url, pet_id } = req.body;
 
     // Limit video clips to 5 per booking

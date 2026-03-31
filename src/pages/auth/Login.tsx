@@ -14,6 +14,7 @@ export default function Login() {
   const { login, signup } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const signupNameError = isSignup && name.trim().length === 0 ? 'Name is required' : null;
   const signupPasswordError =
@@ -39,6 +40,7 @@ export default function Login() {
       }
     }
 
+    setSubmitting(true);
     try {
       if (isSignup) {
         await signup(email, password, name, ageConfirmed);
@@ -48,6 +50,8 @@ export default function Login() {
       navigate('/home');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -169,10 +173,10 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={!isFormValid}
+            disabled={!isFormValid || submitting}
             className="w-full py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSignup ? 'Create account' : 'Sign in'}
+            {submitting ? 'Please wait...' : isSignup ? 'Create account' : 'Sign in'}
           </button>
         </form>
 

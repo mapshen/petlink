@@ -8,7 +8,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
   throw new Error('JWT_SECRET environment variable is required in production');
 }
-const resolvedSecret = JWT_SECRET || 'petlink-dev-secret-change-in-production';
+// Use random ephemeral secret in dev — tokens don't persist across restarts
+const resolvedSecret = JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY_DAYS = 30;

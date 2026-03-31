@@ -129,10 +129,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         })
         .then((res) => {
-          if (!res || !res.ok) throw new Error('Token invalid');
+          if (!res) return null;
+          if (!res.ok) throw new Error('Token invalid');
           return res.json();
         })
         .then((data) => {
+          if (!data) return;
           setUser(data.user);
           localStorage.setItem('petlink_user', JSON.stringify(data.user));
         })
@@ -140,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (err.name === 'AbortError') return;
           localStorage.removeItem('petlink_user');
           localStorage.removeItem('petlink_token');
-          localStorage.removeItem('petlink_refresh_token');
+          // Keep refresh token so next periodic refresh can retry
           setUser(null);
           setToken(null);
         })
