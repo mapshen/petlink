@@ -638,7 +638,7 @@ export async function initDb() {
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
   if (count === 0) {
     console.log('Seeding database...');
-    const demoPassword = bcrypt.hashSync('password123', 10);
+    const demoPassword = await bcrypt.hash('password123', 10);
 
     const [owner] = await sql`
       INSERT INTO users (email, password_hash, name, roles, bio, avatar_url, lat, lng)

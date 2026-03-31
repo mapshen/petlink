@@ -3,23 +3,23 @@ import { hashPassword, verifyPassword, signToken, verifyToken } from './auth.ts'
 
 describe('auth utilities', () => {
   describe('hashPassword / verifyPassword', () => {
-    it('should hash a password and verify it', () => {
+    it('should hash a password and verify it', async () => {
       const password = 'test-password-123';
-      const hash = hashPassword(password);
+      const hash = await hashPassword(password);
 
       expect(hash).not.toBe(password);
-      expect(verifyPassword(password, hash)).toBe(true);
+      expect(await verifyPassword(password, hash)).toBe(true);
     });
 
-    it('should reject wrong password', () => {
-      const hash = hashPassword('correct-password');
-      expect(verifyPassword('wrong-password', hash)).toBe(false);
+    it('should reject wrong password', async () => {
+      const hash = await hashPassword('correct-password');
+      expect(await verifyPassword('wrong-password', hash)).toBe(false);
     });
 
-    it('should produce different hashes for same password', () => {
+    it('should produce different hashes for same password', async () => {
       const password = 'same-password';
-      const hash1 = hashPassword(password);
-      const hash2 = hashPassword(password);
+      const hash1 = await hashPassword(password);
+      const hash2 = await hashPassword(password);
       expect(hash1).not.toBe(hash2);
     });
   });
