@@ -57,6 +57,16 @@ export default function walkRoutes(router: Router, io: Server): void {
       RETURNING *
     `;
 
+    // Auto-create sitter post for photo/video events (#275)
+    if ((event_type === 'photo' && photo_url) || (event_type === 'video' && video_url)) {
+      const postType = event_type === 'photo' ? 'walk_photo' : 'walk_video';
+      await sql`
+        INSERT INTO sitter_posts (sitter_id, content, photo_url, video_url, booking_id, walk_event_id, post_type)
+        SELECT ${req.userId}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${Number(req.params.bookingId)}, ${event.id}, ${postType}
+        WHERE (SELECT COUNT(*) FROM sitter_posts WHERE sitter_id = ${req.userId}) < 100
+      `.catch(() => {});
+    }
+
     // If event is 'start', update booking to in_progress and notify owner
     if (event_type === 'start') {
       await sql`UPDATE bookings SET status = 'in_progress' WHERE id = ${req.params.bookingId}`;
