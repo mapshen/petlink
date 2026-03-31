@@ -112,6 +112,38 @@ export interface Service {
   additional_pet_price?: number;
   max_pets?: number;
   service_details?: Record<string, unknown>;
+  species?: string;
+  holiday_rate?: number;
+  puppy_rate?: number;
+  duration_60_rate?: number;
+  extended_care_pct?: number;
+  pickup_dropoff_fee?: number;
+  grooming_addon_fee?: number;
+  cat_care_rate?: number;
+  additional_cat_rate?: number;
+}
+
+export interface SitterSpeciesProfile {
+  id: number;
+  sitter_id: number;
+  species: string;
+  years_experience?: number;
+  accepted_pet_sizes: string[];
+  skills: string[];
+  max_pets: number;
+  max_pets_per_walk?: number;
+  has_yard: boolean;
+  has_fenced_yard: boolean;
+  dogs_on_furniture: boolean;
+  dogs_on_bed: boolean;
+  potty_break_frequency?: string;
+  accepts_puppies: boolean;
+  accepts_unspayed: boolean;
+  accepts_unneutered: boolean;
+  accepts_females_in_heat: boolean;
+  owns_same_species: boolean;
+  own_pets_description?: string;
+  created_at: string;
 }
 
 export interface CareInstruction {

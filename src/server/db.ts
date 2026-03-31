@@ -637,6 +637,53 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_posts_sitter ON sitter_posts (sitter_id, created_at DESC)`.catch(() => {});
 
+  // Issue #302: Per-species sitter profiles
+  await sql`
+    CREATE TABLE IF NOT EXISTS sitter_species_profiles (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      species TEXT NOT NULL,
+      years_experience INTEGER,
+      accepted_pet_sizes TEXT[] DEFAULT '{}',
+      skills TEXT[] DEFAULT '{}',
+      max_pets INTEGER DEFAULT 1,
+      max_pets_per_walk INTEGER,
+      has_yard BOOLEAN DEFAULT false,
+      has_fenced_yard BOOLEAN DEFAULT false,
+      dogs_on_furniture BOOLEAN DEFAULT false,
+      dogs_on_bed BOOLEAN DEFAULT false,
+      potty_break_frequency TEXT,
+      accepts_puppies BOOLEAN DEFAULT true,
+      accepts_unspayed BOOLEAN DEFAULT true,
+      accepts_unneutered BOOLEAN DEFAULT true,
+      accepts_females_in_heat BOOLEAN DEFAULT true,
+      owns_same_species BOOLEAN DEFAULT false,
+      own_pets_description TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(sitter_id, species)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_species_profiles_sitter ON sitter_species_profiles (sitter_id)`.catch(() => {});
+
+  // Issue #302: Add species column to services for per-species pricing
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS species TEXT`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS holiday_rate DOUBLE PRECISION`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS puppy_rate DOUBLE PRECISION`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS duration_60_rate DOUBLE PRECISION`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS extended_care_pct INTEGER`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS pickup_dropoff_fee DOUBLE PRECISION`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS grooming_addon_fee DOUBLE PRECISION`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS cat_care_rate DOUBLE PRECISION`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS additional_cat_rate DOUBLE PRECISION`.catch(() => {});
+
+  // Issue #302: Additional global sitter fields
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS non_smoking_home BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS children_in_home BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS one_client_at_a_time BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS safety_environment TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS typical_day TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS info_wanted_about_pets TEXT`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
