@@ -82,9 +82,9 @@ export default function SitterProfile() {
     setSelectedTime(null);
   }, []);
 
-  // Track profile view after sitter data loads
   // Track profile view once per sitter load
   const viewTrackedRef = useRef(false);
+  useEffect(() => { viewTrackedRef.current = false; }, [id]);
   useEffect(() => {
     if (!sitter || viewTrackedRef.current) return;
     viewTrackedRef.current = true;
@@ -400,7 +400,8 @@ export default function SitterProfile() {
               )}
 
               {/* Booking Card — hidden on own profile */}
-              {!isOwnProfile && <div className="bg-white rounded-2xl border border-stone-200 p-6">
+              {!isOwnProfile && (
+              <div className="bg-white rounded-2xl border border-stone-200 p-6">
                 <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
 
                 <div className="space-y-4 mb-6">
@@ -519,7 +520,8 @@ export default function SitterProfile() {
                     </p>
                   </div>
                 )}
-              </div>}
+              </div>
+              )}
             </div>
           </div>
         )}
