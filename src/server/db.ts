@@ -676,6 +676,22 @@ export async function initDb() {
   await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS response_at TIMESTAMPTZ`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_id ON reviews (reviewer_id)`.catch(() => {});
 
+  // Issue #266: Sitter posts (Instagram-style profile content)
+  await sql`
+    CREATE TABLE IF NOT EXISTS sitter_posts (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT,
+      photo_url TEXT,
+      video_url TEXT,
+      booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+      walk_event_id INTEGER REFERENCES walk_events(id) ON DELETE SET NULL,
+      post_type TEXT NOT NULL DEFAULT 'update' CHECK (post_type IN ('update', 'walk_photo', 'walk_video', 'care_update')),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_posts_sitter ON sitter_posts (sitter_id, created_at DESC)`.catch(() => {});
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;

@@ -20,3 +20,4 @@ export { default as uploadRoutes } from './uploads.ts';
 export { default as calendarRoutes } from './calendar.ts';
 export { default as importRoutes } from './import.ts';
 export { default as miscRoutes } from './misc.ts';
+export { default as postRoutes } from './posts.ts';
