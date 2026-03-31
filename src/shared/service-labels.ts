@@ -78,3 +78,70 @@ export function getAvailableServices(acceptedSpecies?: string[]): ServiceType[] 
   // Preserve canonical order
   return ALL_SERVICE_TYPES.filter((s) => available.has(s));
 }
+
+/** Skills/certifications with species relevance */
+export interface SkillOption {
+  readonly value: string;
+  readonly label: string;
+  readonly species: readonly PetSpecies[] | 'all';
+}
+
+export const SKILL_OPTIONS: readonly SkillOption[] = [
+  // Universal
+  { value: 'pet_first_aid', label: 'Pet First Aid', species: 'all' },
+  { value: 'medication_admin', label: 'Medication Administration', species: 'all' },
+  { value: 'senior_pet_care', label: 'Senior Pet Care', species: 'all' },
+  { value: 'behavioral_issues', label: 'Behavioral Issues', species: 'all' },
+  { value: 'grooming_basics', label: 'Grooming Basics', species: 'all' },
+  // Dog
+  { value: 'dog_training', label: 'Dog Training', species: ['dog'] },
+  { value: 'puppy_care', label: 'Puppy Care', species: ['dog'] },
+  { value: 'leash_reactive', label: 'Leash-Reactive Dogs', species: ['dog'] },
+  { value: 'large_breed_exp', label: 'Large Breed Experience', species: ['dog'] },
+  // Cat
+  { value: 'cat_behavior', label: 'Cat Behavior', species: ['cat'] },
+  { value: 'kitten_care', label: 'Kitten Care', species: ['cat'] },
+  { value: 'feral_cat_exp', label: 'Feral/Shy Cat Experience', species: ['cat'] },
+  // Exotic
+  { value: 'avian_care', label: 'Avian Care', species: ['bird'] },
+  { value: 'reptile_husbandry', label: 'Reptile Husbandry', species: ['reptile'] },
+  { value: 'small_animal_care', label: 'Small Animal Care', species: ['small_animal'] },
+];
+
+/** Get skills relevant to the sitter's accepted species, grouped by category */
+export function getAvailableSkills(acceptedSpecies?: string[]): SkillOption[] {
+  if (!acceptedSpecies || acceptedSpecies.length === 0) return [...SKILL_OPTIONS];
+  return SKILL_OPTIONS.filter((skill) => {
+    if (skill.species === 'all') return true;
+    return skill.species.some((s) => acceptedSpecies.includes(s));
+  });
+}
+
+/** Group skills by species category for display */
+export function getSkillGroups(acceptedSpecies?: string[]): { label: string; skills: SkillOption[] }[] {
+  const available = getAvailableSkills(acceptedSpecies);
+  const groups: { label: string; skills: SkillOption[] }[] = [];
+
+  const universal = available.filter((s) => s.species === 'all');
+  if (universal.length > 0) groups.push({ label: 'Universal', skills: universal });
+
+  const speciesNames: Record<string, string> = { dog: 'Dog', cat: 'Cat', bird: 'Bird', reptile: 'Reptile', small_animal: 'Small Animal' };
+  for (const sp of acceptedSpecies || []) {
+    const speciesSkills = available.filter((s) => s.species !== 'all' && (s.species as string[]).includes(sp));
+    if (speciesSkills.length > 0) groups.push({ label: speciesNames[sp] || sp, skills: speciesSkills });
+  }
+
+  return groups;
+}
+
+/** Whether pet sizes are relevant for the selected species */
+export function areSizesRelevant(acceptedSpecies?: string[]): boolean {
+  if (!acceptedSpecies || acceptedSpecies.length === 0) return true;
+  return acceptedSpecies.some((s) => ['dog', 'cat', 'small_animal'].includes(s));
+}
+
+/** Whether walking capacity is relevant (only for dogs) */
+export function isWalkCapacityRelevant(acceptedSpecies?: string[]): boolean {
+  if (!acceptedSpecies || acceptedSpecies.length === 0) return true;
+  return acceptedSpecies.includes('dog');
+}

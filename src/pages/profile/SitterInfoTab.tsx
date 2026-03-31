@@ -1,24 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Save } from 'lucide-react';
 import { API_BASE } from '../../config';
+import { getSkillGroups, areSizesRelevant, isWalkCapacityRelevant } from '../../shared/service-labels';
 
 const SPECIES_OPTIONS = ['dog', 'cat', 'bird', 'reptile', 'small_animal'] as const;
+const SPECIES_ICONS: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
 const HOME_TYPES = [
   { value: '', label: 'Select...' },
   { value: 'house', label: 'House' },
   { value: 'apartment', label: 'Apartment' },
   { value: 'condo', label: 'Condo' },
   { value: 'other', label: 'Other' },
-] as const;
-const SKILL_OPTIONS = [
-  { value: 'pet_first_aid', label: 'Pet First Aid' },
-  { value: 'dog_training', label: 'Dog Training' },
-  { value: 'medication_admin', label: 'Medication Administration' },
-  { value: 'puppy_care', label: 'Puppy Care' },
-  { value: 'senior_pet_care', label: 'Senior Pet Care' },
-  { value: 'behavioral_issues', label: 'Behavioral Issues' },
-  { value: 'grooming_basics', label: 'Grooming Basics' },
 ] as const;
 
 function formatSpecies(s: string): string {
@@ -41,6 +34,10 @@ export default function SitterInfoTab() {
   const [maxPetsPerWalk, setMaxPetsPerWalk] = useState('2');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+
+  const skillGroups = useMemo(() => getSkillGroups(acceptedSpecies), [acceptedSpecies]);
+  const showSizes = useMemo(() => areSizesRelevant(acceptedSpecies), [acceptedSpecies]);
+  const showWalkCapacity = useMemo(() => isWalkCapacityRelevant(acceptedSpecies), [acceptedSpecies]);
 
   useEffect(() => {
     if (!user) return;
@@ -114,6 +111,7 @@ export default function SitterInfoTab() {
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-lg font-bold text-stone-900">Sitter Info</h2>
 
+      {/* Pet types — drives everything below */}
       <div>
         <label className="block text-sm font-medium text-stone-700 mb-2">Pet types I accept</label>
         <div className="flex flex-wrap gap-2">
@@ -126,31 +124,34 @@ export default function SitterInfoTab() {
                 acceptedSpecies.includes(species) ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
               }`}
             >
-              {formatSpecies(species)}
+              {SPECIES_ICONS[species]} {formatSpecies(species)}
             </button>
           ))}
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-stone-700 mb-2">Pet sizes I accept</label>
-        <div className="flex flex-wrap gap-2">
-          {(['small', 'medium', 'large', 'giant'] as const).map((size) => (
-            <button
-              key={size}
-              type="button"
-              onClick={() => setAcceptedPetSizes((prev) =>
-                prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
-              )}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                acceptedPetSizes.includes(size) ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-              }`}
-            >
-              {size.charAt(0).toUpperCase() + size.slice(1)}
-            </button>
-          ))}
+      {/* Pet sizes — hidden for bird/reptile only */}
+      {showSizes && (
+        <div>
+          <label className="block text-sm font-medium text-stone-700 mb-2">Pet sizes I accept</label>
+          <div className="flex flex-wrap gap-2">
+            {(['small', 'medium', 'large', 'giant'] as const).map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => setAcceptedPetSizes((prev) =>
+                  prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+                )}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  acceptedPetSizes.includes(size) ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                {size.charAt(0).toUpperCase() + size.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -179,22 +180,34 @@ export default function SitterInfoTab() {
         </div>
       </div>
 
+      {/* Skills — grouped by species, filtered by accepted types */}
       <div>
         <label className="block text-sm font-medium text-stone-700 mb-2">Skills & certifications</label>
-        <div className="flex flex-wrap gap-2">
-          {SKILL_OPTIONS.map((skill) => (
-            <button
-              key={skill.value}
-              type="button"
-              onClick={() => toggleSkill(skill.value)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                skills.includes(skill.value) ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-              }`}
-            >
-              {skill.label}
-            </button>
-          ))}
-        </div>
+        {acceptedSpecies.length === 0 ? (
+          <p className="text-xs text-stone-400 italic">Select pet types above to see relevant skills</p>
+        ) : (
+          <div className="space-y-3">
+            {skillGroups.map((group) => (
+              <div key={group.label}>
+                <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">{group.label}</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {group.skills.map((skill) => (
+                    <button
+                      key={skill.value}
+                      type="button"
+                      onClick={() => toggleSkill(skill.value)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        skills.includes(skill.value) ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {skill.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
@@ -240,9 +253,10 @@ export default function SitterInfoTab() {
         )}
       </div>
 
+      {/* Pet capacity — walk capacity only for dog sitters */}
       <div>
         <h4 className="text-sm font-medium text-stone-700 mb-3">Pet capacity</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className={`grid grid-cols-1 ${showWalkCapacity ? 'sm:grid-cols-2' : ''} gap-4`}>
           <div>
             <label className="block text-xs text-stone-500 mb-1">Max pets at once</label>
             <input
@@ -254,17 +268,19 @@ export default function SitterInfoTab() {
               className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
             />
           </div>
-          <div>
-            <label className="block text-xs text-stone-500 mb-1">Max pets per walk</label>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={maxPetsPerWalk}
-              onChange={(e) => setMaxPetsPerWalk(e.target.value)}
-              className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
-            />
-          </div>
+          {showWalkCapacity && (
+            <div>
+              <label className="block text-xs text-stone-500 mb-1">Max pets per walk</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={maxPetsPerWalk}
+                onChange={(e) => setMaxPetsPerWalk(e.target.value)}
+                className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+          )}
         </div>
       </div>
 

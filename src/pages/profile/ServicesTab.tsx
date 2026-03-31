@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Service } from '../../types';
 import { Plus, Pencil, Trash2, DollarSign, Save, X } from 'lucide-react';
@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
+import { getAvailableServices, getServiceLabel } from '../../shared/service-labels';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,14 +19,9 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 
-const SERVICE_TYPES = [
-  { value: 'walking', label: 'Pet Walking', icon: '🚶' },
-  { value: 'sitting', label: 'House Sitting', icon: '🏠' },
-  { value: 'drop-in', label: 'Drop-in Visit', icon: '👋' },
-  { value: 'daycare', label: 'Daycare', icon: '🏠' },
-  { value: 'grooming', label: 'Grooming', icon: '✂️' },
-  { value: 'meet_greet', label: 'Meet & Greet', icon: '🤝' },
-] as const;
+const SERVICE_TYPE_ICONS: Record<string, string> = {
+  walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝',
+};
 
 interface ServiceDetails {
   walk_duration?: string;
@@ -55,6 +51,16 @@ export default function ServicesTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  const acceptedSpecies = user?.accepted_species || [];
+  const SERVICE_TYPES = useMemo(() => {
+    const available = getAvailableServices(acceptedSpecies);
+    return available.map((type) => ({
+      value: type,
+      label: getServiceLabel(type, acceptedSpecies),
+      icon: SERVICE_TYPE_ICONS[type] || '📋',
+    }));
+  }, [acceptedSpecies]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState<ServiceForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
