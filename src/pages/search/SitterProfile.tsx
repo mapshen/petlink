@@ -6,6 +6,7 @@ import SubRatingBars from '../../components/review/SubRatingBars';
 import SubRatingPills from '../../components/review/SubRatingPills';
 import ReviewResponse from '../../components/review/ReviewResponse';
 import SitterProfileHeader from '../../components/sitter-profile/SitterProfileHeader';
+import ServiceHighlights from '../../components/sitter-profile/ServiceHighlights';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Star, AlertCircle, CreditCard, ShieldCheck } from 'lucide-react';
 import { API_BASE } from '../../config';
@@ -242,6 +243,14 @@ export default function SitterProfile() {
         onToggleFavorite={toggleFavorite}
         onBookClick={scrollToBooking}
         onMessageClick={() => navigate(`/messages?recipient=${sitter.id}`)}
+      />
+
+      <ServiceHighlights
+        services={services}
+        onServiceClick={(service) => {
+          setSelectedService(service.id);
+          scrollToBooking();
+        }}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
