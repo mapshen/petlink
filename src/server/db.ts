@@ -609,6 +609,10 @@ export async function initDb() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_imported_profiles_sitter_id ON imported_profiles (sitter_id)`.catch(() => {});
+  // Migration: add verification_status column if table only has legacy 'verified' boolean
+  await sql`ALTER TABLE imported_profiles ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'pending'`.catch(() => {});
+  // Backfill verification_status from legacy verified column
+  await sql`UPDATE imported_profiles SET verification_status = 'verified' WHERE verified = true AND (verification_status IS NULL OR verification_status = 'pending')`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_imported_reviews_sitter_id ON imported_reviews (sitter_id)`.catch(() => {});
 
   // Issue #146: Calendar token-based iCal export
