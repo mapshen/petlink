@@ -65,7 +65,7 @@ export default function HowItWorks() {
           step={1}
           title="Search & Browse"
           description="Enter your location and find verified sitters nearby. Filter by service type, price range, and pet size. Read real reviews from other pet owners to find the perfect match."
-          features={["Dog Walking", "House Sitting", "Drop-in Visits", "Grooming"]}
+          features={["Pet Walking", "House Sitting", "Drop-in Visits", "Grooming"]}
           icon={<Search className="w-12 h-12" />}
         />
         <Step

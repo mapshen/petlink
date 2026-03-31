@@ -18,9 +18,10 @@ import {
 } from '../../components/ui/alert-dialog';
 
 const SERVICE_LABELS: Record<string, string> = {
-  walking: 'Dog Walking',
+  walking: 'Pet Walking',
   sitting: 'House Sitting',
   'drop-in': 'Drop-in Visit',
+  daycare: 'Daycare',
   grooming: 'Grooming',
   meet_greet: 'Meet & Greet',
 };

@@ -26,11 +26,12 @@ const RADIUS_OPTIONS = [
 ];
 
 const SERVICE_LABELS: Record<string, string> = {
-  walking: 'Dog Walkers',
+  walking: 'Pet Walkers',
   sitting: 'House Sitters',
   grooming: 'Groomers',
   meet_greet: 'Meet & Greet',
   'drop-in': 'Drop-in Visits',
+  daycare: 'Daycare Providers',
 };
 
 const PET_SIZES = [

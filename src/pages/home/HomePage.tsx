@@ -368,7 +368,7 @@ export default function HomePage() {
                           <Button size="xs" variant="ghost" asChild>
                             <Link to={`/track/${booking.id}`}>
                               <MapPin className="w-4 h-4" />
-                              Track Walk
+                              Track Session
                             </Link>
                           </Button>
                         )}

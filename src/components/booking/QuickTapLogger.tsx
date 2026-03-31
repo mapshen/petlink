@@ -10,6 +10,8 @@ const QUICK_ACTIONS = [
   { type: 'poop', label: 'Poop', icon: '💩', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200' },
   { type: 'medication', label: 'Meds', icon: '💊', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200' },
   { type: 'play', label: 'Play', icon: '🎾', color: 'bg-green-100 text-green-700 hover:bg-green-200' },
+  { type: 'litter_box', label: 'Litter Box', icon: '🐱', color: 'bg-stone-100 text-stone-700 hover:bg-stone-200' },
+  { type: 'habitat_check', label: 'Habitat', icon: '🦎', color: 'bg-teal-100 text-teal-700 hover:bg-teal-200' },
   { type: 'nap_start', label: 'Nap', icon: '😴', color: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' },
   { type: 'photo', label: 'Photo', icon: '📸', color: 'bg-pink-100 text-pink-700 hover:bg-pink-200' },
   { type: 'video', label: 'Video', icon: '🎥', color: 'bg-rose-100 text-rose-700 hover:bg-rose-200' },
