@@ -106,7 +106,7 @@ export interface PetVaccination {
 export interface Service {
   id: number;
   sitter_id: number;
-  type: 'walking' | 'sitting' | 'drop-in' | 'grooming' | 'meet_greet';
+  type: 'walking' | 'sitting' | 'drop-in' | 'grooming' | 'meet_greet' | 'daycare';
   price: number;
   description?: string;
   additional_pet_price?: number;
@@ -248,7 +248,7 @@ export interface Availability {
 export interface WalkEvent {
   id: number;
   booking_id: number;
-  event_type: 'start' | 'pee' | 'poop' | 'photo' | 'end' | 'fed' | 'water' | 'medication' | 'nap_start' | 'nap_end' | 'play' | 'video';
+  event_type: 'start' | 'pee' | 'poop' | 'photo' | 'end' | 'fed' | 'water' | 'medication' | 'nap_start' | 'nap_end' | 'play' | 'video' | 'litter_box' | 'habitat_check';
   lat?: number;
   lng?: number;
   note?: string;

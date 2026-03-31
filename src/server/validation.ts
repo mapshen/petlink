@@ -129,7 +129,7 @@ export const updateBookingStatusSchema = z.object({
 
 // --- Service Schemas ---
 export const serviceSchema = z.object({
-  type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet'], { message: 'Type must be walking, sitting, drop-in, grooming, or meet_greet' }),
+  type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare'], { message: 'Type must be walking, sitting, drop-in, grooming, meet_greet, or daycare' }),
   price: z.number().min(0, 'Price cannot be negative').max(9999, 'Price must be under $10,000'),
   description: z.string().max(1000, 'Description must be under 1000 characters').optional().nullable(),
   additional_pet_price: z.number().min(0, 'Additional pet price cannot be negative').max(500, 'Additional pet price must be under $500').optional().default(0),
@@ -138,13 +138,7 @@ export const serviceSchema = z.object({
     (obj) => JSON.stringify(obj).length <= 5000,
     'Service details must be under 5KB'
   ).optional().nullable(),
-}).refine(
-  (data) => data.type === 'meet_greet' || data.price >= 1,
-  { message: 'Price must be at least $1', path: ['price'] }
-).refine(
-  (data) => data.type !== 'meet_greet' || data.price === 0,
-  { message: 'Meet & greet must be free (price = 0)', path: ['price'] }
-);
+});
 
 // --- Sitter Photo Schemas ---
 export const createSitterPhotoSchema = z.object({
@@ -189,7 +183,7 @@ export const reviewResponseSchema = z.object({
 
 // --- Quick-Tap Care Event Schemas ---
 export const quickTapEventSchema = z.object({
-  event_type: z.enum(['start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play', 'video']),
+  event_type: z.enum(['start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play', 'video', 'litter_box', 'habitat_check']),
   lat: z.number().min(-90).max(90).optional().nullable(),
   lng: z.number().min(-180).max(180).optional().nullable(),
   note: z.string().max(500).optional().nullable(),
@@ -362,7 +356,7 @@ export const signedUrlSchema = z.object({
 
 // --- Sitter Search Schemas ---
 export const sitterSearchSchema = z.object({
-  serviceType: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet']).optional(),
+  serviceType: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare']).optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
   radius: z.coerce.number().min(1).max(500).optional(),

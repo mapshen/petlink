@@ -40,13 +40,13 @@ export async function initDb() {
   `;
   await sql`
     DO $$ BEGIN
-      CREATE TYPE service_type AS ENUM ('walking', 'sitting', 'drop-in', 'grooming', 'meet_greet');
+      CREATE TYPE service_type AS ENUM ('walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare');
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
   await sql`
     DO $$ BEGIN
-      CREATE TYPE walk_event_type AS ENUM ('start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play', 'video');
+      CREATE TYPE walk_event_type AS ENUM ('start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play', 'video', 'litter_box', 'habitat_check');
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
@@ -420,6 +420,9 @@ export async function initDb() {
   `.catch(() => {});
 
   // Schema migrations for existing databases (columns now baked into CREATE TABLE above)
+  await sql`ALTER TYPE service_type ADD VALUE IF NOT EXISTS 'daycare'`.catch(() => {});
+  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'litter_box'`.catch(() => {});
+  await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'habitat_check'`.catch(() => {});
 
   // Issue #98: Recurring bookings
   await sql`
