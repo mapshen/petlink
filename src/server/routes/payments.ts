@@ -25,8 +25,8 @@ export default function paymentRoutes(router: Router): void {
         res.status(409).json({ error: 'Payment already initiated for this booking' });
         return;
       }
-      const amountCents = Math.round(booking.total_price * 100);
-      if (amountCents <= 0) {
+      const amountCents = booking.total_price_cents;
+      if (!amountCents || amountCents <= 0) {
         res.status(400).json({ error: 'No payment required for free bookings' });
         return;
       }

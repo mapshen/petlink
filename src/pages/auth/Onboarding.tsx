@@ -265,7 +265,7 @@ export default function Onboarding() {
                         <span>{typeInfo?.icon}</span>
                         <span className="font-medium text-stone-900">{typeInfo?.label}</span>
                       </div>
-                      <span className="font-bold text-emerald-600">${s.price}</span>
+                      <span className="font-bold text-emerald-600">${(s.price_cents / 100).toFixed(2)}</span>
                     </div>
                   );
                 })}

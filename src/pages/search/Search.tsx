@@ -460,8 +460,8 @@ export default function Search() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="block text-lg font-bold text-emerald-600">{sitter.price === 0 ? 'Free' : `$${sitter.price}`}</span>
-                              {sitter.price > 0 && (
+                              <span className="block text-lg font-bold text-emerald-600">{sitter.price_cents === 0 ? 'Free' : `$${(sitter.price_cents / 100).toFixed(2)}`}</span>
+                              {sitter.price_cents > 0 && (
                                 <span className="text-xs text-stone-400">
                                   {getServiceLabel(serviceType || sitter.service_type, species ? [species] : undefined)}
                                 </span>

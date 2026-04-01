@@ -35,7 +35,7 @@ export default function ServiceHighlights({ services, onServiceClick, selectedSp
 
           const speciesArr = selectedSpecies ? [selectedSpecies] : undefined;
           const label = getServiceLabel(type, speciesArr);
-          const priceText = service ? (service.price === 0 ? 'Free' : `$${service.price}`) : 'not offered';
+          const priceText = service ? (service.price_cents === 0 ? 'Free' : `$${(service.price_cents / 100).toFixed(2)}`) : 'not offered';
 
           return (
             <button
@@ -62,7 +62,7 @@ export default function ServiceHighlights({ services, onServiceClick, selectedSp
                 {label}
               </span>
               <span className={`text-[11px] font-bold ${isActive ? 'text-emerald-600' : 'text-stone-400'}`}>
-                {service ? (service.price === 0 ? 'Free' : `$${service.price}`) : '\u2014'}
+                {service ? (service.price_cents === 0 ? 'Free' : `$${(service.price_cents / 100).toFixed(2)}`) : '\u2014'}
               </span>
             </button>
           );

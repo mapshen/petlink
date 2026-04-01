@@ -8,7 +8,7 @@ import { expenseSchema } from './validation.ts';
 describe('expenseSchema', () => {
   const validExpense = {
     category: 'supplies',
-    amount: 25.50,
+    amount_cents: 2550,
     description: 'Dog treats and leashes',
     date: '2025-06-15',
     receipt_url: 'https://example.com/receipt.pdf',
@@ -19,7 +19,7 @@ describe('expenseSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.category).toBe('supplies');
-      expect(result.data.amount).toBe(25.50);
+      expect(result.data.amount_cents).toBe(2550);
     }
   });
 
@@ -37,22 +37,22 @@ describe('expenseSchema', () => {
   });
 
   it('rejects zero amount', () => {
-    const result = expenseSchema.safeParse({ ...validExpense, amount: 0 });
+    const result = expenseSchema.safeParse({ ...validExpense, amount_cents: 0 });
     expect(result.success).toBe(false);
   });
 
   it('rejects negative amount', () => {
-    const result = expenseSchema.safeParse({ ...validExpense, amount: -10 });
+    const result = expenseSchema.safeParse({ ...validExpense, amount_cents: -10 });
     expect(result.success).toBe(false);
   });
 
   it('rejects amount exceeding maximum', () => {
-    const result = expenseSchema.safeParse({ ...validExpense, amount: 100000 });
+    const result = expenseSchema.safeParse({ ...validExpense, amount_cents: 10000001 });
     expect(result.success).toBe(false);
   });
 
   it('accepts amount at maximum boundary', () => {
-    const result = expenseSchema.safeParse({ ...validExpense, amount: 99999 });
+    const result = expenseSchema.safeParse({ ...validExpense, amount_cents: 10000000 });
     expect(result.success).toBe(true);
   });
 
@@ -69,7 +69,7 @@ describe('expenseSchema', () => {
   it('accepts expense without optional fields', () => {
     const result = expenseSchema.safeParse({
       category: 'transportation',
-      amount: 15,
+      amount_cents: 1500,
       date: '2025-03-01',
     });
     expect(result.success).toBe(true);

@@ -34,7 +34,7 @@ type WalletTab = 'earnings' | 'expenses' | 'tax' | 'payouts';
 interface Expense {
   id: number;
   category: string;
-  amount: number;
+  amount_cents: number;
   description?: string;
   date: string;
 }
@@ -195,7 +195,7 @@ export default function WalletPage() {
       const res = await fetch(url, {
         method,
         headers: getAuthHeaders(token),
-        body: JSON.stringify({ category: form.category, amount: Number(form.amount), description: form.description || null, date: form.date }),
+        body: JSON.stringify({ category: form.category, amount_cents: Math.round(Number(form.amount) * 100), description: form.description || null, date: form.date }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -232,7 +232,7 @@ export default function WalletPage() {
     ? completedBookings.filter(b => b.sitter_id === user.id)
     : completedBookings.filter(b => b.owner_id === user.id);
   const earningsThisYear = earnings.filter(b => new Date(b.start_time).getFullYear() === year);
-  const totalEarnings = earningsThisYear.reduce((sum, b) => sum + (b.total_price || 0), 0);
+  const totalEarnings = earningsThisYear.reduce((sum, b) => sum + (b.total_price_cents || 0), 0);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -335,13 +335,13 @@ export default function WalletPage() {
                         </div>
                       </div>
                       <span className={`text-sm font-bold ${isSitter ? 'text-emerald-600' : 'text-stone-900'}`}>
-                        {isSitter ? '+' : '-'}{formatCurrency(booking.total_price || 0)}
+                        {isSitter ? '+' : '-'}{formatCents(booking.total_price_cents || 0)}
                       </span>
                     </div>
                   ))}
                   <div className="mt-4 p-4 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between">
                     <span className="text-sm font-medium text-stone-700">Total ({year})</span>
-                    <span className="text-lg font-bold text-emerald-700">{formatCurrency(totalEarnings)}</span>
+                    <span className="text-lg font-bold text-emerald-700">{formatCents(totalEarnings)}</span>
                   </div>
                 </div>
               )}
@@ -494,8 +494,8 @@ export default function WalletPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-red-600">-{formatCurrency(expense.amount)}</span>
-                          <button onClick={() => { setForm({ category: expense.category, amount: expense.amount.toString(), description: expense.description || '', date: expense.date.split('T')[0] }); setEditingId(expense.id); setShowForm(true); }}
+                          <span className="text-sm font-bold text-red-600">-{formatCurrency(expense.amount_cents / 100)}</span>
+                          <button onClick={() => { setForm({ category: expense.category, amount: (expense.amount_cents / 100).toString(), description: expense.description || '', date: expense.date.split('T')[0] }); setEditingId(expense.id); setShowForm(true); }}
                             className="p-1.5 text-stone-400 hover:text-emerald-600"><Pencil className="w-3.5 h-3.5" /></button>
                           <button onClick={() => setDeleteDialogId(expense.id)}
                             className="p-1.5 text-stone-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>

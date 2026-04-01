@@ -85,7 +85,7 @@ interface RevenueBarChartProps {
 }
 
 function RevenueBarChart({ data }: RevenueBarChartProps) {
-  const maxRevenue = data.reduce((max, d) => Math.max(max, d.revenue), 0);
+  const maxRevenue = data.reduce((max, d) => Math.max(max, d.revenue_cents), 0);
 
   if (data.length === 0) {
     return <p className="text-stone-400 text-sm py-8 text-center">No revenue data yet.</p>;
@@ -94,14 +94,14 @@ function RevenueBarChart({ data }: RevenueBarChartProps) {
   return (
     <div className="flex items-end gap-2 h-48">
       {data.map((d) => {
-        const heightPct = maxRevenue > 0 ? (d.revenue / maxRevenue) * 100 : 0;
+        const heightPct = maxRevenue > 0 ? (d.revenue_cents / maxRevenue) * 100 : 0;
         return (
           <div key={d.period} className="flex-1 flex flex-col items-center gap-1">
-            <span className="text-[10px] text-stone-500">{formatCurrency(d.revenue)}</span>
+            <span className="text-[10px] text-stone-500">{formatCurrency(d.revenue_cents / 100)}</span>
             <div
               className="w-full bg-emerald-500 rounded-t-md transition-all"
               style={{ height: `${Math.max(heightPct, 2)}%` }}
-              title={`${d.period}: ${formatCurrency(d.revenue)} (${d.booking_count} bookings)`}
+              title={`${d.period}: ${formatCurrency(d.revenue_cents / 100)} (${d.booking_count} bookings)`}
             />
             <span className="text-[10px] text-stone-400 truncate w-full text-center">
               {d.period.replace(/^\d{4}-/, '')}
@@ -295,7 +295,7 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
               <StatsCard
                 label="Total Revenue"
-                value={formatCurrency(overview.total_revenue)}
+                value={formatCurrency(overview.total_revenue_cents / 100)}
                 icon={<DollarSign className="h-5 w-5" />}
                 sub={`${overview.completed_bookings} completed bookings`}
               />
@@ -372,7 +372,7 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-medium text-stone-900">{formatCurrency(client.total_spent)}</p>
+                      <p className="text-sm font-medium text-stone-900">{formatCurrency(client.total_spent_cents / 100)}</p>
                       {client.pets.length > 0 && (
                         <p className="text-xs text-stone-400 truncate max-w-[150px]">
                           {client.pets.map((p) => p.name).join(', ')}

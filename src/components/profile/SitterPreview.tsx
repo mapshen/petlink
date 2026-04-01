@@ -87,7 +87,7 @@ export default function SitterPreview({ user, services, photos }: Props) {
                 {services.map((s) => (
                   <div key={s.id} className="flex justify-between items-center px-2 py-1.5 bg-stone-50 rounded-md">
                     <span className="text-xs">{formatServiceType(s.type)}</span>
-                    <span className="text-xs font-bold text-emerald-600">${s.price}</span>
+                    <span className="text-xs font-bold text-emerald-600">${(s.price_cents / 100).toFixed(2)}</span>
                   </div>
                 ))}
               </div>

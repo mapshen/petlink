@@ -67,7 +67,7 @@ export async function getOverview(sitterId: number, option: DateRangeOption) {
       COUNT(*)::int AS total_bookings,
       COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_bookings,
       COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled_bookings,
-      COALESCE(SUM(total_price) FILTER (WHERE status = 'completed'), 0)::float AS total_revenue,
+      COALESCE(SUM(total_price_cents) FILTER (WHERE status = 'completed'), 0)::int AS total_revenue_cents,
       COUNT(DISTINCT owner_id)::int AS unique_clients,
       COUNT(DISTINCT owner_id) FILTER (
         WHERE owner_id IN (SELECT owner_id FROM repeat)
@@ -99,7 +99,7 @@ export async function getOverview(sitterId: number, option: DateRangeOption) {
   const monthlyRevenue = await sql`
     SELECT
       EXTRACT(MONTH FROM start_time)::int AS month,
-      COALESCE(SUM(total_price), 0)::float AS revenue
+      COALESCE(SUM(total_price_cents), 0)::int AS revenue_cents
     FROM bookings
     WHERE sitter_id = ${sitterId}
       AND status = 'completed'
@@ -120,7 +120,7 @@ export async function getOverview(sitterId: number, option: DateRangeOption) {
     total_bookings: totalBookings,
     completed_bookings: completedBookings,
     cancelled_bookings: bookingStats.cancelled_bookings,
-    total_revenue: bookingStats.total_revenue,
+    total_revenue_cents: bookingStats.total_revenue_cents,
     avg_rating: reviewStats.avg_rating ? Math.round(reviewStats.avg_rating * 10) / 10 : null,
     review_count: reviewStats.review_count,
     avg_response_hours: responseStats.avg_response_hours
@@ -131,9 +131,9 @@ export async function getOverview(sitterId: number, option: DateRangeOption) {
     repeat_client_pct: uniqueClients > 0 ? Math.round((repeatClients / uniqueClients) * 100) : 0,
     unique_clients: uniqueClients,
     profile_views: profileViews,
-    monthly_revenue: monthlyRevenue.map((r: { month: number; revenue: number }) => ({
+    monthly_revenue: monthlyRevenue.map((r: { month: number; revenue_cents: number }) => ({
       month: r.month,
-      revenue: r.revenue,
+      revenue_cents: r.revenue_cents,
     })),
   };
 }
@@ -146,7 +146,7 @@ export async function getClients(sitterId: number, limit = 50, offset = 0, start
       u.avatar_url AS client_avatar,
       COUNT(b.id)::int AS total_bookings,
       COUNT(b.id) FILTER (WHERE b.status = 'completed')::int AS completed_bookings,
-      COALESCE(SUM(b.total_price) FILTER (WHERE b.status = 'completed'), 0)::float AS total_spent,
+      COALESCE(SUM(b.total_price_cents) FILTER (WHERE b.status = 'completed'), 0)::int AS total_spent_cents,
       MIN(b.start_time) AS first_booking_date,
       MAX(b.start_time) AS last_booking_date
     FROM bookings b
@@ -196,7 +196,7 @@ export async function getClientDetail(sitterId: number, clientId: number) {
   const bookings = await sql`
     SELECT
       b.id, b.status, s.type AS service_type, b.start_time, b.end_time,
-      b.total_price, b.created_at
+      b.total_price_cents, b.created_at
     FROM bookings b
     LEFT JOIN services s ON s.id = b.service_id
     WHERE b.sitter_id = ${sitterId} AND b.owner_id = ${clientId}
@@ -244,7 +244,7 @@ export async function getRevenue(sitterId: number, period: 'weekly' | 'monthly',
     ? await sql`
       SELECT
         TO_CHAR(start_time, 'YYYY-MM') AS period,
-        COALESCE(SUM(total_price), 0)::float AS revenue,
+        COALESCE(SUM(total_price_cents), 0)::int AS revenue_cents,
         COUNT(*)::int AS booking_count
       FROM bookings
       WHERE sitter_id = ${sitterId}
@@ -257,7 +257,7 @@ export async function getRevenue(sitterId: number, period: 'weekly' | 'monthly',
     : await sql`
       SELECT
         TO_CHAR(DATE_TRUNC('week', start_time), 'YYYY-"W"IW') AS period,
-        COALESCE(SUM(total_price), 0)::float AS revenue,
+        COALESCE(SUM(total_price_cents), 0)::int AS revenue_cents,
         COUNT(*)::int AS booking_count
       FROM bookings
       WHERE sitter_id = ${sitterId}

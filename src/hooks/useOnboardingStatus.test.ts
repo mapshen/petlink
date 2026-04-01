@@ -6,7 +6,7 @@ const makeService = (overrides?: Partial<Service>): Service => ({
   id: 1,
   sitter_id: 1,
   type: 'walking',
-  price: 25,
+  price_cents: 2500,
   ...overrides,
 });
 

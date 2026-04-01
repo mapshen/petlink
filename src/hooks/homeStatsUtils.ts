@@ -21,7 +21,7 @@ interface BookingLike {
 }
 
 export interface AnalyticsOverview {
-  total_revenue: number;
+  total_revenue_cents: number;
   avg_rating: number | null;
   review_count: number;
   avg_response_hours: number | null;
@@ -53,7 +53,7 @@ export function computeSitterStats(
   const myBookings = bookings.filter((b) => b.sitter_id === userId);
   const now = new Date();
   return {
-    revenueThisMonth: analytics?.total_revenue ?? 0,
+    revenueThisMonth: (analytics?.total_revenue_cents ?? 0) / 100,
     upcomingBookings: myBookings.filter(
       (b) => (b.status === 'confirmed' || b.status === 'pending') && new Date(b.start_time) > now,
     ).length,
