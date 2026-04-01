@@ -375,7 +375,10 @@ export default function bookingRoutes(router: Router, io: Server): void {
       },
       new Map<number, { id: number; name: string; photo_url: string | null; breed: string | null }[]>(),
     );
-    const enriched = bookings.map((b: { id: number }) => ({ ...b, pets: petsByBooking.get(b.id) || [] }));
+    const enriched = bookings.map((b: { id: number; payment_intent_id?: string }) => {
+      const { payment_intent_id: _pid, ...safe } = b;
+      return { ...safe, pets: petsByBooking.get(b.id) || [] };
+    });
 
     res.json({ bookings: enriched, total: totalCount });
   });
