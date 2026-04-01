@@ -167,6 +167,13 @@ export const speciesProfileSchema = z.object({
 });
 
 // --- Sitter Photo Schemas ---
+// --- Tip Schemas ---
+export const createTipSchema = z.object({
+  booking_id: z.number().int().positive('Invalid booking ID'),
+  amount_cents: z.number().int().min(1, 'Tip must be at least 1 cent').max(100000, 'Tip cannot exceed $1,000'),
+});
+
+// --- Sitter Photo Schemas ---
 export const createSitterPhotoSchema = z.object({
   photo_url: z.string().url('A valid photo URL is required').refine((url) => url.startsWith('https://'), 'Photo URL must use HTTPS'),
   caption: z.string().max(200, 'Caption must be under 200 characters').optional().default(''),
