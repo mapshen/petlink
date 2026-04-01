@@ -1,14 +1,10 @@
 import type { SitterSpeciesProfile, Service } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
+import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
 import { formatSkill } from './SitterProfileHeader';
 
-const SPECIES_ICONS: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
 const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
 const SIZE_LABELS: Record<string, string> = { small: 'Small (0-15 lbs)', medium: 'Medium (16-40 lbs)', large: 'Large (41-100 lbs)', giant: 'Giant (101+ lbs)' };
-
-function formatSpecies(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export interface SpeciesBadge {
   species: string;

@@ -1,14 +1,9 @@
 import { LayoutGrid, Star, Calendar } from 'lucide-react';
-
-const SPECIES_ICONS: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
+import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
 
 export const FIXED_TABS = ['posts', 'reviews', 'availability'] as const;
 export type FixedTabId = typeof FIXED_TABS[number];
 export type TabId = FixedTabId | `species-${string}`;
-
-function formatSpecies(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 const FIXED_TAB_CONFIG: Record<FixedTabId, { label: string; icon: typeof LayoutGrid }> = {
   posts: { label: 'Posts', icon: LayoutGrid },

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { SitterSpeciesProfile, Service } from '../../types';
 import { getAvailableServices, getServiceLabel, getAvailableSkills, type SkillOption } from '../../shared/service-labels';
+import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
 
-const SPECIES_ICONS: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
 const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
 const SPECIES_COLORS: Record<string, { border: string; header: string; text: string }> = {
   dog: { border: 'border-blue-300', header: 'bg-blue-50', text: 'text-blue-900' },
@@ -19,10 +19,6 @@ const DOG_SIZES = [
   { value: 'large', label: 'Large (41-100 lbs)' },
   { value: 'giant', label: 'Giant (101+ lbs)' },
 ];
-
-function formatSpecies(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 interface SpeciesCardProps {
   readonly species: string;
