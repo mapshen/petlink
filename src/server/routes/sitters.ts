@@ -34,7 +34,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         ${minPrice != null ? sql`AND s.price >= ${minPrice}` : sql``}
         ${maxPrice != null ? sql`AND s.price <= ${maxPrice}` : sql``}
         ${petSize ? sql`AND ${petSize} = ANY(u.accepted_pet_sizes)` : sql``}
-        ${species ? sql`AND ${species} = ANY(u.accepted_species)` : sql``}
+        ${species ? sql`AND ${species} = ANY(u.accepted_species) AND (s.species = ${species} OR s.species IS NULL)` : sql``}
         ${hasGeo ? sql`AND ST_DWithin(u.location, ${geoPoint}, ${radius})` : sql``}
     `;
 

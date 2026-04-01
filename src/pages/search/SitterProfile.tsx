@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile } from '../../types';
+import { getServiceLabel } from '../../shared/service-labels';
 import ImportedReviewBadge from '../../components/profile/ImportedReviewBadge';
 import SubRatingBars from '../../components/review/SubRatingBars';
 import SubRatingPills from '../../components/review/SubRatingPills';
@@ -178,6 +179,12 @@ export default function SitterProfile() {
   const speciesTabs = speciesProfiles.map((p) => p.species);
   const selectedSpecies = activeTab.startsWith('species-') ? activeTab.replace('species-', '') : null;
   const selectedSpeciesProfile = selectedSpecies ? speciesProfiles.find((p) => p.species === selectedSpecies) : null;
+
+  // Filter booking services by selected pets' species
+  const selectedPetSpecies: string[] = [...new Set(pets.filter((p) => selectedPetIds.includes(p.id)).map((p) => p.species as string))];
+  const bookingServices = selectedPetSpecies.length > 0
+    ? services.filter((s) => !s.species || selectedPetSpecies.includes(s.species))
+    : services;
 
   const handleBooking = async () => {
     if (!user) {
@@ -430,10 +437,21 @@ export default function SitterProfile() {
               <div className="bg-white rounded-2xl border border-stone-200 p-6">
                 <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
 
+                {user && pets.length > 0 && (
+                  <div className="space-y-2 mb-6">
+                    <label className="block text-sm font-medium text-stone-700">Your Pets</label>
+                    <PetSelector
+                      pets={pets}
+                      selectedPetIds={selectedPetIds}
+                      onSelectionChange={setSelectedPetIds}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-4 mb-6">
                   <label className="block text-sm font-medium text-stone-700">Service</label>
                   <div className="grid grid-cols-1 gap-2">
-                    {services.map((service) => (
+                    {bookingServices.map((service) => (
                       <button
                         key={service.id}
                         onClick={() => setSelectedService(service.id)}
@@ -444,7 +462,9 @@ export default function SitterProfile() {
                         }`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className="font-medium text-stone-900 capitalize">{service.type.replace(/[-_]/g, ' ')}</span>
+                          <span className="font-medium text-stone-900">
+                            {getServiceLabel(service.type, service.species ? [service.species] : undefined)}
+                          </span>
                           <span className="font-bold text-emerald-600">{service.price === 0 ? 'Free' : `$${service.price}`}</span>
                         </div>
                         <p className="text-xs text-stone-500 mt-1">{service.description}</p>
@@ -474,17 +494,6 @@ export default function SitterProfile() {
                       availability={availability}
                       selectedTime={selectedTime}
                       onTimeSelect={setSelectedTime}
-                    />
-                  </div>
-                )}
-
-                {user && pets.length > 0 && (
-                  <div className="space-y-2 mb-6">
-                    <label className="block text-sm font-medium text-stone-700">Your Pets</label>
-                    <PetSelector
-                      pets={pets}
-                      selectedPetIds={selectedPetIds}
-                      onSelectionChange={setSelectedPetIds}
                     />
                   </div>
                 )}
