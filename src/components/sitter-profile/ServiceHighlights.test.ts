@@ -1,26 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { getServiceLabel, ALL_SERVICE_TYPES } from './ServiceHighlights';
+import { ALL_SERVICE_TYPES } from './ServiceHighlights';
+import { getServiceLabel } from '../../shared/service-labels';
 import type { Service } from '../../types';
 
-describe('getServiceLabel', () => {
-  it('formats walking', () => {
-    expect(getServiceLabel('walking')).toBe('Walking');
-  });
-
-  it('formats sitting', () => {
-    expect(getServiceLabel('sitting')).toBe('Sitting');
-  });
-
-  it('formats drop-in', () => {
-    expect(getServiceLabel('drop-in')).toBe('Drop-in');
-  });
-
-  it('formats grooming', () => {
+describe('getServiceLabel (shared)', () => {
+  it('returns generic labels without species', () => {
+    expect(getServiceLabel('walking')).toBe('Pet Walking');
+    expect(getServiceLabel('sitting')).toBe('House Sitting');
+    expect(getServiceLabel('drop-in')).toBe('Drop-in Visit');
     expect(getServiceLabel('grooming')).toBe('Grooming');
+    expect(getServiceLabel('meet_greet')).toBe('Meet & Greet');
   });
 
-  it('formats meet_greet', () => {
-    expect(getServiceLabel('meet_greet')).toBe('Meet & Greet');
+  it('returns species-specific labels with species', () => {
+    expect(getServiceLabel('walking', ['dog'])).toBe('Dog Walking');
+    expect(getServiceLabel('sitting', ['cat'])).toBe('Cat Sitting');
   });
 
   it('handles unknown type gracefully', () => {

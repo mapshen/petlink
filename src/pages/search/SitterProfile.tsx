@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview } from '../../types';
+import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile } from '../../types';
 import ImportedReviewBadge from '../../components/profile/ImportedReviewBadge';
 import SubRatingBars from '../../components/review/SubRatingBars';
 import SubRatingPills from '../../components/review/SubRatingPills';
@@ -8,6 +8,7 @@ import ReviewResponse from '../../components/review/ReviewResponse';
 import SitterProfileHeader from '../../components/sitter-profile/SitterProfileHeader';
 import ServiceHighlights from '../../components/sitter-profile/ServiceHighlights';
 import ProfileTabs, { type TabId } from '../../components/sitter-profile/ProfileTabs';
+import SpeciesDetails from '../../components/sitter-profile/SpeciesDetails';
 import PostsGrid from '../../components/sitter-profile/PostsGrid';
 import CreatePostDialog from '../../components/sitter-profile/CreatePostDialog';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
@@ -60,6 +61,7 @@ export default function SitterProfile() {
   const { clientSecret, loading: paymentLoading, error: paymentError, createIntent } = usePaymentIntent();
   const [bookingLoading, setBookingLoading] = useState(false);
   const [cityName, setCityName] = useState<string | null>(null);
+  const [speciesProfiles, setSpeciesProfiles] = useState<SitterSpeciesProfile[]>([]);
   const [postCount, setPostCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('posts');
   const [showCreatePost, setShowCreatePost] = useState(false);
@@ -118,6 +120,21 @@ export default function SitterProfile() {
         const rebookServiceId = Number(serviceIdParam);
         const matchedService = rebookServiceId && data.services.find((s: Service) => s.id === rebookServiceId);
         setSelectedService(matchedService ? matchedService.id : data.services.length > 0 ? data.services[0].id : null);
+
+        // Fetch species profiles before clearing loading state to avoid tab flash
+        try {
+          const spRes = await fetch(`${API_BASE}/species-profiles/${data.sitter.id}`);
+          if (spRes.ok) {
+            const spData = await spRes.json();
+            const profiles = spData.profiles || [];
+            setSpeciesProfiles(profiles);
+            if (profiles.length > 0) {
+              setActiveTab(`species-${profiles[0].species}`);
+            }
+          }
+        } catch {
+          // Non-critical — species details just won't appear
+        }
       } catch {
         setError('Failed to load sitter profile.');
       } finally {
@@ -158,6 +175,9 @@ export default function SitterProfile() {
   }, [user, token]);
 
   const isOwnProfile = user != null && user.id === sitter?.id;
+  const speciesTabs = speciesProfiles.map((p) => p.species);
+  const selectedSpecies = activeTab.startsWith('species-') ? activeTab.replace('species-', '') : null;
+  const selectedSpeciesProfile = selectedSpecies ? speciesProfiles.find((p) => p.species === selectedSpecies) : null;
 
   const handleBooking = async () => {
     if (!user) {
@@ -249,20 +269,27 @@ export default function SitterProfile() {
         onToggleFavorite={toggleFavorite}
         onBookClick={scrollToBooking}
         onMessageClick={() => navigate(`/messages?recipient=${sitter.id}`)}
+        speciesProfiles={speciesProfiles}
       />
 
       <ServiceHighlights
         services={services}
+        selectedSpecies={selectedSpecies}
         onServiceClick={(service) => {
           setSelectedService(service.id);
           scrollToBooking();
         }}
       />
 
-      <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} speciesTabs={speciesTabs} />
 
       {/* Tab Content */}
       <div className="max-w-[960px] mx-auto">
+        {/* Species Tab */}
+        {selectedSpeciesProfile && (
+          <SpeciesDetails profile={selectedSpeciesProfile} services={services} />
+        )}
+
         {/* Posts Tab */}
         {activeTab === 'posts' && (
           <div role="tabpanel" aria-label="Posts">
