@@ -45,7 +45,7 @@ describe('createNotification', () => {
     mockedSql.mockResolvedValueOnce([prefs] as any);
 
     const result = await createNotification(1, 'new_booking', 'Test', 'Body');
-    expect(result.id).toBe(0);  // Sentinel indicating skipped
+    expect(result).toBeNull();  // Suppressed notifications return null
     expect(mockedSql).toHaveBeenCalledTimes(1);  // Only preferences lookup, no insert
   });
 
@@ -54,7 +54,7 @@ describe('createNotification', () => {
     mockedSql.mockResolvedValueOnce([prefs] as any);
 
     const result = await createNotification(1, 'walk_started', 'Walk', 'Started');
-    expect(result.id).toBe(0);
+    expect(result).toBeNull();
   });
 
   it('maps walk_completed to walk_updates preference', async () => {
@@ -62,7 +62,7 @@ describe('createNotification', () => {
     mockedSql.mockResolvedValueOnce([prefs] as any);
 
     const result = await createNotification(1, 'walk_completed', 'Walk', 'Done');
-    expect(result.id).toBe(0);
+    expect(result).toBeNull();
   });
 });
 

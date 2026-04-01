@@ -142,7 +142,7 @@ export default function messageRoutes(router: Router, io: Server): void {
         // Notify receiver of new message
         const [sender] = await sql`SELECT name FROM users WHERE id = ${userId}`;
         const notification = await createNotification(receiver_id, 'new_message', 'New Message', `${sender.name}: ${trimmedContent.substring(0, 100)}`, { sender_id: userId });
-        io.to(String(receiver_id)).emit('notification', notification);
+        if (notification) io.to(String(receiver_id)).emit('notification', notification);
 
         // Send email notification for new message
         const receiverPrefs = await getPreferences(receiver_id);

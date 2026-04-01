@@ -88,7 +88,7 @@ export async function checkCareTaskReminders(io: Server): Promise<number> {
           UPDATE booking_care_tasks SET reminder_sent_at = NOW()
           WHERE id = ${task.id} AND reminder_sent_at IS NULL
         `;
-        io.to(String(recipientId)).emit('notification', notification);
+        if (notification) io.to(String(recipientId)).emit('notification', notification);
         sentCount++;
       }
     } catch (err) {

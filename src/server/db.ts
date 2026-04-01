@@ -677,6 +677,14 @@ export async function initDb() {
   await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS cat_care_rate DOUBLE PRECISION`.catch(() => {});
   await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS additional_cat_rate DOUBLE PRECISION`.catch(() => {});
 
+  // Indexes for search performance
+  await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_users_accepted_species ON users USING GIN (accepted_species)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_users_accepted_pet_sizes ON users USING GIN (accepted_pet_sizes)`.catch(() => {});
+  // Unique constraint: one service per (sitter, type, species) combination
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_services_sitter_type_species ON services (sitter_id, type, COALESCE(species, ''))`.catch(() => {});
+
   // Issue #302: Additional global sitter fields
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS non_smoking_home BOOLEAN DEFAULT false`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS children_in_home BOOLEAN DEFAULT false`.catch(() => {});
