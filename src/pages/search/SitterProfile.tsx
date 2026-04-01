@@ -222,6 +222,8 @@ export default function SitterProfile() {
           pet_ids: selectedPetIds,
           start_time: startDate.toISOString(),
           end_time: endDate.toISOString(),
+          pickup_dropoff: wantsPickup,
+          grooming_addon: wantsGrooming,
         })
       });
 

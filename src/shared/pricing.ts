@@ -9,11 +9,16 @@ export function calculateBookingPrice(
   return Math.round(total * 100) / 100;
 }
 
-/** Check if a date falls on a major US holiday (pet sitting premium dates) */
+/**
+ * Check if a date falls on a major US holiday (pet sitting premium dates).
+ * Uses UTC methods so server/client agree regardless of timezone.
+ * Supported holidays: New Year's Day, July 4th, Christmas Eve, Christmas,
+ * New Year's Eve, Thanksgiving, Black Friday, Memorial Day, Labor Day.
+ */
 export function isUSHoliday(date: Date): boolean {
-  const month = date.getMonth(); // 0-indexed
-  const day = date.getDate();
-  const dayOfWeek = date.getDay(); // 0=Sun
+  const month = date.getUTCMonth(); // 0-indexed
+  const day = date.getUTCDate();
+  const dayOfWeek = date.getUTCDay(); // 0=Sun
 
   // Fixed-date holidays
   if (month === 0 && day === 1) return true;   // New Year's Day
@@ -26,12 +31,12 @@ export function isUSHoliday(date: Date): boolean {
   if (month === 10 && dayOfWeek === 4) {
     const weekOfMonth = Math.ceil(day / 7);
     if (weekOfMonth === 4) return true;
-    // Day after Thanksgiving (Black Friday)
   }
+  // Black Friday: day after Thanksgiving
   if (month === 10 && dayOfWeek === 5) {
     const thursdayDay = day - 1;
     const weekOfMonth = Math.ceil(thursdayDay / 7);
-    if (weekOfMonth === 4) return true; // Black Friday
+    if (weekOfMonth === 4) return true;
   }
 
   // Memorial Day: last Monday in May
@@ -87,7 +92,10 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
     groomingAddon, groomingAddonFee,
   } = options;
 
-  // Determine effective base price: holiday > puppy > base
+  // Rate precedence: holiday > puppy > base.
+  // Holiday and puppy rates are standalone overrides of the base price, not stackable.
+  // Business rationale: sitters set holiday_rate as an all-in premium that already
+  // accounts for the extra effort of holiday care, including young pets.
   let effectiveBase = basePrice;
   let holidayApplied = false;
   let puppyApplied = false;

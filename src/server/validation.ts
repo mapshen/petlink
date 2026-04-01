@@ -118,6 +118,8 @@ export const createBookingSchema = z.object({
   pet_ids: z.array(z.number().int().positive('Invalid pet ID')).min(1, 'At least one pet is required').max(10, 'Maximum 10 pets per booking').refine((ids) => new Set(ids).size === ids.length, 'Duplicate pet IDs are not allowed'),
   start_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'start_time must be a valid date'),
   end_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'end_time must be a valid date'),
+  pickup_dropoff: z.boolean().optional().default(false),
+  grooming_addon: z.boolean().optional().default(false),
 }).refine(
   (data) => new Date(data.end_time) > new Date(data.start_time),
   { message: 'end_time must be after start_time', path: ['end_time'] }
@@ -138,6 +140,10 @@ export const serviceSchema = z.object({
     (obj) => JSON.stringify(obj).length <= 5000,
     'Service details must be under 5KB'
   ).optional().nullable(),
+  holiday_rate: z.number().min(0).max(9999).optional().nullable(),
+  puppy_rate: z.number().min(0).max(9999).optional().nullable(),
+  pickup_dropoff_fee: z.number().min(0).max(500).optional().nullable(),
+  grooming_addon_fee: z.number().min(0).max(500).optional().nullable(),
 });
 
 // --- Sitter Photo Schemas ---

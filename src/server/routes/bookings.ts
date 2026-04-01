@@ -153,7 +153,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
 
   // --- Bookings ---
   router.post('/bookings', authMiddleware, validate(createBookingSchema), async (req: AuthenticatedRequest, res) => {
-    const { sitter_id, service_id, pet_ids, start_time, end_time } = req.body;
+    const { sitter_id, service_id, pet_ids, start_time, end_time, pickup_dropoff, grooming_addon } = req.body;
 
     const startMs = new Date(start_time).getTime();
     const endMs = new Date(end_time).getTime();
@@ -199,6 +199,10 @@ export default function bookingRoutes(router: Router, io: Server): void {
       holidayRate: service.holiday_rate,
       hasPuppy: hasPuppyPet,
       puppyRate: service.puppy_rate,
+      pickupDropoff: pickup_dropoff,
+      pickupDropoffFee: service.pickup_dropoff_fee,
+      groomingAddon: grooming_addon,
+      groomingAddonFee: service.grooming_addon_fee,
     });
     const totalPrice = pricing.total;
 

@@ -12,8 +12,8 @@ describe('calculateBookingPrice (backwards compat)', () => {
 });
 
 describe('isUSHoliday', () => {
-  // Use noon local time to avoid timezone boundary issues
-  const d = (y: number, m: number, day: number) => new Date(y, m - 1, day, 12, 0, 0);
+  // Use UTC dates to match the UTC-based implementation
+  const d = (y: number, m: number, day: number) => new Date(Date.UTC(y, m - 1, day));
 
   it('detects New Year Day', () => {
     expect(isUSHoliday(d(2026, 1, 1))).toBe(true);
@@ -49,6 +49,19 @@ describe('isUSHoliday', () => {
   it('detects New Year Eve', () => {
     expect(isUSHoliday(d(2026, 12, 31))).toBe(true);
   });
+
+  it('detects Christmas Eve', () => {
+    expect(isUSHoliday(d(2026, 12, 24))).toBe(true);
+  });
+
+  it('detects Black Friday (day after Thanksgiving)', () => {
+    // 2026: Nov 27 is Black Friday
+    expect(isUSHoliday(d(2026, 11, 27))).toBe(true);
+  });
+
+  it('does not flag a non-holiday Friday in November', () => {
+    expect(isUSHoliday(d(2026, 11, 6))).toBe(false);
+  });
 });
 
 describe('isPuppy', () => {
@@ -63,6 +76,11 @@ describe('isPuppy', () => {
 
   it('returns false for undefined age', () => {
     expect(isPuppy(undefined)).toBe(false);
+  });
+
+  it('returns true for fractional age under 1', () => {
+    expect(isPuppy(0.5)).toBe(true);
+    expect(isPuppy(0.99)).toBe(true);
   });
 });
 
