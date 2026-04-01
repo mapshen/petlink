@@ -176,7 +176,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       res.status(400).json({ error: 'This sitter is not currently available for bookings' });
       return;
     }
-    const [service] = await sql`SELECT id, price, type, additional_pet_price, max_pets, holiday_rate, puppy_rate, pickup_dropoff_fee, grooming_addon_fee FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    const [service] = await sql`SELECT id, price_cents, type, additional_pet_price_cents, max_pets, holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
     if (!service) {
       res.status(400).json({ error: 'Invalid service for this sitter' });
       return;
@@ -192,19 +192,19 @@ export default function bookingRoutes(router: Router, io: Server): void {
     const hasPuppyPet = bookedPets.some((p: { age: number | null }) => isPuppy(p.age ?? undefined));
 
     const pricing = calculateAdvancedPrice({
-      basePrice: service.price,
-      additionalPetPrice: service.additional_pet_price || 0,
+      basePriceCents: service.price_cents,
+      additionalPetPriceCents: service.additional_pet_price_cents || 0,
       petCount: pet_ids.length,
       isHoliday: isUSHoliday(bookingDate),
-      holidayRate: service.holiday_rate,
+      holidayRateCents: service.holiday_rate_cents,
       hasPuppy: hasPuppyPet,
-      puppyRate: service.puppy_rate,
+      puppyRateCents: service.puppy_rate_cents,
       pickupDropoff: pickup_dropoff,
-      pickupDropoffFee: service.pickup_dropoff_fee,
+      pickupDropoffFeeCents: service.pickup_dropoff_fee_cents,
       groomingAddon: grooming_addon,
-      groomingAddonFee: service.grooming_addon_fee,
+      groomingAddonFeeCents: service.grooming_addon_fee_cents,
     });
-    const totalPrice = pricing.total;
+    const totalPrice = pricing.totalCents;
 
     // Use transaction for booking + booking_pets + care tasks
     let booking;
@@ -234,7 +234,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
 
       const [b] = await tx`
-        INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
+        INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status)
         VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending')
         RETURNING id, status
       `;
@@ -285,14 +285,15 @@ export default function bookingRoutes(router: Router, io: Server): void {
     // Send email notifications (fire-and-forget)
     const formattedStart = formatDate(new Date(start_time), 'MMMM d, yyyy \'at\' h:mm a');
     const serviceName = service.type || 'Pet Service';
+    const totalPriceDollars = totalPrice / 100;
     const sitterPrefs = await getPreferences(sitter_id);
     if (sitterPrefs.email_enabled && sitterPrefs.new_booking) {
-      const sitterEmail = buildSitterNewBookingEmail({ sitterName: sitter.name, ownerName: owner.name, serviceName, startTime: formattedStart, totalPrice: totalPrice });
+      const sitterEmail = buildSitterNewBookingEmail({ sitterName: sitter.name, ownerName: owner.name, serviceName, startTime: formattedStart, totalPrice: totalPriceDollars });
       sendEmail({ to: sitter.email, ...sitterEmail }).catch(() => {});
     }
     const ownerPrefs = await getPreferences(req.userId!);
     if (ownerPrefs.email_enabled && ownerPrefs.new_booking) {
-      const ownerEmail = buildBookingConfirmationEmail({ ownerName: owner.name, sitterName: sitter.name, serviceName, startTime: formattedStart, totalPrice: totalPrice });
+      const ownerEmail = buildBookingConfirmationEmail({ ownerName: owner.name, sitterName: sitter.name, serviceName, startTime: formattedStart, totalPrice: totalPriceDollars });
       sendEmail({ to: owner.email, ...ownerEmail }).catch(() => {});
     }
 
@@ -472,7 +473,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       try {
         const [sitter] = await sql`SELECT cancellation_policy FROM users WHERE id = ${updated.sitter_id}`;
         const policy = sitter.cancellation_policy || 'flexible';
-        const totalCents = Math.round((updated.total_price || 0) * 100);
+        const totalCents = updated.total_price_cents || 0;
         refund = calculateRefund(policy, totalCents, new Date(updated.start_time), new Date());
 
         if (refund.refundPercent === 100) {
@@ -496,8 +497,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
           await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${bookingId}`;
         }
 
-        // Convert refund amount from cents to dollars for API response
-        refund = { ...refund, refundAmount: refund.refundAmount / 100 };
+        // refundAmount is already in cents — no conversion needed
       } catch (err) {
         logger.error({ err: sanitizeError(err), bookingId }, 'Refund failed for booking');
         refund = null; // Don't send misleading refund info to client

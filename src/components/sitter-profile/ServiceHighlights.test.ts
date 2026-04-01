@@ -30,8 +30,8 @@ describe('ALL_SERVICE_TYPES', () => {
 
 describe('ServiceHighlights logic', () => {
   const services: Service[] = [
-    { id: 1, sitter_id: 2, type: 'walking', price: 25, description: '30 min walk' },
-    { id: 2, sitter_id: 2, type: 'sitting', price: 50, description: 'Overnight sitting' },
+    { id: 1, sitter_id: 2, type: 'walking', price_cents: 2500, description: '30 min walk' },
+    { id: 2, sitter_id: 2, type: 'sitting', price_cents: 5000, description: 'Overnight sitting' },
   ];
 
   it('identifies active service types', () => {
@@ -43,14 +43,14 @@ describe('ServiceHighlights logic', () => {
 
   it('shows price for active services', () => {
     const walkingService = services.find((s) => s.type === 'walking');
-    expect(walkingService?.price).toBe(25);
+    expect(walkingService?.price_cents).toBe(2500);
   });
 
   it('shows free for meet_greet', () => {
     const meetGreetServices: Service[] = [
-      { id: 3, sitter_id: 2, type: 'meet_greet', price: 0 },
+      { id: 3, sitter_id: 2, type: 'meet_greet', price_cents: 0 },
     ];
     const mg = meetGreetServices.find((s) => s.type === 'meet_greet');
-    expect(mg?.price).toBe(0);
+    expect(mg?.price_cents).toBe(0);
   });
 });

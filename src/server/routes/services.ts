@@ -19,19 +19,19 @@ export default function serviceRoutes(router: Router): void {
       res.status(403).json({ error: 'Your sitter account is pending approval. You cannot manage services yet.' });
       return;
     }
-    const { type, price, description, additional_pet_price, max_pets, service_details, species,
-      holiday_rate, puppy_rate, pickup_dropoff_fee, grooming_addon_fee } = req.body;
+    const { type, price_cents, description, additional_pet_price_cents, max_pets, service_details, species,
+      holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents } = req.body;
     const [existing] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type} AND (species = ${species ?? null} OR (species IS NULL AND ${species ?? null} IS NULL))`;
     if (existing) {
       res.status(409).json({ error: `You already have a ${type} service${species ? ` for ${species}` : ''}. Edit it instead.` });
       return;
     }
     const [service] = await sql`
-      INSERT INTO services (sitter_id, type, price, description, additional_pet_price, max_pets, service_details, species,
-        holiday_rate, puppy_rate, pickup_dropoff_fee, grooming_addon_fee)
-      VALUES (${req.userId}, ${type}, ${price}, ${description || null}, ${additional_pet_price || 0}, ${max_pets || 1},
+      INSERT INTO services (sitter_id, type, price_cents, description, additional_pet_price_cents, max_pets, service_details, species,
+        holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents)
+      VALUES (${req.userId}, ${type}, ${price_cents}, ${description || null}, ${additional_pet_price_cents || 0}, ${max_pets || 1},
         ${service_details ? sql.json(service_details) : null}, ${species ?? null},
-        ${holiday_rate ?? null}, ${puppy_rate ?? null}, ${pickup_dropoff_fee ?? null}, ${grooming_addon_fee ?? null})
+        ${holiday_rate_cents ?? null}, ${puppy_rate_cents ?? null}, ${pickup_dropoff_fee_cents ?? null}, ${grooming_addon_fee_cents ?? null})
       RETURNING *
     `;
     res.status(201).json({ service });
@@ -52,8 +52,8 @@ export default function serviceRoutes(router: Router): void {
       res.status(404).json({ error: 'Service not found' });
       return;
     }
-    const { type, price, description, additional_pet_price, max_pets, service_details, species,
-      holiday_rate, puppy_rate, pickup_dropoff_fee, grooming_addon_fee } = req.body;
+    const { type, price_cents, description, additional_pet_price_cents, max_pets, service_details, species,
+      holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents } = req.body;
     // Prevent type/species change from creating duplicates
     if (type !== service.type || (species ?? null) !== (service.species ?? null)) {
       const [dup] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type} AND (species = ${species ?? null} OR (species IS NULL AND ${species ?? null} IS NULL)) AND id != ${req.params.id}`;
@@ -63,10 +63,10 @@ export default function serviceRoutes(router: Router): void {
       }
     }
     const [updated] = await sql`
-      UPDATE services SET type = ${type}, price = ${price}, description = ${description || null}, additional_pet_price = ${additional_pet_price || 0},
+      UPDATE services SET type = ${type}, price_cents = ${price_cents}, description = ${description || null}, additional_pet_price_cents = ${additional_pet_price_cents || 0},
       max_pets = ${max_pets || 1}, service_details = ${service_details ? sql.json(service_details) : null}, species = ${species ?? null},
-      holiday_rate = ${holiday_rate ?? null}, puppy_rate = ${puppy_rate ?? null},
-      pickup_dropoff_fee = ${pickup_dropoff_fee ?? null}, grooming_addon_fee = ${grooming_addon_fee ?? null}
+      holiday_rate_cents = ${holiday_rate_cents ?? null}, puppy_rate_cents = ${puppy_rate_cents ?? null},
+      pickup_dropoff_fee_cents = ${pickup_dropoff_fee_cents ?? null}, grooming_addon_fee_cents = ${grooming_addon_fee_cents ?? null}
       WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
       RETURNING *
     `;

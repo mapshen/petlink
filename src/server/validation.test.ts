@@ -640,83 +640,83 @@ describe('reviewResponseSchema', () => {
 
 describe('serviceSchema', () => {
   it('accepts valid service data', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 25, description: 'A nice walk' });
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: 2500, description: 'A nice walk' });
     expect(result.success).toBe(true);
   });
 
   it('accepts service without description', () => {
-    const result = serviceSchema.safeParse({ type: 'sitting', price: 50 });
+    const result = serviceSchema.safeParse({ type: 'sitting', price_cents: 5000 });
     expect(result.success).toBe(true);
   });
 
   it('rejects invalid type', () => {
-    const result = serviceSchema.safeParse({ type: 'bathing', price: 25 });
+    const result = serviceSchema.safeParse({ type: 'bathing', price_cents: 2500 });
     expect(result.success).toBe(false);
   });
 
-  it('rejects negative price', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: -1 });
+  it('rejects negative price_cents', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: -1 });
     expect(result.success).toBe(false);
   });
 
-  it('accepts price of 0 for any service', () => {
-    expect(serviceSchema.safeParse({ type: 'walking', price: 0 }).success).toBe(true);
-    expect(serviceSchema.safeParse({ type: 'meet_greet', price: 0 }).success).toBe(true);
+  it('accepts price_cents of 0 for any service', () => {
+    expect(serviceSchema.safeParse({ type: 'walking', price_cents: 0 }).success).toBe(true);
+    expect(serviceSchema.safeParse({ type: 'meet_greet', price_cents: 0 }).success).toBe(true);
   });
 
-  it('rejects price above 9999', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 10000 });
+  it('rejects price_cents above 999900', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: 999901 });
     expect(result.success).toBe(false);
   });
 
   it('accepts all valid service types', () => {
     for (const type of ['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare']) {
-      expect(serviceSchema.safeParse({ type, price: 30 }).success).toBe(true);
+      expect(serviceSchema.safeParse({ type, price_cents: 3000 }).success).toBe(true);
     }
   });
 
-  it('accepts meet_greet with any price', () => {
-    expect(serviceSchema.safeParse({ type: 'meet_greet', price: 0 }).success).toBe(true);
-    expect(serviceSchema.safeParse({ type: 'meet_greet', price: 25 }).success).toBe(true);
+  it('accepts meet_greet with any price_cents', () => {
+    expect(serviceSchema.safeParse({ type: 'meet_greet', price_cents: 0 }).success).toBe(true);
+    expect(serviceSchema.safeParse({ type: 'meet_greet', price_cents: 2500 }).success).toBe(true);
   });
 
   it('accepts daycare service type', () => {
-    expect(serviceSchema.safeParse({ type: 'daycare', price: 45 }).success).toBe(true);
+    expect(serviceSchema.safeParse({ type: 'daycare', price_cents: 4500 }).success).toBe(true);
   });
 
   it('rejects description over 1000 characters', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 25, description: 'a'.repeat(1001) });
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: 2500, description: 'a'.repeat(1001) });
     expect(result.success).toBe(false);
   });
 
-  it('accepts additional_pet_price', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 25, additional_pet_price: 5 });
+  it('accepts additional_pet_price_cents', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: 2500, additional_pet_price_cents: 500 });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.additional_pet_price).toBe(5);
+      expect(result.data.additional_pet_price_cents).toBe(500);
     }
   });
 
-  it('defaults additional_pet_price to 0', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 25 });
+  it('defaults additional_pet_price_cents to 0', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: 2500 });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.additional_pet_price).toBe(0);
+      expect(result.data.additional_pet_price_cents).toBe(0);
     }
   });
 
-  it('rejects negative additional_pet_price', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 25, additional_pet_price: -1 });
+  it('rejects negative additional_pet_price_cents', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: 2500, additional_pet_price_cents: -1 });
     expect(result.success).toBe(false);
   });
 
-  it('rejects additional_pet_price over 500', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 25, additional_pet_price: 501 });
+  it('rejects additional_pet_price_cents over 50000', () => {
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: 2500, additional_pet_price_cents: 50001 });
     expect(result.success).toBe(false);
   });
 
   it('accepts max_pets', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 25, max_pets: 5 });
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: 2500, max_pets: 5 });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.max_pets).toBe(5);
@@ -724,7 +724,7 @@ describe('serviceSchema', () => {
   });
 
   it('defaults max_pets to 1', () => {
-    const result = serviceSchema.safeParse({ type: 'walking', price: 25 });
+    const result = serviceSchema.safeParse({ type: 'walking', price_cents: 2500 });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.max_pets).toBe(1);
@@ -732,17 +732,17 @@ describe('serviceSchema', () => {
   });
 
   it('rejects max_pets of 0', () => {
-    expect(serviceSchema.safeParse({ type: 'walking', price: 25, max_pets: 0 }).success).toBe(false);
+    expect(serviceSchema.safeParse({ type: 'walking', price_cents: 2500, max_pets: 0 }).success).toBe(false);
   });
 
   it('rejects max_pets over 20', () => {
-    expect(serviceSchema.safeParse({ type: 'walking', price: 25, max_pets: 21 }).success).toBe(false);
+    expect(serviceSchema.safeParse({ type: 'walking', price_cents: 2500, max_pets: 21 }).success).toBe(false);
   });
 
   it('accepts service_details object', () => {
     const result = serviceSchema.safeParse({
       type: 'walking',
-      price: 25,
+      price_cents: 2500,
       service_details: { duration_minutes: 30, solo_walk: true },
     });
     expect(result.success).toBe(true);

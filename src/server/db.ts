@@ -156,9 +156,9 @@ export async function initDb() {
       id SERIAL PRIMARY KEY,
       sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       type service_type NOT NULL,
-      price DOUBLE PRECISION NOT NULL,
+      price_cents INTEGER NOT NULL DEFAULT 0,
       description TEXT,
-      additional_pet_price DOUBLE PRECISION DEFAULT 0,
+      additional_pet_price_cents INTEGER DEFAULT 0,
       max_pets INTEGER DEFAULT 1,
       service_details JSONB
     )
@@ -174,7 +174,7 @@ export async function initDb() {
       status booking_status DEFAULT 'pending',
       start_time TIMESTAMPTZ NOT NULL,
       end_time TIMESTAMPTZ NOT NULL,
-      total_price DOUBLE PRECISION,
+      total_price_cents INTEGER,
       payment_intent_id TEXT,
       payment_status payment_status DEFAULT 'pending',
       payment_method TEXT DEFAULT 'card' CHECK(payment_method IN ('card', 'ach_debit')),
@@ -350,7 +350,7 @@ export async function initDb() {
       id SERIAL PRIMARY KEY,
       sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       category TEXT NOT NULL,
-      amount DOUBLE PRECISION NOT NULL,
+      amount_cents INTEGER NOT NULL,
       description TEXT,
       date DATE NOT NULL,
       receipt_url TEXT,
@@ -668,14 +668,24 @@ export async function initDb() {
 
   // Issue #302: Add species column to services for per-species pricing
   await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS species TEXT`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS holiday_rate DOUBLE PRECISION`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS puppy_rate DOUBLE PRECISION`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS duration_60_rate DOUBLE PRECISION`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS extended_care_pct INTEGER`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS pickup_dropoff_fee DOUBLE PRECISION`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS grooming_addon_fee DOUBLE PRECISION`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS cat_care_rate DOUBLE PRECISION`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS additional_cat_rate DOUBLE PRECISION`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS holiday_rate_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS puppy_rate_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS pickup_dropoff_fee_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS grooming_addon_fee_cents INTEGER`.catch(() => {});
+
+  // Issue #287: Migrate float columns to integer cents
+  // Backfill price_cents from legacy price column (one-time migration)
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS price_cents INTEGER DEFAULT 0`.catch(() => {});
+  await sql`UPDATE services SET price_cents = ROUND(price * 100) WHERE price_cents = 0 AND price > 0`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS additional_pet_price_cents INTEGER DEFAULT 0`.catch(() => {});
+  await sql`UPDATE services SET additional_pet_price_cents = ROUND(additional_pet_price * 100) WHERE additional_pet_price_cents = 0 AND additional_pet_price > 0`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_price_cents INTEGER`.catch(() => {});
+  await sql`UPDATE bookings SET total_price_cents = ROUND(total_price * 100) WHERE total_price_cents IS NULL AND total_price IS NOT NULL`.catch(() => {});
+  // Backfill rate columns from legacy float columns if they exist
+  await sql`UPDATE services SET holiday_rate_cents = ROUND(holiday_rate * 100) WHERE holiday_rate_cents IS NULL AND holiday_rate IS NOT NULL`.catch(() => {});
+  await sql`UPDATE services SET puppy_rate_cents = ROUND(puppy_rate * 100) WHERE puppy_rate_cents IS NULL AND puppy_rate IS NOT NULL`.catch(() => {});
+  await sql`UPDATE services SET pickup_dropoff_fee_cents = ROUND(pickup_dropoff_fee * 100) WHERE pickup_dropoff_fee_cents IS NULL AND pickup_dropoff_fee IS NOT NULL`.catch(() => {});
+  await sql`UPDATE services SET grooming_addon_fee_cents = ROUND(grooming_addon_fee * 100) WHERE grooming_addon_fee_cents IS NULL AND grooming_addon_fee IS NOT NULL`.catch(() => {});
 
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
@@ -738,8 +748,8 @@ export async function initDb() {
       VALUES (${'sitter@example.com'}, ${demoPassword}, ${'Bob Sitter'}, ${['owner', 'sitter']}, ${'Experienced dog walker and sitter.'}, ${'https://i.pravatar.cc/150?u=bob'}, ${37.7750}, ${-122.4180}, ${['small', 'medium', 'large']}, ${['dog', 'cat']}, ${5}, ${'house'}, ${true}, ${true}, ${['pet_first_aid', 'dog_training']})
       RETURNING id
     `;
-    await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${sitter.id}, ${'walking'}, ${25}, ${'30 minute walk around the neighborhood.'})`;
-    await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${sitter.id}, ${'sitting'}, ${50}, ${'Overnight sitting at your home.'})`;
+    await sql`INSERT INTO services (sitter_id, type, price_cents, description) VALUES (${sitter.id}, ${'walking'}, ${2500}, ${'30 minute walk around the neighborhood.'})`;
+    await sql`INSERT INTO services (sitter_id, type, price_cents, description) VALUES (${sitter.id}, ${'sitting'}, ${5000}, ${'Overnight sitting at your home.'})`;
 
     const [dual] = await sql`
       INSERT INTO users (email, password_hash, name, roles, bio, avatar_url, lat, lng, accepted_pet_sizes)
@@ -750,7 +760,7 @@ export async function initDb() {
       INSERT INTO pets (owner_id, name, species, breed, age, weight, gender, spayed_neutered, energy_level, house_trained, temperament, special_needs, medical_history, photo_url)
       VALUES (${dual.id}, ${'Mittens'}, ${'cat'}, ${'Tabby Cat'}, ${5}, ${5}, ${'female'}, ${true}, ${'low'}, ${true}, ${['calm', 'independent']}, ${'Allergic to fish-based foods'}, ${'Allergic to fish'}, ${'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=150&q=80'})
     `;
-    await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${dual.id}, ${'drop-in'}, ${20}, ${'Quick check-in and feeding.'})`;
+    await sql`INSERT INTO services (sitter_id, type, price_cents, description) VALUES (${dual.id}, ${'drop-in'}, ${2000}, ${'Quick check-in and feeding.'})`;
 
     // Seed 10 additional sitter profiles for testing ranking
     const sitters = [
@@ -773,7 +783,7 @@ export async function initDb() {
         RETURNING id
       `;
       for (const svc of s.services) {
-        await sql`INSERT INTO services (sitter_id, type, price, description) VALUES (${u.id}, ${svc.type}, ${svc.price}, ${svc.desc})`;
+        await sql`INSERT INTO services (sitter_id, type, price_cents, description) VALUES (${u.id}, ${svc.type}, ${Math.round(svc.price * 100)}, ${svc.desc})`;
       }
     }
 

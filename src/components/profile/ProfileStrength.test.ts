@@ -27,7 +27,7 @@ describe('computeStrength', () => {
   });
 
   it('counts services as done when at least one exists', () => {
-    const services = [{ id: 1, sitter_id: 1, type: 'walking' as const, price: 25 }];
+    const services = [{ id: 1, sitter_id: 1, type: 'walking' as const, price_cents: 2500 }];
     const { items } = computeStrength(baseUser, services, []);
     expect(items.find((i) => i.label.includes('services'))?.done).toBe(true);
   });
@@ -52,7 +52,7 @@ describe('computeStrength', () => {
 
   it('calculates percentage correctly', () => {
     const user = { ...baseUser, bio: 'Hi', avatar_url: 'pic.jpg', accepted_species: ['dog'], house_rules: 'Rules' };
-    const services = [{ id: 1, sitter_id: 1, type: 'walking' as const, price: 25 }];
+    const services = [{ id: 1, sitter_id: 1, type: 'walking' as const, price_cents: 2500 }];
     const photos = [{ id: 1, sitter_id: 1, photo_url: 'url', caption: '', sort_order: 0, created_at: '' }];
     const { percentage } = computeStrength(user, services, photos);
     // 5 out of 7 items done (bio+avatar, services, photos, species, policies)

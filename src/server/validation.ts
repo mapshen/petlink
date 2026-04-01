@@ -132,19 +132,19 @@ export const updateBookingStatusSchema = z.object({
 // --- Service Schemas ---
 export const serviceSchema = z.object({
   type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare'], { message: 'Type must be walking, sitting, drop-in, grooming, meet_greet, or daycare' }),
-  price: z.number().min(0, 'Price cannot be negative').max(9999, 'Price must be under $10,000'),
+  price_cents: z.number().int().min(0, 'Price cannot be negative').max(999900, 'Price must be under $10,000'),
   description: z.string().max(1000, 'Description must be under 1000 characters').optional().nullable(),
-  additional_pet_price: z.number().min(0, 'Additional pet price cannot be negative').max(500, 'Additional pet price must be under $500').optional().default(0),
+  additional_pet_price_cents: z.number().int().min(0, 'Additional pet price cannot be negative').max(50000, 'Additional pet price must be under $500').optional().default(0),
   max_pets: z.number().int().min(1, 'Must accept at least 1 pet').max(20, 'Maximum 20 pets').optional().default(1),
   service_details: z.record(z.string(), z.unknown()).refine(
     (obj) => JSON.stringify(obj).length <= 5000,
     'Service details must be under 5KB'
   ).optional().nullable(),
   species: z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal']).optional().nullable(),
-  holiday_rate: z.number().min(0).max(9999).optional().nullable(),
-  puppy_rate: z.number().min(0).max(9999).optional().nullable(),
-  pickup_dropoff_fee: z.number().min(0).max(500).optional().nullable(),
-  grooming_addon_fee: z.number().min(0).max(500).optional().nullable(),
+  holiday_rate_cents: z.number().int().min(0).max(999900).optional().nullable(),
+  puppy_rate_cents: z.number().int().min(0).max(999900).optional().nullable(),
+  pickup_dropoff_fee_cents: z.number().int().min(0).max(50000).optional().nullable(),
+  grooming_addon_fee_cents: z.number().int().min(0).max(50000).optional().nullable(),
 });
 
 export const speciesProfileSchema = z.object({
@@ -261,7 +261,7 @@ export const expenseSchema = z.object({
   category: z.enum(['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other'], {
     message: 'Category must be supplies, transportation, insurance, marketing, equipment, training, or other',
   }),
-  amount: z.number().positive('Amount must be positive').max(99999, 'Amount must be under $100,000'),
+  amount_cents: z.number().int().positive('Amount must be positive').max(10000000, 'Amount must be under $100,000'),
   description: z.string().max(500, 'Description must be under 500 characters').optional().nullable(),
   date: z.string().refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v).getTime()), 'Date must be a valid YYYY-MM-DD date'),
   receipt_url: z.string().url('Receipt URL must be a valid URL').optional().nullable().or(z.literal('')),

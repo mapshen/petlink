@@ -19,10 +19,9 @@ export async function getPayoutDelay(sitterId: number): Promise<number> {
 export async function schedulePayoutForBooking(
   bookingId: number,
   sitterId: number,
-  amount: number,
+  amountCents: number,
   delayDays: number
 ): Promise<SitterPayout> {
-  const amountCents = Math.round(amount * 100);
   const scheduledAt = addDays(new Date(), delayDays);
 
   const [payout] = await sql`

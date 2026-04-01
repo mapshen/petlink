@@ -266,7 +266,7 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
                         type="number"
                         min={0}
                         max={9999}
-                        value={svc?.price ?? ''}
+                        value={svc?.price_cents ?? ''}
                         onChange={(e) => onServicePriceChange(type, Math.max(0, Math.min(9999, Number(e.target.value) || 0)))}
                         placeholder="—"
                         aria-label={`Price for ${label}`}

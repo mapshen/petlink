@@ -55,7 +55,7 @@ export default function miscRoutes(router: Router): void {
       `;
     }
 
-    const total = expenses.reduce((sum: number, e: { amount: number }) => sum + e.amount, 0);
+    const total = expenses.reduce((sum: number, e: { amount_cents: number }) => sum + e.amount_cents, 0);
     res.json({ expenses, total });
   });
 
@@ -68,7 +68,7 @@ export default function miscRoutes(router: Router): void {
     const year = Number(req.query.year) || new Date().getFullYear();
 
     const [incomeRow] = await sql`
-      SELECT COALESCE(SUM(total_price), 0)::float AS total_income
+      SELECT COALESCE(SUM(total_price_cents), 0)::int AS total_income
       FROM bookings
       WHERE sitter_id = ${req.userId}
         AND status = 'completed'
@@ -76,7 +76,7 @@ export default function miscRoutes(router: Router): void {
     `;
 
     const expenseRows = await sql`
-      SELECT category, SUM(amount)::float AS total
+      SELECT category, SUM(amount_cents)::int AS total
       FROM sitter_expenses
       WHERE sitter_id = ${req.userId}
         AND EXTRACT(YEAR FROM date) = ${year}
@@ -104,10 +104,10 @@ export default function miscRoutes(router: Router): void {
       res.status(403).json({ error: 'Only sitters can create expenses' });
       return;
     }
-    const { category, amount, description, date, receipt_url } = req.body;
+    const { category, amount_cents, description, date, receipt_url } = req.body;
     const [expense] = await sql`
-      INSERT INTO sitter_expenses (sitter_id, category, amount, description, date, receipt_url)
-      VALUES (${req.userId}, ${category}, ${amount}, ${description ?? null}, ${date}, ${receipt_url ?? null})
+      INSERT INTO sitter_expenses (sitter_id, category, amount_cents, description, date, receipt_url)
+      VALUES (${req.userId}, ${category}, ${amount_cents}, ${description ?? null}, ${date}, ${receipt_url ?? null})
       RETURNING *
     `;
     res.status(201).json({ expense });
@@ -119,11 +119,11 @@ export default function miscRoutes(router: Router): void {
       res.status(404).json({ error: 'Expense not found' });
       return;
     }
-    const { category, amount, description, date, receipt_url } = req.body;
+    const { category, amount_cents, description, date, receipt_url } = req.body;
     const [expense] = await sql`
       UPDATE sitter_expenses SET
         category = ${category},
-        amount = ${amount},
+        amount_cents = ${amount_cents},
         description = ${description ?? null},
         date = ${date},
         receipt_url = ${receipt_url ?? null}

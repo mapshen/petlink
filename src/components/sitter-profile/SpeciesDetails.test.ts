@@ -49,11 +49,11 @@ describe('buildSpeciesBadges', () => {
 
 describe('getServicesForSpecies', () => {
   const services: Service[] = [
-    { id: 1, sitter_id: 1, type: 'walking', price: 25, species: 'dog' },
-    { id: 2, sitter_id: 1, type: 'sitting', price: 50, species: 'dog' },
-    { id: 3, sitter_id: 1, type: 'sitting', price: 40, species: 'cat' },
-    { id: 4, sitter_id: 1, type: 'drop-in', price: 20, species: 'cat' },
-    { id: 5, sitter_id: 1, type: 'grooming', price: 45 },
+    { id: 1, sitter_id: 1, type: 'walking', price_cents: 2500, species: 'dog' },
+    { id: 2, sitter_id: 1, type: 'sitting', price_cents: 5000, species: 'dog' },
+    { id: 3, sitter_id: 1, type: 'sitting', price_cents: 4000, species: 'cat' },
+    { id: 4, sitter_id: 1, type: 'drop-in', price_cents: 2000, species: 'cat' },
+    { id: 5, sitter_id: 1, type: 'grooming', price_cents: 4500 },
   ];
 
   it('filters services by species', () => {

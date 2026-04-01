@@ -79,13 +79,13 @@ export default function SpeciesProfilesTab() {
     setProfiles((prev) => ({ ...prev, [species]: profile }));
   };
 
-  const updateServicePrice = (species: string, serviceType: string, price: number) => {
+  const updateServicePrice = (species: string, serviceType: string, price_cents: number) => {
     setServices((prev) => {
       const existing = prev.find((s) => s.type === serviceType && s.species === species);
       if (existing) {
-        return prev.map((s) => s.type === serviceType && s.species === species ? { ...s, price } : s);
+        return prev.map((s) => s.type === serviceType && s.species === species ? { ...s, price_cents } : s);
       }
-      return [...prev, { id: 0, sitter_id: user?.id || 0, type: serviceType as Service['type'], price, species } as Service];
+      return [...prev, { id: 0, sitter_id: user?.id || 0, type: serviceType as Service['type'], price_cents, species } as Service];
     });
   };
 
@@ -124,18 +124,18 @@ export default function SpeciesProfilesTab() {
       // Save services in parallel
       await Promise.all(
         services
-          .filter((svc) => svc.species && activeSpecies.includes(svc.species) && (svc.price > 0 || svc.type === 'meet_greet'))
+          .filter((svc) => svc.species && activeSpecies.includes(svc.species) && (svc.price_cents > 0 || svc.type === 'meet_greet'))
           .map(async (svc) => {
             const res = svc.id && svc.id > 0
               ? await fetch(`${API_BASE}/services/${svc.id}`, {
                   method: 'PUT',
                   headers: getAuthHeaders(token),
-                  body: JSON.stringify({ price: svc.price, species: svc.species }),
+                  body: JSON.stringify({ price_cents: svc.price_cents, species: svc.species }),
                 })
               : await fetch(`${API_BASE}/services`, {
                   method: 'POST',
                   headers: getAuthHeaders(token),
-                  body: JSON.stringify({ type: svc.type, price: svc.price, species: svc.species }),
+                  body: JSON.stringify({ type: svc.type, price_cents: svc.price_cents, species: svc.species }),
                 });
             if (!res.ok) {
               const data = await res.json().catch(() => ({}));

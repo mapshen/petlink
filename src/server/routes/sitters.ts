@@ -5,6 +5,7 @@ import { validate, sitterSearchSchema, profileViewSchema } from '../validation.t
 import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
 import { calculateRankingScore, isNewSitter, type SitterStats } from '../sitter-ranking.ts';
 import { recordProfileView } from '../profile-views.ts';
+import { dollarsToCents } from '../../lib/money.ts';
 
 export default function sitterRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
   router.get('/sitters', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
@@ -25,7 +26,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
              u.id, u.name, u.roles, u.bio, u.avatar_url, u.slug,
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
              u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at,
-             s.price, s.type as service_type, s.max_pets
+             s.price_cents, s.type as service_type, s.max_pets
              ${species ? sql`, sp.years_experience as species_years_experience, sp.accepted_pet_sizes as species_pet_sizes, sp.skills as species_skills` : sql``}
              ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}
       FROM users u
@@ -34,12 +35,12 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       WHERE u.roles @> '{sitter}'::text[]
         AND u.approval_status = 'approved'
         ${serviceType ? sql`AND s.type = ${serviceType}` : sql``}
-        ${minPrice != null ? sql`AND s.price >= ${minPrice}` : sql``}
-        ${maxPrice != null ? sql`AND s.price <= ${maxPrice}` : sql``}
+        ${minPrice != null ? sql`AND s.price_cents >= ${dollarsToCents(minPrice)}` : sql``}
+        ${maxPrice != null ? sql`AND s.price_cents <= ${dollarsToCents(maxPrice)}` : sql``}
         ${petSize ? sql`AND ${petSize} = ANY(u.accepted_pet_sizes)` : sql``}
         ${species ? sql`AND ${species} = ANY(u.accepted_species) AND (s.species = ${species} OR s.species IS NULL)` : sql``}
         ${hasGeo ? sql`AND ST_DWithin(u.location, ${geoPoint}, ${radius})` : sql``}
-      ORDER BY u.id, s.price ASC
+      ORDER BY u.id, s.price_cents ASC
     `;
 
     // Compute ranking scores for each sitter

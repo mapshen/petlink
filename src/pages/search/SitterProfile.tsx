@@ -25,6 +25,7 @@ import { useFavorites } from '../../hooks/useFavorites';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
 import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing';
+import { formatCents, formatCentsDecimal } from '../../lib/money';
 import { getPolicyDescription } from '../../shared/cancellation';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -239,7 +240,7 @@ export default function SitterProfile() {
       }
       const bookingData = await res.json();
       const selectedSvcObj = services.find((s) => s.id === selectedService);
-      const isFree = selectedSvcObj?.type === 'meet_greet' || selectedSvcObj?.price === 0;
+      const isFree = selectedSvcObj?.type === 'meet_greet' || selectedSvcObj?.price_cents === 0;
 
       if (isFree) {
         navigate('/home');
@@ -250,19 +251,19 @@ export default function SitterProfile() {
       if (bookingId) {
         const selectedPetsForPrice = pets.filter((p) => selectedPetIds.includes(p.id));
         const pricing = calculateAdvancedPrice({
-          basePrice: selectedSvcObj!.price,
-          additionalPetPrice: selectedSvcObj!.additional_pet_price || 0,
+          basePriceCents: selectedSvcObj!.price_cents,
+          additionalPetPriceCents: selectedSvcObj!.additional_pet_price_cents || 0,
           petCount: selectedPetIds.length,
           isHoliday: selectedDate ? isUSHoliday(selectedDate) : false,
-          holidayRate: selectedSvcObj!.holiday_rate,
+          holidayRateCents: selectedSvcObj!.holiday_rate_cents,
           hasPuppy: selectedPetsForPrice.some((p) => isPuppy(p.age)),
-          puppyRate: selectedSvcObj!.puppy_rate,
+          puppyRateCents: selectedSvcObj!.puppy_rate_cents,
           pickupDropoff: wantsPickup,
-          pickupDropoffFee: selectedSvcObj!.pickup_dropoff_fee,
+          pickupDropoffFeeCents: selectedSvcObj!.pickup_dropoff_fee_cents,
           groomingAddon: wantsGrooming,
-          groomingAddonFee: selectedSvcObj!.grooming_addon_fee,
+          groomingAddonFeeCents: selectedSvcObj!.grooming_addon_fee_cents,
         });
-        const totalCents = Math.round(pricing.total * 100);
+        const totalCents = pricing.totalCents;
         setPaymentAmount(totalCents);
         const result = await createIntent(bookingId);
         if (result.secret) {
@@ -500,11 +501,11 @@ export default function SitterProfile() {
                           <span className="font-medium text-stone-900">
                             {getServiceLabel(service.type, service.species ? [service.species] : undefined)}
                           </span>
-                          <span className="font-bold text-emerald-600">{service.price === 0 ? 'Free' : `$${service.price}`}</span>
+                          <span className="font-bold text-emerald-600">{service.price_cents === 0 ? 'Free' : formatCents(service.price_cents)}</span>
                         </div>
                         <p className="text-xs text-stone-500 mt-1">{service.description}</p>
-                        {(service.additional_pet_price || 0) > 0 && (
-                          <p className="text-xs text-stone-400 mt-0.5">+${service.additional_pet_price}/extra pet</p>
+                        {(service.additional_pet_price_cents || 0) > 0 && (
+                          <p className="text-xs text-stone-400 mt-0.5">+{formatCents(service.additional_pet_price_cents!)}/extra pet</p>
                         )}
                       </button>
                     ))}
@@ -535,45 +536,45 @@ export default function SitterProfile() {
 
                 {selectedPetIds.length > 0 && selectedService && (() => {
                   const svc = bookingServices.find((s) => s.id === selectedService);
-                  if (!svc || svc.price === 0) return null;
+                  if (!svc || svc.price_cents === 0) return null;
                   const selectedPets = pets.filter((p) => selectedPetIds.includes(p.id));
                   const hasPuppyPet = selectedPets.some((p) => isPuppy(p.age));
                   const holidayDate = selectedDate ? isUSHoliday(selectedDate) : false;
                   const pricing = calculateAdvancedPrice({
-                    basePrice: svc.price,
-                    additionalPetPrice: svc.additional_pet_price || 0,
+                    basePriceCents: svc.price_cents,
+                    additionalPetPriceCents: svc.additional_pet_price_cents || 0,
                     petCount: selectedPetIds.length,
                     isHoliday: holidayDate,
-                    holidayRate: svc.holiday_rate,
+                    holidayRateCents: svc.holiday_rate_cents,
                     hasPuppy: hasPuppyPet,
-                    puppyRate: svc.puppy_rate,
+                    puppyRateCents: svc.puppy_rate_cents,
                     pickupDropoff: wantsPickup,
-                    pickupDropoffFee: svc.pickup_dropoff_fee,
+                    pickupDropoffFeeCents: svc.pickup_dropoff_fee_cents,
                     groomingAddon: wantsGrooming,
-                    groomingAddonFee: svc.grooming_addon_fee,
+                    groomingAddonFeeCents: svc.grooming_addon_fee_cents,
                   });
                   return (
                     <div className="mb-6 space-y-3">
                       {/* Add-ons */}
-                      {(svc.pickup_dropoff_fee || svc.grooming_addon_fee) && (
+                      {(svc.pickup_dropoff_fee_cents || svc.grooming_addon_fee_cents) && (
                         <div className="p-3 bg-white border border-stone-200 rounded-xl space-y-2">
                           <div className="text-xs font-bold text-stone-500 uppercase tracking-wider">Add-ons</div>
-                          {svc.pickup_dropoff_fee != null && svc.pickup_dropoff_fee > 0 && (
+                          {svc.pickup_dropoff_fee_cents != null && svc.pickup_dropoff_fee_cents > 0 && (
                             <label className="flex items-center justify-between cursor-pointer text-sm">
                               <span className="flex items-center gap-2">
                                 <input type="checkbox" checked={wantsPickup} onChange={(e) => setWantsPickup(e.target.checked)} className="rounded text-emerald-600" />
                                 Pickup & drop-off
                               </span>
-                              <span className="text-stone-500">+${svc.pickup_dropoff_fee}</span>
+                              <span className="text-stone-500">+{formatCents(svc.pickup_dropoff_fee_cents)}</span>
                             </label>
                           )}
-                          {svc.grooming_addon_fee != null && svc.grooming_addon_fee > 0 && (
+                          {svc.grooming_addon_fee_cents != null && svc.grooming_addon_fee_cents > 0 && (
                             <label className="flex items-center justify-between cursor-pointer text-sm">
                               <span className="flex items-center gap-2">
                                 <input type="checkbox" checked={wantsGrooming} onChange={(e) => setWantsGrooming(e.target.checked)} className="rounded text-emerald-600" />
                                 Grooming add-on
                               </span>
-                              <span className="text-stone-500">+${svc.grooming_addon_fee}</span>
+                              <span className="text-stone-500">+{formatCents(svc.grooming_addon_fee_cents)}</span>
                             </label>
                           )}
                         </div>
@@ -585,29 +586,29 @@ export default function SitterProfile() {
                           <span>
                             {pricing.breakdown.holidayApplied ? 'Holiday rate' : pricing.breakdown.puppyApplied ? 'Puppy/kitten rate' : 'Base price'}
                           </span>
-                          <span>${pricing.breakdown.base}</span>
+                          <span>{formatCents(pricing.breakdown.baseCents)}</span>
                         </div>
-                        {pricing.breakdown.extraPets > 0 && (
+                        {pricing.breakdown.extraPetsCents > 0 && (
                           <div className="flex justify-between text-sm text-stone-600">
                             <span>{selectedPetIds.length - 1} extra pet{selectedPetIds.length > 2 ? 's' : ''}</span>
-                            <span>${pricing.breakdown.extraPets.toFixed(2)}</span>
+                            <span>{formatCents(pricing.breakdown.extraPetsCents)}</span>
                           </div>
                         )}
-                        {pricing.breakdown.pickupDropoff > 0 && (
+                        {pricing.breakdown.pickupDropoffCents > 0 && (
                           <div className="flex justify-between text-sm text-stone-600">
                             <span>Pickup & drop-off</span>
-                            <span>${pricing.breakdown.pickupDropoff}</span>
+                            <span>{formatCents(pricing.breakdown.pickupDropoffCents)}</span>
                           </div>
                         )}
-                        {pricing.breakdown.grooming > 0 && (
+                        {pricing.breakdown.groomingCents > 0 && (
                           <div className="flex justify-between text-sm text-stone-600">
                             <span>Grooming add-on</span>
-                            <span>${pricing.breakdown.grooming}</span>
+                            <span>{formatCents(pricing.breakdown.groomingCents)}</span>
                           </div>
                         )}
                         <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
                           <span>Total</span>
-                          <span>${pricing.total.toFixed(2)}</span>
+                          <span>{formatCents(pricing.totalCents)}</span>
                         </div>
                       </div>
                     </div>

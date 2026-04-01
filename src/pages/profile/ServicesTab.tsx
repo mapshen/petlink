@@ -178,9 +178,9 @@ export default function ServicesTab() {
     const sd = (service.service_details || {}) as ServiceDetails;
     setForm({
       type: service.type,
-      price: service.price.toString(),
+      price: (service.price_cents / 100).toString(),
       description: service.description || '',
-      additional_pet_price: (service.additional_pet_price || 0).toString(),
+      additional_pet_price: ((service.additional_pet_price_cents || 0) / 100).toString(),
       max_pets: (service.max_pets || 1).toString(),
       details: {
         walk_duration: sd.walk_duration || '',
@@ -287,10 +287,10 @@ export default function ServicesTab() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <span className="text-xl font-bold text-emerald-600">{service.price === 0 ? 'Free' : `$${service.price}`}</span>
-                      {service.price > 0 && <span className="text-xs text-stone-400 block">per session</span>}
-                      {(service.additional_pet_price || 0) > 0 && (
-                        <span className="text-xs text-stone-400 block">+${service.additional_pet_price}/extra pet</span>
+                      <span className="text-xl font-bold text-emerald-600">{service.price_cents === 0 ? 'Free' : `$${(service.price_cents / 100).toFixed(2)}`}</span>
+                      {service.price_cents > 0 && <span className="text-xs text-stone-400 block">per session</span>}
+                      {(service.additional_pet_price_cents || 0) > 0 && (
+                        <span className="text-xs text-stone-400 block">+${((service.additional_pet_price_cents || 0) / 100).toFixed(2)}/extra pet</span>
                       )}
                       {(service.max_pets || 1) > 1 && (
                         <span className="text-xs text-stone-400 block">Up to {service.max_pets} pets</span>

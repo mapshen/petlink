@@ -13,11 +13,11 @@ function getBookingServices(services: Service[], pets: Pet[], selectedPetIds: nu
     : services;
 }
 
-const dogWalking: Service = { id: 1, sitter_id: 1, type: 'walking', price: 25, species: 'dog' };
-const dogSitting: Service = { id: 2, sitter_id: 1, type: 'sitting', price: 50, species: 'dog' };
-const catSitting: Service = { id: 3, sitter_id: 1, type: 'sitting', price: 40, species: 'cat' };
-const catDropIn: Service = { id: 4, sitter_id: 1, type: 'drop-in', price: 20, species: 'cat' };
-const meetGreet: Service = { id: 5, sitter_id: 1, type: 'meet_greet', price: 0 }; // no species tag
+const dogWalking: Service = { id: 1, sitter_id: 1, type: 'walking', price_cents: 2500, species: 'dog' };
+const dogSitting: Service = { id: 2, sitter_id: 1, type: 'sitting', price_cents: 5000, species: 'dog' };
+const catSitting: Service = { id: 3, sitter_id: 1, type: 'sitting', price_cents: 4000, species: 'cat' };
+const catDropIn: Service = { id: 4, sitter_id: 1, type: 'drop-in', price_cents: 2000, species: 'cat' };
+const meetGreet: Service = { id: 5, sitter_id: 1, type: 'meet_greet', price_cents: 0 }; // no species tag
 
 const allServices = [dogWalking, dogSitting, catSitting, catDropIn, meetGreet];
 
