@@ -39,7 +39,8 @@ export default function TipDialog({ bookingId, bookingTotalCents, sitterName, op
     amount_cents: Math.round(bookingTotalCents * (pct / 100)),
   }));
 
-  const effectiveAmount = selectedAmount ?? (customAmount ? Math.round(parseFloat(customAmount) * 100) : 0);
+  const parsedCustom = customAmount ? Math.round(parseFloat(customAmount) * 100) : 0;
+  const effectiveAmount = selectedAmount ?? (Number.isFinite(parsedCustom) ? parsedCustom : 0);
 
   const handleSubmit = async () => {
     if (effectiveAmount <= 0) return;
@@ -67,12 +68,20 @@ export default function TipDialog({ bookingId, bookingTotalCents, sitterName, op
   };
 
   const handlePaymentSuccess = async () => {
-    // Confirm the tip on the backend
     if (tipId) {
-      await fetch(`${API_BASE}/tips/${tipId}/confirm`, {
-        method: 'POST',
-        headers: getAuthHeaders(token),
-      }).catch(() => {});
+      try {
+        const res = await fetch(`${API_BASE}/tips/${tipId}/confirm`, {
+          method: 'POST',
+          headers: getAuthHeaders(token),
+        });
+        if (!res.ok) {
+          setError('Tip payment succeeded but confirmation failed. Please contact support.');
+          return;
+        }
+      } catch {
+        setError('Tip payment succeeded but confirmation failed. Please contact support.');
+        return;
+      }
     }
     onTipSent();
     onOpenChange(false);

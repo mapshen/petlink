@@ -386,6 +386,8 @@ export async function initDb() {
     )
   `;
 
+  await sql`CREATE INDEX IF NOT EXISTS idx_tips_sitter_id ON tips (sitter_id)`.catch(() => {});
+
   // Performance indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_owner_id ON bookings (owner_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_sitter_id ON bookings (sitter_id)`;

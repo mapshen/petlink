@@ -170,7 +170,7 @@ export const speciesProfileSchema = z.object({
 // --- Tip Schemas ---
 export const createTipSchema = z.object({
   booking_id: z.number().int().positive('Invalid booking ID'),
-  amount_cents: z.number().int().min(1, 'Tip must be at least 1 cent').max(100000, 'Tip cannot exceed $1,000'),
+  amount_cents: z.number().int().min(50, 'Minimum tip is $0.50').max(100000, 'Tip cannot exceed $1,000'),
 });
 
 // --- Sitter Photo Schemas ---
