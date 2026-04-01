@@ -320,7 +320,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       FROM bookings b
       JOIN users s ON b.sitter_id = s.id
       JOIN users o ON b.owner_id = o.id
-      JOIN services svc ON b.service_id = svc.id
+      LEFT JOIN services svc ON b.service_id = svc.id
       WHERE (b.owner_id = ${req.userId} OR b.sitter_id = ${req.userId})
         ${start ? sql`AND b.start_time >= ${start}::timestamptz` : sql``}
         ${end ? sql`AND b.start_time < ${end}::timestamptz` : sql``}
@@ -342,7 +342,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       FROM bookings b
       JOIN users s ON b.sitter_id = s.id
       JOIN users o ON b.owner_id = o.id
-      JOIN services svc ON b.service_id = svc.id
+      LEFT JOIN services svc ON b.service_id = svc.id
       WHERE (b.owner_id = ${req.userId} OR b.sitter_id = ${req.userId})
         ${start ? sql`AND b.start_time >= ${start}::timestamptz` : sql``}
         ${end ? sql`AND b.start_time < ${end}::timestamptz` : sql``}

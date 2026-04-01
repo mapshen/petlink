@@ -124,19 +124,17 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     ranked.sort((a: any, b: any) => b.ranking_score - a.ranking_score);
 
     // When species filter is active, prefer species-specific data over global user fields
-    if (species) {
-      for (const s of ranked) {
-        if (s.species_years_experience != null) s.years_experience = s.species_years_experience;
-        if (s.species_pet_sizes?.length > 0) s.accepted_pet_sizes = s.species_pet_sizes;
-        if (s.species_skills?.length > 0) s.skills = s.species_skills;
-        delete s.species_years_experience;
-        delete s.species_pet_sizes;
-        delete s.species_skills;
-      }
-    }
+    const results = species
+      ? ranked.map(({ species_years_experience, species_pet_sizes, species_skills, ...rest }: any) => ({
+          ...rest,
+          years_experience: species_years_experience ?? rest.years_experience,
+          accepted_pet_sizes: species_pet_sizes?.length > 0 ? species_pet_sizes : rest.accepted_pet_sizes,
+          skills: species_skills?.length > 0 ? species_skills : rest.skills,
+        }))
+      : ranked;
 
-    const total = ranked.length;
-    const paginated = ranked.slice(offset, offset + limit);
+    const total = results.length;
+    const paginated = results.slice(offset, offset + limit);
 
     res.json({ sitters: paginated, total, limit, offset });
   });

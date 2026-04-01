@@ -27,4 +27,9 @@ describe('review deadline (30 days from booking end)', () => {
     const today = new Date().toISOString();
     expect(isReviewExpired(today)).toBe(false);
   });
+
+  it('allows review at exactly 30 days (boundary)', () => {
+    const exact = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    expect(isReviewExpired(exact)).toBe(false);
+  });
 });
