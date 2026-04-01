@@ -13,15 +13,14 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
-    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species: speciesParam } = parsed.data;
-    const validSpecies = ['dog', 'cat', 'bird', 'reptile', 'small_animal'];
-    const species = speciesParam && validSpecies.includes(speciesParam) ? speciesParam : undefined;
+    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species } = parsed.data;
 
     const hasGeo = lat != null && lng != null && radius != null;
     const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography` : sql``;
 
     const sitters = await sql`
-      SELECT u.id, u.name, u.roles, u.bio, u.avatar_url, u.slug,
+      SELECT DISTINCT ON (u.id)
+             u.id, u.name, u.roles, u.bio, u.avatar_url, u.slug,
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
              u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at,
              s.price, s.type as service_type, s.max_pets
@@ -34,8 +33,9 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         ${minPrice != null ? sql`AND s.price >= ${minPrice}` : sql``}
         ${maxPrice != null ? sql`AND s.price <= ${maxPrice}` : sql``}
         ${petSize ? sql`AND ${petSize} = ANY(u.accepted_pet_sizes)` : sql``}
-        ${species ? sql`AND ${species} = ANY(u.accepted_species)` : sql``}
+        ${species ? sql`AND ${species} = ANY(u.accepted_species) AND (s.species = ${species} OR s.species IS NULL)` : sql``}
         ${hasGeo ? sql`AND ST_DWithin(u.location, ${geoPoint}, ${radius})` : sql``}
+      ORDER BY u.id, s.price ASC
     `;
 
     // Compute ranking scores for each sitter

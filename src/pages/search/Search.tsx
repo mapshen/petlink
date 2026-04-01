@@ -10,6 +10,7 @@ import { useMapViewPreference } from '../../hooks/useMapViewPreference';
 import FavoriteButton from '../../components/profile/FavoriteButton';
 import MapViewToggle from '../../components/map/MapViewToggle';
 import { metersToMiles } from '../../lib/geo';
+import { getServiceLabel } from '../../shared/service-labels';
 
 const SitterClusterMap = lazy(() => import('../../components/map/SitterClusterMap'));
 
@@ -48,6 +49,8 @@ const PET_SPECIES = [
   { label: 'Reptile', value: 'reptile' },
   { label: 'Small Animal', value: 'small_animal' },
 ];
+
+const SPECIES_EMOJI: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
 
 async function geocodeAddress(address: string): Promise<Coords | null> {
   try {
@@ -458,7 +461,11 @@ export default function Search() {
                             </div>
                             <div className="text-right">
                               <span className="block text-lg font-bold text-emerald-600">{sitter.price === 0 ? 'Free' : `$${sitter.price}`}</span>
-                              {sitter.price > 0 && <span className="text-xs text-stone-400">per {serviceType === 'walking' ? 'walk' : 'night'}</span>}
+                              {sitter.price > 0 && (
+                                <span className="text-xs text-stone-400">
+                                  {getServiceLabel(serviceType || sitter.service_type, species ? [species] : undefined)}
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -486,9 +493,13 @@ export default function Search() {
                               </span>
                             )}
                             {sitter.accepted_species && sitter.accepted_species.length > 0 && (
-                              <span className="text-stone-400">
-                                {sitter.accepted_species.map((s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ')).join(', ')}
-                              </span>
+                              <div className="flex gap-1">
+                                {sitter.accepted_species.map((s: string) => (
+                                  <span key={s} className="text-stone-400" title={s.replace(/_/g, ' ')}>
+                                    {SPECIES_EMOJI[s] || '🐾'}
+                                  </span>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>
