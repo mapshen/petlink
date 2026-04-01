@@ -388,6 +388,17 @@ export async function initDb() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_tips_sitter_id ON tips (sitter_id)`.catch(() => {});
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      ip_address TEXT,
+      attempted_at TIMESTAMPTZ DEFAULT NOW(),
+      success BOOLEAN DEFAULT false
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts (email, attempted_at)`.catch(() => {});
+
   // Performance indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_owner_id ON bookings (owner_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_sitter_id ON bookings (sitter_id)`;

@@ -5,6 +5,7 @@ import { validate, approvalDecisionSchema } from '../validation.ts';
 import { adminMiddleware } from '../admin.ts';
 import { sendEmail, buildApprovalStatusEmail } from '../email.ts';
 import { createNotification } from '../notifications.ts';
+import { clearLockout } from '../login-lockout.ts';
 
 export default function adminRoutes(router: Router): void {
   router.get('/admin/pending-sitters', adminMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -103,5 +104,16 @@ export default function adminRoutes(router: Router): void {
       FROM users WHERE id = ${sitterId}
     `;
     res.json({ sitter: updated });
+  });
+
+  // Admin: clear login lockout for an email
+  router.post('/admin/unlock-account', adminMiddleware, async (req: AuthenticatedRequest, res) => {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ error: 'Email is required' });
+      return;
+    }
+    await clearLockout(email);
+    res.json({ success: true, message: `Login lockout cleared for ${email}` });
   });
 }
