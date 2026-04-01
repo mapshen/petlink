@@ -1,5 +1,6 @@
 import { Footprints, Home, Clock, Scissors, Users, Sun } from 'lucide-react';
 import type { Service } from '../../types';
+import { getServiceLabel } from '../../shared/service-labels';
 
 export const ALL_SERVICE_TYPES = ['walking', 'sitting', 'drop-in', 'daycare', 'grooming', 'meet_greet'] as const;
 
@@ -11,19 +12,6 @@ const SERVICE_ICONS: Record<string, typeof Footprints> = {
   grooming: Scissors,
   meet_greet: Users,
 };
-
-const SERVICE_LABELS: Record<string, string> = {
-  walking: 'Walking',
-  sitting: 'Sitting',
-  'drop-in': 'Drop-in',
-  daycare: 'Daycare',
-  grooming: 'Grooming',
-  meet_greet: 'Meet & Greet',
-};
-
-export function getServiceLabel(type: string): string {
-  return SERVICE_LABELS[type] || type.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 interface Props {
   readonly services: Service[];
@@ -45,7 +33,8 @@ export default function ServiceHighlights({ services, onServiceClick, selectedSp
           const isActive = activeTypes.has(type);
           const Icon = SERVICE_ICONS[type] || Clock;
 
-          const label = getServiceLabel(type);
+          const speciesArr = selectedSpecies ? [selectedSpecies] : undefined;
+          const label = getServiceLabel(type, speciesArr);
           const priceText = service ? (service.price === 0 ? 'Free' : `$${service.price}`) : 'not offered';
 
           return (
@@ -70,7 +59,7 @@ export default function ServiceHighlights({ services, onServiceClick, selectedSp
                 </div>
               </div>
               <span className={`text-[11px] font-semibold ${isActive ? 'text-stone-900' : 'text-stone-400'}`}>
-                {getServiceLabel(type)}
+                {label}
               </span>
               <span className={`text-[11px] font-bold ${isActive ? 'text-emerald-600' : 'text-stone-400'}`}>
                 {service ? (service.price === 0 ? 'Free' : `$${service.price}`) : '\u2014'}

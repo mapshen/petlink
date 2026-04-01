@@ -121,20 +121,20 @@ export default function SitterProfile() {
         const matchedService = rebookServiceId && data.services.find((s: Service) => s.id === rebookServiceId);
         setSelectedService(matchedService ? matchedService.id : data.services.length > 0 ? data.services[0].id : null);
 
-        // Fetch species profiles for this sitter
-        const sitterId = data.sitter.id;
-        fetch(`${API_BASE}/species-profiles/${sitterId}`)
-          .then(async (spRes) => {
-            if (spRes.ok) {
-              const spData = await spRes.json();
-              const profiles = spData.profiles || [];
-              setSpeciesProfiles(profiles);
-              if (profiles.length > 0) {
-                setActiveTab(`species-${profiles[0].species}`);
-              }
+        // Fetch species profiles before clearing loading state to avoid tab flash
+        try {
+          const spRes = await fetch(`${API_BASE}/species-profiles/${data.sitter.id}`);
+          if (spRes.ok) {
+            const spData = await spRes.json();
+            const profiles = spData.profiles || [];
+            setSpeciesProfiles(profiles);
+            if (profiles.length > 0) {
+              setActiveTab(`species-${profiles[0].species}`);
             }
-          })
-          .catch(() => {});
+          }
+        } catch {
+          // Non-critical — species details just won't appear
+        }
       } catch {
         setError('Failed to load sitter profile.');
       } finally {

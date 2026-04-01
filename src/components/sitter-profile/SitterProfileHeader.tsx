@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MapPin, ShieldCheck, Crown, Heart, MessageSquare } from 'lucide-react';
 import type { User, SitterSpeciesProfile } from '../../types';
-import { type SpeciesBadge, buildSpeciesBadges } from './SpeciesDetails';
+import { buildSpeciesBadges } from './SpeciesDetails';
 
 interface Props {
   readonly sitter: User;
