@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
 import ImportedReviewBadge from '../../components/profile/ImportedReviewBadge';
@@ -479,7 +479,7 @@ export default function SitterProfile() {
                 )}
                 {user && pets.length === 0 && (
                   <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
-                    <a href="/profile#section-pets" className="font-semibold underline hover:text-amber-800">Add a pet to your profile</a> before booking.
+                    <Link to="/profile#section-pets" className="font-semibold underline hover:text-amber-800">Add a pet to your profile</Link> before booking.
                   </div>
                 )}
 

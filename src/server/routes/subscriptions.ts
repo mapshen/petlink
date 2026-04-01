@@ -92,7 +92,8 @@ export default function subscriptionRoutes(router: Router): void {
         }
         return;
       }
-      throw error;
+      logger.error({ err: sanitizeError(error) }, 'Subscription upgrade error');
+      res.status(500).json({ error: 'Failed to start subscription checkout' });
     }
   });
 
