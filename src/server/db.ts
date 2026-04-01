@@ -398,6 +398,7 @@ export async function initDb() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts (email, attempted_at)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts (ip_address, attempted_at) WHERE success = false`.catch(() => {});
 
   // Performance indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_owner_id ON bookings (owner_id)`;

@@ -39,9 +39,9 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       type TEXT NOT NULL,
-      price REAL NOT NULL,
+      price_cents INTEGER NOT NULL,
       description TEXT,
-      additional_pet_price REAL DEFAULT 0,
+      additional_pet_price_cents INTEGER DEFAULT 0,
       max_pets INTEGER DEFAULT 1,
       service_details TEXT
     );
@@ -54,7 +54,7 @@ function createTestDb() {
       status TEXT DEFAULT 'pending',
       start_time TEXT NOT NULL,
       end_time TEXT NOT NULL,
-      total_price REAL,
+      total_price_cents INTEGER,
       payment_status TEXT DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -134,8 +134,8 @@ function createTestDb() {
     3,
   );
   db.prepare(
-    "INSERT INTO services (sitter_id, type, price, description) VALUES (?, ?, ?, ?)",
-  ).run(2, 'walking', 25, 'Dog walking');
+    "INSERT INTO services (sitter_id, type, price_cents, description) VALUES (?, ?, ?, ?)",
+  ).run(2, 'walking', 2500, 'Dog walking');
 
   return db;
 }
@@ -187,8 +187,8 @@ describe('account management', () => {
         db.prepare('SELECT id FROM services WHERE sitter_id = ?').get(2) as Record<string, unknown>
       ).id;
       db.prepare(
-        "INSERT INTO bookings (owner_id, sitter_id, service_id, status, start_time, end_time, total_price) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ).run(1, 2, serviceId, 'confirmed', '2025-06-01T09:00:00Z', '2025-06-01T10:00:00Z', 25);
+        "INSERT INTO bookings (owner_id, sitter_id, service_id, status, start_time, end_time, total_price_cents) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ).run(1, 2, serviceId, 'confirmed', '2025-06-01T09:00:00Z', '2025-06-01T10:00:00Z', 2500);
 
       // Simulate the check
       const activeBookings = db
@@ -205,8 +205,8 @@ describe('account management', () => {
         db.prepare('SELECT id FROM services WHERE sitter_id = ?').get(2) as Record<string, unknown>
       ).id;
       db.prepare(
-        "INSERT INTO bookings (owner_id, sitter_id, service_id, status, start_time, end_time, total_price) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ).run(1, 2, serviceId, 'pending', '2025-06-01T09:00:00Z', '2025-06-01T10:00:00Z', 25);
+        "INSERT INTO bookings (owner_id, sitter_id, service_id, status, start_time, end_time, total_price_cents) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ).run(1, 2, serviceId, 'pending', '2025-06-01T09:00:00Z', '2025-06-01T10:00:00Z', 2500);
 
       db.prepare(
         "UPDATE bookings SET status = 'cancelled' WHERE owner_id = ? AND status = 'pending'",

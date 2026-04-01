@@ -19,7 +19,7 @@ describe('booking status management', () => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sitter_id INTEGER NOT NULL,
         type TEXT NOT NULL,
-        price REAL NOT NULL,
+        price_cents INTEGER NOT NULL,
         FOREIGN KEY (sitter_id) REFERENCES users(id)
       );
       CREATE TABLE bookings (
@@ -30,7 +30,7 @@ describe('booking status management', () => {
         status TEXT DEFAULT 'pending',
         start_time TEXT NOT NULL,
         end_time TEXT NOT NULL,
-        total_price REAL,
+        total_price_cents INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (sitter_id) REFERENCES users(id),
         FOREIGN KEY (owner_id) REFERENCES users(id)
@@ -39,7 +39,7 @@ describe('booking status management', () => {
 
     testDb.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES ('owner@test.com', 'hash', 'Owner', 'owner')").run();
     testDb.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES ('sitter@test.com', 'hash', 'Sitter', 'owner,sitter')").run();
-    testDb.prepare("INSERT INTO services (sitter_id, type, price) VALUES (2, 'walking', 25)").run();
+    testDb.prepare("INSERT INTO services (sitter_id, type, price_cents) VALUES (2, 'walking', 2500)").run();
   });
 
   afterAll(() => {

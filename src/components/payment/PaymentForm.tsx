@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import type { StripeElementsOptions } from '@stripe/stripe-js';
 import { stripePromise } from '../../lib/stripe';
+import { formatCents } from '../../lib/money';
 import { Loader2, Lock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -62,7 +63,7 @@ function CheckoutForm({ amount, onSuccess, onError }: Omit<PaymentFormProps, 'cl
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="p-4 bg-stone-50 rounded-xl border border-stone-200 text-center">
         <p className="text-sm text-stone-500">Total</p>
-        <p className="text-2xl font-bold text-stone-900">${(amount / 100).toFixed(2)}</p>
+        <p className="text-2xl font-bold text-stone-900">{formatCents(amount)}</p>
       </div>
 
       <PaymentElement />
@@ -84,7 +85,7 @@ function CheckoutForm({ amount, onSuccess, onError }: Omit<PaymentFormProps, 'cl
         ) : (
           <Lock className="w-4 h-4 mr-2" />
         )}
-        {processing ? 'Processing...' : `Pay $${(amount / 100).toFixed(2)}`}
+        {processing ? 'Processing...' : `Pay ${formatCents(amount)}`}
       </Button>
 
       <p className="text-xs text-stone-400 text-center flex items-center justify-center gap-1">

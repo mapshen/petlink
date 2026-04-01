@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
+import { formatCents } from '../../lib/money';
 
 const EXPENSE_CATEGORIES = [
   { value: 'supplies', label: 'Supplies', icon: '🛒' },
@@ -56,13 +57,6 @@ interface ExpenseForm {
 
 const EMPTY_FORM: ExpenseForm = { category: 'supplies', amount: '', description: '', date: new Date().toISOString().split('T')[0] };
 
-function formatCurrency(n: number) {
-  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatCents(cents: number) {
-  return formatCurrency(cents / 100);
-}
 
 const PAYOUT_STATUS_STYLES: Record<PayoutStatus, { bg: string; text: string; label: string }> = {
   pending: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pending' },
@@ -494,7 +488,7 @@ export default function WalletPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-red-600">-{formatCurrency(expense.amount_cents / 100)}</span>
+                          <span className="text-sm font-bold text-red-600">-{formatCents(expense.amount_cents)}</span>
                           <button onClick={() => { setForm({ category: expense.category, amount: (expense.amount_cents / 100).toString(), description: expense.description || '', date: expense.date.split('T')[0] }); setEditingId(expense.id); setShowForm(true); }}
                             className="p-1.5 text-stone-400 hover:text-emerald-600"><Pencil className="w-3.5 h-3.5" /></button>
                           <button onClick={() => setDeleteDialogId(expense.id)}

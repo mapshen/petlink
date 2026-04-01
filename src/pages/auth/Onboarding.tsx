@@ -5,6 +5,7 @@ import { useOnboardingStatus } from '../../hooks/useOnboardingStatus';
 import OnboardingProgress from '../../components/onboarding/OnboardingProgress';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { Service } from '../../types';
+import { formatCents } from '../../lib/money';
 import {
   Camera, Loader2, AlertCircle, ShieldCheck, CheckCircle, PartyPopper,
   ChevronRight, ChevronLeft, SkipForward, Save,
@@ -265,7 +266,7 @@ export default function Onboarding() {
                         <span>{typeInfo?.icon}</span>
                         <span className="font-medium text-stone-900">{typeInfo?.label}</span>
                       </div>
-                      <span className="font-bold text-emerald-600">${(s.price_cents / 100).toFixed(2)}</span>
+                      <span className="font-bold text-emerald-600">{formatCents(s.price_cents)}</span>
                     </div>
                   );
                 })}

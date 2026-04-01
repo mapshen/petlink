@@ -1,6 +1,7 @@
 import { Footprints, Home, Clock, Scissors, Users, Sun } from 'lucide-react';
 import type { Service } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
+import { formatCents } from '../../lib/money';
 
 export const ALL_SERVICE_TYPES = ['meet_greet', 'walking', 'sitting', 'drop-in', 'daycare', 'grooming'] as const;
 
@@ -35,7 +36,7 @@ export default function ServiceHighlights({ services, onServiceClick, selectedSp
 
           const speciesArr = selectedSpecies ? [selectedSpecies] : undefined;
           const label = getServiceLabel(type, speciesArr);
-          const priceText = service ? (service.price_cents === 0 ? 'Free' : `$${(service.price_cents / 100).toFixed(2)}`) : 'not offered';
+          const priceText = service ? (service.price_cents === 0 ? 'Free' : formatCents(service.price_cents)) : 'not offered';
 
           return (
             <button
@@ -62,7 +63,7 @@ export default function ServiceHighlights({ services, onServiceClick, selectedSp
                 {label}
               </span>
               <span className={`text-[11px] font-bold ${isActive ? 'text-emerald-600' : 'text-stone-400'}`}>
-                {service ? (service.price_cents === 0 ? 'Free' : `$${(service.price_cents / 100).toFixed(2)}`) : '\u2014'}
+                {service ? (service.price_cents === 0 ? 'Free' : formatCents(service.price_cents)) : '\u2014'}
               </span>
             </button>
           );

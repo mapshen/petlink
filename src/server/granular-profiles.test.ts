@@ -60,9 +60,9 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       type TEXT NOT NULL,
-      price REAL NOT NULL,
+      price_cents INTEGER NOT NULL,
       description TEXT,
-      additional_pet_price REAL DEFAULT 0,
+      additional_pet_price_cents INTEGER DEFAULT 0,
       max_pets INTEGER DEFAULT 1,
       service_details TEXT
     );
@@ -183,20 +183,20 @@ describe('service details', () => {
   beforeEach(() => { db = createTestDb(); });
 
   it('stores max_pets on services', () => {
-    db.prepare('INSERT INTO services (sitter_id, type, price, max_pets) VALUES (?, ?, ?, ?)').run(2, 'walking', 25, 3);
+    db.prepare('INSERT INTO services (sitter_id, type, price_cents, max_pets) VALUES (?, ?, ?, ?)').run(2, 'walking', 2500, 3);
     const svc = db.prepare('SELECT max_pets FROM services WHERE sitter_id = 2').get() as Record<string, unknown>;
     expect(svc.max_pets).toBe(3);
   });
 
   it('defaults max_pets to 1', () => {
-    db.prepare('INSERT INTO services (sitter_id, type, price) VALUES (?, ?, ?)').run(2, 'sitting', 50);
+    db.prepare('INSERT INTO services (sitter_id, type, price_cents) VALUES (?, ?, ?)').run(2, 'sitting', 5000);
     const svc = db.prepare('SELECT max_pets FROM services WHERE type = ?').get('sitting') as Record<string, unknown>;
     expect(svc.max_pets).toBe(1);
   });
 
   it('stores service_details JSON', () => {
     const details = JSON.stringify({ duration_minutes: 30, solo_walk: true });
-    db.prepare('INSERT INTO services (sitter_id, type, price, service_details) VALUES (?, ?, ?, ?)').run(2, 'walking', 25, details);
+    db.prepare('INSERT INTO services (sitter_id, type, price_cents, service_details) VALUES (?, ?, ?, ?)').run(2, 'walking', 2500, details);
     const svc = db.prepare('SELECT service_details FROM services WHERE sitter_id = 2').get() as Record<string, unknown>;
     const parsed = JSON.parse(svc.service_details as string);
     expect(parsed.duration_minutes).toBe(30);

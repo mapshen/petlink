@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Star, ShieldCheck } from 'lucide-react';
 import { metersToMiles } from '../../lib/geo';
+import { formatCents } from '../../lib/money';
 
 interface SitterPopupData {
   readonly id: number;
@@ -54,7 +55,7 @@ export default function SitterMapPopup({ sitter }: SitterMapPopupProps) {
           </span>
         </div>
         <span className="font-bold text-emerald-600 text-sm">
-          {sitter.price_cents === 0 ? 'Free' : `$${(sitter.price_cents / 100).toFixed(2)}`}
+          {sitter.price_cents === 0 ? 'Free' : formatCents(sitter.price_cents)}
         </span>
       </div>
 

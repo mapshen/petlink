@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { getAvailableServices, getServiceLabel } from '../../shared/service-labels';
+import { formatCents } from '../../lib/money';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -287,10 +288,10 @@ export default function ServicesTab() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <span className="text-xl font-bold text-emerald-600">{service.price_cents === 0 ? 'Free' : `$${(service.price_cents / 100).toFixed(2)}`}</span>
+                      <span className="text-xl font-bold text-emerald-600">{service.price_cents === 0 ? 'Free' : formatCents(service.price_cents)}</span>
                       {service.price_cents > 0 && <span className="text-xs text-stone-400 block">per session</span>}
                       {(service.additional_pet_price_cents || 0) > 0 && (
-                        <span className="text-xs text-stone-400 block">+${((service.additional_pet_price_cents || 0) / 100).toFixed(2)}/extra pet</span>
+                        <span className="text-xs text-stone-400 block">+{formatCents(service.additional_pet_price_cents || 0)}/extra pet</span>
                       )}
                       {(service.max_pets || 1) > 1 && (
                         <span className="text-xs text-stone-400 block">Up to {service.max_pets} pets</span>

@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/badge';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import SavedPaymentMethods from '../../components/payment/SavedPaymentMethods';
 import { format } from 'date-fns';
+import { formatCents } from '../../lib/money';
 
 interface PaymentHistoryEntry {
   id: string;
@@ -119,7 +120,7 @@ export default function PaymentHistoryPage() {
                   <p className="text-xs text-stone-400">{format(new Date(entry.created_at), 'MMM d, yyyy')}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-stone-900">${(entry.amount / 100).toFixed(2)}</span>
+                  <span className="text-sm font-semibold text-stone-900">{formatCents(entry.amount)}</span>
                   {statusBadge(entry.status)}
                 </div>
               </div>

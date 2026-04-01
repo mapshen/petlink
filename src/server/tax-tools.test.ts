@@ -116,7 +116,7 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       category TEXT NOT NULL CHECK(category IN ('supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other')),
-      amount REAL NOT NULL CHECK(amount > 0),
+      amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
       description TEXT,
       date TEXT NOT NULL,
       receipt_url TEXT,
@@ -129,7 +129,7 @@ function createTestDb() {
       status TEXT DEFAULT 'pending',
       start_time TEXT NOT NULL,
       end_time TEXT NOT NULL,
-      total_price REAL,
+      total_price_cents INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX idx_sitter_expenses_sitter_id ON sitter_expenses (sitter_id);
@@ -149,33 +149,33 @@ describe('sitter_expenses table', () => {
   beforeEach(() => { db = createTestDb(); });
 
   it('should create an expense', () => {
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, description, date) VALUES (?, ?, ?, ?, ?)').run(2, 'supplies', 25.50, 'Dog treats', '2025-06-15');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, description, date) VALUES (?, ?, ?, ?, ?)').run(2, 'supplies', 2550, 'Dog treats', '2025-06-15');
     const expense = db.prepare('SELECT * FROM sitter_expenses WHERE sitter_id = 2').get() as Record<string, unknown>;
     expect(expense).toBeDefined();
     expect(expense.category).toBe('supplies');
-    expect(expense.amount).toBe(25.50);
+    expect(expense.amount_cents).toBe(2550);
     expect(expense.description).toBe('Dog treats');
     expect(expense.date).toBe('2025-06-15');
   });
 
   it('should read expenses for a sitter', () => {
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 10, '2025-01-01');
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'transportation', 20, '2025-02-01');
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(3, 'insurance', 100, '2025-01-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 1000, '2025-01-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'transportation', 2000, '2025-02-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(3, 'insurance', 10000, '2025-01-01');
     const expenses = db.prepare('SELECT * FROM sitter_expenses WHERE sitter_id = ?').all(2) as Record<string, unknown>[];
     expect(expenses).toHaveLength(2);
   });
 
   it('should update an expense', () => {
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 10, '2025-01-01');
-    db.prepare('UPDATE sitter_expenses SET amount = ?, category = ? WHERE id = 1 AND sitter_id = 2').run(30, 'equipment');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 1000, '2025-01-01');
+    db.prepare('UPDATE sitter_expenses SET amount_cents = ?, category = ? WHERE id = 1 AND sitter_id = 2').run(3000, 'equipment');
     const expense = db.prepare('SELECT * FROM sitter_expenses WHERE id = 1').get() as Record<string, unknown>;
-    expect(expense.amount).toBe(30);
+    expect(expense.amount_cents).toBe(3000);
     expect(expense.category).toBe('equipment');
   });
 
   it('should delete an expense', () => {
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 10, '2025-01-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 1000, '2025-01-01');
     db.prepare('DELETE FROM sitter_expenses WHERE id = 1 AND sitter_id = 2').run();
     const expense = db.prepare('SELECT * FROM sitter_expenses WHERE id = 1').get();
     expect(expense).toBeUndefined();
@@ -183,33 +183,33 @@ describe('sitter_expenses table', () => {
 
   it('should reject invalid category via CHECK constraint', () => {
     expect(() => {
-      db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'food', 10, '2025-01-01');
+      db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'food', 1000, '2025-01-01');
     }).toThrow();
   });
 
   it('should reject zero amount via CHECK constraint', () => {
     expect(() => {
-      db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 0, '2025-01-01');
+      db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 0, '2025-01-01');
     }).toThrow();
   });
 
   it('should reject negative amount via CHECK constraint', () => {
     expect(() => {
-      db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', -5, '2025-01-01');
+      db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', -500, '2025-01-01');
     }).toThrow();
   });
 
   it('should cascade delete when sitter user is deleted', () => {
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 10, '2025-01-01');
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'transportation', 20, '2025-02-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 1000, '2025-01-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'transportation', 2000, '2025-02-01');
     db.prepare('DELETE FROM users WHERE id = ?').run(2);
     const expenses = db.prepare('SELECT * FROM sitter_expenses WHERE sitter_id = 2').all();
     expect(expenses).toHaveLength(0);
   });
 
   it('should not affect other sitters expenses on delete', () => {
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 10, '2025-01-01');
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(3, 'insurance', 50, '2025-01-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 1000, '2025-01-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(3, 'insurance', 5000, '2025-01-01');
     db.prepare('DELETE FROM users WHERE id = ?').run(2);
     const expenses = db.prepare('SELECT * FROM sitter_expenses WHERE sitter_id = 3').all() as Record<string, unknown>[];
     expect(expenses).toHaveLength(1);
@@ -217,25 +217,25 @@ describe('sitter_expenses table', () => {
   });
 
   it('should store receipt URL', () => {
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date, receipt_url) VALUES (?, ?, ?, ?, ?)').run(2, 'supplies', 10, '2025-01-01', 'https://example.com/receipt.pdf');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date, receipt_url) VALUES (?, ?, ?, ?, ?)').run(2, 'supplies', 1000, '2025-01-01', 'https://example.com/receipt.pdf');
     const expense = db.prepare('SELECT * FROM sitter_expenses WHERE id = 1').get() as Record<string, unknown>;
     expect(expense.receipt_url).toBe('https://example.com/receipt.pdf');
   });
 
   it('should allow null description and receipt_url', () => {
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'training', 100, '2025-03-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'training', 10000, '2025-03-01');
     const expense = db.prepare('SELECT * FROM sitter_expenses WHERE id = 1').get() as Record<string, unknown>;
     expect(expense.description).toBeNull();
     expect(expense.receipt_url).toBeNull();
   });
 
   it('should compute expense totals by category', () => {
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 10, '2025-01-01');
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 20, '2025-02-01');
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'transportation', 15, '2025-03-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 1000, '2025-01-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 2000, '2025-02-01');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'transportation', 1500, '2025-03-01');
 
     const rows = db.prepare(`
-      SELECT category, SUM(amount) AS total
+      SELECT category, SUM(amount_cents) AS total
       FROM sitter_expenses
       WHERE sitter_id = ?
       GROUP BY category
@@ -245,24 +245,24 @@ describe('sitter_expenses table', () => {
     for (const row of rows) {
       byCategory[row.category] = row.total;
     }
-    expect(byCategory['supplies']).toBe(30);
-    expect(byCategory['transportation']).toBe(15);
+    expect(byCategory['supplies']).toBe(3000);
+    expect(byCategory['transportation']).toBe(1500);
   });
 
   it('should compute tax summary with income and expenses', () => {
     // Add completed bookings for income
-    db.prepare("INSERT INTO bookings (sitter_id, owner_id, status, start_time, end_time, total_price) VALUES (?, ?, ?, ?, ?, ?)").run(2, 1, 'completed', '2025-06-01T10:00:00Z', '2025-06-01T11:00:00Z', 50);
-    db.prepare("INSERT INTO bookings (sitter_id, owner_id, status, start_time, end_time, total_price) VALUES (?, ?, ?, ?, ?, ?)").run(2, 1, 'completed', '2025-07-01T10:00:00Z', '2025-07-01T11:00:00Z', 75);
+    db.prepare("INSERT INTO bookings (sitter_id, owner_id, status, start_time, end_time, total_price_cents) VALUES (?, ?, ?, ?, ?, ?)").run(2, 1, 'completed', '2025-06-01T10:00:00Z', '2025-06-01T11:00:00Z', 5000);
+    db.prepare("INSERT INTO bookings (sitter_id, owner_id, status, start_time, end_time, total_price_cents) VALUES (?, ?, ?, ?, ?, ?)").run(2, 1, 'completed', '2025-07-01T10:00:00Z', '2025-07-01T11:00:00Z', 7500);
     // Non-completed booking should not count
-    db.prepare("INSERT INTO bookings (sitter_id, owner_id, status, start_time, end_time, total_price) VALUES (?, ?, ?, ?, ?, ?)").run(2, 1, 'cancelled', '2025-08-01T10:00:00Z', '2025-08-01T11:00:00Z', 30);
+    db.prepare("INSERT INTO bookings (sitter_id, owner_id, status, start_time, end_time, total_price_cents) VALUES (?, ?, ?, ?, ?, ?)").run(2, 1, 'cancelled', '2025-08-01T10:00:00Z', '2025-08-01T11:00:00Z', 3000);
 
     // Add expenses
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 20, '2025-06-15');
-    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount, date) VALUES (?, ?, ?, ?)').run(2, 'transportation', 10, '2025-07-15');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'supplies', 2000, '2025-06-15');
+    db.prepare('INSERT INTO sitter_expenses (sitter_id, category, amount_cents, date) VALUES (?, ?, ?, ?)').run(2, 'transportation', 1000, '2025-07-15');
 
     // Compute income (completed bookings where start_time year = 2025)
     const incomeRow = db.prepare(`
-      SELECT COALESCE(SUM(total_price), 0) AS total_income
+      SELECT COALESCE(SUM(total_price_cents), 0) AS total_income
       FROM bookings
       WHERE sitter_id = ? AND status = 'completed'
         AND strftime('%Y', start_time) = ?
@@ -270,7 +270,7 @@ describe('sitter_expenses table', () => {
 
     // Compute expenses by category
     const expenseRows = db.prepare(`
-      SELECT category, SUM(amount) AS total
+      SELECT category, SUM(amount_cents) AS total
       FROM sitter_expenses
       WHERE sitter_id = ? AND strftime('%Y', date) = ?
       GROUP BY category
@@ -279,8 +279,8 @@ describe('sitter_expenses table', () => {
     const total_expenses = expenseRows.reduce((sum, r) => sum + r.total, 0);
     const net_income = incomeRow.total_income - total_expenses;
 
-    expect(incomeRow.total_income).toBe(125);
-    expect(total_expenses).toBe(30);
-    expect(net_income).toBe(95);
+    expect(incomeRow.total_income).toBe(12500);
+    expect(total_expenses).toBe(3000);
+    expect(net_income).toBe(9500);
   });
 });

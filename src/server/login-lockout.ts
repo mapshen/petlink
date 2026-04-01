@@ -6,21 +6,26 @@ const LOCKOUT_THRESHOLDS = [
   { failures: 10, windowMinutes: 60, lockoutMinutes: 60 },
 ] as const;
 
+// IP-based threshold: catches credential stuffing across many accounts
+const IP_LOCKOUT_THRESHOLD = { failures: 20, windowMinutes: 15, lockoutMinutes: 30 };
+
 const EMAIL_ALERT_THRESHOLD = 3;
 
 export interface LockoutStatus {
   locked: boolean;
   lockoutMinutes: number;
   failureCount: number;
+  reason?: 'email' | 'ip';
 }
 
-/** Check if an email is currently locked out — single query for all thresholds */
-export async function checkLockout(email: string): Promise<LockoutStatus> {
+/** Check if an email or IP is currently locked out */
+export async function checkLockout(email: string, ipAddress?: string): Promise<LockoutStatus> {
   const normalizedEmail = email.toLowerCase().trim();
-  const longestWindow = new Date(Date.now() - 60 * 60 * 1000); // 60 min
-  const shortWindow = new Date(Date.now() - 15 * 60 * 1000);   // 15 min
+  const longestWindow = new Date(Date.now() - 60 * 60 * 1000);
+  const shortWindow = new Date(Date.now() - 15 * 60 * 1000);
 
-  const [result] = await sql`
+  // Per-email lockout check (single query for both thresholds)
+  const [emailResult] = await sql`
     SELECT
       COUNT(*) FILTER (WHERE attempted_at > ${shortWindow})::int as failures_15m,
       COUNT(*) FILTER (WHERE attempted_at > ${longestWindow})::int as failures_60m
@@ -30,15 +35,29 @@ export async function checkLockout(email: string): Promise<LockoutStatus> {
       AND attempted_at > ${longestWindow}
   `;
 
-  // Check strictest threshold first
-  if (result.failures_60m >= LOCKOUT_THRESHOLDS[1].failures) {
-    return { locked: true, lockoutMinutes: 60, failureCount: result.failures_60m };
+  if (emailResult.failures_60m >= LOCKOUT_THRESHOLDS[1].failures) {
+    return { locked: true, lockoutMinutes: 60, failureCount: emailResult.failures_60m, reason: 'email' };
   }
-  if (result.failures_15m >= LOCKOUT_THRESHOLDS[0].failures) {
-    return { locked: true, lockoutMinutes: 15, failureCount: result.failures_15m };
+  if (emailResult.failures_15m >= LOCKOUT_THRESHOLDS[0].failures) {
+    return { locked: true, lockoutMinutes: 15, failureCount: emailResult.failures_15m, reason: 'email' };
   }
 
-  return { locked: false, lockoutMinutes: 0, failureCount: result.failures_15m };
+  // Per-IP lockout check (catches credential stuffing across many accounts)
+  if (ipAddress) {
+    const ipWindow = new Date(Date.now() - IP_LOCKOUT_THRESHOLD.windowMinutes * 60 * 1000);
+    const [ipResult] = await sql`
+      SELECT COUNT(*)::int as failure_count
+      FROM login_attempts
+      WHERE ip_address = ${ipAddress}
+        AND success = false
+        AND attempted_at > ${ipWindow}
+    `;
+    if (ipResult.failure_count >= IP_LOCKOUT_THRESHOLD.failures) {
+      return { locked: true, lockoutMinutes: IP_LOCKOUT_THRESHOLD.lockoutMinutes, failureCount: ipResult.failure_count, reason: 'ip' };
+    }
+  }
+
+  return { locked: false, lockoutMinutes: 0, failureCount: emailResult.failures_15m };
 }
 
 /** Record a login attempt */

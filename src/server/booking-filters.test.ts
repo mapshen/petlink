@@ -30,7 +30,7 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sitter_id INTEGER NOT NULL REFERENCES users(id),
       type TEXT NOT NULL,
-      price REAL NOT NULL
+      price_cents INTEGER NOT NULL
     );
     CREATE TABLE bookings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +40,7 @@ function createTestDb() {
       status TEXT DEFAULT 'pending',
       start_time DATETIME NOT NULL,
       end_time DATETIME NOT NULL,
-      total_price REAL,
+      total_price_cents INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE booking_pets (
@@ -60,7 +60,7 @@ function createTestDb() {
   db.prepare("INSERT INTO pets (owner_id, name, breed) VALUES (?, ?, ?)").run(3, 'Max', 'Poodle');
 
   // Seed services
-  db.prepare("INSERT INTO services (sitter_id, type, price) VALUES (?, ?, ?)").run(2, 'walking', 25);
+  db.prepare("INSERT INTO services (sitter_id, type, price_cents) VALUES (?, ?, ?)").run(2, 'walking', 2500);
 
   return db;
 }
@@ -169,23 +169,23 @@ describe('booking filters', () => {
 
     // Seed bookings with different dates and statuses
     // Owner 1 (Alice) books sitter 2 (Bob)
-    db.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-      2, 1, 1, 'completed', '2025-01-15T10:00:00Z', '2025-01-15T11:00:00Z', 25,
+    db.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      2, 1, 1, 'completed', '2025-01-15T10:00:00Z', '2025-01-15T11:00:00Z', 2500,
     );
     db.prepare("INSERT INTO booking_pets (booking_id, pet_id) VALUES (?, ?)").run(1, 1);
 
-    db.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-      2, 1, 1, 'pending', '2025-03-10T09:00:00Z', '2025-03-10T10:00:00Z', 25,
+    db.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      2, 1, 1, 'pending', '2025-03-10T09:00:00Z', '2025-03-10T10:00:00Z', 2500,
     );
     db.prepare("INSERT INTO booking_pets (booking_id, pet_id) VALUES (?, ?)").run(2, 1);
 
-    db.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-      2, 1, 1, 'cancelled', '2025-06-01T14:00:00Z', '2025-06-01T15:00:00Z', 25,
+    db.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      2, 1, 1, 'cancelled', '2025-06-01T14:00:00Z', '2025-06-01T15:00:00Z', 2500,
     );
 
     // Owner 3 (Carol) books sitter 2 (Bob)
-    db.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-      2, 3, 1, 'confirmed', '2025-04-20T08:00:00Z', '2025-04-20T09:00:00Z', 25,
+    db.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      2, 3, 1, 'confirmed', '2025-04-20T08:00:00Z', '2025-04-20T09:00:00Z', 2500,
     );
     db.prepare("INSERT INTO booking_pets (booking_id, pet_id) VALUES (?, ?)").run(4, 2);
   });

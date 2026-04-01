@@ -1,6 +1,7 @@
 import type { SitterSpeciesProfile, Service } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
 import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
+import { formatCents } from '../../lib/money';
 import { formatSkill } from './SitterProfileHeader';
 
 const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
@@ -138,7 +139,7 @@ export default function SpeciesDetails({ profile, services }: Props) {
                     <span className="text-sm font-semibold text-stone-900">{getServiceLabel(svc.type, [profile.species])}</span>
                   </div>
                   <span className="text-sm font-bold text-emerald-600">
-                    {svc.price_cents === 0 ? 'Free' : `$${(svc.price_cents / 100).toFixed(2)}`}
+                    {svc.price_cents === 0 ? 'Free' : formatCents(svc.price_cents)}
                   </span>
                 </div>
               ))}

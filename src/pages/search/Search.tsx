@@ -11,6 +11,7 @@ import FavoriteButton from '../../components/profile/FavoriteButton';
 import MapViewToggle from '../../components/map/MapViewToggle';
 import { metersToMiles } from '../../lib/geo';
 import { getServiceLabel } from '../../shared/service-labels';
+import { formatCents } from '../../lib/money';
 
 const SitterClusterMap = lazy(() => import('../../components/map/SitterClusterMap'));
 
@@ -460,7 +461,7 @@ export default function Search() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="block text-lg font-bold text-emerald-600">{sitter.price_cents === 0 ? 'Free' : `$${(sitter.price_cents / 100).toFixed(2)}`}</span>
+                              <span className="block text-lg font-bold text-emerald-600">{sitter.price_cents === 0 ? 'Free' : formatCents(sitter.price_cents)}</span>
                               {sitter.price_cents > 0 && (
                                 <span className="text-xs text-stone-400">
                                   {getServiceLabel(serviceType || sitter.service_type, species ? [species] : undefined)}

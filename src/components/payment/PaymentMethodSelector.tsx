@@ -1,4 +1,5 @@
 import { CreditCard, Building2, Check } from 'lucide-react';
+import { formatCents } from '../../lib/money';
 
 type PaymentMethodType = 'card' | 'ach_debit';
 
@@ -10,7 +11,7 @@ interface PaymentMethodSelectorProps {
 
 function formatFee(amountCents: number, rate: number): string {
   const fee = Math.round(amountCents * rate);
-  return `$${(fee / 100).toFixed(2)}`;
+  return formatCents(fee);
 }
 
 export default function PaymentMethodSelector({ selected, onSelect, amountCents }: PaymentMethodSelectorProps) {

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { SitterSpeciesProfile, Service } from '../../types';
 import { getAvailableServices, getServiceLabel, getAvailableSkills, type SkillOption } from '../../shared/service-labels';
 import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
+import { formatCentsDecimal } from '../../lib/money';
 
 const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
 const SPECIES_COLORS: Record<string, { border: string; header: string; text: string }> = {
@@ -267,7 +268,7 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
                         min={0}
                         max={9999}
                         step="0.01"
-                        value={svc?.price_cents != null ? (svc.price_cents / 100).toFixed(2) : ''}
+                        value={svc?.price_cents != null ? formatCentsDecimal(svc.price_cents) : ''}
                         onChange={(e) => onServicePriceChange(type, Math.round(Math.max(0, Math.min(9999, Number(e.target.value) || 0)) * 100))}
                         placeholder="—"
                         aria-label={`Price for ${label}`}
