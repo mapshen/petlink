@@ -3,9 +3,9 @@ import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Save } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { getSkillGroups, areSizesRelevant, isWalkCapacityRelevant } from '../../shared/service-labels';
+import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
 
 const SPECIES_OPTIONS = ['dog', 'cat', 'bird', 'reptile', 'small_animal'] as const;
-const SPECIES_ICONS: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
 const HOME_TYPES = [
   { value: '', label: 'Select...' },
   { value: 'house', label: 'House' },
@@ -13,10 +13,6 @@ const HOME_TYPES = [
   { value: 'condo', label: 'Condo' },
   { value: 'other', label: 'Other' },
 ] as const;
-
-function formatSpecies(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export default function SitterInfoTab() {
   const { user, token, updateUser } = useAuth();

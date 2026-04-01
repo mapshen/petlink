@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
@@ -182,11 +182,17 @@ export default function SitterProfile() {
   const selectedSpecies = activeTab.startsWith('species-') ? activeTab.replace('species-', '') : null;
   const selectedSpeciesProfile = selectedSpecies ? speciesProfiles.find((p) => p.species === selectedSpecies) : null;
 
-  // Filter booking services by selected pets' species
-  const selectedPetSpecies: string[] = [...new Set(pets.filter((p) => selectedPetIds.includes(p.id)).map((p) => p.species as string))];
-  const bookingServices = selectedPetSpecies.length > 0
-    ? services.filter((s) => !s.species || selectedPetSpecies.includes(s.species))
-    : services;
+  // Filter booking services by selected pets' species (memoized to avoid useEffect churn)
+  const selectedPetSpecies: string[] = useMemo(
+    () => [...new Set(pets.filter((p) => selectedPetIds.includes(p.id)).map((p) => p.species as string))],
+    [pets, selectedPetIds]
+  );
+  const bookingServices = useMemo(
+    () => selectedPetSpecies.length > 0
+      ? services.filter((s) => !s.species || selectedPetSpecies.includes(s.species))
+      : services,
+    [services, selectedPetSpecies]
+  );
 
   // Reset selected service if it's no longer in the filtered list
   useEffect(() => {
@@ -469,6 +475,11 @@ export default function SitterProfile() {
                       selectedPetIds={selectedPetIds}
                       onSelectionChange={setSelectedPetIds}
                     />
+                  </div>
+                )}
+                {user && pets.length === 0 && (
+                  <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
+                    <a href="/profile#section-pets" className="font-semibold underline hover:text-amber-800">Add a pet to your profile</a> before booking.
                   </div>
                 )}
 

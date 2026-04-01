@@ -64,8 +64,8 @@ export default function subscriptionRoutes(router: Router): void {
       const checkoutUrl = await createSubscriptionCheckout(req.userId!, user.email, origin);
       res.json({ checkout_url: checkoutUrl });
     } catch (error: any) {
-      if (error.message?.includes('STRIPE_PRO_PRICE_ID')) {
-        // Stripe not configured — activate directly (dev/beta mode)
+      if (error.message?.includes('STRIPE_PRO_PRICE_ID') && process.env.NODE_ENV !== 'production') {
+        // Stripe not configured — activate directly (dev/beta mode only)
         if (existing) {
           const [updated] = await sql.begin(async (tx: any) => {
             const [s] = await tx`

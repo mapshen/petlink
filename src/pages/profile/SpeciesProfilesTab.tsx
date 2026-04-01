@@ -4,13 +4,9 @@ import { Save } from 'lucide-react';
 import { API_BASE } from '../../config';
 import type { SitterSpeciesProfile, Service } from '../../types';
 import SpeciesCard from '../../components/profile/SpeciesCard';
+import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
 
 const ALL_SPECIES = ['dog', 'cat', 'bird', 'reptile', 'small_animal'] as const;
-const SPECIES_ICONS: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
-
-function formatSpecies(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export default function SpeciesProfilesTab() {
   const { user, token, updateUser } = useAuth();
