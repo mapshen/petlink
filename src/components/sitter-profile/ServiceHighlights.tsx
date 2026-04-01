@@ -28,16 +28,20 @@ export function getServiceLabel(type: string): string {
 interface Props {
   readonly services: Service[];
   readonly onServiceClick?: (service: Service) => void;
+  readonly selectedSpecies?: string | null;
 }
 
-export default function ServiceHighlights({ services, onServiceClick }: Props) {
-  const activeTypes = new Set(services.map((s) => s.type));
+export default function ServiceHighlights({ services, onServiceClick, selectedSpecies }: Props) {
+  const filteredServices = selectedSpecies
+    ? services.filter((s) => s.species === selectedSpecies)
+    : services;
+  const activeTypes = new Set(filteredServices.map((s) => s.type));
 
   return (
     <div className="bg-white border-b border-stone-200 px-6 py-4">
       <div className="max-w-[960px] mx-auto flex gap-5 overflow-x-auto">
         {ALL_SERVICE_TYPES.map((type) => {
-          const service = services.find((s) => s.type === type);
+          const service = filteredServices.find((s) => s.type === type);
           const isActive = activeTypes.has(type);
           const Icon = SERVICE_ICONS[type] || Clock;
 

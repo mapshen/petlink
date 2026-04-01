@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MapPin, ShieldCheck, Crown, Heart, MessageSquare } from 'lucide-react';
-import type { User } from '../../types';
+import type { User, SitterSpeciesProfile } from '../../types';
+import { type SpeciesBadge, buildSpeciesBadges } from './SpeciesDetails';
 
 interface Props {
   readonly sitter: User;
@@ -11,6 +12,7 @@ interface Props {
   readonly onToggleFavorite: (sitterId: number) => void;
   readonly onBookClick: () => void;
   readonly onMessageClick: () => void;
+  readonly speciesProfiles?: SitterSpeciesProfile[];
 }
 
 const BIO_TRUNCATE_LIMIT = 150;
@@ -46,11 +48,13 @@ export default function SitterProfileHeader({
   onToggleFavorite,
   onBookClick,
   onMessageClick,
+  speciesProfiles = [],
 }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const showFavorite = currentUser != null && currentUser.id !== sitter.id;
   const isPro = sitter.subscription_tier === 'pro';
   const tags = buildHeaderTags(sitter);
+  const speciesBadges = buildSpeciesBadges(speciesProfiles);
 
   const bio = sitter.bio || '';
   const shouldTruncate = bio.length > BIO_TRUNCATE_LIMIT;
@@ -94,6 +98,22 @@ export default function SitterProfileHeader({
             <span>{cityName || 'Location not shared'}</span>
           </div>
 
+          {/* Species badges */}
+          {speciesBadges.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {speciesBadges.map((badge) => (
+                <span
+                  key={badge.species}
+                  className="bg-emerald-50 text-emerald-800 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5"
+                >
+                  <span>{badge.emoji}</span>
+                  {badge.label}
+                  {badge.years != null && <span className="text-emerald-600">· {badge.years} yrs</span>}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Stats row */}
           <div className="flex gap-8 mb-3">
             <div>
@@ -108,12 +128,6 @@ export default function SitterProfileHeader({
               <span className="font-extrabold text-lg">{sitter.review_count ?? 0}</span>
               <span className="text-sm text-stone-500 ml-1">reviews</span>
             </div>
-            {sitter.years_experience != null && (
-              <div>
-                <span className="font-extrabold text-lg">{sitter.years_experience}</span>
-                <span className="text-sm text-stone-500 ml-1">years exp</span>
-              </div>
-            )}
           </div>
 
           {/* Bio */}
