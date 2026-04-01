@@ -8,15 +8,15 @@ export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';
 
 /** Which service types are available for each species */
 export const SPECIES_SERVICES: Record<PetSpecies, readonly ServiceType[]> = {
-  dog: ['walking', 'daycare', 'sitting', 'drop-in', 'grooming', 'meet_greet'],
-  cat: ['sitting', 'drop-in', 'grooming', 'meet_greet'],
-  bird: ['sitting', 'drop-in', 'meet_greet'],
-  reptile: ['sitting', 'drop-in', 'meet_greet'],
-  small_animal: ['sitting', 'drop-in', 'grooming', 'meet_greet'],
+  dog: ['meet_greet', 'walking', 'daycare', 'sitting', 'drop-in', 'grooming'],
+  cat: ['meet_greet', 'sitting', 'drop-in', 'grooming'],
+  bird: ['meet_greet', 'sitting', 'drop-in'],
+  reptile: ['meet_greet', 'sitting', 'drop-in'],
+  small_animal: ['meet_greet', 'sitting', 'drop-in', 'grooming'],
 };
 
 /** All valid service types */
-export const ALL_SERVICE_TYPES: readonly ServiceType[] = ['walking', 'daycare', 'sitting', 'drop-in', 'grooming', 'meet_greet'];
+export const ALL_SERVICE_TYPES: readonly ServiceType[] = ['meet_greet', 'walking', 'daycare', 'sitting', 'drop-in', 'grooming'];
 
 /** Species-specific labels for service types */
 const SPECIES_LABELS: Partial<Record<PetSpecies, Partial<Record<ServiceType, string>>>> = {

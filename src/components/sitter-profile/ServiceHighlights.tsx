@@ -2,7 +2,7 @@ import { Footprints, Home, Clock, Scissors, Users, Sun } from 'lucide-react';
 import type { Service } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
 
-export const ALL_SERVICE_TYPES = ['walking', 'sitting', 'drop-in', 'daycare', 'grooming', 'meet_greet'] as const;
+export const ALL_SERVICE_TYPES = ['meet_greet', 'walking', 'sitting', 'drop-in', 'daycare', 'grooming'] as const;
 
 const SERVICE_ICONS: Record<string, typeof Footprints> = {
   walking: Footprints,

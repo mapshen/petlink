@@ -63,7 +63,9 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
               ) > 1 THEN b.owner_id
             END)::int as repeat_owners
           FROM bookings b
+          LEFT JOIN services svc ON b.service_id = svc.id
           WHERE b.sitter_id = ANY(${sitterIds})
+            AND (svc.type IS NULL OR svc.type != 'meet_greet')
           GROUP BY b.sitter_id
         )
         SELECT
@@ -80,7 +82,12 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         FROM users u
         LEFT JOIN LATERAL (
           SELECT AVG(r.rating)::float as avg_rating, COUNT(*)::int as review_count
-          FROM reviews r WHERE r.reviewee_id = u.id AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+          FROM reviews r
+          JOIN bookings rb ON r.booking_id = rb.id
+          LEFT JOIN services rsvc ON rb.service_id = rsvc.id
+          WHERE r.reviewee_id = u.id
+            AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+            AND (rsvc.type IS NULL OR rsvc.type != 'meet_greet')
         ) rv ON true
         LEFT JOIN booking_stats bk ON bk.sitter_id = u.id
         LEFT JOIN LATERAL (
