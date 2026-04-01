@@ -1,6 +1,7 @@
 import postgres from 'postgres';
 import bcrypt from 'bcryptjs';
 import logger from './logger.ts';
+import { backfillSpeciesProfiles } from './backfill-species-profiles.ts';
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://localhost:5432/petlink';
 
@@ -684,6 +685,11 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS typical_day TEXT`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS info_wanted_about_pets TEXT`.catch(() => {});
 
+  // Backfill species profiles for sitters missing them and set species on services
+  await backfillSpeciesProfiles(sql).catch((err) => {
+    logger.error({ err }, 'Failed to backfill species profiles');
+  });
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
@@ -746,6 +752,11 @@ export async function initDb() {
     }
 
     logger.info('Database seeded with 13 users (1 owner-only, 12 owner+sitter)');
+
+    // Backfill species profiles for freshly seeded sitters
+    await backfillSpeciesProfiles(sql).catch((err) => {
+      logger.error({ err }, 'Failed to backfill species profiles for seeded data');
+    });
   }
 }
 
