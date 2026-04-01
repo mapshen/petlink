@@ -372,6 +372,22 @@ export async function initDb() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS tips (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id),
+      tipper_id INTEGER NOT NULL REFERENCES users(id),
+      sitter_id INTEGER NOT NULL REFERENCES users(id),
+      amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
+      stripe_payment_intent_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'succeeded', 'failed')),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(booking_id, tipper_id)
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_tips_sitter_id ON tips (sitter_id)`.catch(() => {});
+
   // Performance indexes
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_owner_id ON bookings (owner_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_sitter_id ON bookings (sitter_id)`;

@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 
-function getStripe(): Stripe {
+export function getStripe(): Stripe {
   if (!STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is not configured');
   }
@@ -21,6 +21,25 @@ export async function createPaymentIntent(
     capture_method: 'manual',
   });
 
+  if (!paymentIntent.client_secret) {
+    throw new Error('Payment intent created without client secret');
+  }
+  return {
+    clientSecret: paymentIntent.client_secret,
+    paymentIntentId: paymentIntent.id,
+  };
+}
+
+/** Create a payment intent with automatic capture (for tips — no escrow) */
+export async function createAutoPaymentIntent(
+  amount: number
+): Promise<{ clientSecret: string; paymentIntentId: string }> {
+  const stripe = getStripe();
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount,
+    currency: 'usd',
+    capture_method: 'automatic',
+  });
   if (!paymentIntent.client_secret) {
     throw new Error('Payment intent created without client secret');
   }

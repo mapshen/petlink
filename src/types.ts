@@ -354,6 +354,18 @@ export interface SitterPayout {
   created_at: string;
 }
 
+export type TipStatus = 'pending' | 'succeeded' | 'failed';
+
+export interface Tip {
+  id: number;
+  booking_id: number;
+  tipper_id: number;
+  sitter_id: number;
+  amount_cents: number;
+  status: TipStatus;
+  created_at: string;
+}
+
 export interface AnalyticsOverview {
   total_bookings: number;
   completed_bookings: number;

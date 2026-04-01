@@ -2,7 +2,8 @@ import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Booking } from '../../types';
-import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2, Heart } from 'lucide-react';
+import TipDialog from '../../components/booking/TipDialog';
 import BookingReviewDetail from '../../components/review/BookingReviewDetail';
 
 const CalendarCommandCenter = lazy(() => import('../../components/calendar/CalendarCommandCenter'));
@@ -48,6 +49,8 @@ export default function HomePage() {
   const [cancelDialogBookingId, setCancelDialogBookingId] = useState<number | null>(null);
   const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
+  const [tipBookingId, setTipBookingId] = useState<number | null>(null);
+  const [tippedBookingIds, setTippedBookingIds] = useState<Set<number>>(new Set());
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
@@ -374,12 +377,20 @@ export default function HomePage() {
                         )}
 
                         {booking.status === 'completed' && (
-                          <Button size="xs" variant="outline" asChild>
-                            <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
-                              <RefreshCw className="w-3.5 h-3.5" />
-                              Book Again
-                            </Link>
-                          </Button>
+                          <>
+                            <Button size="xs" variant="outline" asChild>
+                              <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                Book Again
+                              </Link>
+                            </Button>
+                            {!isSitterMode && !tippedBookingIds.has(booking.id) && (
+                              <Button size="xs" variant="outline" onClick={() => setTipBookingId(booking.id)}>
+                                <Heart className="w-3.5 h-3.5 text-pink-500" />
+                                Tip
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -543,6 +554,24 @@ export default function HomePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Tip Dialog */}
+      {tipBookingId && (() => {
+        const tipBooking = bookings.find((b) => b.id === tipBookingId);
+        if (!tipBooking) return null;
+        return (
+          <TipDialog
+            bookingId={tipBookingId}
+            bookingTotalCents={tipBooking.total_price_cents || 0}
+            sitterName={tipBooking.sitter_name || 'your sitter'}
+            open={true}
+            onOpenChange={(open) => { if (!open) setTipBookingId(null); }}
+            onTipSent={() => {
+              setTippedBookingIds((prev) => new Set([...prev, tipBookingId]));
+              setTipBookingId(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
