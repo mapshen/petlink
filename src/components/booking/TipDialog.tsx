@@ -43,7 +43,7 @@ export default function TipDialog({ bookingId, bookingTotalCents, sitterName, op
   const effectiveAmount = selectedAmount ?? (Number.isFinite(parsedCustom) ? parsedCustom : 0);
 
   const handleSubmit = async () => {
-    if (effectiveAmount <= 0) return;
+    if (effectiveAmount < 50) { setError('Minimum tip is $0.50'); return; }
     setSubmitting(true);
     setError(null);
 

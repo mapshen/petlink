@@ -90,12 +90,12 @@ export default function walkRoutes(router: Router, io: Server): void {
       // Schedule delayed payout for sitter
       // NOTE: Payouts are currently only triggered for walk-type bookings (via walk end event).
       // This is acceptable for now since walks are the only booking type with a completion path.
-      if (booking.total_price && booking.total_price > 0) {
+      if (booking.total_price_cents && booking.total_price_cents > 0) {
         const delayDays = await getPayoutDelay(booking.sitter_id);
         await schedulePayoutForBooking(
           Number(req.params.bookingId),
           booking.sitter_id,
-          booking.total_price,
+          booking.total_price_cents,
           delayDays
         );
         const payoutNotif = await createNotification(booking.sitter_id, 'payment_update', 'Payout Scheduled', 'A payout has been scheduled for your completed booking.', { booking_id: Number(req.params.bookingId) });
