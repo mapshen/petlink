@@ -86,9 +86,9 @@ export default function ServicesTab() {
   };
 
   const handleAdd = async () => {
-    const isMeetGreet = form.type === 'meet_greet';
-    const price = isMeetGreet ? 0 : Number(form.price);
-    if (!isMeetGreet && (!form.price || price < 1)) { setError('Price must be at least $1'); return; }
+    const price = Number(form.price) || 0;
+    if (price < 0) { setError('Price cannot be negative'); return; }
+    if (form.type !== 'meet_greet' && price < 1) { setError('Price must be at least $1'); return; }
     setSaving(true);
     setError(null);
     try {
@@ -121,9 +121,9 @@ export default function ServicesTab() {
   };
 
   const handleEdit = async () => {
-    const isMeetGreetEdit = form.type === 'meet_greet';
-    const editPrice = isMeetGreetEdit ? 0 : Number(form.price);
-    if (!editingId || (!isMeetGreetEdit && (!form.price || editPrice < 1))) { setError('Price must be at least $1'); return; }
+    const editPrice = Number(form.price) || 0;
+    if (editPrice < 0) { setError('Price cannot be negative'); return; }
+    if (!editingId || (form.type !== 'meet_greet' && editPrice < 1)) { setError('Price must be at least $1'); return; }
     setSaving(true);
     setError(null);
     try {
@@ -415,7 +415,7 @@ function ServiceFormFields({
         <label className="block text-sm font-medium text-stone-700 mb-1">Service Type</label>
         <select
           value={form.type}
-          onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value, ...(e.target.value === 'meet_greet' ? { price: '0' } : prev.type === 'meet_greet' ? { price: '' } : {}) }))}
+          onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))}
           className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
         >
           {availableTypes.map((t) => (
@@ -425,21 +425,18 @@ function ServiceFormFields({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-stone-700 mb-1">Price per session ($)</label>
-        {form.type === 'meet_greet' ? (
-          <div className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm bg-stone-50 text-emerald-700 font-medium">
-            Free (Meet & Greet)
-          </div>
-        ) : (
-          <Input
-            type="number"
-            min={1}
-            max={9999}
-            value={form.price}
-            onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
-            placeholder="e.g. 25"
-          />
-        )}
+        <label className="block text-sm font-medium text-stone-700 mb-1">
+          Price per session ($)
+          {form.type === 'meet_greet' && <span className="text-stone-400 font-normal ml-1">— leave at 0 for free</span>}
+        </label>
+        <Input
+          type="number"
+          min={0}
+          max={9999}
+          value={form.price}
+          onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
+          placeholder={form.type === 'meet_greet' ? '0 (free)' : 'e.g. 25'}
+        />
       </div>
 
       {form.type !== 'meet_greet' && (

@@ -24,7 +24,7 @@ describe('getServiceLabel (shared)', () => {
 
 describe('ALL_SERVICE_TYPES', () => {
   it('contains all 6 service types', () => {
-    expect(ALL_SERVICE_TYPES).toEqual(['walking', 'sitting', 'drop-in', 'daycare', 'grooming', 'meet_greet']);
+    expect(ALL_SERVICE_TYPES).toEqual(['meet_greet', 'walking', 'sitting', 'drop-in', 'daycare', 'grooming']);
   });
 });
 

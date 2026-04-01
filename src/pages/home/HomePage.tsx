@@ -378,12 +378,20 @@ export default function HomePage() {
 
                         {booking.status === 'completed' && (
                           <>
-                            <Button size="xs" variant="outline" asChild>
-                              <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
-                                <RefreshCw className="w-3.5 h-3.5" />
-                                Book Again
-                              </Link>
-                            </Button>
+                            {booking.service_type === 'meet_greet' ? (
+                              <Button size="xs" asChild className="bg-emerald-600 text-white hover:bg-emerald-700">
+                                <Link to={`/sitter/${booking.sitter_id}`}>
+                                  Book a Service
+                                </Link>
+                              </Button>
+                            ) : (
+                              <Button size="xs" variant="outline" asChild>
+                                <Link to={`/sitter/${booking.sitter_id}?serviceId=${booking.service_id}`}>
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  Book Again
+                                </Link>
+                              </Button>
+                            )}
                             {!isSitterMode && !tippedBookingIds.has(booking.id) && (
                               <Button size="xs" variant="outline" onClick={() => setTipBookingId(booking.id)}>
                                 <Heart className="w-3.5 h-3.5 text-pink-500" />

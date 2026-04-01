@@ -84,10 +84,10 @@ describe('getAvailableServices', () => {
     expect(services).toContain('sitting');
   });
 
-  it('preserves canonical order', () => {
+  it('preserves canonical order with meet_greet first', () => {
     const services = getAvailableServices(['cat', 'dog']);
-    expect(services[0]).toBe('walking');
-    expect(services[1]).toBe('daycare');
+    expect(services[0]).toBe('meet_greet');
+    expect(services[1]).toBe('walking');
   });
 });
 

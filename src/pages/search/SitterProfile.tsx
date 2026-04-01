@@ -217,7 +217,10 @@ export default function SitterProfile() {
       const [hours, minutes] = selectedTime.split(':').map(Number);
       const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), hours, minutes, 0, 0);
       const selectedSvc = services.find((s) => s.id === selectedService);
-      const durationMs = selectedSvc?.type === 'meet_greet' ? 1800000 : 3600000;
+      const meetGreetMinutes = (selectedSvc?.service_details as Record<string, unknown>)?.duration_minutes as number | undefined;
+      const durationMs = selectedSvc?.type === 'meet_greet'
+        ? (meetGreetMinutes || 30) * 60 * 1000
+        : 3600000;
       const endDate = new Date(startDate.getTime() + durationMs);
 
       const res = await fetch(`${API_BASE}/bookings`, {
@@ -240,7 +243,7 @@ export default function SitterProfile() {
       }
       const bookingData = await res.json();
       const selectedSvcObj = services.find((s) => s.id === selectedService);
-      const isFree = selectedSvcObj?.type === 'meet_greet' || selectedSvcObj?.price_cents === 0;
+      const isFree = selectedSvcObj?.price_cents === 0;
 
       if (isFree) {
         navigate('/home');
@@ -628,12 +631,12 @@ export default function SitterProfile() {
                   disabled={bookingLoading || !selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
                   className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {bookingLoading ? 'Submitting...' : selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet' ? 'Request Booking' : 'Request Booking & Pay'}
+                  {bookingLoading ? 'Submitting...' : selectedService && services.find((s) => s.id === selectedService)?.price_cents === 0 ? 'Request Booking' : 'Request Booking & Pay'}
                 </button>
 
                 <p className="text-xs text-center text-stone-400 mt-4">
-                  {selectedService && services.find((s) => s.id === selectedService)?.type === 'meet_greet'
-                    ? 'This is a free meet & greet — no payment required.'
+                  {selectedService && services.find((s) => s.id === selectedService)?.price_cents === 0
+                    ? 'This is a free service — no payment required.'
                     : 'You won\'t be charged until the sitter confirms.'}
                 </p>
                 <p className="text-xs text-center text-stone-400 mt-1">
