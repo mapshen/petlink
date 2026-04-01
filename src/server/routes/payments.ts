@@ -17,6 +17,10 @@ export default function paymentRoutes(router: Router): void {
         res.status(404).json({ error: 'Booking not found' });
         return;
       }
+      if (booking.status !== 'confirmed' && booking.status !== 'pending') {
+        res.status(400).json({ error: 'Payment can only be created for pending or confirmed bookings' });
+        return;
+      }
       if (booking.payment_intent_id) {
         res.status(409).json({ error: 'Payment already initiated for this booking' });
         return;
@@ -28,7 +32,7 @@ export default function paymentRoutes(router: Router): void {
       }
       const { clientSecret, paymentIntentId } = await createPaymentIntent(amountCents);
       await sql`UPDATE bookings SET payment_intent_id = ${paymentIntentId}, payment_status = 'held' WHERE id = ${booking_id}`;
-      res.json({ clientSecret, paymentIntentId });
+      res.json({ clientSecret });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Payment intent error');
       res.status(500).json({ error: 'Failed to create payment' });
@@ -38,11 +42,13 @@ export default function paymentRoutes(router: Router): void {
   router.post('/payments/capture', authMiddleware, validate(paymentActionSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
+      // Capture restricted to sitter (service provider) on completed bookings
       const [booking] = await sql`
-        SELECT * FROM bookings WHERE id = ${booking_id} AND owner_id = ${req.userId} AND payment_status = 'held'
+        SELECT * FROM bookings WHERE id = ${booking_id} AND sitter_id = ${req.userId}
+          AND payment_status = 'held' AND status = 'completed'
       `;
       if (!booking) {
-        res.status(404).json({ error: 'Booking not found or payment not held' });
+        res.status(404).json({ error: 'Booking not found, not completed, or payment not held' });
         return;
       }
       await capturePayment(booking.payment_intent_id);
@@ -58,11 +64,14 @@ export default function paymentRoutes(router: Router): void {
   router.post('/payments/cancel', authMiddleware, validate(paymentActionSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
+      // Only allow cancel on pending bookings — confirmed/in-progress must go through
+      // the booking cancellation flow which enforces cancellation policies
       const [booking] = await sql`
-        SELECT * FROM bookings WHERE id = ${booking_id} AND owner_id = ${req.userId} AND payment_status = 'held'
+        SELECT * FROM bookings WHERE id = ${booking_id} AND owner_id = ${req.userId}
+          AND payment_status = 'held' AND status = 'pending'
       `;
       if (!booking) {
-        res.status(404).json({ error: 'Booking not found or payment not held' });
+        res.status(404).json({ error: 'Booking not found, not pending, or payment not held' });
         return;
       }
       await cancelPayment(booking.payment_intent_id);
@@ -109,7 +118,8 @@ export default function paymentRoutes(router: Router): void {
       switch (event.type) {
         case 'payment_intent.succeeded': {
           const pi = event.data.object as { id: string };
-          await sql`UPDATE bookings SET payment_status = 'captured' WHERE payment_intent_id = ${pi.id}`;
+          // Only update held payments — don't overwrite already-cancelled bookings
+          await sql`UPDATE bookings SET payment_status = 'captured' WHERE payment_intent_id = ${pi.id} AND payment_status = 'held'`;
           const [succeededBooking] = await sql`SELECT id, owner_id FROM bookings WHERE payment_intent_id = ${pi.id}`;
           if (succeededBooking) {
             await createNotification(succeededBooking.owner_id, 'payment_update', 'Payment Captured', 'Your payment has been processed.', { booking_id: succeededBooking.id });
@@ -118,7 +128,7 @@ export default function paymentRoutes(router: Router): void {
         }
         case 'payment_intent.canceled': {
           const pi = event.data.object as { id: string };
-          await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE payment_intent_id = ${pi.id}`;
+          await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE payment_intent_id = ${pi.id} AND payment_status IN ('pending', 'held')`;
           const [cancelledBooking] = await sql`SELECT id, owner_id FROM bookings WHERE payment_intent_id = ${pi.id}`;
           if (cancelledBooking) {
             await createNotification(cancelledBooking.owner_id, 'payment_update', 'Payment Failed', 'Your payment could not be processed. Please update your payment method.', { booking_id: cancelledBooking.id });
