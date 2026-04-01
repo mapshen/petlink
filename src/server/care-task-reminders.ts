@@ -83,7 +83,7 @@ export async function checkCareTaskReminders(io: Server): Promise<number> {
       );
 
       // Only mark sent and push if notification was actually created
-      if (notification.id > 0) {
+      if (notification) {
         await sql`
           UPDATE booking_care_tasks SET reminder_sent_at = NOW()
           WHERE id = ${task.id} AND reminder_sent_at IS NULL

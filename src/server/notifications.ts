@@ -26,7 +26,7 @@ export async function createNotification(
   title: string,
   body: string,
   data?: Record<string, unknown>
-): Promise<Notification> {
+): Promise<Notification | null> {
   // Check user preferences
   const [prefs] = await sql`SELECT * FROM notification_preferences WHERE user_id = ${userId}`;
 
@@ -44,7 +44,7 @@ export async function createNotification(
     };
     const prefKey = prefMap[type];
     if (prefKey && !prefs[prefKey]) {
-      return { id: 0, user_id: userId, type, title, body, read: false, created_at: new Date().toISOString() };
+      return null;
     }
   }
 

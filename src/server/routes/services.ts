@@ -19,15 +19,19 @@ export default function serviceRoutes(router: Router): void {
       res.status(403).json({ error: 'Your sitter account is pending approval. You cannot manage services yet.' });
       return;
     }
-    const { type, price, description, additional_pet_price, max_pets, service_details } = req.body;
-    const [existing] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type}`;
+    const { type, price, description, additional_pet_price, max_pets, service_details, species,
+      holiday_rate, puppy_rate, pickup_dropoff_fee, grooming_addon_fee } = req.body;
+    const [existing] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type} AND (species = ${species ?? null} OR (species IS NULL AND ${species ?? null} IS NULL))`;
     if (existing) {
-      res.status(409).json({ error: `You already have a ${type} service. Edit it instead.` });
+      res.status(409).json({ error: `You already have a ${type} service${species ? ` for ${species}` : ''}. Edit it instead.` });
       return;
     }
     const [service] = await sql`
-      INSERT INTO services (sitter_id, type, price, description, additional_pet_price, max_pets, service_details)
-      VALUES (${req.userId}, ${type}, ${price}, ${description || null}, ${additional_pet_price || 0}, ${max_pets || 1}, ${service_details ? sql.json(service_details) : null})
+      INSERT INTO services (sitter_id, type, price, description, additional_pet_price, max_pets, service_details, species,
+        holiday_rate, puppy_rate, pickup_dropoff_fee, grooming_addon_fee)
+      VALUES (${req.userId}, ${type}, ${price}, ${description || null}, ${additional_pet_price || 0}, ${max_pets || 1},
+        ${service_details ? sql.json(service_details) : null}, ${species ?? null},
+        ${holiday_rate ?? null}, ${puppy_rate ?? null}, ${pickup_dropoff_fee ?? null}, ${grooming_addon_fee ?? null})
       RETURNING *
     `;
     res.status(201).json({ service });
@@ -48,10 +52,21 @@ export default function serviceRoutes(router: Router): void {
       res.status(404).json({ error: 'Service not found' });
       return;
     }
-    const { type, price, description, additional_pet_price, max_pets, service_details } = req.body;
+    const { type, price, description, additional_pet_price, max_pets, service_details, species,
+      holiday_rate, puppy_rate, pickup_dropoff_fee, grooming_addon_fee } = req.body;
+    // Prevent type/species change from creating duplicates
+    if (type !== service.type || (species ?? null) !== (service.species ?? null)) {
+      const [dup] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type} AND (species = ${species ?? null} OR (species IS NULL AND ${species ?? null} IS NULL)) AND id != ${req.params.id}`;
+      if (dup) {
+        res.status(409).json({ error: `You already have a ${type} service${species ? ` for ${species}` : ''}` });
+        return;
+      }
+    }
     const [updated] = await sql`
       UPDATE services SET type = ${type}, price = ${price}, description = ${description || null}, additional_pet_price = ${additional_pet_price || 0},
-      max_pets = ${max_pets || 1}, service_details = ${service_details ? sql.json(service_details) : null}
+      max_pets = ${max_pets || 1}, service_details = ${service_details ? sql.json(service_details) : null}, species = ${species ?? null},
+      holiday_rate = ${holiday_rate ?? null}, puppy_rate = ${puppy_rate ?? null},
+      pickup_dropoff_fee = ${pickup_dropoff_fee ?? null}, grooming_addon_fee = ${grooming_addon_fee ?? null}
       WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
       RETURNING *
     `;

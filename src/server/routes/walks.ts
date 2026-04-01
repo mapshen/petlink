@@ -78,14 +78,14 @@ export default function walkRoutes(router: Router, io: Server): void {
       await sql`UPDATE bookings SET status = 'in_progress' WHERE id = ${req.params.bookingId}`;
       const [sitterUser] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
       const startNotif = await createNotification(booking.owner_id, 'walk_started', 'Walk Started', `${sitterUser.name} has started the walk.`, { booking_id: Number(req.params.bookingId) });
-      io.to(String(booking.owner_id)).emit('notification', startNotif);
+      if (startNotif) io.to(String(booking.owner_id)).emit('notification', startNotif);
     }
     // If event is 'end', update booking to completed, schedule payout, and notify owner
     if (event_type === 'end') {
       await sql`UPDATE bookings SET status = 'completed' WHERE id = ${req.params.bookingId}`;
       const [sitterUser] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
       const endNotif = await createNotification(booking.owner_id, 'walk_completed', 'Walk Completed', `${sitterUser.name} has completed the walk.`, { booking_id: Number(req.params.bookingId) });
-      io.to(String(booking.owner_id)).emit('notification', endNotif);
+      if (endNotif) io.to(String(booking.owner_id)).emit('notification', endNotif);
 
       // Schedule delayed payout for sitter
       // NOTE: Payouts are currently only triggered for walk-type bookings (via walk end event).
@@ -99,7 +99,7 @@ export default function walkRoutes(router: Router, io: Server): void {
           delayDays
         );
         const payoutNotif = await createNotification(booking.sitter_id, 'payment_update', 'Payout Scheduled', 'A payout has been scheduled for your completed booking.', { booking_id: Number(req.params.bookingId) });
-        io.to(String(booking.sitter_id)).emit('notification', payoutNotif);
+        if (payoutNotif) io.to(String(booking.sitter_id)).emit('notification', payoutNotif);
       }
     }
 

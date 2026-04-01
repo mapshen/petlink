@@ -167,7 +167,7 @@ async function startServer() {
   importRoutes(v1);
   miscRoutes(v1);
   postRoutes(v1, publicLimiter);
-  speciesProfileRoutes(v1);
+  speciesProfileRoutes(v1, publicLimiter);
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
   app.use('/api/v1', v1);

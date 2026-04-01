@@ -1,10 +1,13 @@
 import type { Router } from 'express';
+import type { RateLimitRequestHandler } from 'express-rate-limit';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
+import { validate, speciesProfileSchema } from '../validation.ts';
+import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
 
 const VALID_SPECIES = ['dog', 'cat', 'bird', 'reptile', 'small_animal'];
 
-export default function speciesProfileRoutes(router: Router): void {
+export default function speciesProfileRoutes(router: Router, publicLimiter?: RateLimitRequestHandler): void {
   // Get all species profiles for the current sitter
   router.get('/species-profiles/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const profiles = await sql`
@@ -16,7 +19,8 @@ export default function speciesProfileRoutes(router: Router): void {
   });
 
   // Get species profiles for a specific sitter (public)
-  router.get('/species-profiles/:sitterId', async (req, res) => {
+  const publicMiddleware = publicLimiter ? [requireUserAgent, botBlockMiddleware, publicLimiter] : [];
+  router.get('/species-profiles/:sitterId', ...publicMiddleware, async (req, res) => {
     const sitterId = Number(req.params.sitterId);
     if (!Number.isInteger(sitterId) || sitterId <= 0) {
       res.status(400).json({ error: 'Invalid sitter ID' });
@@ -31,7 +35,7 @@ export default function speciesProfileRoutes(router: Router): void {
   });
 
   // Upsert a species profile
-  router.put('/species-profiles/:species', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  router.put('/species-profiles/:species', authMiddleware, validate(speciesProfileSchema), async (req: AuthenticatedRequest, res) => {
     const species = req.params.species;
     if (!VALID_SPECIES.includes(species)) {
       res.status(400).json({ error: `Invalid species. Must be one of: ${VALID_SPECIES.join(', ')}` });
@@ -115,15 +119,12 @@ export default function speciesProfileRoutes(router: Router): void {
       return;
     }
 
-    // Delete the profile and associated services
-    await sql`DELETE FROM sitter_species_profiles WHERE sitter_id = ${req.userId} AND species = ${species}`;
-    await sql`DELETE FROM services WHERE sitter_id = ${req.userId} AND species = ${species}`;
-
-    // Remove species from user's accepted_species
-    await sql`
-      UPDATE users SET accepted_species = array_remove(accepted_species, ${species})
-      WHERE id = ${req.userId}
-    `.catch(() => {});
+    // Delete profile, services, and update user in a transaction
+    await sql.begin(async (tx: any) => {
+      await tx`DELETE FROM sitter_species_profiles WHERE sitter_id = ${req.userId} AND species = ${species}`;
+      await tx`DELETE FROM services WHERE sitter_id = ${req.userId} AND species = ${species}`;
+      await tx`UPDATE users SET accepted_species = array_remove(accepted_species, ${species}) WHERE id = ${req.userId}`;
+    });
 
     res.json({ success: true });
   });

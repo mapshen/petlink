@@ -280,7 +280,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
     const [owner] = await sql`SELECT name, email FROM users WHERE id = ${req.userId}`;
     const [sitter] = await sql`SELECT name, email FROM users WHERE id = ${sitter_id}`;
     const notification = await createNotification(sitter_id, 'new_booking', 'New Booking Request', `${owner.name} has requested a booking.`, { booking_id: booking.id });
-    io.to(String(sitter_id)).emit('notification', notification);
+    if (notification) io.to(String(sitter_id)).emit('notification', notification);
 
     // Send email notifications (fire-and-forget)
     const formattedStart = formatDate(new Date(start_time), 'MMMM d, yyyy \'at\' h:mm a');
@@ -443,7 +443,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       const notification = await createNotification(
         otherUserId, 'booking_status', title, body, { booking_id: bookingId }
       );
-      io.to(String(otherUserId)).emit('notification', notification);
+      if (notification) io.to(String(otherUserId)).emit('notification', notification);
 
       // Send email notification for status change
       const [otherUser] = await sql`SELECT name, email FROM users WHERE id = ${otherUserId}`;

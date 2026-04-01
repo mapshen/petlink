@@ -140,10 +140,30 @@ export const serviceSchema = z.object({
     (obj) => JSON.stringify(obj).length <= 5000,
     'Service details must be under 5KB'
   ).optional().nullable(),
+  species: z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal']).optional().nullable(),
   holiday_rate: z.number().min(0).max(9999).optional().nullable(),
   puppy_rate: z.number().min(0).max(9999).optional().nullable(),
   pickup_dropoff_fee: z.number().min(0).max(500).optional().nullable(),
   grooming_addon_fee: z.number().min(0).max(500).optional().nullable(),
+});
+
+export const speciesProfileSchema = z.object({
+  years_experience: z.number().int().min(0).max(99).optional().nullable(),
+  accepted_pet_sizes: z.array(z.enum(['small', 'medium', 'large', 'giant'])).max(4).optional().default([]),
+  skills: z.array(z.enum(sitterSkills)).max(10).optional().default([]),
+  max_pets: z.number().int().min(1).max(20).optional().default(1),
+  max_pets_per_walk: z.number().int().min(1).max(10).optional().nullable(),
+  has_yard: z.boolean().optional().default(false),
+  has_fenced_yard: z.boolean().optional().default(false),
+  dogs_on_furniture: z.boolean().optional().default(false),
+  dogs_on_bed: z.boolean().optional().default(false),
+  potty_break_frequency: z.string().max(100).optional().nullable(),
+  accepts_puppies: z.boolean().optional().default(true),
+  accepts_unspayed: z.boolean().optional().default(true),
+  accepts_unneutered: z.boolean().optional().default(true),
+  accepts_females_in_heat: z.boolean().optional().default(true),
+  owns_same_species: z.boolean().optional().default(false),
+  own_pets_description: z.string().max(500).optional().nullable(),
 });
 
 // --- Sitter Photo Schemas ---
