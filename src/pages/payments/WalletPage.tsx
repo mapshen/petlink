@@ -34,7 +34,7 @@ type WalletTab = 'earnings' | 'expenses' | 'tax' | 'payouts';
 interface Expense {
   id: number;
   category: string;
-  amount: number;
+  amount_cents: number;
   description?: string;
   date: string;
 }
@@ -195,7 +195,7 @@ export default function WalletPage() {
       const res = await fetch(url, {
         method,
         headers: getAuthHeaders(token),
-        body: JSON.stringify({ category: form.category, amount: Number(form.amount), description: form.description || null, date: form.date }),
+        body: JSON.stringify({ category: form.category, amount_cents: Math.round(Number(form.amount) * 100), description: form.description || null, date: form.date }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -494,8 +494,8 @@ export default function WalletPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-red-600">-{formatCurrency(expense.amount)}</span>
-                          <button onClick={() => { setForm({ category: expense.category, amount: expense.amount.toString(), description: expense.description || '', date: expense.date.split('T')[0] }); setEditingId(expense.id); setShowForm(true); }}
+                          <span className="text-sm font-bold text-red-600">-{formatCurrency(expense.amount_cents / 100)}</span>
+                          <button onClick={() => { setForm({ category: expense.category, amount: (expense.amount_cents / 100).toString(), description: expense.description || '', date: expense.date.split('T')[0] }); setEditingId(expense.id); setShowForm(true); }}
                             className="p-1.5 text-stone-400 hover:text-emerald-600"><Pencil className="w-3.5 h-3.5" /></button>
                           <button onClick={() => setDeleteDialogId(expense.id)}
                             className="p-1.5 text-stone-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>

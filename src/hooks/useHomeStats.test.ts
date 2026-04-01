@@ -54,7 +54,7 @@ describe('computeSitterStats', () => {
   const future = new Date(now.getTime() + 86400000).toISOString();
 
   it('extracts analytics values', () => {
-    const analytics = { total_revenue: 485, avg_rating: 4.9, review_count: 24, avg_response_hours: 2.1 };
+    const analytics = { total_revenue_cents: 48500, avg_rating: 4.9, review_count: 24, avg_response_hours: 2.1 };
     const stats = computeSitterStats([], 2, analytics);
     expect(stats.revenueThisMonth).toBe(485);
     expect(stats.avgRating).toBe(4.9);
