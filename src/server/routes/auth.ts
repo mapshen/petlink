@@ -6,6 +6,8 @@ import { verifyOAuthToken } from '../oauth.ts';
 import { isAdminUser } from '../admin.ts';
 import { sendEmail, buildOwnerWelcomeEmail } from '../email.ts';
 import { generateUniqueSlug } from '../slugify.ts';
+import { checkLockout, recordLoginAttempt, shouldSendAlert } from '../login-lockout.ts';
+import logger from '../logger.ts';
 
 // Shared column list for user queries — keep in sync with User type
 const USER_COLUMNS = sql`id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason`;
@@ -38,19 +40,37 @@ export default function authRoutes(router: Router): void {
 
   router.post('/auth/login', validate(loginSchema), async (req, res) => {
     const { email, password } = req.body;
+    const clientIp = req.ip || req.socket.remoteAddress;
 
-    const [user] = await sql`SELECT ${USER_COLUMNS}, password_hash FROM users WHERE email = ${email}`;
-    if (!user) {
-      res.status(401).json({ error: 'Invalid email or password' });
+    // Check lockout before doing any work
+    const lockout = await checkLockout(email);
+    if (lockout.locked) {
+      res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
       return;
     }
 
-    if (!user.password_hash) {
+    const [user] = await sql`SELECT ${USER_COLUMNS}, password_hash FROM users WHERE email = ${email}`;
+    if (!user || !user.password_hash) {
+      // Dummy bcrypt compare to equalize timing with the real password check path
+      // Prevents email enumeration via response time analysis
+      await verifyPassword(password, '$2a$10$0000000000000000000000000000000000000000000000000000');
+      await recordLoginAttempt(email, clientIp, false);
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
 
     if (!await verifyPassword(password, user.password_hash)) {
+      const failureCount = await recordLoginAttempt(email, clientIp, false);
+
+      // Send email alert after 3rd failed attempt
+      if (shouldSendAlert(failureCount) && user.email) {
+        sendEmail({
+          to: user.email,
+          subject: 'Suspicious login activity on your PetLink account',
+          html: `<p>Hi ${user.name},</p><p>We detected ${failureCount} failed login attempts on your account. If this wasn't you, please change your password immediately.</p><p>— PetLink Security</p>`,
+        }).catch((err) => logger.error({ err }, 'Failed to send login alert email'));
+      }
+
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
@@ -59,6 +79,9 @@ export default function authRoutes(router: Router): void {
       res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
       return;
     }
+
+    // Successful login — clear failed attempts
+    await recordLoginAttempt(email, clientIp, true);
 
     const token = signToken({ userId: user.id });
     const refreshToken = await createRefreshToken(user.id);
