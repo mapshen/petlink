@@ -50,6 +50,8 @@ const PET_SPECIES = [
   { label: 'Small Animal', value: 'small_animal' },
 ];
 
+const SPECIES_EMOJI: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
+
 async function geocodeAddress(address: string): Promise<Coords | null> {
   try {
     const res = await fetch(
@@ -494,7 +496,7 @@ export default function Search() {
                               <div className="flex gap-1">
                                 {sitter.accepted_species.map((s: string) => (
                                   <span key={s} className="text-stone-400" title={s.replace(/_/g, ' ')}>
-                                    {{ dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' }[s] || '🐾'}
+                                    {SPECIES_EMOJI[s] || '🐾'}
                                   </span>
                                 ))}
                               </div>

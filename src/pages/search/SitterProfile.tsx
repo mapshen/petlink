@@ -186,6 +186,13 @@ export default function SitterProfile() {
     ? services.filter((s) => !s.species || selectedPetSpecies.includes(s.species))
     : services;
 
+  // Reset selected service if it's no longer in the filtered list
+  useEffect(() => {
+    if (selectedService && !bookingServices.find((s) => s.id === selectedService)) {
+      setSelectedService(bookingServices.length > 0 ? bookingServices[0].id : null);
+    }
+  }, [bookingServices, selectedService]);
+
   const handleBooking = async () => {
     if (!user) {
       navigate('/login');
@@ -499,7 +506,7 @@ export default function SitterProfile() {
                 )}
 
                 {selectedPetIds.length > 0 && selectedService && (() => {
-                  const svc = services.find((s) => s.id === selectedService);
+                  const svc = bookingServices.find((s) => s.id === selectedService);
                   if (!svc || svc.price === 0) return null;
                   const total = calculateBookingPrice(svc.price, svc.additional_pet_price || 0, selectedPetIds.length);
                   return (
