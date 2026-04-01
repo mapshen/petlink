@@ -170,8 +170,11 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         AVG(r.rating)::float as avg_rating,
         COUNT(*)::int as review_count
       FROM reviews r
+      JOIN bookings rb ON r.booking_id = rb.id
+      LEFT JOIN services rsvc ON rb.service_id = rsvc.id
       WHERE r.reviewee_id = ${sitterId}
         AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+        AND (rsvc.type IS NULL OR rsvc.type != 'meet_greet')
     `;
 
     // Reviews only returned for authenticated users

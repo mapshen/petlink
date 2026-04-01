@@ -87,6 +87,7 @@ export default function ServicesTab() {
 
   const handleAdd = async () => {
     const price = Number(form.price) || 0;
+    if (price < 0) { setError('Price cannot be negative'); return; }
     if (form.type !== 'meet_greet' && price < 1) { setError('Price must be at least $1'); return; }
     setSaving(true);
     setError(null);
@@ -121,6 +122,7 @@ export default function ServicesTab() {
 
   const handleEdit = async () => {
     const editPrice = Number(form.price) || 0;
+    if (editPrice < 0) { setError('Price cannot be negative'); return; }
     if (!editingId || (form.type !== 'meet_greet' && editPrice < 1)) { setError('Price must be at least $1'); return; }
     setSaving(true);
     setError(null);
