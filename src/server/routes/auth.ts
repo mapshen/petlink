@@ -45,18 +45,15 @@ export default function authRoutes(router: Router): void {
     // Check lockout before doing any work
     const lockout = await checkLockout(email);
     if (lockout.locked) {
-      res.status(429).json({ error: `Too many failed attempts. Try again in ${lockout.lockoutMinutes} minutes.` });
+      res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
       return;
     }
 
     const [user] = await sql`SELECT ${USER_COLUMNS}, password_hash FROM users WHERE email = ${email}`;
-    if (!user) {
-      await recordLoginAttempt(email, clientIp, false);
-      res.status(401).json({ error: 'Invalid email or password' });
-      return;
-    }
-
-    if (!user.password_hash) {
+    if (!user || !user.password_hash) {
+      // Dummy bcrypt compare to equalize timing with the real password check path
+      // Prevents email enumeration via response time analysis
+      await verifyPassword(password, '$2a$10$0000000000000000000000000000000000000000000000000000');
       await recordLoginAttempt(email, clientIp, false);
       res.status(401).json({ error: 'Invalid email or password' });
       return;

@@ -113,7 +113,7 @@ export default function adminRoutes(router: Router): void {
       res.status(400).json({ error: 'Email is required' });
       return;
     }
-    await clearLockout(email);
+    await clearLockout(email, req.userId);
     res.json({ success: true, message: `Login lockout cleared for ${email}` });
   });
 }

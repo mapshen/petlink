@@ -394,7 +394,7 @@ export async function initDb() {
       email TEXT NOT NULL,
       ip_address TEXT,
       attempted_at TIMESTAMPTZ DEFAULT NOW(),
-      success BOOLEAN DEFAULT false
+      success BOOLEAN NOT NULL DEFAULT false
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts (email, attempted_at)`.catch(() => {});
