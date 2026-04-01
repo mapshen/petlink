@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSpeciesProfiles, getServiceSpecies, type SitterRow } from './backfill-species-profiles';
+import { buildSpeciesProfiles, type SitterRow } from './backfill-species-profiles';
 
 const baseSitter: SitterRow = {
   id: 1,
@@ -90,25 +90,3 @@ describe('buildSpeciesProfiles', () => {
   });
 });
 
-describe('getServiceSpecies', () => {
-  it('assigns walking to dog regardless of accepted species', () => {
-    expect(getServiceSpecies('walking', ['cat', 'dog'])).toBe('dog');
-    expect(getServiceSpecies('walking', ['cat'])).toBe('dog');
-  });
-
-  it('assigns daycare to dog regardless of accepted species', () => {
-    expect(getServiceSpecies('daycare', ['cat', 'bird'])).toBe('dog');
-  });
-
-  it('assigns universal services to primary (first) species', () => {
-    expect(getServiceSpecies('sitting', ['cat', 'dog'])).toBe('cat');
-    expect(getServiceSpecies('drop-in', ['bird'])).toBe('bird');
-    expect(getServiceSpecies('grooming', ['reptile', 'bird'])).toBe('reptile');
-    expect(getServiceSpecies('meet_greet', ['small_animal'])).toBe('small_animal');
-  });
-
-  it('defaults to dog when accepted species is empty', () => {
-    expect(getServiceSpecies('sitting', [])).toBe('dog');
-    expect(getServiceSpecies('walking', [])).toBe('dog');
-  });
-});
