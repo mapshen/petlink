@@ -6,7 +6,7 @@ import { validate, createBookingSchema, updateBookingStatusSchema, bookingFilter
 import { createNotification, getPreferences } from '../notifications.ts';
 import { capturePayment, cancelPayment, refundPayment } from '../payments.ts';
 import { calculateRefund } from '../cancellation.ts';
-import { calculateBookingPrice } from '../multi-pet-pricing.ts';
+import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { format as formatDate } from 'date-fns';
@@ -176,7 +176,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       res.status(400).json({ error: 'This sitter is not currently available for bookings' });
       return;
     }
-    const [service] = await sql`SELECT id, price, type, additional_pet_price, max_pets FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    const [service] = await sql`SELECT id, price, type, additional_pet_price, max_pets, holiday_rate, puppy_rate, pickup_dropoff_fee, grooming_addon_fee FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
     if (!service) {
       res.status(400).json({ error: 'Invalid service for this sitter' });
       return;
@@ -186,7 +186,21 @@ export default function bookingRoutes(router: Router, io: Server): void {
       return;
     }
 
-    const totalPrice = calculateBookingPrice(service.price, service.additional_pet_price || 0, pet_ids.length);
+    // Check for holiday/puppy pricing
+    const bookingDate = new Date(start_time);
+    const bookedPets = await sql`SELECT age FROM pets WHERE id = ANY(${pet_ids})`;
+    const hasPuppyPet = bookedPets.some((p: { age: number | null }) => isPuppy(p.age ?? undefined));
+
+    const pricing = calculateAdvancedPrice({
+      basePrice: service.price,
+      additionalPetPrice: service.additional_pet_price || 0,
+      petCount: pet_ids.length,
+      isHoliday: isUSHoliday(bookingDate),
+      holidayRate: service.holiday_rate,
+      hasPuppy: hasPuppyPet,
+      puppyRate: service.puppy_rate,
+    });
+    const totalPrice = pricing.total;
 
     // Use transaction for booking + booking_pets + care tasks
     let booking;

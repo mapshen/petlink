@@ -24,7 +24,7 @@ import PetSelector from '../../components/booking/PetSelector';
 import { useFavorites } from '../../hooks/useFavorites';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
-import { calculateBookingPrice } from '../../shared/pricing';
+import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing';
 import { getPolicyDescription } from '../../shared/cancellation';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -67,6 +67,8 @@ export default function SitterProfile() {
   const [activeTab, setActiveTab] = useState<TabId>('posts');
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [postsKey, setPostsKey] = useState(0);
+  const [wantsPickup, setWantsPickup] = useState(false);
+  const [wantsGrooming, setWantsGrooming] = useState(false);
   const bookingRef = useRef<HTMLDivElement>(null);
 
   const scrollToBooking = useCallback(() => {
@@ -238,8 +240,21 @@ export default function SitterProfile() {
 
       const bookingId = bookingData.id ?? bookingData.booking?.id;
       if (bookingId) {
-        const totalPrice = calculateBookingPrice(selectedSvcObj!.price, selectedSvcObj!.additional_pet_price || 0, selectedPetIds.length);
-        const totalCents = Math.round(totalPrice * 100);
+        const selectedPetsForPrice = pets.filter((p) => selectedPetIds.includes(p.id));
+        const pricing = calculateAdvancedPrice({
+          basePrice: selectedSvcObj!.price,
+          additionalPetPrice: selectedSvcObj!.additional_pet_price || 0,
+          petCount: selectedPetIds.length,
+          isHoliday: selectedDate ? isUSHoliday(selectedDate) : false,
+          holidayRate: selectedSvcObj!.holiday_rate,
+          hasPuppy: selectedPetsForPrice.some((p) => isPuppy(p.age)),
+          puppyRate: selectedSvcObj!.puppy_rate,
+          pickupDropoff: wantsPickup,
+          pickupDropoffFee: selectedSvcObj!.pickup_dropoff_fee,
+          groomingAddon: wantsGrooming,
+          groomingAddonFee: selectedSvcObj!.grooming_addon_fee,
+        });
+        const totalCents = Math.round(pricing.total * 100);
         setPaymentAmount(totalCents);
         const result = await createIntent(bookingId);
         if (result.secret) {
@@ -508,22 +523,79 @@ export default function SitterProfile() {
                 {selectedPetIds.length > 0 && selectedService && (() => {
                   const svc = bookingServices.find((s) => s.id === selectedService);
                   if (!svc || svc.price === 0) return null;
-                  const total = calculateBookingPrice(svc.price, svc.additional_pet_price || 0, selectedPetIds.length);
+                  const selectedPets = pets.filter((p) => selectedPetIds.includes(p.id));
+                  const hasPuppyPet = selectedPets.some((p) => isPuppy(p.age));
+                  const holidayDate = selectedDate ? isUSHoliday(selectedDate) : false;
+                  const pricing = calculateAdvancedPrice({
+                    basePrice: svc.price,
+                    additionalPetPrice: svc.additional_pet_price || 0,
+                    petCount: selectedPetIds.length,
+                    isHoliday: holidayDate,
+                    holidayRate: svc.holiday_rate,
+                    hasPuppy: hasPuppyPet,
+                    puppyRate: svc.puppy_rate,
+                    pickupDropoff: wantsPickup,
+                    pickupDropoffFee: svc.pickup_dropoff_fee,
+                    groomingAddon: wantsGrooming,
+                    groomingAddonFee: svc.grooming_addon_fee,
+                  });
                   return (
-                    <div className="mb-6 p-3 bg-stone-50 rounded-xl space-y-1">
-                      <div className="flex justify-between text-sm text-stone-600">
-                        <span>Base price</span>
-                        <span>${svc.price}</span>
-                      </div>
-                      {selectedPetIds.length > 1 && (svc.additional_pet_price || 0) > 0 && (
-                        <div className="flex justify-between text-sm text-stone-600">
-                          <span>{selectedPetIds.length - 1} extra pet{selectedPetIds.length > 2 ? 's' : ''} × ${svc.additional_pet_price}</span>
-                          <span>${((selectedPetIds.length - 1) * (svc.additional_pet_price || 0)).toFixed(2)}</span>
+                    <div className="mb-6 space-y-3">
+                      {/* Add-ons */}
+                      {(svc.pickup_dropoff_fee || svc.grooming_addon_fee) && (
+                        <div className="p-3 bg-white border border-stone-200 rounded-xl space-y-2">
+                          <div className="text-xs font-bold text-stone-500 uppercase tracking-wider">Add-ons</div>
+                          {svc.pickup_dropoff_fee != null && svc.pickup_dropoff_fee > 0 && (
+                            <label className="flex items-center justify-between cursor-pointer text-sm">
+                              <span className="flex items-center gap-2">
+                                <input type="checkbox" checked={wantsPickup} onChange={(e) => setWantsPickup(e.target.checked)} className="rounded text-emerald-600" />
+                                Pickup & drop-off
+                              </span>
+                              <span className="text-stone-500">+${svc.pickup_dropoff_fee}</span>
+                            </label>
+                          )}
+                          {svc.grooming_addon_fee != null && svc.grooming_addon_fee > 0 && (
+                            <label className="flex items-center justify-between cursor-pointer text-sm">
+                              <span className="flex items-center gap-2">
+                                <input type="checkbox" checked={wantsGrooming} onChange={(e) => setWantsGrooming(e.target.checked)} className="rounded text-emerald-600" />
+                                Grooming add-on
+                              </span>
+                              <span className="text-stone-500">+${svc.grooming_addon_fee}</span>
+                            </label>
+                          )}
                         </div>
                       )}
-                      <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
-                        <span>Total</span>
-                        <span>${total.toFixed(2)}</span>
+
+                      {/* Price breakdown */}
+                      <div className="p-3 bg-stone-50 rounded-xl space-y-1">
+                        <div className="flex justify-between text-sm text-stone-600">
+                          <span>
+                            {pricing.breakdown.holidayApplied ? 'Holiday rate' : pricing.breakdown.puppyApplied ? 'Puppy/kitten rate' : 'Base price'}
+                          </span>
+                          <span>${pricing.breakdown.base}</span>
+                        </div>
+                        {pricing.breakdown.extraPets > 0 && (
+                          <div className="flex justify-between text-sm text-stone-600">
+                            <span>{selectedPetIds.length - 1} extra pet{selectedPetIds.length > 2 ? 's' : ''}</span>
+                            <span>${pricing.breakdown.extraPets.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {pricing.breakdown.pickupDropoff > 0 && (
+                          <div className="flex justify-between text-sm text-stone-600">
+                            <span>Pickup & drop-off</span>
+                            <span>${pricing.breakdown.pickupDropoff}</span>
+                          </div>
+                        )}
+                        {pricing.breakdown.grooming > 0 && (
+                          <div className="flex justify-between text-sm text-stone-600">
+                            <span>Grooming add-on</span>
+                            <span>${pricing.breakdown.grooming}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
+                          <span>Total</span>
+                          <span>${pricing.total.toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   );
