@@ -11,9 +11,8 @@ interface SectionDef {
 
 const ALL_SECTIONS: SectionDef[] = [
   { id: 'profile', label: 'About', mode: 'both' },
-  { id: 'sitter-info', label: 'Sitter Info', mode: 'sitter' },
+  { id: 'species-profiles', label: 'Sitter Profile', mode: 'sitter' },
   { id: 'pets', label: 'My Pets', mode: 'owner' },
-  { id: 'services', label: 'Services', mode: 'sitter' },
   { id: 'availability', label: 'Availability', mode: 'sitter' },
   { id: 'location', label: 'Location', mode: 'sitter' },
   { id: 'photos', label: 'Photos', mode: 'sitter' },
@@ -35,8 +34,8 @@ describe('ProfilePage section visibility', () => {
     expect(getVisibleSectionIds('owner', false)).toEqual(['profile', 'pets']);
   });
 
-  it('sitter mode with sitter role shows profile, sitter info, services, and photos', () => {
-    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'sitter-info', 'services', 'availability', 'location', 'photos', 'policies']);
+  it('sitter mode with sitter role shows profile, species profiles, and sitter sections', () => {
+    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'species-profiles', 'availability', 'location', 'photos', 'policies']);
   });
 
   it('sitter mode WITHOUT sitter role only shows profile (guard)', () => {
@@ -53,10 +52,10 @@ describe('ProfilePage section visibility', () => {
     expect(getVisibleSectionIds('sitter', true)).not.toContain('pets');
   });
 
-  it('services section requires sitter mode and sitter role', () => {
-    expect(getVisibleSectionIds('sitter', true)).toContain('services');
-    expect(getVisibleSectionIds('owner', true)).not.toContain('services');
-    expect(getVisibleSectionIds('sitter', false)).not.toContain('services');
+  it('species-profiles section requires sitter mode and sitter role', () => {
+    expect(getVisibleSectionIds('sitter', true)).toContain('species-profiles');
+    expect(getVisibleSectionIds('owner', true)).not.toContain('species-profiles');
+    expect(getVisibleSectionIds('sitter', false)).not.toContain('species-profiles');
   });
 
   it('owner+sitter user sees owner sections in owner mode', () => {
@@ -64,7 +63,7 @@ describe('ProfilePage section visibility', () => {
   });
 
   it('owner+sitter user sees sitter sections in sitter mode', () => {
-    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'sitter-info', 'services', 'availability', 'location', 'photos', 'policies']);
+    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'species-profiles', 'availability', 'location', 'photos', 'policies']);
   });
 });
 
