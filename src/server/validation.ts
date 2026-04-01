@@ -390,6 +390,8 @@ export const sitterSearchSchema = z.object({
   maxPrice: z.coerce.number().min(0).optional(),
   petSize: z.enum(['small', 'medium', 'large', 'giant']).optional(),
   species: z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
 });
 
 // --- Profile View Schemas ---

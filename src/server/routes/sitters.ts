@@ -13,7 +13,9 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
-    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species } = parsed.data;
+    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species, limit: limitParam, offset: offsetParam } = parsed.data;
+    const limit = Math.min(limitParam || 50, 100);
+    const offset = offsetParam || 0;
 
     const hasGeo = lat != null && lng != null && radius != null;
     const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography` : sql``;
@@ -24,9 +26,11 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
              u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at,
              s.price, s.type as service_type, s.max_pets
+             ${species ? sql`, sp.years_experience as species_years_experience, sp.accepted_pet_sizes as species_pet_sizes, sp.skills as species_skills` : sql``}
              ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}
       FROM users u
       JOIN services s ON u.id = s.sitter_id
+      ${species ? sql`LEFT JOIN sitter_species_profiles sp ON u.id = sp.sitter_id AND sp.species = ${species}` : sql``}
       WHERE u.roles @> '{sitter}'::text[]
         AND u.approval_status = 'approved'
         ${serviceType ? sql`AND s.type = ${serviceType}` : sql``}
@@ -119,7 +123,20 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
 
     ranked.sort((a: any, b: any) => b.ranking_score - a.ranking_score);
 
-    res.json({ sitters: ranked });
+    // When species filter is active, prefer species-specific data over global user fields
+    const results = species
+      ? ranked.map(({ species_years_experience, species_pet_sizes, species_skills, ...rest }: any) => ({
+          ...rest,
+          years_experience: species_years_experience ?? rest.years_experience,
+          accepted_pet_sizes: species_pet_sizes?.length > 0 ? species_pet_sizes : rest.accepted_pet_sizes,
+          skills: species_skills?.length > 0 ? species_skills : rest.skills,
+        }))
+      : ranked;
+
+    const total = results.length;
+    const paginated = results.slice(offset, offset + limit);
+
+    res.json({ sitters: paginated, total, limit, offset });
   });
 
   router.get('/sitters/:idOrSlug', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {

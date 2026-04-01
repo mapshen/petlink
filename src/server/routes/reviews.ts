@@ -24,6 +24,14 @@ export default function reviewRoutes(router: Router): void {
       return;
     }
 
+    // 30-day absolute review deadline from booking end time
+    const REVIEW_DEADLINE_MS = 30 * 24 * 60 * 60 * 1000;
+    const bookingAge = Date.now() - new Date(booking.end_time).getTime();
+    if (bookingAge > REVIEW_DEADLINE_MS) {
+      res.status(403).json({ error: 'The review period for this booking has expired (30 days)' });
+      return;
+    }
+
     const isOwner = booking.owner_id === req.userId;
     const isSitter = booking.sitter_id === req.userId;
     if (!isOwner && !isSitter) {
@@ -87,7 +95,7 @@ export default function reviewRoutes(router: Router): void {
       return;
     }
 
-    const [booking] = await sql`SELECT owner_id, sitter_id, status FROM bookings WHERE id = ${bookingId}`;
+    const [booking] = await sql`SELECT owner_id, sitter_id, status, end_time FROM bookings WHERE id = ${bookingId}`;
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
       return;
@@ -126,7 +134,9 @@ export default function reviewRoutes(router: Router): void {
     const userReview = allReviews.find((r: { reviewer_id: number }) => r.reviewer_id === req.userId);
     const otherReview = allReviews.find((r: { reviewer_id: number }) => r.reviewer_id !== req.userId);
     let canReview = false;
-    if (booking.status === 'completed' && !userReview) {
+    const REVIEW_DEADLINE_MS = 30 * 24 * 60 * 60 * 1000;
+    const bookingExpired = booking.end_time ? Date.now() - new Date(booking.end_time).getTime() > REVIEW_DEADLINE_MS : false;
+    if (booking.status === 'completed' && !userReview && !bookingExpired) {
       if (!otherReview) {
         canReview = true;
       } else {

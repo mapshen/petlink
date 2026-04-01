@@ -102,19 +102,19 @@ export async function initDb() {
       approval_rejected_reason TEXT,
       approved_by INTEGER REFERENCES users(id),
       approved_at TIMESTAMPTZ,
-      accepted_pet_sizes TEXT[] DEFAULT '{}',
-      accepted_species TEXT[] DEFAULT '{}',
+      accepted_pet_sizes TEXT[] DEFAULT '{}', -- DEPRECATED: use sitter_species_profiles.accepted_pet_sizes
+      accepted_species TEXT[] DEFAULT '{}', -- kept as source-of-truth for species list
       cancellation_policy cancellation_policy DEFAULT 'flexible',
-      years_experience INTEGER,
+      years_experience INTEGER, -- DEPRECATED: use sitter_species_profiles.years_experience
       home_type TEXT,
-      has_yard BOOLEAN DEFAULT false,
-      has_fenced_yard BOOLEAN DEFAULT false,
-      has_own_pets BOOLEAN DEFAULT false,
-      own_pets_description TEXT,
-      skills TEXT[] DEFAULT '{}',
+      has_yard BOOLEAN DEFAULT false, -- DEPRECATED: use sitter_species_profiles.has_yard
+      has_fenced_yard BOOLEAN DEFAULT false, -- DEPRECATED: use sitter_species_profiles.has_fenced_yard
+      has_own_pets BOOLEAN DEFAULT false, -- DEPRECATED: use sitter_species_profiles.owns_same_species
+      own_pets_description TEXT, -- DEPRECATED: use sitter_species_profiles.own_pets_description
+      skills TEXT[] DEFAULT '{}', -- DEPRECATED: use sitter_species_profiles.skills
       service_radius_miles INTEGER DEFAULT 10,
-      max_pets_at_once INTEGER DEFAULT 3,
-      max_pets_per_walk INTEGER DEFAULT 2,
+      max_pets_at_once INTEGER DEFAULT 3, -- DEPRECATED: use sitter_species_profiles.max_pets
+      max_pets_per_walk INTEGER DEFAULT 2, -- DEPRECATED: use sitter_species_profiles.max_pets_per_walk
       house_rules TEXT,
       emergency_procedures TEXT,
       has_insurance BOOLEAN DEFAULT false,
@@ -692,6 +692,24 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS safety_environment TEXT`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS typical_day TEXT`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS info_wanted_about_pets TEXT`.catch(() => {});
+
+  // Fix FK constraints on bookings to prevent cascade failures on user/pet/service deletion
+  // pet_id and service_id: SET NULL on delete (booking record preserved, reference cleared)
+  // Using DO blocks to handle "constraint already exists" gracefully
+  await sql`
+    DO $$ BEGIN
+      ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_pet_id_fkey;
+      ALTER TABLE bookings ADD CONSTRAINT bookings_pet_id_fkey FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE SET NULL;
+    EXCEPTION WHEN others THEN null;
+    END $$
+  `.catch(() => {});
+  await sql`
+    DO $$ BEGIN
+      ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_service_id_fkey;
+      ALTER TABLE bookings ADD CONSTRAINT bookings_service_id_fkey FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE SET NULL;
+    EXCEPTION WHEN others THEN null;
+    END $$
+  `.catch(() => {});
 
   // Backfill species profiles for sitters missing them and set species on services
   await backfillSpeciesProfiles(sql).catch((err) => {
