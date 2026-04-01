@@ -137,7 +137,7 @@ export default function TipDialog({ bookingId, bookingTotalCents, sitterName, op
                 <span className="text-stone-400">$</span>
                 <input
                   type="number"
-                  min={0.01}
+                  min={0.50}
                   max={1000}
                   step={0.01}
                   value={customAmount}

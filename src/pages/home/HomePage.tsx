@@ -50,6 +50,7 @@ export default function HomePage() {
   const [refundMessage, setRefundMessage] = useState<string | null>(null);
   const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
   const [tipBookingId, setTipBookingId] = useState<number | null>(null);
+  const [tippedBookingIds, setTippedBookingIds] = useState<Set<number>>(new Set());
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
@@ -383,7 +384,7 @@ export default function HomePage() {
                                 Book Again
                               </Link>
                             </Button>
-                            {!isSitterMode && (
+                            {!isSitterMode && !tippedBookingIds.has(booking.id) && (
                               <Button size="xs" variant="outline" onClick={() => setTipBookingId(booking.id)}>
                                 <Heart className="w-3.5 h-3.5 text-pink-500" />
                                 Tip
@@ -564,7 +565,10 @@ export default function HomePage() {
             sitterName={tipBooking.sitter_name || 'your sitter'}
             open={true}
             onOpenChange={(open) => { if (!open) setTipBookingId(null); }}
-            onTipSent={() => setTipBookingId(null)}
+            onTipSent={() => {
+              setTippedBookingIds((prev) => new Set([...prev, tipBookingId]));
+              setTipBookingId(null);
+            }}
           />
         );
       })()}
