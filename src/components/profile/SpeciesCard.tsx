@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { SitterSpeciesProfile, Service } from '../../types';
 import { getAvailableServices, getServiceLabel, getAvailableSkills, type SkillOption } from '../../shared/service-labels';
 
 const SPECIES_ICONS: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
+const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
 const SPECIES_COLORS: Record<string, { border: string; header: string; text: string }> = {
   dog: { border: 'border-blue-300', header: 'bg-blue-50', text: 'text-blue-900' },
   cat: { border: 'border-pink-300', header: 'bg-pink-50', text: 'text-pink-900' },
@@ -68,28 +69,37 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
   return (
     <div className={`border-2 rounded-2xl overflow-hidden ${colors.border}`}>
       {/* Header */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className={`w-full flex items-center justify-between px-5 py-3.5 ${colors.header}`}
-        type="button"
-      >
-        <div className="flex items-center gap-3">
+      <div className={`flex items-center justify-between px-5 py-3.5 ${colors.header}`}>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center gap-3 flex-1 min-w-0"
+          type="button"
+        >
           <span className="text-xl">{SPECIES_ICONS[species]}</span>
           <div className="text-left">
             <div className={`text-[15px] font-extrabold ${colors.text}`}>{formatSpecies(species)}</div>
             <div className="text-[11px] text-stone-500">{summaryParts.join(' · ')}</div>
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-2">
-          <span
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          <button
+            type="button"
+            onClick={onRemove}
             className="text-[11px] text-red-500 font-semibold hover:text-red-700 px-2"
+            aria-label={`Remove ${formatSpecies(species)}`}
           >
             Remove
-          </span>
-          {collapsed ? <ChevronRight className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-1"
+            aria-label={collapsed ? `Expand ${formatSpecies(species)}` : `Collapse ${formatSpecies(species)}`}
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+          </button>
         </div>
-      </button>
+      </div>
 
       {/* Body */}
       {!collapsed && (
@@ -247,7 +257,6 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
               {availableServiceTypes.map((type) => {
                 const svc = services.find((s) => s.type === type);
                 const label = getServiceLabel(type, [species]);
-                const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
 
                 return (
                   <div key={type} className={`flex items-center justify-between p-2.5 border rounded-lg ${type === 'meet_greet' ? 'border-dashed bg-stone-50' : 'border-stone-200'}`}>
@@ -262,8 +271,9 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
                         min={0}
                         max={9999}
                         value={svc?.price ?? ''}
-                        onChange={(e) => onServicePriceChange(type, Number(e.target.value) || 0)}
+                        onChange={(e) => onServicePriceChange(type, Math.max(0, Math.min(9999, Number(e.target.value) || 0)))}
                         placeholder="—"
+                        aria-label={`Price for ${label}`}
                         className="w-14 p-1.5 border border-stone-200 rounded-md text-sm font-bold text-right"
                       />
                     </div>

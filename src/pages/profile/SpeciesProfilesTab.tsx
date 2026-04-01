@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Save, Plus } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { API_BASE } from '../../config';
 import type { SitterSpeciesProfile, Service } from '../../types';
 import SpeciesCard from '../../components/profile/SpeciesCard';
@@ -19,6 +19,7 @@ export default function SpeciesProfilesTab() {
   const [activeSpecies, setActiveSpecies] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
   const [loading, setLoading] = useState(true);
 
   // Fetch existing profiles and services
@@ -47,7 +48,12 @@ export default function SpeciesProfilesTab() {
           setServices(data.services || []);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          setMessage('Failed to load profile data');
+          setMessageType('error');
+        }
+      })
       .finally(() => setLoading(false));
 
     return () => controller.abort();
@@ -90,50 +96,53 @@ export default function SpeciesProfilesTab() {
   const handleSave = async () => {
     setSaving(true);
     setMessage('');
+    setMessageType('');
 
     try {
-      // Save each species profile
-      for (const species of activeSpecies) {
-        const profile = profiles[species];
-        const res = await fetch(`${API_BASE}/species-profiles/${species}`, {
-          method: 'PUT',
-          headers: getAuthHeaders(token),
-          body: JSON.stringify(profile),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || `Failed to save ${species} profile`);
-        }
-      }
-
-      // Delete removed species
-      const removedSpecies = (user?.accepted_species || []).filter((s: string) => !activeSpecies.includes(s));
-      for (const species of removedSpecies) {
-        await fetch(`${API_BASE}/species-profiles/${species}`, {
-          method: 'DELETE',
-          headers: getAuthHeaders(token),
-        }).catch(() => {});
-      }
-
-      // Save services for each species
-      for (const svc of services) {
-        if (!svc.species || !activeSpecies.includes(svc.species)) continue;
-        if (svc.price <= 0 && svc.type !== 'meet_greet') continue;
-
-        if (svc.id && svc.id > 0) {
-          await fetch(`${API_BASE}/services/${svc.id}`, {
+      // Save all species profiles in parallel
+      await Promise.all(
+        activeSpecies.map(async (species) => {
+          const res = await fetch(`${API_BASE}/species-profiles/${species}`, {
             method: 'PUT',
             headers: getAuthHeaders(token),
-            body: JSON.stringify({ price: svc.price, species: svc.species }),
+            body: JSON.stringify(profiles[species]),
           });
-        } else {
-          await fetch(`${API_BASE}/services`, {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `Failed to save ${formatSpecies(species)} profile`);
+          }
+        })
+      );
+
+      // Delete removed species in parallel
+      const removedSpecies = (user?.accepted_species || []).filter((s: string) => !activeSpecies.includes(s));
+      await Promise.all(
+        removedSpecies.map((species) =>
+          fetch(`${API_BASE}/species-profiles/${species}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders(token),
+          }).catch(() => {})
+        )
+      );
+
+      // Save services in parallel
+      const serviceOps = services
+        .filter((svc) => svc.species && activeSpecies.includes(svc.species) && (svc.price > 0 || svc.type === 'meet_greet'))
+        .map((svc) => {
+          if (svc.id && svc.id > 0) {
+            return fetch(`${API_BASE}/services/${svc.id}`, {
+              method: 'PUT',
+              headers: getAuthHeaders(token),
+              body: JSON.stringify({ price: svc.price, species: svc.species }),
+            });
+          }
+          return fetch(`${API_BASE}/services`, {
             method: 'POST',
             headers: getAuthHeaders(token),
             body: JSON.stringify({ type: svc.type, price: svc.price, species: svc.species }),
           });
-        }
-      }
+        });
+      await Promise.all(serviceOps);
 
       // Update user's accepted_species
       if (user) {
@@ -149,8 +158,10 @@ export default function SpeciesProfilesTab() {
       }
 
       setMessage('Profile saved successfully');
+      setMessageType('success');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Save failed');
+      setMessageType('error');
     } finally {
       setSaving(false);
     }
@@ -205,7 +216,7 @@ export default function SpeciesProfilesTab() {
       {/* Message */}
       {message && (
         <div className={`text-sm text-center p-2 rounded-lg ${
-          message.includes('success') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+          messageType === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
         }`}>
           {message}
         </div>
