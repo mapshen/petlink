@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { formatCents } from '../../lib/money';
 
-// Test the payment amount formatting logic (pure function)
-function formatAmount(amountCents: number): string {
-  return `$${(amountCents / 100).toFixed(2)}`;
-}
+const formatAmount = formatCents;
 
 describe('PaymentForm amount formatting', () => {
   it('formats whole dollar amounts', () => {

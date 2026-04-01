@@ -61,7 +61,7 @@ describe('recurring_bookings table', () => {
     db.pragma('foreign_keys = ON');
     db.exec(`
       CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, name TEXT NOT NULL, roles TEXT DEFAULT 'owner');
-      CREATE TABLE services (id INTEGER PRIMARY KEY AUTOINCREMENT, sitter_id INTEGER NOT NULL REFERENCES users(id), type TEXT NOT NULL, price REAL NOT NULL);
+      CREATE TABLE services (id INTEGER PRIMARY KEY AUTOINCREMENT, sitter_id INTEGER NOT NULL REFERENCES users(id), type TEXT NOT NULL, price_cents INTEGER NOT NULL);
       CREATE TABLE recurring_bookings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -80,7 +80,7 @@ describe('recurring_bookings table', () => {
     const hash = bcrypt.hashSync('pass', 10);
     db.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES (?, ?, ?, ?)").run('owner@test.com', hash, 'Owner', 'owner');
     db.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES (?, ?, ?, ?)").run('sitter@test.com', hash, 'Sitter', 'owner,sitter');
-    db.prepare("INSERT INTO services (sitter_id, type, price) VALUES (?, ?, ?)").run(2, 'walking', 25);
+    db.prepare("INSERT INTO services (sitter_id, type, price_cents) VALUES (?, ?, ?)").run(2, 'walking', 2500);
     return db;
   }
 

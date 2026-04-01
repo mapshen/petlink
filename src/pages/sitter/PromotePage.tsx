@@ -4,6 +4,7 @@ import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Megaphone, Plus, Pause, Play, Trash2, X, Save, TrendingUp, Eye, MousePointer, Calendar, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { FeaturedListing } from '../../types';
+import { formatCents } from '../../lib/money';
 import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -26,9 +27,6 @@ const SERVICE_LABELS: Record<string, string> = {
   meet_greet: 'Meet & Greet',
 };
 
-function formatCurrency(cents: number) {
-  return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 export default function PromotePage({ embedded = false }: { embedded?: boolean }) {
   const { user, token, loading: authLoading } = useAuth();
@@ -170,7 +168,7 @@ export default function PromotePage({ embedded = false }: { embedded?: boolean }
             <div className="flex items-center gap-1.5 text-stone-500 text-xs font-medium mb-1">
               <TrendingUp className="w-3.5 h-3.5" /> Commission
             </div>
-            <div className="text-xl font-bold text-stone-900">{formatCurrency(totalCommission)}</div>
+            <div className="text-xl font-bold text-stone-900">{formatCents(totalCommission)}</div>
             <div className="text-xs text-stone-400 mt-0.5">15% of promoted bookings</div>
           </div>
         </div>
@@ -271,7 +269,7 @@ export default function PromotePage({ embedded = false }: { embedded?: boolean }
                 </div>
                 <div className="bg-stone-50 rounded-lg p-3">
                   <div className="text-xs text-stone-500">Commission</div>
-                  <div className="text-sm font-bold text-stone-900">{formatCurrency(listing.commission_earned_cents)}</div>
+                  <div className="text-sm font-bold text-stone-900">{formatCents(listing.commission_earned_cents)}</div>
                 </div>
               </div>
             </div>

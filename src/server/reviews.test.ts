@@ -20,7 +20,7 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sitter_id INTEGER NOT NULL,
       type TEXT NOT NULL,
-      price REAL NOT NULL,
+      price_cents INTEGER NOT NULL,
       description TEXT,
       FOREIGN KEY (sitter_id) REFERENCES users(id)
     );
@@ -33,7 +33,7 @@ function createTestDb() {
       status TEXT DEFAULT 'pending',
       start_time DATETIME NOT NULL,
       end_time DATETIME NOT NULL,
-      total_price REAL,
+      total_price_cents INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE reviews (
@@ -59,7 +59,7 @@ function createTestDb() {
   const hash = bcrypt.hashSync('pass', 10);
   db.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES (?, ?, ?, ?)").run('owner@test.com', hash, 'Owner', 'owner');
   db.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES (?, ?, ?, ?)").run('sitter@test.com', hash, 'Sitter', 'owner,sitter');
-  db.prepare("INSERT INTO services (sitter_id, type, price) VALUES (?, ?, ?)").run(2, 'walking', 25);
+  db.prepare("INSERT INTO services (sitter_id, type, price_cents) VALUES (?, ?, ?)").run(2, 'walking', 2500);
   db.prepare("INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)").run(2, 1, 1, 'completed', '2025-01-01', '2025-01-02');
 
   return db;

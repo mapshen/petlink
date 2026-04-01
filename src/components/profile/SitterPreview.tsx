@@ -1,6 +1,7 @@
 import { Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { User, Service, SitterPhoto } from '../../types';
+import { formatCents } from '../../lib/money';
 
 interface Props {
   readonly user: User;
@@ -87,7 +88,7 @@ export default function SitterPreview({ user, services, photos }: Props) {
                 {services.map((s) => (
                   <div key={s.id} className="flex justify-between items-center px-2 py-1.5 bg-stone-50 rounded-md">
                     <span className="text-xs">{formatServiceType(s.type)}</span>
-                    <span className="text-xs font-bold text-emerald-600">${(s.price_cents / 100).toFixed(2)}</span>
+                    <span className="text-xs font-bold text-emerald-600">{formatCents(s.price_cents)}</span>
                   </div>
                 ))}
               </div>

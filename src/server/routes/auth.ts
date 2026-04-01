@@ -43,7 +43,7 @@ export default function authRoutes(router: Router): void {
     const clientIp = req.ip || req.socket.remoteAddress;
 
     // Check lockout before doing any work
-    const lockout = await checkLockout(email);
+    const lockout = await checkLockout(email, clientIp);
     if (lockout.locked) {
       res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
       return;

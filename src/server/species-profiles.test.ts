@@ -49,17 +49,17 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       type TEXT NOT NULL,
-      price DOUBLE PRECISION NOT NULL,
+      price_cents INTEGER NOT NULL,
       description TEXT,
       species TEXT,
-      holiday_rate DOUBLE PRECISION,
-      puppy_rate DOUBLE PRECISION,
-      duration_60_rate DOUBLE PRECISION,
+      holiday_rate_cents INTEGER,
+      puppy_rate_cents INTEGER,
+      duration_60_rate_cents INTEGER,
       extended_care_pct INTEGER,
-      pickup_dropoff_fee DOUBLE PRECISION,
-      grooming_addon_fee DOUBLE PRECISION,
-      cat_care_rate DOUBLE PRECISION,
-      additional_cat_rate DOUBLE PRECISION,
+      pickup_dropoff_fee_cents INTEGER,
+      grooming_addon_fee_cents INTEGER,
+      cat_care_rate_cents INTEGER,
+      additional_cat_rate_cents INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -125,44 +125,44 @@ describe('services with species and pricing fields', () => {
   beforeEach(() => { db = createTestDb(); });
 
   it('creates a service with species and granular pricing', () => {
-    db.prepare(`INSERT INTO services (sitter_id, type, price, species, holiday_rate, puppy_rate, duration_60_rate, extended_care_pct, pickup_dropoff_fee, grooming_addon_fee)
-      VALUES (1, 'sitting', 55, 'dog', 85, 65, NULL, 50, 70, 50)`).run();
+    db.prepare(`INSERT INTO services (sitter_id, type, price_cents, species, holiday_rate_cents, puppy_rate_cents, duration_60_rate_cents, extended_care_pct, pickup_dropoff_fee_cents, grooming_addon_fee_cents)
+      VALUES (1, 'sitting', 5500, 'dog', 8500, 6500, NULL, 50, 7000, 5000)`).run();
 
     const svc = db.prepare('SELECT * FROM services WHERE sitter_id = 1').get() as Record<string, unknown>;
     expect(svc.species).toBe('dog');
-    expect(svc.holiday_rate).toBe(85);
-    expect(svc.puppy_rate).toBe(65);
+    expect(svc.holiday_rate_cents).toBe(8500);
+    expect(svc.puppy_rate_cents).toBe(6500);
     expect(svc.extended_care_pct).toBe(50);
-    expect(svc.pickup_dropoff_fee).toBe(70);
-    expect(svc.grooming_addon_fee).toBe(50);
+    expect(svc.pickup_dropoff_fee_cents).toBe(7000);
+    expect(svc.grooming_addon_fee_cents).toBe(5000);
   });
 
   it('creates a cat service with cat-specific rates', () => {
-    db.prepare("INSERT INTO services (sitter_id, type, price, species, holiday_rate) VALUES (1, 'sitting', 35, 'cat', 45)").run();
+    db.prepare("INSERT INTO services (sitter_id, type, price_cents, species, holiday_rate_cents) VALUES (1, 'sitting', 3500, 'cat', 4500)").run();
 
     const svc = db.prepare("SELECT * FROM services WHERE species = 'cat'").get() as Record<string, unknown>;
-    expect(svc.price).toBe(35);
-    expect(svc.holiday_rate).toBe(45);
+    expect(svc.price_cents).toBe(3500);
+    expect(svc.holiday_rate_cents).toBe(4500);
   });
 
   it('allows same service type with different species', () => {
-    db.prepare("INSERT INTO services (sitter_id, type, price, species) VALUES (1, 'sitting', 55, 'dog')").run();
-    db.prepare("INSERT INTO services (sitter_id, type, price, species) VALUES (1, 'sitting', 35, 'cat')").run();
+    db.prepare("INSERT INTO services (sitter_id, type, price_cents, species) VALUES (1, 'sitting', 5500, 'dog')").run();
+    db.prepare("INSERT INTO services (sitter_id, type, price_cents, species) VALUES (1, 'sitting', 3500, 'cat')").run();
     const count = db.prepare("SELECT COUNT(*) as count FROM services WHERE sitter_id = 1 AND type = 'sitting'").get() as { count: number };
     expect(count.count).toBe(2);
   });
 
   it('creates meet_greet with null species (shared)', () => {
-    db.prepare("INSERT INTO services (sitter_id, type, price, species) VALUES (1, 'meet_greet', 0, NULL)").run();
+    db.prepare("INSERT INTO services (sitter_id, type, price_cents, species) VALUES (1, 'meet_greet', 0, NULL)").run();
     const svc = db.prepare("SELECT * FROM services WHERE type = 'meet_greet'").get() as Record<string, unknown>;
     expect(svc.species).toBeNull();
   });
 
-  it('stores cat_care_rate and additional_cat_rate on dog services', () => {
-    db.prepare("INSERT INTO services (sitter_id, type, price, species, cat_care_rate, additional_cat_rate) VALUES (1, 'sitting', 75, 'dog', 42, 27)").run();
+  it('stores cat_care_rate_cents and additional_cat_rate_cents on dog services', () => {
+    db.prepare("INSERT INTO services (sitter_id, type, price_cents, species, cat_care_rate_cents, additional_cat_rate_cents) VALUES (1, 'sitting', 7500, 'dog', 4200, 2700)").run();
     const svc = db.prepare('SELECT * FROM services WHERE sitter_id = 1').get() as Record<string, unknown>;
-    expect(svc.cat_care_rate).toBe(42);
-    expect(svc.additional_cat_rate).toBe(27);
+    expect(svc.cat_care_rate_cents).toBe(4200);
+    expect(svc.additional_cat_rate_cents).toBe(2700);
   });
 });
 

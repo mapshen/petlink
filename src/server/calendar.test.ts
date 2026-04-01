@@ -29,7 +29,7 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sitter_id INTEGER NOT NULL REFERENCES users(id),
       type TEXT NOT NULL,
-      price REAL NOT NULL
+      price_cents INTEGER NOT NULL
     );
     CREATE TABLE bookings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +40,7 @@ function createTestDb() {
       status TEXT DEFAULT 'pending',
       start_time DATETIME NOT NULL,
       end_time DATETIME NOT NULL,
-      total_price REAL,
+      total_price_cents INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE booking_pets (
@@ -69,7 +69,7 @@ function createTestDb() {
   db.prepare("INSERT INTO pets (owner_id, name) VALUES (?, ?)").run(1, 'Max');
 
   // Seed service
-  db.prepare("INSERT INTO services (sitter_id, type, price) VALUES (?, ?, ?)").run(2, 'boarding', 45);
+  db.prepare("INSERT INTO services (sitter_id, type, price_cents) VALUES (?, ?, ?)").run(2, 'boarding', 4500);
 
   return db;
 }

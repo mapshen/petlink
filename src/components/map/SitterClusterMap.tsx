@@ -5,6 +5,7 @@ import 'leaflet.markercluster';
 import { emeraldIcon, emeraldIconHighlighted } from './leaflet-setup';
 import SitterMapPopup from './SitterMapPopup';
 import { fitBoundsFromCoords } from '../../lib/geo';
+import { formatCents } from '../../lib/money';
 
 function escapeHtml(str: string): string {
   const div = document.createElement('div');
@@ -118,7 +119,7 @@ function MarkerClusterWrapper({ sitters, serviceType, highlightedSitterId }: {
               ${sitter.avg_rating ? `★ ${sitter.avg_rating} (${sitter.review_count})` : 'New'}
             </span>
             <span style="font-weight: 700; color: #059669; font-size: 14px;">
-              ${sitter.price_cents === 0 ? 'Free' : `$${(sitter.price_cents / 100).toFixed(2)}`}
+              ${sitter.price_cents === 0 ? 'Free' : formatCents(sitter.price_cents)}
             </span>
           </div>
           <a href="/sitter/${sitter.slug || sitter.id}" style="display: block; text-align: center; background: #059669; color: white; font-size: 12px; font-weight: 500; padding: 6px; border-radius: 8px; text-decoration: none;">

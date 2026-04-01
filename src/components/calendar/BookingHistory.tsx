@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Button } from '../ui/button';
 import BookingReviewDetail from '../review/BookingReviewDetail';
+import { formatCents } from '../../lib/money';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
@@ -44,7 +45,7 @@ function formatServiceType(type: string | null): string {
 
 function formatCurrencyCents(amountCents: number | null): string {
   if (amountCents === null || amountCents === undefined) return '-';
-  return `$${(amountCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatCents(amountCents);
 }
 
 function formatStatusLabel(status: string): string {
