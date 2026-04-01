@@ -24,6 +24,14 @@ export default function reviewRoutes(router: Router): void {
       return;
     }
 
+    // 30-day absolute review deadline from booking end time
+    const REVIEW_DEADLINE_MS = 30 * 24 * 60 * 60 * 1000;
+    const bookingAge = Date.now() - new Date(booking.end_time).getTime();
+    if (bookingAge > REVIEW_DEADLINE_MS) {
+      res.status(403).json({ error: 'The review period for this booking has expired (30 days)' });
+      return;
+    }
+
     const isOwner = booking.owner_id === req.userId;
     const isSitter = booking.sitter_id === req.userId;
     if (!isOwner && !isSitter) {
