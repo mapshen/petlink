@@ -217,6 +217,9 @@ export default function bookingRoutes(router: Router, io: Server): void {
         throw new Error('INVALID_PETS');
       }
 
+      // Advisory lock on sitter_id serializes concurrent bookings for the same sitter
+      await tx`SELECT pg_advisory_xact_lock(${sitter_id})`;
+
       // Prevent double-booking: check for overlapping bookings for this sitter
       const [overlap] = await tx`
         SELECT id FROM bookings
@@ -476,8 +479,14 @@ export default function bookingRoutes(router: Router, io: Server): void {
         } else if (refund.refundAmount > 0) {
           // Partial refund on uncaptured payment — capture only the non-refundable portion
           const captureAmount = totalCents - refund.refundAmount;
-          await capturePayment(updated.payment_intent_id, captureAmount);
-          await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${bookingId}`;
+          if (captureAmount <= 0) {
+            // Rounding edge case: refund equals total, treat as full refund
+            await cancelPayment(updated.payment_intent_id);
+            await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE id = ${bookingId}`;
+          } else {
+            await capturePayment(updated.payment_intent_id, captureAmount);
+            await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${bookingId}`;
+          }
         } else {
           // No refund — sitter keeps the full amount, capture it
           await capturePayment(updated.payment_intent_id);

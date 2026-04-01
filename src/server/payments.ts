@@ -85,6 +85,9 @@ export async function detachBankAccount(paymentMethodId: string): Promise<void> 
 }
 
 export async function capturePayment(paymentIntentId: string, amountToCapture?: number): Promise<void> {
+  if (amountToCapture != null && amountToCapture <= 0) {
+    throw new Error('Capture amount must be positive');
+  }
   const stripe = getStripe();
   await stripe.paymentIntents.capture(paymentIntentId, amountToCapture != null ? { amount_to_capture: amountToCapture } : undefined);
 }
