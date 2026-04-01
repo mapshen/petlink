@@ -7,7 +7,7 @@ export interface BookingHistoryItem {
   readonly start_time: string;
   readonly end_time: string;
   readonly status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
-  readonly total_price: number | null;
+  readonly total_price_cents: number | null;
   readonly service_type: string | null;
   readonly owner_name: string | null;
   readonly owner_avatar: string | null;

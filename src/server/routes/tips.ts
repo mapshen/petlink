@@ -30,28 +30,39 @@ export default function tipRoutes(router: Router): void {
         return;
       }
 
-      // Check for existing tip — allow retrying if previous attempt was abandoned (pending)
-      const [existing] = await sql`
-        SELECT id, status FROM tips WHERE booking_id = ${booking_id} AND tipper_id = ${req.userId}
-      `;
-      if (existing && existing.status === 'succeeded') {
-        res.status(409).json({ error: 'You have already tipped for this booking' });
+      // Use advisory lock + transaction to prevent race condition on tip creation
+      const result = await sql.begin(async (tx: any) => {
+        await tx`SELECT pg_advisory_xact_lock(2, ${booking_id})`; // namespace 2 = tips (1 = bookings)
+
+        const [existing] = await tx`
+          SELECT id, status FROM tips WHERE booking_id = ${booking_id} AND tipper_id = ${req.userId}
+        `;
+        if (existing && existing.status === 'succeeded') {
+          return { error: 'You have already tipped for this booking', status: 409 };
+        }
+        if (existing && existing.status === 'pending') {
+          await tx`DELETE FROM tips WHERE id = ${existing.id}`;
+        }
+
+        // Insert tip row first, then create Stripe intent (so DB has the record before charging)
+        const [tip] = await tx`
+          INSERT INTO tips (booking_id, tipper_id, sitter_id, amount_cents, status)
+          VALUES (${booking_id}, ${req.userId}, ${booking.sitter_id}, ${amount_cents}, 'pending')
+          RETURNING id, booking_id, tipper_id, sitter_id, amount_cents, status, created_at
+        `;
+
+        const { clientSecret, paymentIntentId } = await createAutoPaymentIntent(amount_cents);
+        await tx`UPDATE tips SET stripe_payment_intent_id = ${paymentIntentId} WHERE id = ${tip.id}`;
+
+        return { tip, clientSecret };
+      });
+
+      if ('error' in result) {
+        res.status(result.status).json({ error: result.error });
         return;
       }
-      if (existing && existing.status === 'pending') {
-        await sql`DELETE FROM tips WHERE id = ${existing.id}`;
-      }
 
-      // Auto-capture payment intent (no escrow for tips)
-      const { clientSecret, paymentIntentId } = await createAutoPaymentIntent(amount_cents);
-
-      const [tip] = await sql`
-        INSERT INTO tips (booking_id, tipper_id, sitter_id, amount_cents, stripe_payment_intent_id, status)
-        VALUES (${booking_id}, ${req.userId}, ${booking.sitter_id}, ${amount_cents}, ${paymentIntentId}, 'pending')
-        RETURNING id, booking_id, tipper_id, sitter_id, amount_cents, status, created_at
-      `;
-
-      res.status(201).json({ tip, clientSecret });
+      res.status(201).json({ tip: result.tip, clientSecret: result.clientSecret });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Tip creation error');
       res.status(500).json({ error: 'Failed to process tip' });
@@ -109,11 +120,15 @@ export default function tipRoutes(router: Router): void {
         return;
       }
 
-      // Verify payment actually succeeded with Stripe
+      // Verify payment actually succeeded with Stripe and amount matches
       const stripe = getStripe();
       const paymentIntent = await stripe.paymentIntents.retrieve(tip.stripe_payment_intent_id);
       if (paymentIntent.status !== 'succeeded') {
         res.status(400).json({ error: 'Payment has not been completed' });
+        return;
+      }
+      if (paymentIntent.amount !== tip.amount_cents) {
+        res.status(400).json({ error: 'Payment amount mismatch' });
         return;
       }
 
@@ -121,11 +136,12 @@ export default function tipRoutes(router: Router): void {
 
       // Notify sitter
       const [tipper] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
+      const tipperName = tipper?.name ?? 'Someone';
       const notification = await createNotification(
         tip.sitter_id,
         'payment_update',
         'You received a tip!',
-        `${tipper.name} tipped you ${formatCents(tip.amount_cents)} for your service.`,
+        `${tipperName} tipped you ${formatCents(tip.amount_cents)} for your service.`,
         { booking_id: tip.booking_id, tip_id: tipId }
       );
 

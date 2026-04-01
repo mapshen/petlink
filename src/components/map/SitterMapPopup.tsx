@@ -8,7 +8,7 @@ interface SitterPopupData {
   readonly name: string;
   readonly slug?: string;
   readonly avatar_url?: string;
-  readonly price: number;
+  readonly price_cents: number;
   readonly avg_rating?: number | null;
   readonly review_count?: number;
   readonly distance_meters?: number;
@@ -54,7 +54,7 @@ export default function SitterMapPopup({ sitter }: SitterMapPopupProps) {
           </span>
         </div>
         <span className="font-bold text-emerald-600 text-sm">
-          {sitter.price === 0 ? 'Free' : `$${sitter.price}`}
+          {sitter.price_cents === 0 ? 'Free' : `$${(sitter.price_cents / 100).toFixed(2)}`}
         </span>
       </div>
 

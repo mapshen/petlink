@@ -285,15 +285,14 @@ export default function bookingRoutes(router: Router, io: Server): void {
     // Send email notifications (fire-and-forget)
     const formattedStart = formatDate(new Date(start_time), 'MMMM d, yyyy \'at\' h:mm a');
     const serviceName = service.type || 'Pet Service';
-    const totalPriceDollars = totalPrice / 100;
     const sitterPrefs = await getPreferences(sitter_id);
     if (sitterPrefs.email_enabled && sitterPrefs.new_booking) {
-      const sitterEmail = buildSitterNewBookingEmail({ sitterName: sitter.name, ownerName: owner.name, serviceName, startTime: formattedStart, totalPrice: totalPriceDollars });
+      const sitterEmail = buildSitterNewBookingEmail({ sitterName: sitter.name, ownerName: owner.name, serviceName, startTime: formattedStart, totalPriceCents: totalPrice });
       sendEmail({ to: sitter.email, ...sitterEmail }).catch(() => {});
     }
     const ownerPrefs = await getPreferences(req.userId!);
     if (ownerPrefs.email_enabled && ownerPrefs.new_booking) {
-      const ownerEmail = buildBookingConfirmationEmail({ ownerName: owner.name, sitterName: sitter.name, serviceName, startTime: formattedStart, totalPrice: totalPriceDollars });
+      const ownerEmail = buildBookingConfirmationEmail({ ownerName: owner.name, sitterName: sitter.name, serviceName, startTime: formattedStart, totalPriceCents: totalPrice });
       sendEmail({ to: owner.email, ...ownerEmail }).catch(() => {});
     }
 

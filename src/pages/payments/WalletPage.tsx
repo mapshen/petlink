@@ -140,7 +140,7 @@ export default function WalletPage() {
       const res = await fetch(`${API_BASE}/expenses/tax-summary?year=${year}`, { headers: getAuthHeaders(token) });
       if (res.ok) {
         const data = await res.json();
-        setSummary(data.summary);
+        setSummary(data);
       }
     } catch {
       // Non-critical
@@ -255,20 +255,20 @@ export default function WalletPage() {
             <div className="flex items-center gap-2 text-emerald-700 text-sm font-medium mb-1">
               <TrendingUp className="w-4 h-4" /> Earnings
             </div>
-            <div className="text-2xl font-bold text-emerald-700">{formatCurrency(summary.total_income)}</div>
+            <div className="text-2xl font-bold text-emerald-700">{formatCents(summary.total_income)}</div>
           </div>
           <div className="bg-red-50 rounded-xl p-5 border border-red-100">
             <div className="flex items-center gap-2 text-red-700 text-sm font-medium mb-1">
               <TrendingDown className="w-4 h-4" /> Expenses
             </div>
-            <div className="text-2xl font-bold text-red-700">{formatCurrency(summary.total_expenses)}</div>
+            <div className="text-2xl font-bold text-red-700">{formatCents(summary.total_expenses)}</div>
           </div>
           <div className="bg-stone-50 rounded-xl p-5 border border-stone-200">
             <div className="flex items-center gap-2 text-stone-700 text-sm font-medium mb-1">
               <DollarSign className="w-4 h-4" /> Net Income
             </div>
             <div className={`text-2xl font-bold ${summary.net_income >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-              {formatCurrency(summary.net_income)}
+              {formatCents(summary.net_income)}
             </div>
           </div>
         </div>
@@ -516,16 +516,16 @@ export default function WalletPage() {
                 <div className="space-y-3">
                   <div className="flex justify-between py-2">
                     <span className="text-stone-600">Gross Income (completed bookings)</span>
-                    <span className="font-bold text-emerald-700">{formatCurrency(summary.total_income)}</span>
+                    <span className="font-bold text-emerald-700">{formatCents(summary.total_income)}</span>
                   </div>
                   <div className="flex justify-between py-2">
                     <span className="text-stone-600">Total Expenses</span>
-                    <span className="font-bold text-red-600">-{formatCurrency(summary.total_expenses)}</span>
+                    <span className="font-bold text-red-600">-{formatCents(summary.total_expenses)}</span>
                   </div>
                   <div className="border-t border-stone-200 pt-3 flex justify-between">
                     <span className="font-bold text-stone-900">Net Income (Tax Basis)</span>
                     <span className={`text-xl font-bold ${summary.net_income >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                      {formatCurrency(summary.net_income)}
+                      {formatCents(summary.net_income)}
                     </span>
                   </div>
                 </div>
@@ -545,7 +545,7 @@ export default function WalletPage() {
                           <div className="flex-grow bg-stone-100 rounded-full h-2.5">
                             <div className="bg-emerald-500 h-2.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="text-sm font-medium text-stone-900 w-24 text-right">{formatCurrency(amount)}</span>
+                          <span className="text-sm font-medium text-stone-900 w-24 text-right">{formatCents(amount)}</span>
                           <span className="text-xs text-stone-400 w-12 text-right">{pct.toFixed(0)}%</span>
                         </div>
                       );

@@ -31,7 +31,7 @@ describe('email templates', () => {
         sitterName: 'Bob',
         serviceName: 'Dog Walking',
         startTime: 'March 5, 2026 at 10:00 AM',
-        totalPrice: 25.00,
+        totalPriceCents: 2500,
       });
       expect(result.subject).toBe('Booking Request Submitted — Dog Walking with Bob');
       expect(result.html).toContain('Hi Alice');
@@ -48,7 +48,7 @@ describe('email templates', () => {
         sitterName: 'Bob',
         serviceName: 'Meet & Greet',
         startTime: 'March 5, 2026',
-        totalPrice: 0,
+        totalPriceCents: 0,
       });
       expect(result.html).toContain('Free');
       expect(result.html).not.toContain('$0.00');
@@ -60,7 +60,7 @@ describe('email templates', () => {
         sitterName: 'Bob',
         serviceName: 'Sitting',
         startTime: 'March 5, 2026',
-        totalPrice: 30,
+        totalPriceCents: 3000,
       });
       expect(result.html).toContain('$30.00');
     });
@@ -117,7 +117,7 @@ describe('email templates', () => {
         ownerName: 'Alice',
         serviceName: 'Dog Walking',
         startTime: 'March 5, 2026 at 10:00 AM',
-        totalPrice: 25.00,
+        totalPriceCents: 2500,
       });
       expect(result.subject).toBe('New Booking Request from Alice');
       expect(result.html).toContain('Hi Bob');
@@ -132,7 +132,7 @@ describe('email templates', () => {
         ownerName: 'Alice',
         serviceName: 'Meet & Greet',
         startTime: 'March 5, 2026',
-        totalPrice: 0,
+        totalPriceCents: 0,
       });
       expect(result.html).toContain('Free');
       expect(result.html).not.toContain('$0.00');
@@ -187,7 +187,7 @@ describe('email templates', () => {
         sitterName: 'Test',
         serviceName: 'Test',
         startTime: 'Test',
-        totalPrice: 0,
+        totalPriceCents: 0,
       });
       expect(result.html).toContain('<!DOCTYPE html>');
       expect(result.html).toContain('<html lang="en">');
@@ -203,7 +203,7 @@ describe('email templates', () => {
         sitterName: 'Bob',
         serviceName: 'Walking',
         startTime: 'March 5',
-        totalPrice: 25,
+        totalPriceCents: 2500,
       });
       expect(result.html).not.toContain('<script>');
       expect(result.html).toContain('&lt;script&gt;');

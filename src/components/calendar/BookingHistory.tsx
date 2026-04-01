@@ -42,9 +42,9 @@ function formatServiceType(type: string | null): string {
   return type.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatCurrency(amount: number | null): string {
-  if (amount === null || amount === undefined) return '-';
-  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatCurrencyCents(amountCents: number | null): string {
+  if (amountCents === null || amountCents === undefined) return '-';
+  return `$${(amountCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatStatusLabel(status: string): string {
@@ -97,7 +97,7 @@ function BookingRow({ booking, expanded, onToggle, userId, token, onLeaveReview 
           </span>
         </td>
         <td className="px-4 py-3 text-xs font-medium text-stone-800 text-right whitespace-nowrap">
-          {formatCurrency(booking.total_price)}
+          {formatCurrencyCents(booking.total_price_cents)}
         </td>
         <td className="px-4 py-3 text-center">
           {isCompleted ? (
