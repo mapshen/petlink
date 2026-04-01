@@ -98,9 +98,9 @@ export default function ServicesTab() {
         headers: getAuthHeaders(token),
         body: JSON.stringify({
           type: form.type,
-          price,
+          price_cents: Math.round(price * 100),
           description: form.description || null,
-          additional_pet_price: Number(form.additional_pet_price) || 0,
+          additional_pet_price_cents: Math.round((Number(form.additional_pet_price) || 0) * 100),
           max_pets: Number(form.max_pets) || 1,
           service_details: Object.keys(serviceDetails).length > 0 ? serviceDetails : null,
         }),
@@ -133,9 +133,9 @@ export default function ServicesTab() {
         headers: getAuthHeaders(token),
         body: JSON.stringify({
           type: form.type,
-          price: editPrice,
+          price_cents: Math.round(editPrice * 100),
           description: form.description || null,
-          additional_pet_price: Number(form.additional_pet_price) || 0,
+          additional_pet_price_cents: Math.round((Number(form.additional_pet_price) || 0) * 100),
           max_pets: Number(form.max_pets) || 1,
           service_details: Object.keys(editServiceDetails).length > 0 ? editServiceDetails : null,
         }),

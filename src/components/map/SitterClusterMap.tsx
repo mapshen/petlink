@@ -19,7 +19,7 @@ export interface MapSitter {
   readonly avatar_url?: string;
   readonly lat?: number;
   readonly lng?: number;
-  readonly price: number;
+  readonly price_cents: number;
   readonly service_type: string;
   readonly distance_meters?: number;
   readonly avg_rating?: number | null;
@@ -118,7 +118,7 @@ function MarkerClusterWrapper({ sitters, serviceType, highlightedSitterId }: {
               ${sitter.avg_rating ? `★ ${sitter.avg_rating} (${sitter.review_count})` : 'New'}
             </span>
             <span style="font-weight: 700; color: #059669; font-size: 14px;">
-              ${sitter.price === 0 ? 'Free' : `$${sitter.price}`}
+              ${sitter.price_cents === 0 ? 'Free' : `$${(sitter.price_cents / 100).toFixed(2)}`}
             </span>
           </div>
           <a href="/sitter/${sitter.slug || sitter.id}" style="display: block; text-align: center; background: #059669; color: white; font-size: 12px; font-weight: 500; padding: 6px; border-radius: 8px; text-decoration: none;">

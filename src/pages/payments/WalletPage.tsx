@@ -232,7 +232,7 @@ export default function WalletPage() {
     ? completedBookings.filter(b => b.sitter_id === user.id)
     : completedBookings.filter(b => b.owner_id === user.id);
   const earningsThisYear = earnings.filter(b => new Date(b.start_time).getFullYear() === year);
-  const totalEarnings = earningsThisYear.reduce((sum, b) => sum + (b.total_price || 0), 0);
+  const totalEarnings = earningsThisYear.reduce((sum, b) => sum + (b.total_price_cents || 0), 0);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -335,13 +335,13 @@ export default function WalletPage() {
                         </div>
                       </div>
                       <span className={`text-sm font-bold ${isSitter ? 'text-emerald-600' : 'text-stone-900'}`}>
-                        {isSitter ? '+' : '-'}{formatCurrency(booking.total_price || 0)}
+                        {isSitter ? '+' : '-'}{formatCents(booking.total_price_cents || 0)}
                       </span>
                     </div>
                   ))}
                   <div className="mt-4 p-4 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between">
                     <span className="text-sm font-medium text-stone-700">Total ({year})</span>
-                    <span className="text-lg font-bold text-emerald-700">{formatCurrency(totalEarnings)}</span>
+                    <span className="text-lg font-bold text-emerald-700">{formatCents(totalEarnings)}</span>
                   </div>
                 </div>
               )}

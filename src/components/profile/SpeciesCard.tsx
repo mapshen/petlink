@@ -266,11 +266,12 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
                         type="number"
                         min={0}
                         max={9999}
-                        value={svc?.price_cents ?? ''}
-                        onChange={(e) => onServicePriceChange(type, Math.max(0, Math.min(9999, Number(e.target.value) || 0)))}
+                        step="0.01"
+                        value={svc?.price_cents != null ? (svc.price_cents / 100).toFixed(2) : ''}
+                        onChange={(e) => onServicePriceChange(type, Math.round(Math.max(0, Math.min(9999, Number(e.target.value) || 0)) * 100))}
                         placeholder="—"
                         aria-label={`Price for ${label}`}
-                        className="w-14 p-1.5 border border-stone-200 rounded-md text-sm font-bold text-right"
+                        className="w-16 p-1.5 border border-stone-200 rounded-md text-sm font-bold text-right"
                       />
                     </div>
                   </div>

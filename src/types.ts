@@ -1,7 +1,8 @@
 export type CancellationPolicy = 'flexible' | 'moderate' | 'strict';
 
 export interface SitterWithService extends User {
-  price: number;
+  /** Price in integer cents */
+  price_cents: number;
   service_type: string;
   distance_meters?: number;
   accepted_pet_sizes?: string[];
@@ -211,7 +212,7 @@ export interface Booking {
   status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
   start_time: string;
   end_time: string;
-  total_price?: number;
+  total_price_cents?: number;
   sitter_name?: string;
   sitter_avatar?: string;
   owner_name?: string;
@@ -332,7 +333,7 @@ export interface SitterExpense {
   id: number;
   sitter_id: number;
   category: ExpenseCategory;
-  amount: number;
+  amount_cents: number;
   description?: string;
   date: string;
   receipt_url?: string;
@@ -357,7 +358,7 @@ export interface AnalyticsOverview {
   total_bookings: number;
   completed_bookings: number;
   cancelled_bookings: number;
-  total_revenue: number;
+  total_revenue_cents: number;
   avg_rating: number | null;
   review_count: number;
   avg_response_hours: number | null;
@@ -366,7 +367,7 @@ export interface AnalyticsOverview {
   repeat_client_pct: number;
   unique_clients: number;
   profile_views: number;
-  monthly_revenue: { month: number; revenue: number }[];
+  monthly_revenue: { month: number; revenue_cents: number }[];
 }
 
 export interface ProfileViewsData {
@@ -381,7 +382,7 @@ export interface ClientSummary {
   client_avatar: string | null;
   total_bookings: number;
   completed_bookings: number;
-  total_spent: number;
+  total_spent_cents: number;
   first_booking_date: string;
   last_booking_date: string;
   pets: { id: number; name: string; species?: string; photo_url?: string }[];
@@ -393,7 +394,7 @@ export interface ClientBookingDetail {
   service_type: string | null;
   start_time: string;
   end_time: string;
-  total_price: number | null;
+  total_price_cents: number | null;
   pets: { id: number; name: string }[];
   created_at: string;
 }
@@ -447,7 +448,7 @@ export interface ScrapedReview {
 
 export interface RevenueDataPoint {
   period: string;
-  revenue: number;
+  revenue_cents: number;
   booking_count: number;
 }
 

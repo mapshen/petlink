@@ -15,7 +15,7 @@ export interface RefundResult {
 
 export function calculateRefund(
   policy: CancellationPolicy,
-  totalPrice: number,
+  totalCents: number,
   startTime: Date,
   cancelTime: Date
 ): RefundResult {
@@ -45,7 +45,7 @@ export function calculateRefund(
 
   const eligible = hoursUntilStart >= rule.hours;
   const refundPercent = eligible ? rule.refundPercent : 0;
-  const refundAmount = Math.floor(totalPrice * (refundPercent / 100));
+  const refundAmount = Math.floor(totalCents * (refundPercent / 100));
 
   return {
     refundPercent,
