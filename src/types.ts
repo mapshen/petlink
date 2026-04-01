@@ -107,20 +107,22 @@ export interface Service {
   id: number;
   sitter_id: number;
   type: 'walking' | 'sitting' | 'drop-in' | 'grooming' | 'meet_greet' | 'daycare';
-  price: number;
+  /** Price in integer cents (e.g., 2500 = $25.00) */
+  price_cents: number;
   description?: string;
-  additional_pet_price?: number;
+  /** Additional pet fee in integer cents */
+  additional_pet_price_cents?: number;
   max_pets?: number;
   service_details?: Record<string, unknown>;
   species?: string;
-  holiday_rate?: number;
-  puppy_rate?: number;
-  duration_60_rate?: number;
-  extended_care_pct?: number;
-  pickup_dropoff_fee?: number;
-  grooming_addon_fee?: number;
-  cat_care_rate?: number;
-  additional_cat_rate?: number;
+  /** Holiday rate override in integer cents */
+  holiday_rate_cents?: number;
+  /** Puppy/kitten rate override in integer cents */
+  puppy_rate_cents?: number;
+  /** Pickup/dropoff add-on fee in integer cents */
+  pickup_dropoff_fee_cents?: number;
+  /** Grooming add-on fee in integer cents */
+  grooming_addon_fee_cents?: number;
 }
 
 export interface SitterSpeciesProfile {
