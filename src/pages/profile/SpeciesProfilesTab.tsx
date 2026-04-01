@@ -126,23 +126,27 @@ export default function SpeciesProfilesTab() {
       );
 
       // Save services in parallel
-      const serviceOps = services
-        .filter((svc) => svc.species && activeSpecies.includes(svc.species) && (svc.price > 0 || svc.type === 'meet_greet'))
-        .map((svc) => {
-          if (svc.id && svc.id > 0) {
-            return fetch(`${API_BASE}/services/${svc.id}`, {
-              method: 'PUT',
-              headers: getAuthHeaders(token),
-              body: JSON.stringify({ price: svc.price, species: svc.species }),
-            });
-          }
-          return fetch(`${API_BASE}/services`, {
-            method: 'POST',
-            headers: getAuthHeaders(token),
-            body: JSON.stringify({ type: svc.type, price: svc.price, species: svc.species }),
-          });
-        });
-      await Promise.all(serviceOps);
+      await Promise.all(
+        services
+          .filter((svc) => svc.species && activeSpecies.includes(svc.species) && (svc.price > 0 || svc.type === 'meet_greet'))
+          .map(async (svc) => {
+            const res = svc.id && svc.id > 0
+              ? await fetch(`${API_BASE}/services/${svc.id}`, {
+                  method: 'PUT',
+                  headers: getAuthHeaders(token),
+                  body: JSON.stringify({ price: svc.price, species: svc.species }),
+                })
+              : await fetch(`${API_BASE}/services`, {
+                  method: 'POST',
+                  headers: getAuthHeaders(token),
+                  body: JSON.stringify({ type: svc.type, price: svc.price, species: svc.species }),
+                });
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.error || `Failed to save ${svc.type} service`);
+            }
+          })
+      );
 
       // Update user's accepted_species
       if (user) {
