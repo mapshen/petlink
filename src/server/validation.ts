@@ -149,8 +149,8 @@ export const serviceSchema = z.object({
 
 export const speciesProfileSchema = z.object({
   years_experience: z.number().int().min(0).max(99).optional().nullable(),
-  accepted_pet_sizes: z.array(z.string()).optional().default([]),
-  skills: z.array(z.string()).optional().default([]),
+  accepted_pet_sizes: z.array(z.enum(['small', 'medium', 'large', 'giant'])).max(4).optional().default([]),
+  skills: z.array(z.enum(sitterSkills)).max(10).optional().default([]),
   max_pets: z.number().int().min(1).max(20).optional().default(1),
   max_pets_per_walk: z.number().int().min(1).max(10).optional().nullable(),
   has_yard: z.boolean().optional().default(false),
