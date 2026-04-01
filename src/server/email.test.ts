@@ -203,7 +203,7 @@ describe('email templates', () => {
         sitterName: 'Bob',
         serviceName: 'Walking',
         startTime: 'March 5',
-        totalPriceCents: 25,
+        totalPriceCents: 2500,
       });
       expect(result.html).not.toContain('<script>');
       expect(result.html).toContain('&lt;script&gt;');

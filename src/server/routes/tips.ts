@@ -32,7 +32,7 @@ export default function tipRoutes(router: Router): void {
 
       // Use advisory lock + transaction to prevent race condition on tip creation
       const result = await sql.begin(async (tx: any) => {
-        await tx`SELECT pg_advisory_xact_lock(${booking_id + 1000000})`; // offset to avoid collision with booking locks
+        await tx`SELECT pg_advisory_xact_lock(2, ${booking_id})`; // namespace 2 = tips (1 = bookings)
 
         const [existing] = await tx`
           SELECT id, status FROM tips WHERE booking_id = ${booking_id} AND tipper_id = ${req.userId}
