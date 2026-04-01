@@ -217,6 +217,19 @@ export default function bookingRoutes(router: Router, io: Server): void {
         throw new Error('INVALID_PETS');
       }
 
+      // Prevent double-booking: check for overlapping bookings for this sitter
+      const [overlap] = await tx`
+        SELECT id FROM bookings
+        WHERE sitter_id = ${sitter_id}
+          AND status IN ('pending', 'confirmed', 'in_progress')
+          AND start_time < ${end_time}::timestamptz
+          AND end_time > ${start_time}::timestamptz
+        LIMIT 1
+      `;
+      if (overlap) {
+        throw new Error('SITTER_UNAVAILABLE');
+      }
+
       const [b] = await tx`
         INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price, status)
         VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending')
@@ -251,6 +264,10 @@ export default function bookingRoutes(router: Router, io: Server): void {
     } catch (err) {
       if (err instanceof Error && err.message === 'INVALID_PETS') {
         res.status(400).json({ error: 'One or more pets not found or do not belong to you' });
+        return;
+      }
+      if (err instanceof Error && err.message === 'SITTER_UNAVAILABLE') {
+        res.status(409).json({ error: 'This sitter already has a booking during the selected time' });
         return;
       }
       throw err;
@@ -449,22 +466,32 @@ export default function bookingRoutes(router: Router, io: Server): void {
       try {
         const [sitter] = await sql`SELECT cancellation_policy FROM users WHERE id = ${updated.sitter_id}`;
         const policy = sitter.cancellation_policy || 'flexible';
-        refund = calculateRefund(policy, Math.round((updated.total_price || 0) * 100), new Date(updated.start_time), new Date());
+        const totalCents = Math.round((updated.total_price || 0) * 100);
+        refund = calculateRefund(policy, totalCents, new Date(updated.start_time), new Date());
 
-        if (refund.refundAmount > 0) {
-          await refundPayment(updated.payment_intent_id, refund.refundAmount);
+        if (refund.refundPercent === 100) {
+          // Full refund on uncaptured payment — cancel the hold
+          await cancelPayment(updated.payment_intent_id);
           await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE id = ${bookingId}`;
+        } else if (refund.refundAmount > 0) {
+          // Partial refund on uncaptured payment — capture only the non-refundable portion
+          const captureAmount = totalCents - refund.refundAmount;
+          await capturePayment(updated.payment_intent_id, captureAmount);
+          await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${bookingId}`;
         } else {
-          // No refund — sitter keeps the full amount
+          // No refund — sitter keeps the full amount, capture it
           await capturePayment(updated.payment_intent_id);
           await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${bookingId}`;
         }
+
+        // Convert refund amount from cents to dollars for API response
+        refund = { ...refund, refundAmount: refund.refundAmount / 100 };
       } catch (err) {
         logger.error({ err: sanitizeError(err), bookingId }, 'Refund failed for booking');
         refund = null; // Don't send misleading refund info to client
       }
     } else if (status === 'cancelled' && updated.payment_intent_id && updated.payment_status === 'held') {
-      // Sitter-initiated cancellation of pending booking — full refund
+      // Sitter-initiated cancellation — full refund (cancel the hold)
       try {
         await cancelPayment(updated.payment_intent_id);
         await sql`UPDATE bookings SET payment_status = 'cancelled' WHERE id = ${bookingId}`;
@@ -473,7 +500,9 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
     }
 
-    res.json({ booking: updated, refund });
+    // Strip payment_intent_id from response
+    const { payment_intent_id: _pid, ...safeBooking } = updated;
+    res.json({ booking: safeBooking, refund });
   });
 
   // --- Recurring Bookings ---
