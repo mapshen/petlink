@@ -12,6 +12,7 @@ import MapViewToggle from '../../components/map/MapViewToggle';
 import { metersToMiles } from '../../lib/geo';
 import { getServiceLabel } from '../../shared/service-labels';
 import { formatCents } from '../../lib/money';
+import LocationAutocomplete from '../../components/search/LocationAutocomplete';
 
 const SitterClusterMap = lazy(() => import('../../components/map/SitterClusterMap'));
 
@@ -231,16 +232,14 @@ export default function Search() {
       {/* Location Search Bar */}
       <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-4 mb-4">
         <form onSubmit={handleLocationSubmit} className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-grow">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-            <input
-              type="text"
-              placeholder="Enter address, city, or zip code"
-              value={locationInput}
-              onChange={(e) => setLocationInput(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-            />
-          </div>
+          <LocationAutocomplete
+            value={locationInput}
+            onChange={setLocationInput}
+            onSelect={(lat, lng, label) => {
+              setCoords({ lat, lng });
+              setLocationInput(label);
+            }}
+          />
 
           <select
             value={radius}
