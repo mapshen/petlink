@@ -40,7 +40,7 @@ export default function LocationAutocomplete({ value, onChange, onSelect, placeh
       try {
         const res = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=us&q=${encodeURIComponent(value)}`,
-          { signal: controller.signal }
+          { signal: controller.signal, headers: { 'User-Agent': 'PetLink/1.0' } }
         );
         if (res.ok) {
           const data = await res.json();
