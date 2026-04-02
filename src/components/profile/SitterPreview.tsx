@@ -15,7 +15,7 @@ function formatServiceType(type: string): string {
 
 export default function SitterPreview({ user, services, photos }: Props) {
   return (
-    <div className="sticky top-20">
+    <div>
       <div className="bg-white rounded-2xl border border-stone-100 overflow-hidden">
         <div className="px-4 py-3 border-b border-stone-100 bg-stone-50 flex justify-between items-center">
           <div className="flex items-center gap-1.5">
