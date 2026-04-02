@@ -1,7 +1,8 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Save, MapPin, Navigation, Search, Loader2 } from 'lucide-react';
+import { Save, MapPin, Navigation, Loader2 } from 'lucide-react';
 import { API_BASE } from '../../config';
+import LocationAutocomplete from '../../components/search/LocationAutocomplete';
 
 const LocationMap = lazy(() => import('./LocationMap'));
 
@@ -150,25 +151,17 @@ export default function LocationTab() {
       <div>
         <label className="block text-sm font-medium text-stone-700 mb-2">Set your location</label>
         <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
-              placeholder="Enter city, address, or zip code..."
-              className="w-full p-3 pl-10 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-            />
-            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-3.5" />
-          </div>
-          <button
-            type="button"
-            onClick={handleSearch}
-            disabled={searching || !searchQuery.trim()}
-            className="bg-emerald-600 text-white px-4 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-          >
-            {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
-          </button>
+          <LocationAutocomplete
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSelect={(lat, lng, label) => {
+              setPendingLat(lat);
+              setPendingLng(lng);
+              setAddress(label);
+              setSearchQuery('');
+            }}
+            placeholder="Enter city, address, or zip code..."
+          />
           <button
             type="button"
             onClick={handleGeolocate}
