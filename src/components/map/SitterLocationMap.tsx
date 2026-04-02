@@ -10,8 +10,8 @@ interface SitterLocationMapProps {
   readonly serviceRadiusMiles?: number;
 }
 
-const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>';
+const TILE_URL = 'https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png';
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://stadiamaps.com/">Stadia Maps</a>';
 const MILES_TO_METERS = 1609.34;
 
 export default function SitterLocationMap({ lat, lng, name, serviceRadiusMiles }: SitterLocationMapProps) {
