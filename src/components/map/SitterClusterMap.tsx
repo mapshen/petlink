@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet.markercluster';
 import { emeraldIcon, emeraldIconHighlighted } from './leaflet-setup';
 import SitterMapPopup from './SitterMapPopup';
+import { getDisplayName } from '../../shared/display-name';
 import { fitBoundsFromCoords } from '../../lib/geo';
 import { formatCents } from '../../lib/money';
 
@@ -99,7 +100,7 @@ function MarkerClusterWrapper({ sitters, serviceType, highlightedSitterId }: {
       const marker = L.marker([sitter.lat, sitter.lng], { icon });
 
       const popupContent = document.createElement('div');
-      const safeName = escapeHtml(sitter.name);
+      const safeName = escapeHtml(getDisplayName(sitter.name));
       const safeAvatarUrl = sitter.avatar_url ? escapeHtml(sitter.avatar_url) : '';
       popupContent.innerHTML = `
         <div style="width: 208px; font-family: system-ui, sans-serif;">

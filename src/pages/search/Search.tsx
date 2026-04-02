@@ -11,6 +11,7 @@ import FavoriteButton from '../../components/profile/FavoriteButton';
 import MapViewToggle from '../../components/map/MapViewToggle';
 import { metersToMiles } from '../../lib/geo';
 import { getServiceLabel } from '../../shared/service-labels';
+import { getDisplayName } from '../../shared/display-name';
 import { formatCents } from '../../lib/money';
 import LocationAutocomplete from '../../components/search/LocationAutocomplete';
 
@@ -448,7 +449,7 @@ export default function Search() {
                           <div className="flex justify-between items-start">
                             <div>
                               <h3 className="text-lg font-bold text-stone-900 group-hover:text-emerald-600 transition-colors">
-                                {sitter.name}
+                                {getDisplayName(sitter.name)}
                               </h3>
                               <div className="flex items-center text-stone-500 text-sm mt-1">
                                 <MapPin className="w-3 h-3 mr-1" />

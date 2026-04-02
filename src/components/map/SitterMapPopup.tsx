@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Star, ShieldCheck } from 'lucide-react';
+import { getDisplayName } from '../../shared/display-name';
 import { metersToMiles } from '../../lib/geo';
 import { formatCents } from '../../lib/money';
 
@@ -32,7 +33,7 @@ export default function SitterMapPopup({ sitter }: SitterMapPopupProps) {
           className="w-10 h-10 rounded-full object-cover border border-stone-200"
         />
         <div className="min-w-0">
-          <h4 className="font-bold text-stone-900 text-sm truncate">{sitter.name}</h4>
+          <h4 className="font-bold text-stone-900 text-sm truncate">{getDisplayName(sitter.name)}</h4>
           {distance && (
             <span className="text-xs text-stone-400">{distance} away</span>
           )}

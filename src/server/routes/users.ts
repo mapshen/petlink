@@ -7,8 +7,6 @@ import {
 } from '../auth.ts';
 import { validate, updateProfileSchema } from '../validation.ts';
 import { isAdminUser } from '../admin.ts';
-import { generateUniqueSlug } from '../slugify.ts';
-
 export default function userRoutes(router: Router): void {
   router.put(
     '/users/me',
@@ -38,13 +36,9 @@ export default function userRoutes(router: Router): void {
         has_insurance,
       } = req.body;
 
-      // Regenerate slug if name changed
-      const [current] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
-      const newSlug = current.name !== name ? await generateUniqueSlug(name, req.userId) : undefined;
-
+      // Slug is permanent — does not change when name is updated
       await sql`
       UPDATE users SET name = ${name}, bio = ${bio || null}, avatar_url = ${avatar_url || null}
-      ${newSlug ? sql`, slug = ${newSlug}` : sql``}
       ${accepted_pet_sizes !== undefined ? sql`, accepted_pet_sizes = ${accepted_pet_sizes || []}` : sql``}
       ${accepted_species !== undefined ? sql`, accepted_species = ${accepted_species || []}` : sql``}
       ${years_experience !== undefined ? sql`, years_experience = ${years_experience}` : sql``}

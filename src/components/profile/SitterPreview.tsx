@@ -1,6 +1,7 @@
 import { Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { User, Service, SitterPhoto } from '../../types';
+import { getDisplayName } from '../../shared/display-name';
 import { formatCents } from '../../lib/money';
 
 interface Props {
@@ -33,7 +34,7 @@ export default function SitterPreview({ user, services, photos }: Props) {
               alt={user.name}
               className="w-16 h-16 rounded-full border-2 border-emerald-50 mx-auto mb-2 object-cover"
             />
-            <h3 className="text-lg font-extrabold">{user.name}</h3>
+            <h3 className="text-lg font-extrabold">{getDisplayName(user.name)}</h3>
             <div className="flex gap-1.5 mt-1 flex-wrap justify-center">
               {user.avg_rating !== null && user.avg_rating !== undefined && (
                 <span className="bg-amber-50 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">

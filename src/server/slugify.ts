@@ -1,8 +1,10 @@
 import sql from './db.ts';
+import crypto from 'crypto';
 
 /**
  * Generate a URL-friendly slug from a name.
- * Ensures uniqueness by appending a numeric suffix if needed.
+ * Uses random 4-char suffix for uniqueness (not sequential numbers).
+ * Slug is permanent — does not change when name is updated.
  */
 export function slugify(name: string): string {
   return name
@@ -13,9 +15,13 @@ export function slugify(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+function randomSuffix(): string {
+  return crypto.randomBytes(2).toString('hex'); // 4 hex chars
+}
+
 export async function generateUniqueSlug(name: string, userId?: number): Promise<string> {
   const base = slugify(name);
-  if (!base) return `sitter-${userId || Date.now()}`;
+  if (!base) return `sitter-${randomSuffix()}`;
 
   // Check if base slug is available (excluding current user)
   const [existing] = await sql`
@@ -24,14 +30,13 @@ export async function generateUniqueSlug(name: string, userId?: number): Promise
 
   if (!existing) return base;
 
-  // Append numeric suffix
-  const [maxSuffix] = await sql`
-    SELECT slug FROM users WHERE slug LIKE ${base + '-%'} ORDER BY LENGTH(slug) DESC, slug DESC LIMIT 1
-  `;
+  // Append random suffix and retry if collision
+  for (let i = 0; i < 5; i++) {
+    const candidate = `${base}-${randomSuffix()}`;
+    const [dup] = await sql`SELECT id FROM users WHERE slug = ${candidate} LIMIT 1`;
+    if (!dup) return candidate;
+  }
 
-  if (!maxSuffix) return `${base}-2`;
-
-  const lastPart = maxSuffix.slug.split('-').pop();
-  const num = parseInt(lastPart, 10);
-  return `${base}-${(isNaN(num) ? 1 : num) + 1}`;
+  // Fallback: longer random suffix
+  return `${base}-${crypto.randomBytes(4).toString('hex')}`;
 }
