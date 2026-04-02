@@ -188,7 +188,7 @@ export default function ProfilePage() {
 
         {/* RIGHT: Live Preview (sitter mode only) */}
         {isSitterMode && (
-          <div className="hidden lg:block">
+          <div className="hidden lg:block sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
             <SitterPreview
               user={user}
               services={previewData.services}
