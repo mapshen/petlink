@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MapPin, ShieldCheck, Crown, Heart, MessageSquare } from 'lucide-react';
 import type { User, SitterSpeciesProfile } from '../../types';
+import { getDisplayName } from '../../shared/display-name';
 import { buildSpeciesBadges } from './SpeciesDetails';
 
 interface Props {
@@ -78,7 +79,7 @@ export default function SitterProfileHeader({
         <div className="flex-1 min-w-0">
           {/* Name + badges */}
           <div className="flex items-center gap-3 mb-2.5 flex-wrap">
-            <h1 className="text-2xl font-extrabold text-stone-900">{sitter.name}</h1>
+            <h1 className="text-2xl font-extrabold text-stone-900">{getDisplayName(sitter.name)}</h1>
             {/* All approved sitters show as verified — approval requires admin review. Future: check verifications table for ID/background check status */}
             <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
