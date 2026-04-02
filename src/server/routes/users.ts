@@ -7,8 +7,6 @@ import {
 } from '../auth.ts';
 import { validate, updateProfileSchema } from '../validation.ts';
 import { isAdminUser } from '../admin.ts';
-import { generateUniqueSlug } from '../slugify.ts';
-
 export default function userRoutes(router: Router): void {
   router.put(
     '/users/me',

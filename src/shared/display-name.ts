@@ -19,9 +19,9 @@ export function getDisplayName(fullName: string): string {
   if (ampersandIdx > 0 && ampersandIdx < parts.length - 1) {
     // Everything before last name, preserving "Michael & Sarah"
     const firstParts = parts.slice(0, -1).join(' ');
-    return `${firstParts} ${lastName[0].toUpperCase()}.`;
+    return `${firstParts} ${[...lastName][0].toUpperCase()}.`;
   }
 
   // Standard: first name + last initial only (drop middle names)
-  return `${parts[0]} ${lastName[0].toUpperCase()}.`;
+  return `${parts[0]} ${[...lastName][0].toUpperCase()}.`;
 }
