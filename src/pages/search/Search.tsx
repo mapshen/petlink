@@ -235,9 +235,8 @@ export default function Search() {
           <LocationAutocomplete
             value={locationInput}
             onChange={setLocationInput}
-            onSelect={(lat, lng, label) => {
+            onSelect={(lat, lng) => {
               setCoords({ lat, lng });
-              setLocationInput(label);
             }}
           />
 

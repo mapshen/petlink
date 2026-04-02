@@ -6,19 +6,12 @@ import LocationAutocomplete from '../../components/search/LocationAutocomplete';
 
 const LocationMap = lazy(() => import('./LocationMap'));
 
-interface GeoResult {
-  lat: string;
-  lon: string;
-  display_name: string;
-}
-
 export default function LocationTab() {
   const { user, token, updateUser } = useAuth();
 
   const [serviceRadius, setServiceRadius] = useState('10');
   const [address, setAddress] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searching, setSearching] = useState(false);
   const [geolocating, setGeolocating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -51,34 +44,6 @@ export default function LocationTab() {
       }
     } catch {
       setAddress('Location set');
-    }
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setSearching(true);
-    setMessage('');
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`,
-        { headers: { 'Accept-Language': 'en' } },
-      );
-      if (!res.ok) throw new Error('Search failed');
-      const results: GeoResult[] = await res.json();
-      if (results.length === 0) {
-        setMessage('No results found. Try a different address.');
-        return;
-      }
-      const lat = parseFloat(results[0].lat);
-      const lng = parseFloat(results[0].lon);
-      setPendingLat(lat);
-      setPendingLng(lng);
-      setAddress(results[0].display_name.split(',').slice(0, 2).join(',').trim());
-      setSearchQuery('');
-    } catch {
-      setMessage('Search failed. Please try again.');
-    } finally {
-      setSearching(false);
     }
   };
 
