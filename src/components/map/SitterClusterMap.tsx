@@ -38,8 +38,7 @@ interface SitterClusterMapProps {
 
 const DEFAULT_CENTER: [number, number] = [37.77, -122.42];
 const DEFAULT_ZOOM = 12;
-const TILE_URL = 'https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png';
-const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://stadiamaps.com/">Stadia Maps</a>';
+import { TILE_URL, TILE_ATTRIBUTION } from '../../lib/map-config';
 
 function FitBounds({ sitters, searchCenter }: { sitters: readonly MapSitter[]; searchCenter?: { lat: number; lng: number } | null }) {
   const map = useMap();
