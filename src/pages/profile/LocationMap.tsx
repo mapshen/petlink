@@ -1,5 +1,6 @@
 import { MapContainer, TileLayer, Marker, Circle } from 'react-leaflet';
 import { emeraldIcon } from '../../components/map/leaflet-setup';
+import { TILE_URL, TILE_ATTRIBUTION } from '../../lib/map-config';
 import 'leaflet/dist/leaflet.css';
 
 interface Props {
@@ -21,10 +22,7 @@ export default function LocationMap({ lat, lng, radiusMiles }: Props) {
         scrollWheelZoom={false}
         style={{ height: '100%', width: '100%' }}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
-          url="https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png"
-        />
+        <TileLayer attribution={TILE_ATTRIBUTION} url={TILE_URL} />
         <Marker position={[lat, lng]} icon={emeraldIcon} />
         <Circle
           center={[lat, lng]}
