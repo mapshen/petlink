@@ -36,9 +36,7 @@ interface SitterClusterMapProps {
   readonly className?: string;
 }
 
-const DEFAULT_CENTER: [number, number] = [37.77, -122.42];
-const DEFAULT_ZOOM = 12;
-import { TILE_URL, TILE_ATTRIBUTION } from '../../lib/map-config';
+import { TILE_URL, TILE_ATTRIBUTION, DEFAULT_CENTER, DEFAULT_ZOOM } from '../../lib/map-config';
 
 function FitBounds({ sitters, searchCenter }: { sitters: readonly MapSitter[]; searchCenter?: { lat: number; lng: number } | null }) {
   const map = useMap();

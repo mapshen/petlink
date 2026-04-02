@@ -30,8 +30,8 @@ export default function TrackWalk() {
     setEvents(prev => [...prev, {
       type,
       time: new Date().toLocaleTimeString(),
-      lat: 37.7749 + (Math.random() * 0.01), // Mock lat
-      lng: -122.4194 + (Math.random() * 0.01), // Mock lng
+      lat: 40.7128 + (Math.random() * 0.01), // Mock lat (NYC)
+      lng: -73.9960 + (Math.random() * 0.01), // Mock lng (NYC)
       video_url,
     }]);
   };
