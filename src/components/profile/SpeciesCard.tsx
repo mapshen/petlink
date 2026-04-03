@@ -23,10 +23,11 @@ interface SpeciesCardProps {
   readonly onProfileChange: (profile: Partial<SitterSpeciesProfile>) => void;
   readonly onServicePriceChange: (serviceType: string, price: number) => void;
   readonly onRemove: () => void;
+  readonly defaultCollapsed?: boolean;
 }
 
-export default function SpeciesCard({ species, profile, services, onProfileChange, onServicePriceChange, onRemove }: SpeciesCardProps) {
-  const [collapsed, setCollapsed] = useState(true);
+export default function SpeciesCard({ species, profile, services, onProfileChange, onServicePriceChange, onRemove, defaultCollapsed = true }: SpeciesCardProps) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   const colors = SPECIES_STYLE;
   const isDog = species === 'dog';

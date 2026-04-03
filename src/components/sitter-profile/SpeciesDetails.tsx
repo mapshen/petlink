@@ -31,7 +31,7 @@ export function getServicesForSpecies(services: Service[], species: string | nul
   return services.filter((s) => s.species === species);
 }
 
-function CollapsibleSection({ title, defaultOpen = false, children }: { readonly title: string; readonly defaultOpen?: boolean; readonly children: React.ReactNode }) {
+function CollapsibleSection({ title, defaultOpen = true, children }: { readonly title: string; readonly defaultOpen?: boolean; readonly children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">

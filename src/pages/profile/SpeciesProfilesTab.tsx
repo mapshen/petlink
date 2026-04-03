@@ -17,6 +17,7 @@ export default function SpeciesProfilesTab() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
   const [loading, setLoading] = useState(true);
+  const [newlyAdded, setNewlyAdded] = useState<Set<string>>(new Set());
 
   // Fetch existing profiles and services
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function SpeciesProfilesTab() {
   const addSpecies = (species: string) => {
     if (activeSpecies.includes(species)) return;
     setActiveSpecies((prev) => [...prev, species]);
+    setNewlyAdded((prev) => new Set([...prev, species]));
     setProfiles((prev) => ({
       ...prev,
       [species]: { species, years_experience: undefined, accepted_pet_sizes: [], skills: [], max_pets: 1, owns_same_species: false },
@@ -190,6 +192,7 @@ export default function SpeciesProfilesTab() {
             onProfileChange={(p) => updateProfile(species, p)}
             onServicePriceChange={(type, price) => updateServicePrice(species, type, price)}
             onRemove={() => removeSpecies(species)}
+            defaultCollapsed={!newlyAdded.has(species)}
           />
         ))}
       </div>
