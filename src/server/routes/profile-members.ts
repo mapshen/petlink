@@ -1,9 +1,24 @@
 import type { Router } from 'express';
+import type { RateLimitRequestHandler } from 'express-rate-limit';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
+import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
+import { z } from 'zod';
+import { validate } from '../validation.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
-export default function profileMemberRoutes(router: Router): void {
+const addMemberSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(100),
+  avatar_url: z.string().url().optional().nullable(),
+  role: z.enum(['co_sitter', 'assistant']).default('co_sitter'),
+});
+
+const updateMemberSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  avatar_url: z.string().url().optional().nullable(),
+});
+
+export default function profileMemberRoutes(router: Router, publicLimiter?: RateLimitRequestHandler): void {
   // Get profile members for the current sitter
   router.get('/profile-members/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
@@ -20,8 +35,9 @@ export default function profileMemberRoutes(router: Router): void {
     }
   });
 
-  // Get profile members for a sitter (public)
-  router.get('/profile-members/:sitterId', async (req, res) => {
+  // Get profile members for a sitter (public — only expose safe fields)
+  const publicMiddleware = publicLimiter ? [requireUserAgent, botBlockMiddleware, publicLimiter] : [];
+  router.get('/profile-members/:sitterId', ...publicMiddleware, async (req, res) => {
     const sitterId = Number(req.params.sitterId);
     if (!Number.isInteger(sitterId) || sitterId <= 0) {
       res.status(400).json({ error: 'Invalid sitter ID' });
@@ -29,7 +45,8 @@ export default function profileMemberRoutes(router: Router): void {
     }
     try {
       const members = await sql`
-        SELECT id, name, avatar_url, role, background_check_status
+        SELECT id, name, avatar_url, role,
+          CASE WHEN background_check_status = 'passed' THEN true ELSE false END as background_check_passed
         FROM profile_members
         WHERE sitter_id = ${sitterId}
         ORDER BY created_at
@@ -41,8 +58,8 @@ export default function profileMemberRoutes(router: Router): void {
     }
   });
 
-  // Add a profile member (sitter adds their own co-sitter)
-  router.post('/profile-members', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  // Add a profile member
+  router.post('/profile-members', authMiddleware, validate(addMemberSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
       if (!user?.roles?.includes('sitter')) {
@@ -51,15 +68,8 @@ export default function profileMemberRoutes(router: Router): void {
       }
 
       const { name, avatar_url, role } = req.body;
-      if (!name || typeof name !== 'string' || !name.trim()) {
-        res.status(400).json({ error: 'Name is required' });
-        return;
-      }
 
-      const validRoles = ['co_sitter', 'assistant'];
-      const memberRole = validRoles.includes(role) ? role : 'co_sitter';
-
-      // Limit: max 1 co-sitter per profile for now
+      // Max 1 co-sitter per profile (enforced by unique index + application check)
       const [existing] = await sql`
         SELECT id FROM profile_members WHERE sitter_id = ${req.userId} LIMIT 1
       `;
@@ -70,7 +80,7 @@ export default function profileMemberRoutes(router: Router): void {
 
       const [member] = await sql`
         INSERT INTO profile_members (sitter_id, name, avatar_url, role)
-        VALUES (${req.userId}, ${name.trim()}, ${avatar_url || null}, ${memberRole})
+        VALUES (${req.userId}, ${name}, ${avatar_url || null}, ${role})
         RETURNING id, sitter_id, name, avatar_url, role, background_check_status, created_at
       `;
 
@@ -82,11 +92,11 @@ export default function profileMemberRoutes(router: Router): void {
   });
 
   // Update a profile member
-  router.put('/profile-members/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  router.put('/profile-members/:id', authMiddleware, validate(updateMemberSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const memberId = Number(req.params.id);
       const [existing] = await sql`
-        SELECT id FROM profile_members WHERE id = ${memberId} AND sitter_id = ${req.userId}
+        SELECT id, name, avatar_url FROM profile_members WHERE id = ${memberId} AND sitter_id = ${req.userId}
       `;
       if (!existing) {
         res.status(404).json({ error: 'Profile member not found' });
@@ -94,9 +104,12 @@ export default function profileMemberRoutes(router: Router): void {
       }
 
       const { name, avatar_url } = req.body;
+      const updatedName = name?.trim() || existing.name;
+      const updatedAvatar = avatar_url !== undefined ? (avatar_url || null) : existing.avatar_url;
+
       const [updated] = await sql`
         UPDATE profile_members
-        SET name = ${name?.trim() || existing.name}, avatar_url = ${avatar_url ?? null}
+        SET name = ${updatedName}, avatar_url = ${updatedAvatar}
         WHERE id = ${memberId} AND sitter_id = ${req.userId}
         RETURNING id, sitter_id, name, avatar_url, role, background_check_status, created_at
       `;

@@ -409,10 +409,11 @@ export async function initDb() {
       background_check_status TEXT DEFAULT 'not_started' CHECK(background_check_status IN ('not_started', 'pending', 'passed', 'failed')),
       checkr_candidate_id TEXT,
       user_id INTEGER REFERENCES users(id),
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_profile_members_sitter ON profile_members (sitter_id)`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_profile_members_sitter ON profile_members (sitter_id)`.catch(() => {});
 
   await sql`
     CREATE TABLE IF NOT EXISTS login_attempts (
