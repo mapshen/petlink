@@ -4,6 +4,7 @@ import { useMode } from '../../context/ModeContext';
 import { Booking } from '../../types';
 import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2, Heart } from 'lucide-react';
 import TipDialog from '../../components/booking/TipDialog';
+import BookingGuidance from '../../components/booking/BookingGuidance';
 import BookingReviewDetail from '../../components/review/BookingReviewDetail';
 
 const CalendarCommandCenter = lazy(() => import('../../components/calendar/CalendarCommandCenter'));
@@ -402,6 +403,8 @@ export default function HomePage() {
                         )}
                       </div>
                     </div>
+
+                    <BookingGuidance status={booking.status} role={isSitterMode ? 'sitter' : 'owner'} />
 
                     {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
                       <div className="mt-4">

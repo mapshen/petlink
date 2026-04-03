@@ -21,6 +21,7 @@ const SitterLocationMap = lazy(() => import('../../components/map/SitterLocation
 import BookingCalendar from '../../components/booking/BookingCalendar';
 import TimeSlotPicker from '../../components/booking/TimeSlotPicker';
 import PetSelector from '../../components/booking/PetSelector';
+import FirstBookingNudge from '../../components/booking/FirstBookingNudge';
 import { useFavorites } from '../../hooks/useFavorites';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
@@ -473,6 +474,7 @@ export default function SitterProfile() {
               {!isOwnProfile && (
               <div className="bg-white rounded-2xl border border-stone-200 p-6">
                 <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
+                <FirstBookingNudge />
 
                 {user && pets.length > 0 && (
                   <div className="space-y-2 mb-6">

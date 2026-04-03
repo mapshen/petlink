@@ -191,6 +191,7 @@ export async function initDb() {
       payment_method TEXT DEFAULT 'card' CHECK(payment_method IN ('card', 'ach_debit')),
       payment_failure_reason TEXT,
       responded_at TIMESTAMPTZ,
+      booking_reminder_sent_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
@@ -304,6 +305,8 @@ export async function initDb() {
       booking_status BOOLEAN DEFAULT TRUE,
       new_message BOOLEAN DEFAULT TRUE,
       walk_updates BOOLEAN DEFAULT TRUE,
+      booking_reminders BOOLEAN DEFAULT TRUE,
+      booking_reminders_email BOOLEAN DEFAULT TRUE,
       email_enabled BOOLEAN DEFAULT TRUE
     )
   `;
