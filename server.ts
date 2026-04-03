@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { initDb } from './src/server/db.ts';
 import { startCareTaskReminderScheduler, stopCareTaskReminderScheduler } from './src/server/care-task-reminders.ts';
+import { startBookingReminderScheduler, stopBookingReminderScheduler } from './src/server/booking-reminders.ts';
 import sql from './src/server/db.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/server/rate-limit.ts';
 import {
@@ -196,10 +197,12 @@ async function startServer() {
   httpServer.listen(PORT, '0.0.0.0', () => {
     logger.info(`Server running on http://localhost:${PORT}`);
     startCareTaskReminderScheduler(io);
+    startBookingReminderScheduler(io);
   });
 
   const shutdown = () => {
     stopCareTaskReminderScheduler();
+    stopBookingReminderScheduler();
     io.close();
     httpServer.close(() => {
       sql.end({ timeout: 5 }).then(() => process.exit(0)).catch(() => process.exit(1));
