@@ -26,7 +26,7 @@ interface SpeciesCardProps {
 }
 
 export default function SpeciesCard({ species, profile, services, onProfileChange, onServicePriceChange, onRemove }: SpeciesCardProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   const colors = SPECIES_STYLE;
   const isDog = species === 'dog';
