@@ -9,15 +9,24 @@ interface NotificationPrefs {
   booking_status: boolean;
   new_message: boolean;
   walk_updates: boolean;
+  booking_reminders: boolean;
+  booking_reminders_email: boolean;
   email_enabled: boolean;
 }
 
-const ITEMS: { key: keyof NotificationPrefs; label: string; description: string }[] = [
-  { key: 'new_booking', label: 'New bookings', description: 'Get notified about new booking requests' },
+interface PrefItem {
+  key: keyof NotificationPrefs;
+  label: string;
+  description: string;
+  emailKey?: keyof NotificationPrefs;
+}
+
+const ITEMS: PrefItem[] = [
+  { key: 'new_booking', label: 'New bookings', description: 'When someone books your services' },
   { key: 'booking_status', label: 'Booking updates', description: 'Status changes and care task reminders' },
-  { key: 'new_message', label: 'Messages', description: 'Get notified about new messages' },
+  { key: 'booking_reminders', label: 'Booking reminders', description: 'Day-before booking reminders', emailKey: 'booking_reminders_email' },
+  { key: 'new_message', label: 'Messages', description: 'When you receive a new message' },
   { key: 'walk_updates', label: 'Walk updates', description: 'GPS tracking and walk completion alerts' },
-  { key: 'email_enabled', label: 'Email notifications', description: 'Receive email in addition to in-app notifications' },
 ];
 
 export default function NotificationSection({ token }: { readonly token: string | null }) {
@@ -62,30 +71,62 @@ export default function NotificationSection({ token }: { readonly token: string 
   if (!prefs) return <p className="text-sm text-stone-500">Unable to load preferences.</p>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-1">
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="mb-3">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {ITEMS.map(({ key, label, description }) => (
-        <div key={key} className="flex justify-between items-center">
+      {ITEMS.map(({ key, label, description, emailKey }) => (
+        <div key={key} className="flex justify-between items-center py-3 border-b border-stone-100 last:border-0">
           <div>
             <div className="text-sm font-semibold">{label}</div>
             <div className="text-xs text-stone-500">{description}</div>
           </div>
-          <button
-            onClick={() => toggle(key)}
-            disabled={saving}
-            className={`w-11 h-6 rounded-full transition-colors relative ${prefs[key] ? 'bg-emerald-500' : 'bg-stone-300'}`}
-            role="switch"
-            aria-checked={prefs[key]}
-            aria-label={label}
-          >
-            <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${prefs[key] ? 'translate-x-5' : 'translate-x-0.5'}`} />
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-stone-600">
+              <input
+                type="checkbox"
+                checked={prefs[key]}
+                onChange={() => toggle(key)}
+                disabled={saving}
+                className="rounded text-emerald-600"
+              />
+              App
+            </label>
+            {emailKey && (
+              <label className="flex items-center gap-1.5 text-xs text-stone-600">
+                <input
+                  type="checkbox"
+                  checked={prefs[emailKey]}
+                  onChange={() => toggle(emailKey)}
+                  disabled={saving}
+                  className="rounded text-emerald-600"
+                />
+                Email
+              </label>
+            )}
+          </div>
         </div>
       ))}
+
+      {/* Global email toggle */}
+      <div className="flex justify-between items-center pt-4 mt-2 border-t border-stone-200">
+        <div>
+          <div className="text-sm font-semibold">Email notifications</div>
+          <div className="text-xs text-stone-500">Master switch for all email notifications</div>
+        </div>
+        <button
+          onClick={() => toggle('email_enabled')}
+          disabled={saving}
+          className={`w-11 h-6 rounded-full transition-colors relative ${prefs.email_enabled ? 'bg-emerald-500' : 'bg-stone-300'}`}
+          role="switch"
+          aria-checked={prefs.email_enabled}
+          aria-label="Email notifications"
+        >
+          <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${prefs.email_enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        </button>
+      </div>
     </div>
   );
 }
