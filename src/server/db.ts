@@ -1,6 +1,5 @@
 import postgres from 'postgres';
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 import logger from './logger.ts';
 import { backfillSpeciesProfiles } from './backfill-species-profiles.ts';
 
@@ -121,6 +120,12 @@ export async function initDb() {
       has_insurance BOOLEAN DEFAULT false,
       email_verified BOOLEAN DEFAULT false,
       is_pro BOOLEAN DEFAULT false,
+      non_smoking_home BOOLEAN DEFAULT false,
+      children_in_home BOOLEAN DEFAULT false,
+      one_client_at_a_time BOOLEAN DEFAULT false,
+      safety_environment TEXT,
+      typical_day TEXT,
+      info_wanted_about_pets TEXT,
       deleted_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
@@ -161,7 +166,12 @@ export async function initDb() {
       description TEXT,
       additional_pet_price_cents INTEGER DEFAULT 0,
       max_pets INTEGER DEFAULT 1,
-      service_details JSONB
+      service_details JSONB,
+      species TEXT,
+      holiday_rate_cents INTEGER,
+      puppy_rate_cents INTEGER,
+      pickup_dropoff_fee_cents INTEGER,
+      grooming_addon_fee_cents INTEGER
     )
   `;
 
@@ -170,8 +180,8 @@ export async function initDb() {
       id SERIAL PRIMARY KEY,
       sitter_id INTEGER NOT NULL REFERENCES users(id),
       owner_id INTEGER NOT NULL REFERENCES users(id),
-      pet_id INTEGER REFERENCES pets(id),
-      service_id INTEGER REFERENCES services(id),
+      pet_id INTEGER REFERENCES pets(id) ON DELETE SET NULL,
+      service_id INTEGER REFERENCES services(id) ON DELETE SET NULL,
       status booking_status DEFAULT 'pending',
       start_time TIMESTAMPTZ NOT NULL,
       end_time TIMESTAMPTZ NOT NULL,
@@ -695,26 +705,9 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_species_profiles_sitter ON sitter_species_profiles (sitter_id)`.catch(() => {});
 
-  // Issue #302: Add species column to services for per-species pricing
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS species TEXT`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS holiday_rate_cents INTEGER`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS puppy_rate_cents INTEGER`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS pickup_dropoff_fee_cents INTEGER`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS grooming_addon_fee_cents INTEGER`.catch(() => {});
-
-  // Issue #287: Migrate float columns to integer cents
-  // Backfill price_cents from legacy price column (one-time migration)
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS price_cents INTEGER DEFAULT 0`.catch(() => {});
-  await sql`UPDATE services SET price_cents = ROUND(price * 100) WHERE price_cents = 0 AND price > 0`.catch(() => {});
-  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS additional_pet_price_cents INTEGER DEFAULT 0`.catch(() => {});
-  await sql`UPDATE services SET additional_pet_price_cents = ROUND(additional_pet_price * 100) WHERE additional_pet_price_cents = 0 AND additional_pet_price > 0`.catch(() => {});
-  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_price_cents INTEGER`.catch(() => {});
-  await sql`UPDATE bookings SET total_price_cents = ROUND(total_price * 100) WHERE total_price_cents IS NULL AND total_price IS NOT NULL`.catch(() => {});
-  // Backfill rate columns from legacy float columns if they exist
-  await sql`UPDATE services SET holiday_rate_cents = ROUND(holiday_rate * 100) WHERE holiday_rate_cents IS NULL AND holiday_rate IS NOT NULL`.catch(() => {});
-  await sql`UPDATE services SET puppy_rate_cents = ROUND(puppy_rate * 100) WHERE puppy_rate_cents IS NULL AND puppy_rate IS NOT NULL`.catch(() => {});
-  await sql`UPDATE services SET pickup_dropoff_fee_cents = ROUND(pickup_dropoff_fee * 100) WHERE pickup_dropoff_fee_cents IS NULL AND pickup_dropoff_fee IS NOT NULL`.catch(() => {});
-  await sql`UPDATE services SET grooming_addon_fee_cents = ROUND(grooming_addon_fee * 100) WHERE grooming_addon_fee_cents IS NULL AND grooming_addon_fee IS NOT NULL`.catch(() => {});
+  // Columns species, holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents,
+  // grooming_addon_fee_cents are now in the CREATE TABLE above.
+  // Float-to-cents backfill (Issue #287) already completed — removed.
 
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
@@ -724,63 +717,14 @@ export async function initDb() {
   // Unique constraint: one service per (sitter, type, species) combination
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_services_sitter_type_species ON services (sitter_id, type, COALESCE(species, ''))`.catch(() => {});
 
-  // Issue #302: Additional global sitter fields
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS non_smoking_home BOOLEAN DEFAULT false`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS children_in_home BOOLEAN DEFAULT false`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS one_client_at_a_time BOOLEAN DEFAULT false`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS safety_environment TEXT`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS typical_day TEXT`.catch(() => {});
-  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS info_wanted_about_pets TEXT`.catch(() => {});
-
-  // Fix FK constraints on bookings to prevent cascade failures on user/pet/service deletion
-  // pet_id and service_id: SET NULL on delete (booking record preserved, reference cleared)
-  // Using DO blocks to handle "constraint already exists" gracefully
-  await sql`
-    DO $$ BEGIN
-      ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_pet_id_fkey;
-      ALTER TABLE bookings ADD CONSTRAINT bookings_pet_id_fkey FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE SET NULL;
-    EXCEPTION WHEN others THEN null;
-    END $$
-  `.catch(() => {});
-  await sql`
-    DO $$ BEGIN
-      ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_service_id_fkey;
-      ALTER TABLE bookings ADD CONSTRAINT bookings_service_id_fkey FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE SET NULL;
-    EXCEPTION WHEN others THEN null;
-    END $$
-  `.catch(() => {});
+  // Global sitter fields and FK constraints are now in the CREATE TABLE above.
 
   // Backfill species profiles for sitters missing them and set species on services
   await backfillSpeciesProfiles(sql).catch((err) => {
     logger.error({ err }, 'Failed to backfill species profiles');
   });
 
-  // Migrate slugs with sequential numeric suffixes to random hex suffixes.
-  // Matches slugs that end with the user's own ID (old backfill pattern).
-  try {
-    const legacySlugs = await sql`
-      SELECT id, slug, name FROM users
-      WHERE slug LIKE '%-' || id::text
-    `;
-    for (const user of legacySlugs) {
-      try {
-        const base = user.slug.replace(new RegExp(`-${user.id}$`), '');
-        const hex = crypto.randomBytes(2).toString('hex');
-        const newSlug = `${base}-${hex}`;
-        const [dup] = await sql`SELECT id FROM users WHERE slug = ${newSlug} AND id != ${user.id}`;
-        if (!dup) {
-          await sql`UPDATE users SET slug = ${newSlug} WHERE id = ${user.id}`;
-          logger.info({ oldSlug: user.slug, newSlug, userId: user.id }, 'Migrated slug to random suffix');
-        } else {
-          logger.warn({ slug: newSlug, userId: user.id }, 'Slug collision during migration, will retry on next startup');
-        }
-      } catch (err) {
-        logger.warn({ err, userId: user.id }, 'Slug migration failed for user (will retry)');
-      }
-    }
-  } catch (err) {
-    logger.error({ err }, 'Slug migration query failed (non-fatal)');
-  }
+  // Slug migration (sequential → random hex) already completed — removed.
 
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
