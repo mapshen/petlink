@@ -754,6 +754,27 @@ export async function initDb() {
     logger.error({ err }, 'Failed to backfill species profiles');
   });
 
+  // Migrate slugs with sequential numeric suffixes (-2, -3) to random hex suffixes
+  try {
+    const numericSlugs = await sql`
+      SELECT id, slug FROM users
+      WHERE slug ~ '-[0-9]+$'
+        AND slug !~ '-[0-9a-f]{4,8}$'
+    `;
+    for (const user of numericSlugs) {
+      const base = user.slug.replace(/-\d+$/, '');
+      const hex = require('crypto').randomBytes(2).toString('hex');
+      const newSlug = `${base}-${hex}`;
+      const [dup] = await sql`SELECT id FROM users WHERE slug = ${newSlug} AND id != ${user.id}`;
+      if (!dup) {
+        await sql`UPDATE users SET slug = ${newSlug} WHERE id = ${user.id}`;
+        logger.info({ oldSlug: user.slug, newSlug, userId: user.id }, 'Migrated slug to random suffix');
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, 'Slug migration failed (non-fatal)');
+  }
+
   // Seed data if empty (dev/test only)
   if (process.env.NODE_ENV === 'production') return;
   const [{ count }] = await sql`SELECT count(*)::int as count FROM users`;
