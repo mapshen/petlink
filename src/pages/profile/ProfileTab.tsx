@@ -131,6 +131,29 @@ export default function ProfileTab() {
         />
       </div>
 
+      {/* Emergency Contact (managed in Settings) */}
+      <div className="border border-stone-200 rounded-xl p-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="text-sm font-bold text-stone-900 mb-0.5">Emergency Contact</div>
+            {user.emergency_contact_name ? (
+              <div className="text-sm text-stone-600">
+                {user.emergency_contact_name}
+                {user.emergency_contact_phone && ` · ${user.emergency_contact_phone}`}
+                {user.emergency_contact_relationship && (
+                  <span className="text-stone-400"> ({user.emergency_contact_relationship})</span>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-amber-600">No emergency contact set — add one in Settings.</p>
+            )}
+          </div>
+          <a href="/settings#settings-emergency" className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 whitespace-nowrap">
+            Edit in Settings
+          </a>
+        </div>
+      </div>
+
       {message && (
         <div className={`text-sm text-center p-2 rounded-lg ${
           message.includes('success') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'

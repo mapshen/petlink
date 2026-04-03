@@ -126,6 +126,9 @@ export async function initDb() {
       safety_environment TEXT,
       typical_day TEXT,
       info_wanted_about_pets TEXT,
+      emergency_contact_name TEXT,
+      emergency_contact_phone TEXT,
+      emergency_contact_relationship TEXT,
       deleted_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )

@@ -476,6 +476,12 @@ export default function SitterProfile() {
                 <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
                 <FirstBookingNudge />
 
+                {user && !user.emergency_contact_name && (
+                  <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
+                    <Link to="/settings#settings-emergency" className="font-semibold underline hover:text-amber-800">Add an emergency contact</Link> in Settings — sitters need someone to reach in case of a pet emergency.
+                  </div>
+                )}
+
                 {user && pets.length > 0 && (
                   <div className="space-y-2 mb-6">
                     <label className="block text-sm font-medium text-stone-700">Your Pets</label>

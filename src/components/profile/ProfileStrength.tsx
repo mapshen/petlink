@@ -20,6 +20,7 @@ function computeStrength(user: User, services: Service[], photos: SitterPhoto[])
     { label: 'Added policies and house rules', done: !!(user.cancellation_policy || user.house_rules) },
     { label: 'Set pet types and experience', done: (user.accepted_species?.length ?? 0) > 0 },
     { label: 'Complete background verification', done: false }, // Would need verification data
+    { label: 'Added emergency contact', done: !!user.emergency_contact_name },
   ];
 
   const completed = items.filter((i) => i.done).length;

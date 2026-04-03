@@ -64,6 +64,9 @@ export interface User {
   is_admin?: boolean;
   avg_rating?: number | null;
   review_count?: number;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_contact_relationship?: string | null;
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';

@@ -55,7 +55,7 @@ describe('computeStrength', () => {
     const services = [{ id: 1, sitter_id: 1, type: 'walking' as const, price_cents: 2500 }];
     const photos = [{ id: 1, sitter_id: 1, photo_url: 'url', caption: '', sort_order: 0, created_at: '' }];
     const { percentage } = computeStrength(user, services, photos);
-    // 5 out of 7 items done (bio+avatar, services, photos, species, policies)
-    expect(percentage).toBe(71);
+    // 5 out of 8 items done (bio+avatar, services, photos, species, policies)
+    expect(percentage).toBe(63);
   });
 });
