@@ -18,30 +18,24 @@ export const SPECIES_SERVICES: Record<PetSpecies, readonly ServiceType[]> = {
 /** All valid service types */
 export const ALL_SERVICE_TYPES: readonly ServiceType[] = ['meet_greet', 'walking', 'daycare', 'sitting', 'drop-in', 'grooming'];
 
-/** Species-specific labels for service types */
-const SPECIES_LABELS: Partial<Record<PetSpecies, Partial<Record<ServiceType, string>>>> = {
-  dog: { walking: 'Dog Walking', sitting: 'Dog Sitting', grooming: 'Dog Grooming', daycare: 'Dog Daycare' },
-  cat: { sitting: 'Cat Sitting', grooming: 'Cat Grooming' },
-};
-
-/** Generic (multi-species or no-species) labels */
+/** Service labels — species-neutral, clean names */
 const GENERIC_LABELS: Record<ServiceType, string> = {
-  walking: 'Pet Walking',
+  meet_greet: 'Meet & Greet',
+  walking: 'Walking',
   daycare: 'Daycare',
   sitting: 'House Sitting',
   'drop-in': 'Drop-in Visit',
   grooming: 'Grooming',
-  meet_greet: 'Meet & Greet',
 };
 
 /** Plural labels for search results */
 const GENERIC_LABELS_PLURAL: Record<ServiceType, string> = {
-  walking: 'Pet Walkers',
+  meet_greet: 'Meet & Greet',
+  walking: 'Walkers',
   daycare: 'Daycare Providers',
   sitting: 'House Sitters',
   'drop-in': 'Drop-in Visits',
   grooming: 'Groomers',
-  meet_greet: 'Meet & Greet',
 };
 
 /**
@@ -49,14 +43,8 @@ const GENERIC_LABELS_PLURAL: Record<ServiceType, string> = {
  * If species has exactly one entry, returns species-specific label.
  * Otherwise returns generic label.
  */
-export function getServiceLabel(type: string, species?: string[]): string {
-  const speciesKey = type as ServiceType;
-  if (species && species.length === 1) {
-    const sp = species[0] as PetSpecies;
-    const speciesLabel = SPECIES_LABELS[sp]?.[speciesKey];
-    if (speciesLabel) return speciesLabel;
-  }
-  return GENERIC_LABELS[speciesKey] || type.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+export function getServiceLabel(type: string, _species?: string[]): string {
+  return GENERIC_LABELS[type as ServiceType] || type.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /** Get plural label for search results */
@@ -137,7 +125,7 @@ export function getSkillGroups(acceptedSpecies?: string[]): { label: string; ski
 /** Whether pet sizes are relevant for the selected species */
 export function areSizesRelevant(acceptedSpecies?: string[]): boolean {
   if (!acceptedSpecies || acceptedSpecies.length === 0) return true;
-  return acceptedSpecies.some((s) => ['dog', 'cat', 'small_animal'].includes(s));
+  return acceptedSpecies.some((s) => ['dog'].includes(s));
 }
 
 /** Whether walking capacity is relevant (only for dogs) */

@@ -35,7 +35,7 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
 
   const colors = SPECIES_COLORS[species] || SPECIES_COLORS.dog;
   const isDog = species === 'dog';
-  const showSizes = ['dog', 'cat', 'small_animal'].includes(species);
+  const showSizes = species === 'dog';
   const availableServiceTypes = getAvailableServices([species]);
   const availableSkills = getAvailableSkills([species]);
 
