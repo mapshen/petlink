@@ -1,7 +1,7 @@
 import type { Server } from 'socket.io';
 import sql from './db.ts';
 import { createNotification } from './notifications.ts';
-import { sendEmail } from './email.ts';
+import { sendEmail, escapeHtml } from './email.ts';
 import logger, { sanitizeError } from './logger.ts';
 import { format } from 'date-fns';
 
@@ -59,7 +59,7 @@ export async function checkBookingReminders(io: Server): Promise<number> {
           sendEmail({
             to: booking.owner_email,
             subject: `Reminder: ${serviceName} tomorrow at ${startFormatted}`,
-            html: `<p>Hi ${booking.owner_name},</p><p>Just a reminder — your ${serviceName} with ${booking.sitter_name} is tomorrow at ${startFormatted}.</p><p>Make sure your pet's care instructions are up to date!</p><p>— PetLink</p>`,
+            html: `<p>Hi ${escapeHtml(booking.owner_name)},</p><p>Just a reminder — your ${escapeHtml(serviceName)} with ${escapeHtml(booking.sitter_name)} is tomorrow at ${startFormatted}.</p><p>Make sure your pet's care instructions are up to date!</p><p>— PetLink</p>`,
           }).catch(() => {});
         }
       } catch (err) {
@@ -86,7 +86,7 @@ export async function checkBookingReminders(io: Server): Promise<number> {
           sendEmail({
             to: booking.sitter_email,
             subject: `Reminder: ${serviceName} tomorrow at ${startFormatted}`,
-            html: `<p>Hi ${booking.sitter_name},</p><p>You have a ${serviceName} with ${booking.owner_name} tomorrow at ${startFormatted}.</p><p>Review the pet's care instructions before the session.</p><p>— PetLink</p>`,
+            html: `<p>Hi ${escapeHtml(booking.sitter_name)},</p><p>You have a ${escapeHtml(serviceName)} with ${escapeHtml(booking.owner_name)} tomorrow at ${startFormatted}.</p><p>Review the pet's care instructions before the session.</p><p>— PetLink</p>`,
           }).catch(() => {});
         }
       } catch (err) {
@@ -109,12 +109,17 @@ export async function checkBookingReminders(io: Server): Promise<number> {
 }
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
+let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
 export function startBookingReminderScheduler(io: Server): void {
   if (intervalId) return;
-  // Check every hour
   intervalId = setInterval(() => checkBookingReminders(io), 60 * 60 * 1000);
-  // Also run once on startup after a short delay
-  setTimeout(() => checkBookingReminders(io), 30 * 1000);
+  timeoutId = setTimeout(() => checkBookingReminders(io), 30 * 1000);
   logger.info('Booking reminder scheduler started (hourly)');
+}
+
+export function stopBookingReminderScheduler(): void {
+  if (intervalId) { clearInterval(intervalId); intervalId = null; }
+  if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+  logger.info('Booking reminder scheduler stopped');
 }

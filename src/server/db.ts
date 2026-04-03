@@ -728,6 +728,11 @@ export async function initDb() {
   // grooming_addon_fee_cents are now in the CREATE TABLE above.
   // Float-to-cents backfill (Issue #287) already completed — removed.
 
+  // Issue #348: Day-before booking reminders
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_reminder_sent_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS booking_reminders BOOLEAN DEFAULT TRUE`.catch(() => {});
+  await sql`ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS booking_reminders_email BOOLEAN DEFAULT TRUE`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

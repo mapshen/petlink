@@ -404,7 +404,7 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <BookingGuidance status={booking.status} role={isSitterMode ? 'sitter' : 'owner'} />
+                    <BookingGuidance status={booking.status} role={booking.sitter_id === user?.id ? 'sitter' : 'owner'} />
 
                     {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
                       <div className="mt-4">
