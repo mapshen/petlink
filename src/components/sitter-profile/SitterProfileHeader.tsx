@@ -28,7 +28,8 @@ export function buildHeaderTags(sitter: User): string[] {
   if (sitter.accepted_species) {
     tags.push(...sitter.accepted_species.map((s) => s.replace(/_/g, ' ')));
   }
-  if (sitter.accepted_pet_sizes && sitter.accepted_pet_sizes.length > 0) {
+  // Only show sizes for dog sitters
+  if (sitter.accepted_species?.includes('dog') && sitter.accepted_pet_sizes && sitter.accepted_pet_sizes.length > 0) {
     tags.push(...sitter.accepted_pet_sizes);
   }
   if (sitter.home_type) tags.push(sitter.home_type);

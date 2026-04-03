@@ -1,6 +1,8 @@
+import { useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { SitterSpeciesProfile, Service } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
-import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
+import { formatSpecies } from '../../shared/species-utils';
 import { formatCents } from '../../lib/money';
 import { formatSkill } from './SitterProfileHeader';
 
@@ -15,9 +17,10 @@ export interface SpeciesBadge {
 }
 
 export function buildSpeciesBadges(profiles: SitterSpeciesProfile[]): SpeciesBadge[] {
+  const SPECIES_ICONS_MAP: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
   return profiles.map((p) => ({
     species: p.species,
-    emoji: SPECIES_ICONS[p.species] || '🐾',
+    emoji: SPECIES_ICONS_MAP[p.species] || '🐾',
     label: formatSpecies(p.species),
     years: p.years_experience,
   }));
@@ -26,6 +29,23 @@ export function buildSpeciesBadges(profiles: SitterSpeciesProfile[]): SpeciesBad
 export function getServicesForSpecies(services: Service[], species: string | null): Service[] {
   if (!species) return services;
   return services.filter((s) => s.species === species);
+}
+
+function CollapsibleSection({ title, defaultOpen = false, children }: { readonly title: string; readonly defaultOpen?: boolean; readonly children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full text-left px-5 py-3 flex items-center justify-between"
+      >
+        <h3 className="text-sm font-bold text-stone-900">{title}</h3>
+        {open ? <ChevronDown className="w-4 h-4 text-stone-400" /> : <ChevronRight className="w-4 h-4 text-stone-400" />}
+      </button>
+      {open && <div className="px-5 pb-4">{children}</div>}
+    </div>
+  );
 }
 
 interface Props {
@@ -39,98 +59,10 @@ export default function SpeciesDetails({ profile, services }: Props) {
 
   return (
     <div className="py-6 px-4" role="tabpanel" aria-label={`${formatSpecies(profile.species)} details`}>
-      <div className="max-w-2xl mx-auto space-y-4">
-        {/* Experience & Capacity */}
-        <div className="bg-white rounded-2xl border border-stone-200 p-5">
-          <h3 className="text-sm font-bold text-stone-900 mb-3">Experience & Capacity</h3>
-          <div className="flex flex-wrap gap-4 text-sm">
-            {profile.years_experience != null && (
-              <div>
-                <span className="font-extrabold text-lg text-emerald-600">{profile.years_experience}</span>
-                <span className="text-stone-500 ml-1">years experience</span>
-              </div>
-            )}
-            <div>
-              <span className="font-extrabold text-lg text-emerald-600">{profile.max_pets}</span>
-              <span className="text-stone-500 ml-1">max {formatSpecies(profile.species).toLowerCase()}s at once</span>
-            </div>
-            {isDog && profile.max_pets_per_walk && (
-              <div>
-                <span className="font-extrabold text-lg text-emerald-600">{profile.max_pets_per_walk}</span>
-                <span className="text-stone-500 ml-1">max per walk</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Accepted Sizes */}
-        {profile.accepted_pet_sizes.length > 0 && (
-          <div className="bg-white rounded-2xl border border-stone-200 p-5">
-            <h3 className="text-sm font-bold text-stone-900 mb-3">Accepted Sizes</h3>
-            <div className="flex flex-wrap gap-2">
-              {profile.accepted_pet_sizes.map((size) => (
-                <span key={size} className="bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full">
-                  {SIZE_LABELS[size] || size}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Skills */}
-        {profile.skills.length > 0 && (
-          <div className="bg-white rounded-2xl border border-stone-200 p-5">
-            <h3 className="text-sm font-bold text-stone-900 mb-3">Skills & Certifications</h3>
-            <div className="flex flex-wrap gap-2">
-              {profile.skills.map((skill) => (
-                <span key={skill} className="bg-stone-100 text-stone-700 text-xs font-semibold px-3 py-1.5 rounded-full">
-                  {formatSkill(skill)}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Environment (dog-specific) */}
-        {isDog && (
-          <div className="bg-white rounded-2xl border border-stone-200 p-5">
-            <h3 className="text-sm font-bold text-stone-900 mb-3">Home Environment</h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <EnvironmentItem label="Yard" value={profile.has_yard} />
-              <EnvironmentItem label="Fenced yard" value={profile.has_fenced_yard} />
-              <EnvironmentItem label="Dogs on furniture" value={profile.dogs_on_furniture} />
-              <EnvironmentItem label="Dogs on bed" value={profile.dogs_on_bed} />
-              {profile.potty_break_frequency && (
-                <div className="col-span-2 text-stone-600">
-                  <span className="font-medium">Potty breaks:</span> {profile.potty_break_frequency}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Pet Preferences */}
-        <div className="bg-white rounded-2xl border border-stone-200 p-5">
-          <h3 className="text-sm font-bold text-stone-900 mb-3">Pet Preferences</h3>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <EnvironmentItem label="Accepts puppies/kittens" value={profile.accepts_puppies} />
-            <EnvironmentItem label="Accepts unspayed" value={profile.accepts_unspayed} />
-            <EnvironmentItem label="Accepts unneutered" value={profile.accepts_unneutered} />
-          </div>
-        </div>
-
-        {/* Own Pets */}
-        {profile.owns_same_species && (
-          <div className="bg-white rounded-2xl border border-stone-200 p-5">
-            <h3 className="text-sm font-bold text-stone-900 mb-3">My {formatSpecies(profile.species)}s</h3>
-            <p className="text-sm text-stone-600">{profile.own_pets_description || `Has own ${formatSpecies(profile.species).toLowerCase()}s`}</p>
-          </div>
-        )}
-
-        {/* Services & Pricing */}
+      <div className="max-w-2xl mx-auto space-y-2">
+        {/* Services & Pricing — expanded by default */}
         {speciesServices.length > 0 && (
-          <div className="bg-white rounded-2xl border border-stone-200 p-5">
-            <h3 className="text-sm font-bold text-stone-900 mb-3">Services & Pricing</h3>
+          <CollapsibleSection title="Services & Pricing" defaultOpen>
             <div className="space-y-2">
               {speciesServices.map((svc) => (
                 <div key={svc.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl">
@@ -144,7 +76,88 @@ export default function SpeciesDetails({ profile, services }: Props) {
                 </div>
               ))}
             </div>
+          </CollapsibleSection>
+        )}
+
+        {/* Experience & Capacity */}
+        <CollapsibleSection title="Experience & Capacity">
+          <div className="flex flex-wrap gap-4 text-sm">
+            {profile.years_experience != null && (
+              <div>
+                <span className="font-extrabold text-lg text-emerald-600">{profile.years_experience}</span>
+                <span className="text-stone-500 ml-1">years experience</span>
+              </div>
+            )}
+            <div>
+              <span className="font-extrabold text-lg text-emerald-600">{profile.max_pets}</span>
+              <span className="text-stone-500 ml-1">max pets at once</span>
+            </div>
+            {isDog && profile.max_pets_per_walk && (
+              <div>
+                <span className="font-extrabold text-lg text-emerald-600">{profile.max_pets_per_walk}</span>
+                <span className="text-stone-500 ml-1">max per walk</span>
+              </div>
+            )}
           </div>
+        </CollapsibleSection>
+
+        {/* Accepted Sizes — dogs only */}
+        {isDog && profile.accepted_pet_sizes.length > 0 && (
+          <CollapsibleSection title="Accepted Sizes">
+            <div className="flex flex-wrap gap-2">
+              {profile.accepted_pet_sizes.map((size) => (
+                <span key={size} className="bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full">
+                  {SIZE_LABELS[size] || size}
+                </span>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {/* Skills */}
+        {profile.skills.length > 0 && (
+          <CollapsibleSection title="Skills & Certifications">
+            <div className="flex flex-wrap gap-2">
+              {profile.skills.map((skill) => (
+                <span key={skill} className="bg-stone-100 text-stone-700 text-xs font-semibold px-3 py-1.5 rounded-full">
+                  {formatSkill(skill)}
+                </span>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {/* Environment (dog-specific) */}
+        {isDog && (
+          <CollapsibleSection title="Home Environment">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <EnvironmentItem label="Yard" value={profile.has_yard} />
+              <EnvironmentItem label="Fenced yard" value={profile.has_fenced_yard} />
+              <EnvironmentItem label="Dogs on furniture" value={profile.dogs_on_furniture} />
+              <EnvironmentItem label="Dogs on bed" value={profile.dogs_on_bed} />
+              {profile.potty_break_frequency && (
+                <div className="col-span-2 text-stone-600">
+                  <span className="font-medium">Potty breaks:</span> {profile.potty_break_frequency}
+                </div>
+              )}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {/* Pet Preferences */}
+        <CollapsibleSection title="Pet Preferences">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <EnvironmentItem label="Accepts puppies/kittens" value={profile.accepts_puppies} />
+            <EnvironmentItem label="Accepts unspayed" value={profile.accepts_unspayed} />
+            <EnvironmentItem label="Accepts unneutered" value={profile.accepts_unneutered} />
+          </div>
+        </CollapsibleSection>
+
+        {/* Own Pets */}
+        {profile.owns_same_species && (
+          <CollapsibleSection title={`My ${formatSpecies(profile.species)}s`}>
+            <p className="text-sm text-stone-600">{profile.own_pets_description || `Has own ${formatSpecies(profile.species).toLowerCase()}s`}</p>
+          </CollapsibleSection>
         )}
       </div>
     </div>

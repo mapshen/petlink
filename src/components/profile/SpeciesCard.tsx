@@ -6,13 +6,8 @@ import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
 import { formatCentsDecimal } from '../../lib/money';
 
 const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
-const SPECIES_COLORS: Record<string, { border: string; header: string; text: string }> = {
-  dog: { border: 'border-blue-300', header: 'bg-blue-50', text: 'text-blue-900' },
-  cat: { border: 'border-pink-300', header: 'bg-pink-50', text: 'text-pink-900' },
-  bird: { border: 'border-yellow-300', header: 'bg-yellow-50', text: 'text-yellow-900' },
-  reptile: { border: 'border-green-300', header: 'bg-green-50', text: 'text-green-900' },
-  small_animal: { border: 'border-purple-300', header: 'bg-purple-50', text: 'text-purple-900' },
-};
+// Unified brand-consistent style — emerald stripe, no rainbow
+const SPECIES_STYLE = { border: 'border-stone-200', text: 'text-stone-900' };
 
 const DOG_SIZES = [
   { value: 'small', label: 'Small (0-15 lbs)' },
@@ -33,7 +28,7 @@ interface SpeciesCardProps {
 export default function SpeciesCard({ species, profile, services, onProfileChange, onServicePriceChange, onRemove }: SpeciesCardProps) {
   const [collapsed, setCollapsed] = useState(false);
 
-  const colors = SPECIES_COLORS[species] || SPECIES_COLORS.dog;
+  const colors = SPECIES_STYLE;
   const isDog = species === 'dog';
   const showSizes = species === 'dog';
   const availableServiceTypes = getAvailableServices([species]);
@@ -64,9 +59,11 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
   if (isDog && profile.has_fenced_yard) summaryParts.push('fenced yard');
 
   return (
-    <div className={`border-2 rounded-2xl overflow-hidden ${colors.border}`}>
+    <div className={`border rounded-2xl overflow-hidden ${colors.border} flex`}>
+      <div className="w-1 bg-emerald-500 flex-shrink-0" />
+      <div className="flex-1">
       {/* Header */}
-      <div className={`flex items-center justify-between px-5 py-3.5 ${colors.header}`}>
+      <div className="flex items-center justify-between px-5 py-3.5">
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="flex items-center gap-3 flex-1 min-w-0"
@@ -74,7 +71,7 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
         >
           <span className="text-xl">{SPECIES_ICONS[species]}</span>
           <div className="text-left">
-            <div className={`text-[15px] font-extrabold ${colors.text}`}>{formatSpecies(species)}</div>
+            <div className="text-[15px] font-extrabold text-stone-900">{formatSpecies(species)}</div>
             <div className="text-[11px] text-stone-500">{summaryParts.join(' · ')}</div>
           </div>
         </button>
@@ -282,6 +279,7 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
