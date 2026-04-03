@@ -32,8 +32,8 @@ export default function notificationRoutes(router: Router): void {
   });
 
   router.put('/notification-preferences', authMiddleware, validate(notificationPreferencesSchema), async (req: AuthenticatedRequest, res) => {
-    const { new_booking, booking_status, new_message, walk_updates, email_enabled } = req.body;
-    const prefs = await updatePreferences(req.userId!, { new_booking, booking_status, new_message, walk_updates, email_enabled });
+    const { new_booking, booking_status, new_message, walk_updates, booking_reminders, booking_reminders_email, email_enabled } = req.body;
+    const prefs = await updatePreferences(req.userId!, { new_booking, booking_status, new_message, walk_updates, booking_reminders, booking_reminders_email, email_enabled });
     res.json({ preferences: prefs });
   });
 }

@@ -360,6 +360,8 @@ export const notificationPreferencesSchema = z.object({
   booking_status: z.boolean().optional(),
   new_message: z.boolean().optional(),
   walk_updates: z.boolean().optional(),
+  booking_reminders: z.boolean().optional(),
+  booking_reminders_email: z.boolean().optional(),
 });
 
 // --- Payment Schemas ---
