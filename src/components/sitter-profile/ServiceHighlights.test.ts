@@ -4,17 +4,17 @@ import { getServiceLabel } from '../../shared/service-labels';
 import type { Service } from '../../types';
 
 describe('getServiceLabel (shared)', () => {
-  it('returns generic labels without species', () => {
-    expect(getServiceLabel('walking')).toBe('Pet Walking');
+  it('returns species-neutral labels', () => {
+    expect(getServiceLabel('walking')).toBe('Walking');
     expect(getServiceLabel('sitting')).toBe('House Sitting');
     expect(getServiceLabel('drop-in')).toBe('Drop-in Visit');
     expect(getServiceLabel('grooming')).toBe('Grooming');
     expect(getServiceLabel('meet_greet')).toBe('Meet & Greet');
   });
 
-  it('returns species-specific labels with species', () => {
-    expect(getServiceLabel('walking', ['dog'])).toBe('Dog Walking');
-    expect(getServiceLabel('sitting', ['cat'])).toBe('Cat Sitting');
+  it('ignores species parameter and returns same labels', () => {
+    expect(getServiceLabel('walking', ['dog'])).toBe('Walking');
+    expect(getServiceLabel('sitting', ['cat'])).toBe('House Sitting');
   });
 
   it('handles unknown type gracefully', () => {

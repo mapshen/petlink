@@ -2,32 +2,23 @@ import { describe, it, expect } from 'vitest';
 import { getServiceLabel, getServiceLabelPlural, getAvailableServices, getAvailableSkills, getSkillGroups, areSizesRelevant, isWalkCapacityRelevant, SPECIES_SERVICES, ALL_SERVICE_TYPES } from './service-labels';
 
 describe('getServiceLabel', () => {
-  it('returns generic label with no species', () => {
-    expect(getServiceLabel('walking')).toBe('Pet Walking');
+  it('returns species-neutral labels', () => {
+    expect(getServiceLabel('walking')).toBe('Walking');
     expect(getServiceLabel('sitting')).toBe('House Sitting');
     expect(getServiceLabel('daycare')).toBe('Daycare');
+    expect(getServiceLabel('grooming')).toBe('Grooming');
+    expect(getServiceLabel('drop-in')).toBe('Drop-in Visit');
+    expect(getServiceLabel('meet_greet')).toBe('Meet & Greet');
   });
 
-  it('returns dog-specific label for dog-only sitter', () => {
-    expect(getServiceLabel('walking', ['dog'])).toBe('Dog Walking');
-    expect(getServiceLabel('sitting', ['dog'])).toBe('Dog Sitting');
-    expect(getServiceLabel('grooming', ['dog'])).toBe('Dog Grooming');
-    expect(getServiceLabel('daycare', ['dog'])).toBe('Dog Daycare');
-  });
-
-  it('returns cat-specific label for cat-only sitter', () => {
-    expect(getServiceLabel('sitting', ['cat'])).toBe('Cat Sitting');
-    expect(getServiceLabel('grooming', ['cat'])).toBe('Cat Grooming');
-  });
-
-  it('returns generic label for multi-species sitter', () => {
-    expect(getServiceLabel('walking', ['dog', 'cat'])).toBe('Pet Walking');
-    expect(getServiceLabel('sitting', ['dog', 'cat'])).toBe('House Sitting');
-  });
-
-  it('returns generic label for species without specific labels', () => {
+  it('ignores species parameter and returns same labels', () => {
+    expect(getServiceLabel('walking', ['dog'])).toBe('Walking');
+    expect(getServiceLabel('sitting', ['dog'])).toBe('House Sitting');
+    expect(getServiceLabel('grooming', ['dog'])).toBe('Grooming');
+    expect(getServiceLabel('sitting', ['cat'])).toBe('House Sitting');
+    expect(getServiceLabel('grooming', ['cat'])).toBe('Grooming');
+    expect(getServiceLabel('walking', ['dog', 'cat'])).toBe('Walking');
     expect(getServiceLabel('sitting', ['bird'])).toBe('House Sitting');
-    expect(getServiceLabel('sitting', ['reptile'])).toBe('House Sitting');
   });
 
   it('handles unknown service type gracefully', () => {
@@ -37,7 +28,7 @@ describe('getServiceLabel', () => {
 
 describe('getServiceLabelPlural', () => {
   it('returns plural labels', () => {
-    expect(getServiceLabelPlural('walking')).toBe('Pet Walkers');
+    expect(getServiceLabelPlural('walking')).toBe('Walkers');
     expect(getServiceLabelPlural('sitting')).toBe('House Sitters');
     expect(getServiceLabelPlural('daycare')).toBe('Daycare Providers');
   });
@@ -151,10 +142,10 @@ describe('getSkillGroups', () => {
 });
 
 describe('areSizesRelevant', () => {
-  it('returns true for dog/cat/small_animal', () => {
+  it('returns true only for dog', () => {
     expect(areSizesRelevant(['dog'])).toBe(true);
-    expect(areSizesRelevant(['cat'])).toBe(true);
-    expect(areSizesRelevant(['small_animal'])).toBe(true);
+    expect(areSizesRelevant(['cat'])).toBe(false);
+    expect(areSizesRelevant(['small_animal'])).toBe(false);
   });
 
   it('returns false for bird/reptile only', () => {
