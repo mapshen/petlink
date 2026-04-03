@@ -54,7 +54,7 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
   const summaryParts: string[] = [];
   if (profile.years_experience) summaryParts.push(`${profile.years_experience} yrs`);
   summaryParts.push(`${services.length} services`);
-  if (profile.accepted_pet_sizes && profile.accepted_pet_sizes.length > 0) {
+  if (showSizes && profile.accepted_pet_sizes && profile.accepted_pet_sizes.length > 0) {
     summaryParts.push(profile.accepted_pet_sizes.map((s) => s[0].toUpperCase()).join('/'));
   }
   if (isDog && profile.has_fenced_yard) summaryParts.push('fenced yard');
