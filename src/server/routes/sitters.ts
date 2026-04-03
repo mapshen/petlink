@@ -205,7 +205,8 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     };
 
     const profileMembers = await sql`
-      SELECT id, name, avatar_url, role, background_check_status
+      SELECT id, name, avatar_url, role,
+        CASE WHEN background_check_status = 'passed' THEN true ELSE false END AS background_check_passed
       FROM profile_members WHERE sitter_id = ${sitterId} ORDER BY created_at
     `;
 

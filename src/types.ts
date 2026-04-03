@@ -365,6 +365,7 @@ export interface ProfileMember {
   background_check_status: BackgroundCheckStatus;
   user_id?: number | null;
   created_at: string;
+  updated_at: string;
 }
 
 export type TipStatus = 'pending' | 'succeeded' | 'failed';

@@ -95,6 +95,10 @@ export default function profileMemberRoutes(router: Router, publicLimiter?: Rate
   router.put('/profile-members/:id', authMiddleware, validate(updateMemberSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const memberId = Number(req.params.id);
+      if (!Number.isInteger(memberId) || memberId <= 0) {
+        res.status(400).json({ error: 'Invalid member ID' });
+        return;
+      }
       const [existing] = await sql`
         SELECT id, name, avatar_url FROM profile_members WHERE id = ${memberId} AND sitter_id = ${req.userId}
       `;
@@ -109,9 +113,9 @@ export default function profileMemberRoutes(router: Router, publicLimiter?: Rate
 
       const [updated] = await sql`
         UPDATE profile_members
-        SET name = ${updatedName}, avatar_url = ${updatedAvatar}
+        SET name = ${updatedName}, avatar_url = ${updatedAvatar}, updated_at = NOW()
         WHERE id = ${memberId} AND sitter_id = ${req.userId}
-        RETURNING id, sitter_id, name, avatar_url, role, background_check_status, created_at
+        RETURNING id, sitter_id, name, avatar_url, role, background_check_status, created_at, updated_at
       `;
 
       res.json({ member: updated });
@@ -125,6 +129,10 @@ export default function profileMemberRoutes(router: Router, publicLimiter?: Rate
   router.delete('/profile-members/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const memberId = Number(req.params.id);
+      if (!Number.isInteger(memberId) || memberId <= 0) {
+        res.status(400).json({ error: 'Invalid member ID' });
+        return;
+      }
       const [existing] = await sql`
         SELECT id FROM profile_members WHERE id = ${memberId} AND sitter_id = ${req.userId}
       `;
