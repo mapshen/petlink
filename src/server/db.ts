@@ -400,6 +400,22 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_tips_sitter_id ON tips (sitter_id)`.catch(() => {});
 
   await sql`
+    CREATE TABLE IF NOT EXISTS profile_members (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      avatar_url TEXT,
+      role TEXT NOT NULL DEFAULT 'co_sitter' CHECK(role IN ('co_sitter', 'assistant')),
+      background_check_status TEXT DEFAULT 'not_started' CHECK(background_check_status IN ('not_started', 'pending', 'passed', 'failed')),
+      checkr_candidate_id TEXT,
+      user_id INTEGER REFERENCES users(id),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_profile_members_sitter ON profile_members (sitter_id)`.catch(() => {});
+
+  await sql`
     CREATE TABLE IF NOT EXISTS login_attempts (
       id SERIAL PRIMARY KEY,
       email TEXT NOT NULL,

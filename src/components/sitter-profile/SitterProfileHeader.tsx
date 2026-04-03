@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MapPin, ShieldCheck, Crown, Heart, MessageSquare } from 'lucide-react';
-import type { User, SitterSpeciesProfile } from '../../types';
-import { getDisplayName } from '../../shared/display-name';
+import type { User, SitterSpeciesProfile, ProfileMember } from '../../types';
+import { getDisplayName, buildCombinedName } from '../../shared/display-name';
 import { buildSpeciesBadges } from './SpeciesDetails';
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
   readonly onBookClick: () => void;
   readonly onMessageClick: () => void;
   readonly speciesProfiles?: SitterSpeciesProfile[];
+  readonly profileMembers?: ProfileMember[];
 }
 
 const BIO_TRUNCATE_LIMIT = 150;
@@ -50,6 +51,7 @@ export default function SitterProfileHeader({
   onBookClick,
   onMessageClick,
   speciesProfiles = [],
+  profileMembers = [],
 }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const showFavorite = currentUser != null && currentUser.id !== sitter.id;
@@ -64,8 +66,8 @@ export default function SitterProfileHeader({
   return (
     <div className="bg-white border-b border-stone-200">
       <div className="max-w-[960px] mx-auto px-6 py-8 flex gap-8 items-start">
-        {/* Avatar */}
-        <div className="flex-shrink-0">
+        {/* Avatar(s) */}
+        <div className="flex-shrink-0 flex items-end">
           <div className="w-[130px] h-[130px] rounded-full border-4 border-emerald-50 overflow-hidden bg-stone-300">
             <img
               src={sitter.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sitter.name)}&size=130`}
@@ -73,13 +75,22 @@ export default function SitterProfileHeader({
               className="w-full h-full object-cover"
             />
           </div>
+          {profileMembers.length > 0 && (
+            <div className="-ml-8 w-[90px] h-[90px] rounded-full border-4 border-white overflow-hidden bg-stone-300">
+              <img
+                src={profileMembers[0].avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profileMembers[0].name)}&size=90`}
+                alt={profileMembers[0].name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
           {/* Name + badges */}
           <div className="flex items-center gap-3 mb-2.5 flex-wrap">
-            <h1 className="text-2xl font-extrabold text-stone-900">{getDisplayName(sitter.name)}</h1>
+            <h1 className="text-2xl font-extrabold text-stone-900">{getDisplayName(buildCombinedName(sitter.name, profileMembers))}</h1>
             {/* All approved sitters show as verified — approval requires admin review. Future: check verifications table for ID/background check status */}
             <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />

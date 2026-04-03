@@ -354,6 +354,20 @@ export interface SitterPayout {
   created_at: string;
 }
 
+export type BackgroundCheckStatus = 'not_started' | 'pending' | 'passed' | 'failed';
+
+export interface ProfileMember {
+  id: number;
+  sitter_id: number;
+  name: string;
+  avatar_url: string | null;
+  role: 'co_sitter' | 'assistant';
+  background_check_status: BackgroundCheckStatus;
+  user_id?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type TipStatus = 'pending' | 'succeeded' | 'failed';
 
 export interface Tip {

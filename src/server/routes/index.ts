@@ -23,3 +23,4 @@ export { default as miscRoutes } from './misc.ts';
 export { default as postRoutes } from './posts.ts';
 export { default as speciesProfileRoutes } from './species-profiles.ts';
 export { default as tipRoutes } from './tips.ts';
+export { default as profileMemberRoutes } from './profile-members.ts';
