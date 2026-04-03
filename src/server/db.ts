@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import logger from './logger.ts';
 import { backfillSpeciesProfiles } from './backfill-species-profiles.ts';
 
@@ -754,25 +755,31 @@ export async function initDb() {
     logger.error({ err }, 'Failed to backfill species profiles');
   });
 
-  // Migrate slugs with sequential numeric suffixes (-2, -3) to random hex suffixes
+  // Migrate slugs with sequential numeric suffixes to random hex suffixes.
+  // Matches slugs that end with the user's own ID (old backfill pattern).
   try {
-    const numericSlugs = await sql`
-      SELECT id, slug FROM users
-      WHERE slug ~ '-[0-9]+$'
-        AND slug !~ '-[0-9a-f]{4,8}$'
+    const legacySlugs = await sql`
+      SELECT id, slug, name FROM users
+      WHERE slug LIKE '%-' || id::text
     `;
-    for (const user of numericSlugs) {
-      const base = user.slug.replace(/-\d+$/, '');
-      const hex = require('crypto').randomBytes(2).toString('hex');
-      const newSlug = `${base}-${hex}`;
-      const [dup] = await sql`SELECT id FROM users WHERE slug = ${newSlug} AND id != ${user.id}`;
-      if (!dup) {
-        await sql`UPDATE users SET slug = ${newSlug} WHERE id = ${user.id}`;
-        logger.info({ oldSlug: user.slug, newSlug, userId: user.id }, 'Migrated slug to random suffix');
+    for (const user of legacySlugs) {
+      try {
+        const base = user.slug.replace(new RegExp(`-${user.id}$`), '');
+        const hex = crypto.randomBytes(2).toString('hex');
+        const newSlug = `${base}-${hex}`;
+        const [dup] = await sql`SELECT id FROM users WHERE slug = ${newSlug} AND id != ${user.id}`;
+        if (!dup) {
+          await sql`UPDATE users SET slug = ${newSlug} WHERE id = ${user.id}`;
+          logger.info({ oldSlug: user.slug, newSlug, userId: user.id }, 'Migrated slug to random suffix');
+        } else {
+          logger.warn({ slug: newSlug, userId: user.id }, 'Slug collision during migration, will retry on next startup');
+        }
+      } catch (err) {
+        logger.warn({ err, userId: user.id }, 'Slug migration failed for user (will retry)');
       }
     }
   } catch (err) {
-    logger.error({ err }, 'Slug migration failed (non-fatal)');
+    logger.error({ err }, 'Slug migration query failed (non-fatal)');
   }
 
   // Seed data if empty (dev/test only)
