@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getDisplayName } from './display-name';
+import { getDisplayName, buildCombinedName } from './display-name';
 
 describe('getDisplayName', () => {
   it('returns first name + last initial with period', () => {
@@ -36,5 +36,32 @@ describe('getDisplayName', () => {
 
   it('handles hyphenated last names', () => {
     expect(getDisplayName('Lisa Park-Kim')).toBe('Lisa P.');
+  });
+});
+
+describe('buildCombinedName', () => {
+  it('returns primary name when no members', () => {
+    expect(buildCombinedName('Michael Henderson', [])).toBe('Michael Henderson');
+  });
+
+  it('combines primary + one member first name', () => {
+    expect(buildCombinedName('Michael Henderson', [{ name: 'Sarah' }])).toBe('Michael & Sarah Henderson');
+  });
+
+  it('uses only first name from member full name', () => {
+    expect(buildCombinedName('Michael Henderson', [{ name: 'Sarah Jones' }])).toBe('Michael & Sarah Henderson');
+  });
+
+  it('handles single-name primary', () => {
+    expect(buildCombinedName('Michael', [{ name: 'Sarah' }])).toBe('Michael & Sarah');
+  });
+
+  it('handles empty members array', () => {
+    expect(buildCombinedName('Michael Henderson', [])).toBe('Michael Henderson');
+  });
+
+  it('works with getDisplayName for full privacy flow', () => {
+    const combined = buildCombinedName('Michael Henderson', [{ name: 'Sarah' }]);
+    expect(getDisplayName(combined)).toBe('Michael & Sarah H.');
   });
 });

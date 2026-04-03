@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile } from '../../types';
+import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile, ProfileMember } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
 import ImportedReviewBadge from '../../components/profile/ImportedReviewBadge';
 import SubRatingBars from '../../components/review/SubRatingBars';
@@ -49,6 +49,7 @@ export default function SitterProfile() {
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [importedReviews, setImportedReviews] = useState<ImportedReview[]>([]);
+  const [profileMembers, setProfileMembers] = useState<ProfileMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -121,6 +122,7 @@ export default function SitterProfile() {
         setServices(data.services);
         setReviews(data.reviews);
         setImportedReviews(data.imported_reviews || []);
+        setProfileMembers(data.profile_members || []);
         const rebookServiceId = Number(serviceIdParam);
         const matchedService = rebookServiceId && data.services.find((s: Service) => s.id === rebookServiceId);
         setSelectedService(matchedService ? matchedService.id : data.services.length > 0 ? data.services[0].id : null);
@@ -311,6 +313,7 @@ export default function SitterProfile() {
         onBookClick={scrollToBooking}
         onMessageClick={() => navigate(`/messages?recipient=${sitter.id}`)}
         speciesProfiles={speciesProfiles}
+        profileMembers={profileMembers}
       />
 
       <ServiceHighlights

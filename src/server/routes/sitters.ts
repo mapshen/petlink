@@ -204,7 +204,12 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       review_count: reviewStats.review_count,
     };
 
-    res.json({ sitter: sitterWithStats, services, reviews, photos, imported_reviews });
+    const profileMembers = await sql`
+      SELECT id, name, avatar_url, role, background_check_status
+      FROM profile_members WHERE sitter_id = ${sitterId} ORDER BY created_at
+    `;
+
+    res.json({ sitter: sitterWithStats, services, reviews, photos, imported_reviews, profile_members: profileMembers });
   });
 
   // --- Profile View Tracking (Issue #165) ---
