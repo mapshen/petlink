@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { API_BASE } from '../../config';
-import { User, KeyRound, Link2, Crown, Bell, Trash2 } from 'lucide-react';
+import { User, KeyRound, Link2, Crown, Bell, Trash2, Phone } from 'lucide-react';
 import LinkedAccounts from '../../components/profile/LinkedAccounts';
 import SubscriptionPage from '../profile/SubscriptionPage';
 import PasswordSection from './PasswordSection';
 import NotificationSection from './NotificationSection';
+import EmergencyContactForm from './EmergencyContactForm';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,7 @@ interface SectionDef {
 
 const ALL_SECTIONS: SectionDef[] = [
   { id: 'account', label: 'Account', icon: User },
+  { id: 'emergency', label: 'Emergency Contact', icon: Phone },
   { id: 'security', label: 'Security', icon: KeyRound },
   { id: 'linked', label: 'Linked Accounts', icon: Link2 },
   { id: 'subscription', label: 'Subscription', icon: Crown },
@@ -116,6 +118,17 @@ export default function SettingsPage() {
                   <div className="text-sm text-stone-500">{user.email}</div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Emergency Contact */}
+          <div id="settings-emergency" className="bg-white rounded-2xl border border-stone-100 overflow-hidden scroll-mt-24">
+            <div className="px-6 py-4 border-b border-stone-100">
+              <h2 className="font-bold text-sm">Emergency Contact</h2>
+              <p className="text-xs text-stone-400 mt-0.5">Shared with sitters/owners when a booking is confirmed</p>
+            </div>
+            <div className="px-6 py-5">
+              <EmergencyContactForm token={token} user={user} />
             </div>
           </div>
 

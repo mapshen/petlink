@@ -34,6 +34,9 @@ export default function userRoutes(router: Router): void {
         house_rules,
         emergency_procedures,
         has_insurance,
+        emergency_contact_name,
+        emergency_contact_phone,
+        emergency_contact_relationship,
       } = req.body;
 
       // Slug is permanent — does not change when name is updated
@@ -55,11 +58,14 @@ export default function userRoutes(router: Router): void {
       ${house_rules !== undefined ? sql`, house_rules = ${house_rules || null}` : sql``}
       ${emergency_procedures !== undefined ? sql`, emergency_procedures = ${emergency_procedures || null}` : sql``}
       ${has_insurance !== undefined ? sql`, has_insurance = ${has_insurance ?? false}` : sql``}
+      ${emergency_contact_name !== undefined ? sql`, emergency_contact_name = ${emergency_contact_name || null}` : sql``}
+      ${emergency_contact_phone !== undefined ? sql`, emergency_contact_phone = ${emergency_contact_phone || null}` : sql``}
+      ${emergency_contact_relationship !== undefined ? sql`, emergency_contact_relationship = ${emergency_contact_relationship || null}` : sql``}
       WHERE id = ${req.userId}
     `;
 
       const [user] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship FROM users WHERE id = ${req.userId}
     `;
 
       res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles) } });
