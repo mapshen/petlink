@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageCircleQuestion } from 'lucide-react';
+import { MessageCircleQuestion, CheckCircle2 } from 'lucide-react';
 import { Pet, Service } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
 import PetSelector from './PetSelector';
@@ -116,7 +116,7 @@ export default function InquiryForm({
 
         {success ? (
           <div className="py-6 text-center">
-            <div className="text-2xl mb-2">&#x2705;</div>
+            <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
             <p className="text-sm font-medium text-emerald-700">Inquiry sent! Check your messages for the response.</p>
           </div>
         ) : (

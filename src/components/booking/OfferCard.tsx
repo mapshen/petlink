@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { format } from 'date-fns';
-import { DollarSign, Calendar, Clock, Check, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { format, formatDistanceToNow } from 'date-fns';
+import { DollarSign, Calendar, Clock, Check, X, Timer } from 'lucide-react';
 import type { Inquiry } from '../../types';
 import { formatCents } from '../../lib/money';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
@@ -42,6 +42,11 @@ export default function OfferCard({ inquiry, isOwner, onUpdate }: OfferCardProps
     }
   };
 
+  const expiresAt = useMemo(() => {
+    if (!inquiry.offer_sent_at) return null;
+    return new Date(new Date(inquiry.offer_sent_at).getTime() + 48 * 60 * 60 * 1000);
+  }, [inquiry.offer_sent_at]);
+
   if (inquiry.status !== 'offer_sent' || !inquiry.offer_price_cents) {
     return null;
   }
@@ -77,6 +82,13 @@ export default function OfferCard({ inquiry, isOwner, onUpdate }: OfferCardProps
           <p className="text-stone-500 text-xs mt-1 italic">&ldquo;{inquiry.offer_notes}&rdquo;</p>
         )}
       </div>
+
+      {expiresAt && expiresAt.getTime() > Date.now() && (
+        <div className="flex items-center gap-1.5 mt-2 text-xs text-amber-600">
+          <Timer className="w-3.5 h-3.5" />
+          <span>Expires {formatDistanceToNow(expiresAt, { addSuffix: true })}</span>
+        </div>
+      )}
 
       {error && (
         <p className="text-xs text-red-600 mt-2">{error}</p>

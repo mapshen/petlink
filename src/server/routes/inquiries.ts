@@ -110,18 +110,35 @@ export default function inquiryRoutes(router: Router, io: Server): void {
     try {
       const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
       const offset = Math.max(Number(req.query.offset) || 0, 0);
+      const otherUserId = Number(req.query.other_user_id) || null;
+      const statusFilter = req.query.status as string | undefined;
 
-      const rows = await sql`
-        SELECT i.*,
-          o.name AS owner_name, o.avatar_url AS owner_avatar,
-          s.name AS sitter_name, s.avatar_url AS sitter_avatar
-        FROM inquiries i
-        JOIN users o ON o.id = i.owner_id
-        JOIN users s ON s.id = i.sitter_id
-        WHERE i.owner_id = ${req.userId} OR i.sitter_id = ${req.userId}
-        ORDER BY i.updated_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
+      const rows = otherUserId
+        ? await sql`
+            SELECT i.*,
+              o.name AS owner_name, o.avatar_url AS owner_avatar,
+              s.name AS sitter_name, s.avatar_url AS sitter_avatar
+            FROM inquiries i
+            JOIN users o ON o.id = i.owner_id
+            JOIN users s ON s.id = i.sitter_id
+            WHERE (i.owner_id = ${req.userId} AND i.sitter_id = ${otherUserId}
+                OR i.sitter_id = ${req.userId} AND i.owner_id = ${otherUserId})
+              ${statusFilter ? sql`AND i.status = ${statusFilter}` : sql``}
+            ORDER BY i.updated_at DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `
+        : await sql`
+            SELECT i.*,
+              o.name AS owner_name, o.avatar_url AS owner_avatar,
+              s.name AS sitter_name, s.avatar_url AS sitter_avatar
+            FROM inquiries i
+            JOIN users o ON o.id = i.owner_id
+            JOIN users s ON s.id = i.sitter_id
+            WHERE (i.owner_id = ${req.userId} OR i.sitter_id = ${req.userId})
+              ${statusFilter ? sql`AND i.status = ${statusFilter}` : sql``}
+            ORDER BY i.updated_at DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `;
 
       // Fetch pets for each inquiry
       const inquiryIds = rows.map((r: any) => r.id);
@@ -219,6 +236,10 @@ export default function inquiryRoutes(router: Router, io: Server): void {
 
       if (new Date(offer_start_time).getTime() < Date.now()) {
         res.status(400).json({ error: 'Offer start time cannot be in the past' });
+        return;
+      }
+      if (new Date(offer_end_time).getTime() < Date.now()) {
+        res.status(400).json({ error: 'Offer end time cannot be in the past' });
         return;
       }
 

@@ -144,18 +144,28 @@ export default function Messages() {
 
     const fetchInquiry = async () => {
       try {
-        const res = await fetch(`${API_BASE}/inquiries`, {
+        const params = new URLSearchParams({
+          other_user_id: String(selectedUserId),
+          status: 'open',
+          limit: '1',
+        });
+        // Check for open inquiries first, then offer_sent
+        const resOpen = await fetch(`${API_BASE}/inquiries?${params}`, {
           headers: getAuthHeaders(token),
         });
-        if (!res.ok) return;
-        const data = await res.json();
-        const match = (data.inquiries as Inquiry[]).find(
-          (inq) =>
-            ['open', 'offer_sent'].includes(inq.status) &&
-            ((inq.owner_id === user.id && inq.sitter_id === selectedUserId) ||
-             (inq.sitter_id === user.id && inq.owner_id === selectedUserId))
-        );
-        setActiveInquiry(match ?? null);
+        if (!resOpen.ok) return;
+        const dataOpen = await resOpen.json();
+        if (dataOpen.inquiries.length > 0) {
+          setActiveInquiry(dataOpen.inquiries[0]);
+          return;
+        }
+        params.set('status', 'offer_sent');
+        const resOffer = await fetch(`${API_BASE}/inquiries?${params}`, {
+          headers: getAuthHeaders(token),
+        });
+        if (!resOffer.ok) return;
+        const dataOffer = await resOffer.json();
+        setActiveInquiry(dataOffer.inquiries[0] ?? null);
       } catch {
         // Silently fail — inquiry context is optional
       }
