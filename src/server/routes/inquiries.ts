@@ -67,12 +67,13 @@ export default function inquiryRoutes(router: Router, io: Server): void {
         await tx`INSERT INTO inquiry_pets ${tx(petRows, 'inquiry_id', 'pet_id')}`;
 
         // Auto-create first message tagged with inquiry_id
-        await tx`
+        const [msg] = await tx`
           INSERT INTO messages (sender_id, receiver_id, content, inquiry_id)
           VALUES (${req.userId}, ${sitter_id}, ${message}, ${inq.id})
+          RETURNING *
         `;
 
-        return inq;
+        return { ...inq, _firstMessage: msg };
       });
 
       // Fetch pets for response
@@ -81,6 +82,12 @@ export default function inquiryRoutes(router: Router, io: Server): void {
         JOIN inquiry_pets ip ON ip.pet_id = p.id
         WHERE ip.inquiry_id = ${inquiry.id}
       `;
+
+      // Emit the first message via Socket.io for real-time delivery
+      if (inquiry._firstMessage) {
+        io.to(String(sitter_id)).emit('receive_message', inquiry._firstMessage);
+        io.to(String(req.userId)).emit('receive_message', inquiry._firstMessage);
+      }
 
       // Notify sitter
       const [owner] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
@@ -91,7 +98,8 @@ export default function inquiryRoutes(router: Router, io: Server): void {
       );
       if (notification) io.to(String(sitter_id)).emit('notification', notification);
 
-      res.status(201).json({ inquiry: { ...inquiry, pets } });
+      const { _firstMessage: _, ...inquiryData } = inquiry;
+      res.status(201).json({ inquiry: { ...inquiryData, pets } });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to create inquiry');
       res.status(500).json({ error: 'Failed to create inquiry' });

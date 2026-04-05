@@ -86,11 +86,18 @@ export default function InquiryForm({
     }
   };
 
+  const resetForm = () => {
+    setSelectedServiceType(null);
+    setSelectedPetIds([]);
+    setMessage('');
+    setError(null);
+    setSuccess(false);
+  };
+
   const handleClose = () => {
     if (!loading) {
       onOpenChange(false);
-      setError(null);
-      setSuccess(false);
+      resetForm();
     }
   };
 
