@@ -20,9 +20,9 @@ interface Props {
 }
 
 const STEPS = [
-  { title: 'Submit your application', description: "We'll review your profile details" },
-  { title: 'Complete your sitter profile', description: 'Add services, availability, photos, and policies' },
-  { title: 'Get approved & start earning', description: "We'll notify you once approved. You can edit your profile while waiting." },
+  { title: 'Set up your profile & services', description: 'Add your bio, services, photos, and pricing' },
+  { title: 'Add references (optional)', description: 'Invite past clients or import reviews from other platforms' },
+  { title: 'Submit & get approved', description: "We'll review your application and notify you once approved" },
 ];
 
 export default function BecomeSitterDialog({ onSuccess, trigger }: Props) {

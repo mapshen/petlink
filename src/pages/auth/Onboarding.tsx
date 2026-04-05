@@ -4,7 +4,7 @@ import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useOnboardingStatus } from '../../hooks/useOnboardingStatus';
 import OnboardingProgress from '../../components/onboarding/OnboardingProgress';
 import { useImageUpload } from '../../hooks/useImageUpload';
-import { Service } from '../../types';
+import { Service, SitterReference } from '../../types';
 import { formatCents } from '../../lib/money';
 import {
   Camera, Loader2, AlertCircle, ShieldCheck, CheckCircle, PartyPopper,
@@ -12,13 +12,14 @@ import {
 } from 'lucide-react';
 import { API_BASE } from '../../config';
 
-const STEPS = ['Profile', 'Services', 'Photos', 'Verification', 'Done'];
+const STEPS = ['Profile', 'Services', 'Photos', 'Verification', 'References', 'Submit', 'Done'];
 
 const STEP_TIPS: Record<number, { tip: string; time: string }> = {
   0: { tip: 'Sitters with a bio get 2x more profile views.', time: '~2 min' },
   1: { tip: 'Set competitive prices — you can always adjust later.', time: '~2 min' },
   2: { tip: 'Sitters with photos get 3x more booking requests.', time: '~1 min' },
   3: { tip: 'Verified sitters earn 40% more on average.', time: '~3 min' },
+  4: { tip: 'Sitters with references get approved 2x faster.', time: '~3 min' },
 };
 
 const SERVICE_TYPES = [
@@ -50,6 +51,17 @@ export default function Onboarding() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploading, progress, error: uploadError, upload, clearError } = useImageUpload(token);
+
+  // References step state
+  const [references, setReferences] = useState<SitterReference[]>([]);
+  const [refName, setRefName] = useState('');
+  const [refEmail, setRefEmail] = useState('');
+  const [refTab, setRefTab] = useState<'invite' | 'import'>('invite');
+  // Manual import state
+  const [importPlatform, setImportPlatform] = useState('rover');
+  const [importReviewer, setImportReviewer] = useState('');
+  const [importRating, setImportRating] = useState('5');
+  const [importComment, setImportComment] = useState('');
 
   // Shared state
   const [saving, setSaving] = useState(false);
@@ -85,7 +97,8 @@ export default function Onboarding() {
     else if (!onboarding.hasServices) setStep(1);
     else if (!onboarding.hasPhoto) setStep(2);
     else if (!onboarding.hasVerification) setStep(3);
-    else setStep(4);
+    else if (user.approval_status === 'onboarding') setStep(4); // References
+    else setStep(6); // Done
 
     setInitialized(true);
   }, [onboarding.loading, initialized, user, onboarding]);
@@ -196,6 +209,82 @@ export default function Onboarding() {
       setStep(4);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start verification');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendReferenceInvite = async () => {
+    if (!refName.trim() || !refEmail.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/references/invite`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_name: refName.trim(), client_email: refEmail.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to send invite');
+      }
+      const data = await res.json();
+      setReferences((prev) => [...prev, data.reference]);
+      setRefName('');
+      setRefEmail('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send invite');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addManualImport = async () => {
+    if (!importReviewer.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/import/manual`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: importPlatform,
+          reviewer_name: importReviewer.trim(),
+          rating: Number(importRating),
+          comment: importComment.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to import review');
+      }
+      setImportReviewer('');
+      setImportComment('');
+      setImportRating('5');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import review');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitApplication = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/users/me/submit-application`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to submit application');
+      }
+      const data = await res.json();
+      updateUser(data.user);
+      setStep(6);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit application');
     } finally {
       setSaving(false);
     }
@@ -498,33 +587,135 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 4: Done */}
+        {/* Step 4: References */}
         {step === 4 && (
-          <div className="text-center space-y-5 py-4">
-            <PartyPopper className="w-16 h-16 mx-auto text-emerald-500" />
-            <h2 className="text-2xl font-bold text-stone-900">You're all set!</h2>
-            <p className="text-stone-600 max-w-md mx-auto">
-              Your sitter profile is ready. Pet owners can now find and book you.
-            </p>
+          <div className="space-y-5">
+            <h2 className="text-xl font-bold text-stone-900">Add references (optional)</h2>
+            <p className="text-sm text-stone-500">References help build trust and can speed up your approval.</p>
 
-            {(!onboarding.hasPhoto || !onboarding.hasVerification) && (
-              <div className="bg-stone-50 rounded-xl p-4 text-sm text-stone-500 max-w-sm mx-auto">
-                <p className="font-medium text-stone-700 mb-2">Optional steps remaining:</p>
-                {!onboarding.hasPhoto && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-stone-300" />
-                    <span>Upload a profile photo</span>
+            {/* Tab switcher */}
+            <div className="flex gap-1 bg-stone-100 rounded-xl p-1">
+              <button
+                onClick={() => setRefTab('invite')}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${refTab === 'invite' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'}`}
+              >
+                Invite Past Clients
+              </button>
+              <button
+                onClick={() => setRefTab('import')}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${refTab === 'import' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'}`}
+              >
+                Import Reviews
+              </button>
+            </div>
+
+            {refTab === 'invite' && (
+              <div className="space-y-3">
+                <p className="text-xs text-stone-400">Enter your past client's name and email. We'll send them a link to write a reference.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" value={refName} onChange={(e) => setRefName(e.target.value)} placeholder="Client name" className="p-3 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500" />
+                  <input type="email" value={refEmail} onChange={(e) => setRefEmail(e.target.value)} placeholder="Client email" className="p-3 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <button onClick={sendReferenceInvite} disabled={saving || !refName.trim() || !refEmail.trim()} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+                  {saving ? 'Sending...' : 'Send Invite'}
+                </button>
+                {references.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <p className="text-xs font-medium text-stone-600">Sent invites:</p>
+                    {references.map((ref) => (
+                      <div key={ref.id} className="flex items-center justify-between p-2 bg-stone-50 rounded-lg text-sm">
+                        <span>{ref.client_name} ({ref.client_email})</span>
+                        <span className={`text-xs font-medium ${ref.status === 'completed' ? 'text-emerald-600' : 'text-amber-500'}`}>
+                          {ref.status === 'completed' ? 'Completed' : 'Pending'}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
-                {!onboarding.hasVerification && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-stone-300" />
-                    <span>Complete identity verification</span>
-                  </div>
-                )}
-                <p className="mt-2 text-xs text-stone-400">You can do these anytime from your profile settings.</p>
               </div>
             )}
+
+            {refTab === 'import' && (
+              <div className="space-y-3">
+                <p className="text-xs text-stone-400">Manually add reviews you received on other platforms. No scraping — just copy the details.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <select value={importPlatform} onChange={(e) => setImportPlatform(e.target.value)} className="p-3 border border-stone-200 rounded-xl text-sm">
+                    <option value="rover">Rover</option>
+                    <option value="wag">Wag</option>
+                    <option value="care_com">Care.com</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <input type="text" value={importReviewer} onChange={(e) => setImportReviewer(e.target.value)} placeholder="Reviewer name" className="p-3 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div className="flex gap-3 items-center">
+                  <label className="text-sm text-stone-600">Rating:</label>
+                  <select value={importRating} onChange={(e) => setImportRating(e.target.value)} className="p-2 border border-stone-200 rounded-lg text-sm">
+                    {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} star{n !== 1 ? 's' : ''}</option>)}
+                  </select>
+                </div>
+                <textarea value={importComment} onChange={(e) => setImportComment(e.target.value)} placeholder="Review text (optional)" rows={2} className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500" />
+                <button onClick={addManualImport} disabled={saving || !importReviewer.trim()} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+                  {saving ? 'Adding...' : 'Add Review'}
+                </button>
+              </div>
+            )}
+
+            <div className="flex justify-between pt-4">
+              <button onClick={() => setStep(3)} className="inline-flex items-center gap-2 px-4 py-3 text-stone-600 hover:text-stone-900 transition-colors">
+                <ChevronLeft className="w-4 h-4" /> Back
+              </button>
+              <button onClick={() => setStep(5)} className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700">
+                Next <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Submit Application */}
+        {step === 5 && (
+          <div className="space-y-5">
+            <h2 className="text-xl font-bold text-stone-900">Review & Submit</h2>
+            <p className="text-sm text-stone-500">Check your progress below. Profile and Services are required to submit.</p>
+
+            <div className="space-y-2">
+              {[
+                { label: 'Profile (name & bio)', done: onboarding.hasProfile, required: true },
+                { label: 'At least one service', done: onboarding.hasServices, required: true },
+                { label: 'Profile photo', done: onboarding.hasPhoto, required: false },
+                { label: 'Identity verification', done: onboarding.hasVerification, required: false },
+              ].map((item) => (
+                <div key={item.label} className={`flex items-center gap-3 p-3 rounded-xl ${item.done ? 'bg-emerald-50 border border-emerald-200' : 'bg-stone-50 border border-stone-200'}`}>
+                  <CheckCircle className={`w-5 h-5 ${item.done ? 'text-emerald-600' : 'text-stone-300'}`} />
+                  <span className={`text-sm ${item.done ? 'text-emerald-800 font-medium' : 'text-stone-500'}`}>{item.label}</span>
+                  {item.required && !item.done && <span className="text-xs text-red-500 ml-auto">Required</span>}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <button onClick={() => setStep(4)} className="inline-flex items-center gap-2 px-4 py-3 text-stone-600 hover:text-stone-900 transition-colors">
+                <ChevronLeft className="w-4 h-4" /> Back
+              </button>
+              <button
+                onClick={submitApplication}
+                disabled={saving || !onboarding.hasProfile || !onboarding.hasServices}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {saving ? 'Submitting...' : 'Submit Application'}
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 6: Done */}
+        {step === 6 && (
+          <div className="text-center space-y-5 py-4">
+            <PartyPopper className="w-16 h-16 mx-auto text-emerald-500" />
+            <h2 className="text-2xl font-bold text-stone-900">Application Submitted!</h2>
+            <p className="text-stone-600 max-w-md mx-auto">
+              We'll review your profile and notify you once you're approved. You can continue editing your profile while you wait.
+            </p>
 
             <button
               onClick={() => navigate('/home')}

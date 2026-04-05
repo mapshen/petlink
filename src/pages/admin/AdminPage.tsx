@@ -37,6 +37,8 @@ interface AdminSitter {
   own_pets_description?: string;
   accepted_species?: string[];
   skills?: string[];
+  reference_count?: number;
+  manual_import_count?: number;
 }
 
 type Tab = 'pending' | 'approved' | 'rejected' | 'banned' | 'all';
@@ -200,6 +202,23 @@ export default function AdminPage() {
         <div className="col-span-2">
           <p className="text-xs font-medium text-stone-400 mb-1">Own Pets</p>
           <p className="text-stone-600">{sitter.own_pets_description}</p>
+        </div>
+      )}
+      {((sitter.reference_count ?? 0) > 0 || (sitter.manual_import_count ?? 0) > 0) && (
+        <div className="col-span-2">
+          <p className="text-xs font-medium text-stone-400 mb-1">Social Proof</p>
+          <div className="flex gap-3">
+            {(sitter.reference_count ?? 0) > 0 && (
+              <Badge variant="outline" className="text-xs text-emerald-700 border-emerald-200 bg-emerald-50">
+                {sitter.reference_count} client reference{sitter.reference_count !== 1 ? 's' : ''}
+              </Badge>
+            )}
+            {(sitter.manual_import_count ?? 0) > 0 && (
+              <Badge variant="outline" className="text-xs text-blue-700 border-blue-200 bg-blue-50">
+                {sitter.manual_import_count} imported review{sitter.manual_import_count !== 1 ? 's' : ''}
+              </Badge>
+            )}
+          </div>
         </div>
       )}
       {sitter.approval_rejected_reason && (

@@ -296,3 +296,24 @@ export function buildOnboardingReminderEmail(params: {
 `),
   };
 }
+
+export function buildReferenceInviteEmail(params: {
+  clientName: string;
+  sitterName: string;
+  vouchUrl: string;
+}): { subject: string; html: string } {
+  const client = escapeHtml(params.clientName);
+  const sitter = escapeHtml(params.sitterName);
+  return {
+    subject: sanitizeSubject(`${params.sitterName} is asking for your reference on PetLink`),
+    html: emailWrapper('Reference Request', `
+<p style="color:#44403c;line-height:1.6">Hi ${client},</p>
+<p style="color:#44403c;line-height:1.6"><strong>${sitter}</strong> listed you as a past pet care client and is asking for a brief reference on PetLink, a pet services platform.</p>
+<p style="color:#44403c;line-height:1.6">If you've used their services before, a quick rating and comment would help them get started on the platform.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${escapeHtml(params.vouchUrl)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Write a Reference</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">This takes less than a minute. If you don't know this person, you can safely ignore this email.</p>
+`),
+  };
+}

@@ -432,3 +432,23 @@ export const calendarQuerySchema = z.object({
   start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
+
+// --- Reference Schemas ---
+export const inviteReferenceSchema = z.object({
+  client_name: z.string().min(1, 'Name is required').max(200),
+  client_email: z.string().email('Invalid email address'),
+});
+
+export const submitVouchSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().min(1, 'Please write a brief comment').max(2000),
+});
+
+// --- Manual Import Schema ---
+export const manualImportSchema = z.object({
+  platform: z.string().min(1, 'Platform is required').max(50),
+  reviewer_name: z.string().min(1, 'Reviewer name is required').max(200),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().max(2000).optional(),
+  review_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional(),
+});
