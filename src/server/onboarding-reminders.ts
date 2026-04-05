@@ -76,7 +76,10 @@ export async function checkOnboardingReminders(): Promise<number> {
         AND u.onboarding_reminder_count < ${REMINDER_SCHEDULE.length}
         AND (u.bio IS NULL OR NOT EXISTS(SELECT 1 FROM services WHERE sitter_id = u.id))
         AND COALESCE(np.email_enabled, true) = true
-    `.catch(() => [] as any[]);
+    `.catch((err) => {
+      logger.error({ err: sanitizeError(err) }, 'Failed to query onboarding reminder candidates');
+      return [] as any[];
+    });
 
     for (const sitter of candidates) {
       const eligible = isEligibleForReminder({
@@ -103,17 +106,17 @@ export async function checkOnboardingReminders(): Promise<number> {
         reminderNumber,
       });
 
-      sendEmail({ to: sitter.email, ...email }).catch((err) => {
-        logger.error({ err: sanitizeError(err), sitterId: sitter.id }, 'Failed to send onboarding reminder email');
-      });
-
-      // Update reminder tracking
+      // Update tracking FIRST to prevent duplicate sends if email fails
       await sql`
         UPDATE users
         SET onboarding_reminder_sent_at = NOW(),
             onboarding_reminder_count = onboarding_reminder_count + 1
         WHERE id = ${sitter.id}
       `;
+
+      sendEmail({ to: sitter.email, ...email }).catch((err) => {
+        logger.error({ err: sanitizeError(err), sitterId: sitter.id }, 'Failed to send onboarding reminder email');
+      });
 
       sentCount++;
     }
@@ -129,16 +132,23 @@ export async function checkOnboardingReminders(): Promise<number> {
 }
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
+let initialTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 export function startOnboardingReminderScheduler(): void {
   if (intervalId) return;
-  // Initial check after 60s startup delay
-  setTimeout(() => checkOnboardingReminders(), 60_000);
+  initialTimeoutId = setTimeout(() => {
+    initialTimeoutId = null;
+    checkOnboardingReminders();
+  }, 60_000);
   intervalId = setInterval(() => checkOnboardingReminders(), CHECK_INTERVAL_MS);
   logger.info('Onboarding reminder scheduler started (hourly)');
 }
 
 export function stopOnboardingReminderScheduler(): void {
+  if (initialTimeoutId) {
+    clearTimeout(initialTimeoutId);
+    initialTimeoutId = null;
+  }
   if (intervalId) {
     clearInterval(intervalId);
     intervalId = null;

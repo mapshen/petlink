@@ -7,7 +7,7 @@
  *   - Response time (15%): faster = better (normalized to 0-1)
  *   - Repeat booking rate (15%): % of owners who rebook
  *   - Profile completeness (10%): has photo, bio, services, availability
- *   - New sitter boost (10%): 30-day boost for new sitters
+ *   - New sitter boost (10%): 45-day boost for newly approved sitters
  */
 
 export interface SitterStats {
