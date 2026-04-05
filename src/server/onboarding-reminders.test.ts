@@ -1,66 +1,19 @@
 import { describe, it, expect } from 'vitest';
+import {
+  getNextReminderDay,
+  isEligibleForReminder,
+  computeStepStatus,
+} from './onboarding-reminders.ts';
 
 /**
  * Tests for onboarding reminder eligibility and scheduling logic.
- * Uses pure function tests (no DB) since the scheduler delegates
- * to testable utility functions.
+ * Imports pure functions from the module to ensure no drift.
  */
 
-const REMINDER_SCHEDULE = [1, 2, 4, 7]; // Days after onboarding_started_at
-
-interface SitterOnboardingState {
-  onboarding_started_at: string | null;
-  onboarding_reminder_count: number;
-  onboarding_reminder_sent_at: string | null;
-  bio: string | null;
-  has_services: boolean;
-  email_enabled: boolean;
-}
-
-/** Determine the next reminder day in the schedule for this sitter */
-function getNextReminderDay(reminderCount: number): number | null {
-  if (reminderCount >= REMINDER_SCHEDULE.length) return null;
-  return REMINDER_SCHEDULE[reminderCount];
-}
-
-/** Check if a sitter is eligible to receive an onboarding reminder right now */
-function isEligibleForReminder(sitter: SitterOnboardingState, now: Date): boolean {
-  // Must have started onboarding
-  if (!sitter.onboarding_started_at) return false;
-
-  // Must have email enabled
-  if (!sitter.email_enabled) return false;
-
-  // Must not have completed required steps (Profile=bio + Services)
-  if (sitter.bio && sitter.has_services) return false;
-
-  // Must have remaining reminders
-  const nextDay = getNextReminderDay(sitter.onboarding_reminder_count);
-  if (nextDay === null) return false;
-
-  // Check if enough days have passed since onboarding started
-  const startedAt = new Date(sitter.onboarding_started_at);
-  const daysSinceStart = (now.getTime() - startedAt.getTime()) / (1000 * 60 * 60 * 24);
-  if (daysSinceStart < nextDay) return false;
-
-  return true;
-}
-
-/** Compute which steps are complete for the email content */
-function computeStepStatus(sitter: { bio: string | null; has_services: boolean; avatar_url: string | null; has_verification: boolean }) {
-  return {
-    profile: Boolean(sitter.bio),
-    services: sitter.has_services,
-    photos: Boolean(sitter.avatar_url),
-    verification: sitter.has_verification,
-  };
-}
-
-const baseSitter: SitterOnboardingState = {
+const baseSitter = {
   onboarding_started_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
   onboarding_reminder_count: 0,
-  onboarding_reminder_sent_at: null,
-  bio: null,
+  bio: null as string | null,
   has_services: false,
   email_enabled: true,
 };
