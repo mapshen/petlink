@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Message, Conversation } from '../../types';
+import { Message, Conversation, Inquiry } from '../../types';
 import io, { Socket } from 'socket.io-client';
-import { Send, AlertCircle, ArrowLeft, MessageSquare } from 'lucide-react';
+import { Send, AlertCircle, ArrowLeft, MessageSquare, MessageCircleQuestion } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { API_BASE } from '../../config';
 import MessageBubble from '../../components/messages/MessageBubble';
+import OfferCard from '../../components/booking/OfferCard';
+import SendOfferForm from '../../components/booking/SendOfferForm';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function Messages() {
@@ -26,6 +28,8 @@ export default function Messages() {
   const [mobileView, setMobileView] = useState<'list' | 'thread'>(
     recipientParam ? 'thread' : 'list'
   );
+  const [activeInquiry, setActiveInquiry] = useState<Inquiry | null>(null);
+  const [showOfferForm, setShowOfferForm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -130,6 +134,45 @@ export default function Messages() {
 
     fetchMessages();
   }, [user, selectedUserId, token, scrollToBottom]);
+
+  // Fetch active inquiry for the selected conversation
+  useEffect(() => {
+    if (!user || !selectedUserId) {
+      setActiveInquiry(null);
+      return;
+    }
+
+    const fetchInquiry = async () => {
+      try {
+        const params = new URLSearchParams({
+          other_user_id: String(selectedUserId),
+          status: 'open',
+          limit: '1',
+        });
+        // Check for open inquiries first, then offer_sent
+        const resOpen = await fetch(`${API_BASE}/inquiries?${params}`, {
+          headers: getAuthHeaders(token),
+        });
+        if (!resOpen.ok) return;
+        const dataOpen = await resOpen.json();
+        if (dataOpen.inquiries.length > 0) {
+          setActiveInquiry(dataOpen.inquiries[0]);
+          return;
+        }
+        params.set('status', 'offer_sent');
+        const resOffer = await fetch(`${API_BASE}/inquiries?${params}`, {
+          headers: getAuthHeaders(token),
+        });
+        if (!resOffer.ok) return;
+        const dataOffer = await resOffer.json();
+        setActiveInquiry(dataOffer.inquiries[0] ?? null);
+      } catch {
+        // Silently fail — inquiry context is optional
+      }
+    };
+
+    fetchInquiry();
+  }, [user, selectedUserId, token]);
 
   // Sync with URL param
   useEffect(() => {
@@ -256,12 +299,59 @@ export default function Messages() {
                 <div className="font-bold text-stone-900">{selectedConversation.other_user_name}</div>
               </div>
 
+              {/* Inquiry context banner */}
+              {activeInquiry && (
+                <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm text-emerald-700">
+                    <MessageCircleQuestion className="w-4 h-4" />
+                    <span className="font-medium">
+                      {activeInquiry.status === 'open' && 'Active inquiry'}
+                      {activeInquiry.status === 'offer_sent' && 'Offer pending'}
+                    </span>
+                    {activeInquiry.service_type && (
+                      <span className="text-emerald-600">&middot; {activeInquiry.service_type}</span>
+                    )}
+                  </div>
+                  {activeInquiry.status === 'open' && activeInquiry.sitter_id === user.id && (
+                    <button
+                      onClick={() => setShowOfferForm(true)}
+                      className="text-xs font-bold bg-emerald-600 text-white px-3 py-1 rounded-full hover:bg-emerald-700 transition-colors"
+                    >
+                      Send Offer
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-stone-50/50">
                 {messages.map((msg) => (
                   <MessageBubble key={msg.id} message={msg} isCurrentUser={msg.sender_id === user.id} />
                 ))}
+
+                {/* Offer card in thread */}
+                {activeInquiry && activeInquiry.status === 'offer_sent' && (
+                  <OfferCard
+                    inquiry={activeInquiry}
+                    isOwner={activeInquiry.owner_id === user.id}
+                    onUpdate={(updated) => setActiveInquiry(updated)}
+                  />
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Send Offer Form Dialog */}
+              {activeInquiry && showOfferForm && (
+                <SendOfferForm
+                  open={showOfferForm}
+                  onOpenChange={setShowOfferForm}
+                  inquiryId={activeInquiry.id}
+                  onSuccess={(updated) => {
+                    setActiveInquiry(updated);
+                    setShowOfferForm(false);
+                  }}
+                />
+              )}
 
               <form onSubmit={handleSendMessage} className="p-4 border-t border-stone-100 bg-white">
                 <div className="flex gap-2">

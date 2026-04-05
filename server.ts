@@ -18,7 +18,7 @@ import {
   bookingRoutes, reviewRoutes, verificationRoutes, availabilityRoutes,
   photoRoutes, favoriteRoutes, messageRoutes, notificationRoutes,
   paymentRoutes, subscriptionRoutes, walkRoutes, analyticsRoutes,
-  adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes, speciesProfileRoutes, tipRoutes, profileMemberRoutes,
+  adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes, speciesProfileRoutes, tipRoutes, profileMemberRoutes, inquiryRoutes,
 } from './src/server/routes/index.ts';
 import type { ErrorRequestHandler } from 'express';
 import logger, { sanitizeError } from './src/server/logger.ts';
@@ -171,6 +171,7 @@ async function startServer() {
   speciesProfileRoutes(v1, publicLimiter);
   tipRoutes(v1);
   profileMemberRoutes(v1, publicLimiter);
+  inquiryRoutes(v1, io);
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
   app.use('/api/v1', v1);

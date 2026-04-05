@@ -129,6 +129,24 @@ export const updateBookingStatusSchema = z.object({
   status: z.enum(['confirmed', 'cancelled'], { message: 'Status must be "confirmed" or "cancelled"' }),
 });
 
+// --- Inquiry Schemas ---
+export const createInquirySchema = z.object({
+  sitter_id: z.number().int().positive('Invalid sitter ID'),
+  service_type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare']).optional(),
+  pet_ids: z.array(z.number().int().positive('Invalid pet ID')).min(1, 'At least one pet is required').max(10, 'Maximum 10 pets').refine((ids) => new Set(ids).size === ids.length, 'Duplicate pet IDs are not allowed'),
+  message: z.string().min(1, 'Message is required').max(2000, 'Message must be under 2000 characters'),
+});
+
+export const sendOfferSchema = z.object({
+  offer_price_cents: z.number().int().min(100, 'Minimum offer is $1.00').max(999900, 'Price must be under $10,000'),
+  offer_start_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'offer_start_time must be a valid date'),
+  offer_end_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'offer_end_time must be a valid date'),
+  offer_notes: z.string().max(1000, 'Notes must be under 1000 characters').optional(),
+}).refine(
+  (data) => new Date(data.offer_end_time) > new Date(data.offer_start_time),
+  { message: 'offer_end_time must be after offer_start_time', path: ['offer_end_time'] }
+);
+
 // --- Service Schemas ---
 export const serviceSchema = z.object({
   type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare'], { message: 'Type must be walking, sitting, drop-in, grooming, meet_greet, or daycare' }),

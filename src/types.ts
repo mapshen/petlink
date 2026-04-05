@@ -225,9 +225,34 @@ export interface Booking {
   payment_method?: 'card' | 'ach_debit';
 }
 
+export type InquiryStatus = 'open' | 'offer_sent' | 'accepted' | 'declined' | 'expired';
+
+export interface Inquiry {
+  id: number;
+  owner_id: number;
+  sitter_id: number;
+  service_type?: string;
+  message: string;
+  status: InquiryStatus;
+  offer_price_cents?: number;
+  offer_start_time?: string;
+  offer_end_time?: string;
+  offer_notes?: string;
+  offer_sent_at?: string;
+  booking_id?: number;
+  created_at: string;
+  updated_at: string;
+  pets?: { id: number; name: string; photo_url?: string }[];
+  owner_name?: string;
+  owner_avatar?: string;
+  sitter_name?: string;
+  sitter_avatar?: string;
+}
+
 export interface Message {
   id: number;
   booking_id?: number;
+  inquiry_id?: number;
   sender_id: number;
   receiver_id: number;
   content: string;

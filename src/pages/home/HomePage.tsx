@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { Booking } from '../../types';
+import { Booking, Inquiry } from '../../types';
 import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2, Heart } from 'lucide-react';
 import TipDialog from '../../components/booking/TipDialog';
 import BookingGuidance from '../../components/booking/BookingGuidance';
@@ -52,6 +52,7 @@ export default function HomePage() {
   const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
   const [tipBookingId, setTipBookingId] = useState<number | null>(null);
   const [tippedBookingIds, setTippedBookingIds] = useState<Set<number>>(new Set());
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
   );
@@ -80,8 +81,8 @@ export default function HomePage() {
     const reviewedIds = new Set(
       bookings.filter((b) => b.status === 'completed' && review.isReviewed(b.id)).map((b) => b.id),
     );
-    return buildAttentionItems(tasks, bookings, user.id, isSitterMode, reviewedIds);
-  }, [schedule.timeline, bookings, user, isSitterMode, review]);
+    return buildAttentionItems(tasks, bookings, user.id, isSitterMode, reviewedIds, inquiries);
+  }, [schedule.timeline, bookings, user, isSitterMode, review, inquiries]);
 
   const careProgress = useMemo(() => {
     const tasksByPet = new Map<string, { completed: number; total: number }>();
@@ -137,6 +138,22 @@ export default function HomePage() {
       }
     };
     fetchBookings();
+
+    // Fetch inquiries for attention items
+    const fetchInquiries = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/inquiries`, {
+          headers: getAuthHeaders(token),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setInquiries(data.inquiries);
+        }
+      } catch {
+        // Silently fail — inquiries are optional for the home page
+      }
+    };
+    fetchInquiries();
   }, [user, token]);
 
   const updateBookingStatus = async (bookingId: number, status: 'confirmed' | 'cancelled') => {
