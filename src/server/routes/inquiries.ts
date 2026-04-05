@@ -44,37 +44,36 @@ export default function inquiryRoutes(router: Router, io: Server): void {
         return;
       }
 
-      // Check for existing active inquiry with this sitter
-      const [existing] = await sql`
-        SELECT id FROM inquiries
-        WHERE owner_id = ${req.userId} AND sitter_id = ${sitter_id}
-          AND status IN ('open', 'offer_sent')
-      `;
-      if (existing) {
-        res.status(409).json({ error: 'You already have an active inquiry with this sitter' });
-        return;
+      // Create inquiry + link pets in transaction (unique index prevents duplicates)
+      let inquiry;
+      try {
+        inquiry = await sql.begin(async (tx: any) => {
+          const [inq] = await tx`
+            INSERT INTO inquiries (owner_id, sitter_id, service_type, message)
+            VALUES (${req.userId}, ${sitter_id}, ${service_type || null}, ${message})
+            RETURNING *
+          `;
+
+          const petRows = pet_ids.map((petId: number) => ({ inquiry_id: inq.id, pet_id: petId }));
+          await tx`INSERT INTO inquiry_pets ${tx(petRows, 'inquiry_id', 'pet_id')}`;
+
+          // Auto-create first message tagged with inquiry_id
+          const [msg] = await tx`
+            INSERT INTO messages (sender_id, receiver_id, content, inquiry_id)
+            VALUES (${req.userId}, ${sitter_id}, ${message}, ${inq.id})
+            RETURNING *
+          `;
+
+          return { ...inq, _firstMessage: msg };
+        });
+      } catch (err: any) {
+        // Unique index violation = duplicate active inquiry
+        if (err?.code === '23505' && err?.constraint_name?.includes('inquiries_active_pair')) {
+          res.status(409).json({ error: 'You already have an active inquiry with this sitter' });
+          return;
+        }
+        throw err;
       }
-
-      // Create inquiry + link pets in transaction
-      const inquiry = await sql.begin(async (tx: any) => {
-        const [inq] = await tx`
-          INSERT INTO inquiries (owner_id, sitter_id, service_type, message)
-          VALUES (${req.userId}, ${sitter_id}, ${service_type || null}, ${message})
-          RETURNING *
-        `;
-
-        const petRows = pet_ids.map((petId: number) => ({ inquiry_id: inq.id, pet_id: petId }));
-        await tx`INSERT INTO inquiry_pets ${tx(petRows, 'inquiry_id', 'pet_id')}`;
-
-        // Auto-create first message tagged with inquiry_id
-        const [msg] = await tx`
-          INSERT INTO messages (sender_id, receiver_id, content, inquiry_id)
-          VALUES (${req.userId}, ${sitter_id}, ${message}, ${inq.id})
-          RETURNING *
-        `;
-
-        return { ...inq, _firstMessage: msg };
-      });
 
       // Fetch pets for response
       const pets = await sql`
@@ -109,6 +108,9 @@ export default function inquiryRoutes(router: Router, io: Server): void {
   // GET /inquiries — list inquiries for current user
   router.get('/inquiries', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
+      const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+
       const rows = await sql`
         SELECT i.*,
           o.name AS owner_name, o.avatar_url AS owner_avatar,
@@ -118,6 +120,7 @@ export default function inquiryRoutes(router: Router, io: Server): void {
         JOIN users s ON s.id = i.sitter_id
         WHERE i.owner_id = ${req.userId} OR i.sitter_id = ${req.userId}
         ORDER BY i.updated_at DESC
+        LIMIT ${limit} OFFSET ${offset}
       `;
 
       // Fetch pets for each inquiry
@@ -141,12 +144,12 @@ export default function inquiryRoutes(router: Router, io: Server): void {
         applyLazyExpiration({ ...row, pets: petsByInquiry.get(row.id) ?? [] })
       );
 
-      // Persist any newly expired inquiries
-      for (const inq of inquiries) {
-        const id = inq.id as number;
-        if (inq.status === 'expired' && (rows.find((r: any) => r.id === id) as any)?.status !== 'expired') {
-          await sql`UPDATE inquiries SET status = 'expired', updated_at = NOW() WHERE id = ${id} AND status = 'offer_sent'`;
-        }
+      // Batch-persist any newly expired inquiries
+      const expiredIds = inquiries
+        .filter((inq: Record<string, unknown>, i: number) => inq.status === 'expired' && (rows[i] as any).status !== 'expired')
+        .map((inq: Record<string, unknown>) => inq.id as number);
+      if (expiredIds.length > 0) {
+        sql`UPDATE inquiries SET status = 'expired', updated_at = NOW() WHERE id = ANY(${expiredIds}) AND status = 'offer_sent'`.catch(() => {});
       }
 
       res.json({ inquiries });
@@ -191,9 +194,9 @@ export default function inquiryRoutes(router: Router, io: Server): void {
 
       const inquiry = applyLazyExpiration({ ...row, pets });
 
-      // Persist expiration if needed
+      // Persist expiration if needed (fire-and-forget)
       if (inquiry.status === 'expired' && row.status !== 'expired') {
-        await sql`UPDATE inquiries SET status = 'expired', updated_at = NOW() WHERE id = ${inquiryId} AND status = 'offer_sent'`;
+        sql`UPDATE inquiries SET status = 'expired', updated_at = NOW() WHERE id = ${inquiryId} AND status = 'offer_sent'`.catch(() => {});
       }
 
       res.json({ inquiry });
@@ -216,6 +219,13 @@ export default function inquiryRoutes(router: Router, io: Server): void {
 
       if (new Date(offer_start_time).getTime() < Date.now()) {
         res.status(400).json({ error: 'Offer start time cannot be in the past' });
+        return;
+      }
+
+      // Verify sitter is still approved
+      const [sitterUser] = await sql`SELECT approval_status FROM users WHERE id = ${req.userId}`;
+      if (!sitterUser || sitterUser.approval_status !== 'approved') {
+        res.status(403).json({ error: 'Your sitter account is not active' });
         return;
       }
 
@@ -277,46 +287,46 @@ export default function inquiryRoutes(router: Router, io: Server): void {
         return;
       }
 
-      const [inquiry] = await sql`SELECT * FROM inquiries WHERE id = ${inquiryId}`;
-      if (!inquiry) {
-        res.status(404).json({ error: 'Inquiry not found' });
-        return;
-      }
-      if (inquiry.owner_id !== req.userId) {
-        res.status(403).json({ error: 'Only the owner can accept an offer' });
-        return;
-      }
-      if (inquiry.status !== 'offer_sent') {
-        res.status(400).json({ error: 'No offer to accept' });
-        return;
-      }
-
-      // Check lazy expiration
-      if (Date.now() - new Date(inquiry.offer_sent_at).getTime() > OFFER_EXPIRY_MS) {
-        await sql`UPDATE inquiries SET status = 'expired', updated_at = NOW() WHERE id = ${inquiryId}`;
-        res.status(400).json({ error: 'This offer has expired' });
-        return;
-      }
-
-      // Get inquiry pets
-      const inquiryPets = await sql`SELECT pet_id FROM inquiry_pets WHERE inquiry_id = ${inquiryId}`;
-      const petIds = inquiryPets.map((p: any) => p.pet_id);
-
-      // Find a matching service for the sitter (optional — use first available if no service_type)
-      let serviceId = null;
-      if (inquiry.service_type) {
-        const [service] = await sql`
-          SELECT id FROM services WHERE sitter_id = ${inquiry.sitter_id} AND type = ${inquiry.service_type} LIMIT 1
-        `;
-        if (service) serviceId = service.id;
-      }
-      if (!serviceId) {
-        const [anyService] = await sql`SELECT id FROM services WHERE sitter_id = ${inquiry.sitter_id} LIMIT 1`;
-        if (anyService) serviceId = anyService.id;
-      }
-
-      // Create booking in transaction
+      // All validation + booking creation inside a single transaction with row lock
       const result = await sql.begin(async (tx: any) => {
+        // Lock the inquiry row to prevent concurrent accepts
+        const [inquiry] = await tx`SELECT * FROM inquiries WHERE id = ${inquiryId} FOR UPDATE`;
+        if (!inquiry) {
+          throw Object.assign(new Error('Inquiry not found'), { statusCode: 404 });
+        }
+        if (inquiry.owner_id !== req.userId) {
+          throw Object.assign(new Error('Only the owner can accept an offer'), { statusCode: 403 });
+        }
+        if (inquiry.status !== 'offer_sent') {
+          throw Object.assign(new Error('No offer to accept'), { statusCode: 400 });
+        }
+
+        // Check lazy expiration inside the lock
+        if (Date.now() - new Date(inquiry.offer_sent_at).getTime() > OFFER_EXPIRY_MS) {
+          await tx`UPDATE inquiries SET status = 'expired', updated_at = NOW() WHERE id = ${inquiryId}`;
+          throw Object.assign(new Error('This offer has expired'), { statusCode: 400 });
+        }
+
+        // Get inquiry pets
+        const inquiryPets = await tx`SELECT pet_id FROM inquiry_pets WHERE inquiry_id = ${inquiryId}`;
+        const petIds = inquiryPets.map((p: any) => p.pet_id);
+
+        // Find a matching service for the sitter
+        let serviceId = null;
+        if (inquiry.service_type) {
+          const [service] = await tx`
+            SELECT id FROM services WHERE sitter_id = ${inquiry.sitter_id} AND type = ${inquiry.service_type} LIMIT 1
+          `;
+          if (service) serviceId = service.id;
+        }
+        if (!serviceId) {
+          const [anyService] = await tx`SELECT id FROM services WHERE sitter_id = ${inquiry.sitter_id} LIMIT 1`;
+          if (anyService) serviceId = anyService.id;
+        }
+        if (!serviceId) {
+          throw Object.assign(new Error('Sitter has no active services. Cannot create booking.'), { statusCode: 400 });
+        }
+
         const [booking] = await tx`
           INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status)
           VALUES (${inquiry.sitter_id}, ${req.userId}, ${serviceId}, ${inquiry.offer_start_time}, ${inquiry.offer_end_time}, ${inquiry.offer_price_cents}, 'pending')
@@ -335,20 +345,24 @@ export default function inquiryRoutes(router: Router, io: Server): void {
           RETURNING *
         `;
 
-        return { booking, inquiry: updated };
+        return { booking, inquiry: updated, sitter_id: inquiry.sitter_id };
       });
 
       // Notify sitter
       const [owner] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
       const notification = await createNotification(
-        inquiry.sitter_id, 'new_booking', 'Offer Accepted',
+        result.sitter_id, 'new_booking', 'Offer Accepted',
         `${owner.name} accepted your booking offer.`,
         { booking_id: result.booking.id, inquiry_id: inquiryId }
       );
-      if (notification) io.to(String(inquiry.sitter_id)).emit('notification', notification);
+      if (notification) io.to(String(result.sitter_id)).emit('notification', notification);
 
       res.json({ inquiry: result.inquiry, booking: result.booking });
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.statusCode) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
       logger.error({ err: sanitizeError(error) }, 'Failed to accept offer');
       res.status(500).json({ error: 'Failed to accept offer' });
     }

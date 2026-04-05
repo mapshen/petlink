@@ -138,7 +138,7 @@ export const createInquirySchema = z.object({
 });
 
 export const sendOfferSchema = z.object({
-  offer_price_cents: z.number().int().min(0, 'Price cannot be negative').max(999900, 'Price must be under $10,000'),
+  offer_price_cents: z.number().int().min(100, 'Minimum offer is $1.00').max(999900, 'Price must be under $10,000'),
   offer_start_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'offer_start_time must be a valid date'),
   offer_end_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'offer_end_time must be a valid date'),
   offer_notes: z.string().max(1000, 'Notes must be under 1000 characters').optional(),

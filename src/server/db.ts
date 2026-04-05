@@ -761,6 +761,8 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_inquiries_owner ON inquiries (owner_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_inquiries_sitter ON inquiries (sitter_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries (status)`.catch(() => {});
+  // Partial unique index: one active inquiry per owner-sitter pair
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_inquiries_active_pair ON inquiries (owner_id, sitter_id) WHERE status IN ('open', 'offer_sent')`.catch(() => {});
   await sql`ALTER TABLE messages ADD COLUMN IF NOT EXISTS inquiry_id INTEGER REFERENCES inquiries(id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_messages_inquiry ON messages (inquiry_id) WHERE inquiry_id IS NOT NULL`.catch(() => {});
   // Extend notification_type enum for inquiry notifications
