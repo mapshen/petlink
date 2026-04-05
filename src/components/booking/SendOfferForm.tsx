@@ -37,8 +37,8 @@ export default function SendOfferForm({
 
   const handleSubmit = async () => {
     const price = parseFloat(priceStr);
-    if (isNaN(price) || price < 0) {
-      setError('Please enter a valid price');
+    if (isNaN(price) || price < 1) {
+      setError('Minimum offer is $1.00');
       return;
     }
     if (!date || !startTime || !endTime) {
@@ -84,8 +84,22 @@ export default function SendOfferForm({
     }
   };
 
+  const handleClose = (v: boolean) => {
+    if (!loading) {
+      onOpenChange(v);
+      if (!v) {
+        setPriceStr('');
+        setDate('');
+        setStartTime('');
+        setEndTime('');
+        setNotes('');
+        setError(null);
+      }
+    }
+  };
+
   return (
-    <AlertDialog open={open} onOpenChange={(v) => { if (!loading) onOpenChange(v); }}>
+    <AlertDialog open={open} onOpenChange={handleClose}>
       <AlertDialogContent className="max-w-sm">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">

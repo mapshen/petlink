@@ -396,6 +396,10 @@ export default function inquiryRoutes(router: Router, io: Server): void {
         WHERE id = ${inquiryId} AND status IN ('open', 'offer_sent')
         RETURNING *
       `;
+      if (!updated) {
+        res.status(409).json({ error: 'Inquiry was already resolved' });
+        return;
+      }
 
       // Notify the other party
       const otherUserId = inquiry.owner_id === req.userId ? inquiry.sitter_id : inquiry.owner_id;
