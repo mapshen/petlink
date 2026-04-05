@@ -148,7 +148,7 @@ export default function Onboarding() {
         headers: getAuthHeaders(token),
         body: JSON.stringify({
           type: serviceType,
-          price: Number(servicePrice),
+          price_cents: Math.round(Number(servicePrice) * 100),
           description: serviceDesc || null,
         }),
       });

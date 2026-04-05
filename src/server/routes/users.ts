@@ -7,6 +7,7 @@ import {
 } from '../auth.ts';
 import { validate, updateProfileSchema } from '../validation.ts';
 import { isAdminUser } from '../admin.ts';
+import logger, { sanitizeError } from '../logger.ts';
 export default function userRoutes(router: Router): void {
   router.put(
     '/users/me',
@@ -157,6 +158,7 @@ export default function userRoutes(router: Router): void {
 
     res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });
     } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to submit application');
       res.status(500).json({ error: 'Failed to submit application' });
     }
   });

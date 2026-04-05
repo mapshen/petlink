@@ -436,7 +436,7 @@ export const calendarQuerySchema = z.object({
 // --- Reference Schemas ---
 export const inviteReferenceSchema = z.object({
   client_name: z.string().min(1, 'Name is required').max(200),
-  client_email: z.string().email('Invalid email address'),
+  client_email: z.string().trim().toLowerCase().email('Invalid email address'),
 });
 
 export const submitVouchSchema = z.object({
