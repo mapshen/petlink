@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
-import { AlertTriangle, Circle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Circle, MessageCircleQuestion } from 'lucide-react';
 import type { AttentionItem } from '../../hooks/attentionItemsUtils';
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -156,6 +157,37 @@ function PendingReviewItem({ item, onReview }: { readonly item: AttentionItem; r
   );
 }
 
+function InquiryItem({ item, isSitter }: { readonly item: AttentionItem; readonly isSitter: boolean }) {
+  const navigate = useNavigate();
+  const d = item.data;
+  const isOffer = item.type === 'inquiry_offer_pending';
+  const counterparty = isSitter ? (d.owner_name as string) : (d.sitter_name as string);
+  const otherUserId = isSitter ? (d.owner_id as number) : (d.sitter_id as number);
+
+  return (
+    <div className="px-5 py-3 border-b border-amber-200 flex items-center gap-3">
+      <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+        <MessageCircleQuestion className="w-4 h-4 text-emerald-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold">
+          {isOffer ? 'Booking offer received' : 'New inquiry'}
+        </div>
+        <div className="text-xs text-amber-700">
+          {counterparty}
+          {d.service_type && <span> &middot; {(d.service_type as string).replace(/[-_]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>}
+        </div>
+      </div>
+      <button
+        onClick={() => navigate(`/messages?recipient=${otherUserId}`)}
+        className="text-xs font-bold bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors"
+      >
+        {isOffer ? 'View Offer' : 'Reply'}
+      </button>
+    </div>
+  );
+}
+
 export default function NeedsAttention({ items, isSitter, updatingIds, onAcceptBooking, onDeclineBooking, onCompleteTask, onReview }: Props) {
   if (items.length === 0) return null;
 
@@ -175,6 +207,9 @@ export default function NeedsAttention({ items, isSitter, updatingIds, onAcceptB
         }
         if (item.type === 'pending_review') {
           return <PendingReviewItem key={item.id} item={item} onReview={onReview} />;
+        }
+        if (item.type === 'pending_inquiry' || item.type === 'inquiry_offer_pending') {
+          return <InquiryItem key={item.id} item={item} isSitter={isSitter} />;
         }
         return null;
       })}

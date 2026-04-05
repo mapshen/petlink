@@ -1,5 +1,5 @@
 export interface AttentionItem {
-  type: 'care_task_due' | 'care_task_upcoming' | 'pending_booking' | 'pending_review';
+  type: 'care_task_due' | 'care_task_upcoming' | 'pending_booking' | 'pending_review' | 'pending_inquiry' | 'inquiry_offer_pending';
   urgency: number;
   id: string;
   data: Record<string, unknown>;
@@ -27,12 +27,24 @@ interface BookingLike {
   start_time: string;
 }
 
+interface InquiryLike {
+  id: number;
+  status: string;
+  owner_id: number;
+  sitter_id: number;
+  owner_name?: string;
+  sitter_name?: string;
+  service_type?: string;
+  created_at: string;
+}
+
 export function buildAttentionItems(
   careTasks: CareTaskLike[],
   bookings: BookingLike[],
   userId: number,
   isSitter: boolean,
   reviewedBookingIds: Set<number>,
+  inquiries: InquiryLike[] = [],
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
   const now = new Date();
@@ -62,6 +74,17 @@ export function buildAttentionItems(
       if (b.status === 'completed' && b.owner_id === userId && !reviewedBookingIds.has(b.id)) {
         items.push({ type: 'pending_review', urgency: 4, id: `review-${b.id}`, data: b as unknown as Record<string, unknown> });
       }
+    }
+  }
+
+  // Inquiry items
+  for (const inq of inquiries) {
+    if (inq.status === 'open' && isSitter && inq.sitter_id === userId) {
+      // Sitter has a pending inquiry to respond to
+      items.push({ type: 'pending_inquiry', urgency: 2, id: `inquiry-${inq.id}`, data: inq as unknown as Record<string, unknown> });
+    } else if (inq.status === 'offer_sent' && !isSitter && inq.owner_id === userId) {
+      // Owner has an offer waiting for response
+      items.push({ type: 'inquiry_offer_pending', urgency: 1, id: `inquiry-offer-${inq.id}`, data: inq as unknown as Record<string, unknown> });
     }
   }
 

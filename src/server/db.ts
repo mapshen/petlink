@@ -65,7 +65,7 @@ export async function initDb() {
   `;
   await sql`
     DO $$ BEGIN
-      CREATE TYPE notification_type AS ENUM ('new_booking', 'booking_status', 'new_message', 'walk_started', 'walk_completed', 'payment_update', 'verification_update', 'account_update', 'care_task_reminder');
+      CREATE TYPE notification_type AS ENUM ('new_booking', 'booking_status', 'new_message', 'walk_started', 'walk_completed', 'payment_update', 'verification_update', 'account_update', 'care_task_reminder', 'new_inquiry', 'inquiry_offer');
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
@@ -730,6 +730,42 @@ export async function initDb() {
   // Columns species, holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents,
   // grooming_addon_fee_cents are now in the CREATE TABLE above.
   // Float-to-cents backfill (Issue #287) already completed — removed.
+
+  // Issue #351: Booking inquiries
+  await sql`
+    CREATE TABLE IF NOT EXISTS inquiries (
+      id SERIAL PRIMARY KEY,
+      owner_id INTEGER NOT NULL REFERENCES users(id),
+      sitter_id INTEGER NOT NULL REFERENCES users(id),
+      service_type service_type,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open'
+        CHECK(status IN ('open', 'offer_sent', 'accepted', 'declined', 'expired')),
+      offer_price_cents INTEGER,
+      offer_start_time TIMESTAMPTZ,
+      offer_end_time TIMESTAMPTZ,
+      offer_notes TEXT,
+      offer_sent_at TIMESTAMPTZ,
+      booking_id INTEGER REFERENCES bookings(id),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS inquiry_pets (
+      inquiry_id INTEGER NOT NULL REFERENCES inquiries(id) ON DELETE CASCADE,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      PRIMARY KEY (inquiry_id, pet_id)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_inquiries_owner ON inquiries (owner_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_inquiries_sitter ON inquiries (sitter_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries (status)`.catch(() => {});
+  await sql`ALTER TABLE messages ADD COLUMN IF NOT EXISTS inquiry_id INTEGER REFERENCES inquiries(id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_messages_inquiry ON messages (inquiry_id) WHERE inquiry_id IS NOT NULL`.catch(() => {});
+  // Extend notification_type enum for inquiry notifications
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'new_inquiry'`.catch(() => {});
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'inquiry_offer'`.catch(() => {});
 
   // Issue #348: Day-before booking reminders
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_reminder_sent_at TIMESTAMPTZ`.catch(() => {});

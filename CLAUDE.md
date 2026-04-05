@@ -58,6 +58,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Payments | `POST /payments/create-intent`, `POST /payments/capture`, `POST /payments/cancel`, `GET /payment-methods`, `DELETE /payment-methods/:id`, `GET /payment-history`, `POST /payments/link-bank`, `GET /payments/bank-accounts`, `DELETE /payments/bank-accounts/:id` |
 | Subscriptions | `GET /subscription`, `POST /subscription/upgrade`, `POST /subscription/cancel`, `POST /subscription/create-intent` |
 | Analytics | `GET /analytics/overview` (sitter stats by year), `GET /analytics/clients` (client list with pets, paginated), `GET /analytics/clients/:clientId` (client booking history), `GET /analytics/revenue` (weekly/monthly revenue breakdown) |
+| Inquiries | `POST /inquiries`, `GET /inquiries`, `GET /inquiries/:id`, `PUT /inquiries/:id/offer`, `PUT /inquiries/:id/accept`, `PUT /inquiries/:id/decline` |
 | Uploads | `POST /uploads/signed-url` |
 | Webhooks | `POST /webhooks/stripe`, `POST /webhooks/background-check` |
 | Admin | `GET /admin/pending-sitters`, `GET /admin/sitters` (paginated, `?status=&limit=&offset=`), `PUT /admin/sitters/:id/approval` (requires `ADMIN_EMAIL`) |
@@ -119,6 +120,8 @@ PostgreSQL with PostGIS.
 | `push_subscriptions` | Web push subscription storage |
 | `sitter_photos` | Portfolio photos with ordering |
 | `sitter_posts` | Instagram-style posts with content, photo/video, post type (`update`, `walk_photo`, `walk_video`, `care_update`), optional booking/walk event links |
+| `inquiries` | Pre-booking inquiry/negotiation: owner_id, sitter_id, service_type, message, status (`open`/`offer_sent`/`accepted`/`declined`/`expired`), offer fields, linked booking_id |
+| `inquiry_pets` | Junction table linking inquiries to pets |
 | `favorites` | Owner favorite sitters |
 | `oauth_accounts` | Provider links (`provider`, `provider_id`, unique constraints) |
 | `sitter_subscriptions` | Pro tier with status tracking, Stripe billing, billing period |
@@ -145,7 +148,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com` (owner only), 
 
 ## Testing
 
-330 tests across 25 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+1218 tests across 91 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 

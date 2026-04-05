@@ -22,6 +22,7 @@ import BookingCalendar from '../../components/booking/BookingCalendar';
 import TimeSlotPicker from '../../components/booking/TimeSlotPicker';
 import PetSelector from '../../components/booking/PetSelector';
 import FirstBookingNudge from '../../components/booking/FirstBookingNudge';
+import InquiryForm from '../../components/booking/InquiryForm';
 import { useFavorites } from '../../hooks/useFavorites';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
@@ -72,6 +73,7 @@ export default function SitterProfile() {
   const [postsKey, setPostsKey] = useState(0);
   const [wantsPickup, setWantsPickup] = useState(false);
   const [wantsGrooming, setWantsGrooming] = useState(false);
+  const [showInquiry, setShowInquiry] = useState(false);
   const bookingRef = useRef<HTMLDivElement>(null);
 
   const scrollToBooking = useCallback(() => {
@@ -645,6 +647,13 @@ export default function SitterProfile() {
                   {bookingLoading ? 'Submitting...' : selectedService && services.find((s) => s.id === selectedService)?.price_cents === 0 ? 'Request Booking' : 'Request Booking & Pay'}
                 </button>
 
+                <button
+                  onClick={() => setShowInquiry(true)}
+                  className="w-full mt-3 border border-emerald-600 text-emerald-700 py-3 rounded-xl font-bold hover:bg-emerald-50 transition-colors"
+                >
+                  Send Inquiry
+                </button>
+
                 <p className="text-xs text-center text-stone-400 mt-4">
                   {selectedService && services.find((s) => s.id === selectedService)?.price_cents === 0
                     ? 'This is a free service — no payment required.'
@@ -671,6 +680,18 @@ export default function SitterProfile() {
           </div>
         )}
       </div>
+
+      {/* Inquiry Dialog */}
+      {sitter && (
+        <InquiryForm
+          open={showInquiry}
+          onOpenChange={setShowInquiry}
+          sitterId={sitter.id}
+          sitterName={sitter.name}
+          services={services}
+          pets={pets}
+        />
+      )}
 
       {/* Create Post Dialog */}
       <CreatePostDialog
