@@ -475,7 +475,7 @@ export interface ImportedProfile {
 
 export interface ImportedReview {
   id: number;
-  imported_profile_id: number;
+  imported_profile_id?: number | null;
   sitter_id: number;
   platform: ImportPlatform;
   reviewer_name: string;

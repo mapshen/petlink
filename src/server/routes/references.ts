@@ -7,7 +7,6 @@ import { sendEmail, buildReferenceInviteEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 const MAX_REFERENCES_PER_SITTER = 10;
-const MAX_MANUAL_IMPORTS_PER_SITTER = 20;
 
 export default function referenceRoutes(router: Router, publicLimiter?: RequestHandler): void {
   // POST /references/invite — sitter invites a past client
