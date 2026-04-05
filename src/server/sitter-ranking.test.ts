@@ -23,7 +23,7 @@ const baseSitter: SitterStats = {
   has_bio: false,
   service_count: 0,
   has_availability: false,
-  created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days ago
+  approved_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days ago
 };
 
 describe('computeReviewScore', () => {
@@ -109,31 +109,49 @@ describe('computeProfileCompleteness', () => {
 });
 
 describe('computeNewSitterBoost', () => {
-  it('returns ~1 for brand new sitter', () => {
+  it('returns ~1 for freshly approved sitter', () => {
     expect(computeNewSitterBoost(new Date().toISOString())).toBeGreaterThan(0.9);
   });
 
-  it('returns 0 for old sitter', () => {
+  it('returns 0 for sitter approved 60 days ago', () => {
     const old = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
     expect(computeNewSitterBoost(old)).toBe(0);
   });
 
-  it('decreases linearly over 30 days', () => {
-    const day15 = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
-    const boost = computeNewSitterBoost(day15);
+  it('returns 0 for null approved_at', () => {
+    expect(computeNewSitterBoost(null)).toBe(0);
+  });
+
+  it('decreases linearly over 45 days', () => {
+    const day22 = new Date(Date.now() - 22 * 24 * 60 * 60 * 1000).toISOString();
+    const boost = computeNewSitterBoost(day22);
     expect(boost).toBeGreaterThan(0.4);
     expect(boost).toBeLessThan(0.6);
+  });
+
+  it('still has boost at day 40', () => {
+    const day40 = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+    expect(computeNewSitterBoost(day40)).toBeGreaterThan(0);
   });
 });
 
 describe('isNewSitter', () => {
-  it('returns true for sitter created today', () => {
+  it('returns true for sitter approved today', () => {
     expect(isNewSitter(new Date().toISOString())).toBe(true);
   });
 
-  it('returns false for sitter created 60 days ago', () => {
+  it('returns false for sitter approved 60 days ago', () => {
     const old = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
     expect(isNewSitter(old)).toBe(false);
+  });
+
+  it('returns false for null approved_at', () => {
+    expect(isNewSitter(null)).toBe(false);
+  });
+
+  it('returns true at day 44', () => {
+    const day44 = new Date(Date.now() - 44 * 24 * 60 * 60 * 1000).toISOString();
+    expect(isNewSitter(day44)).toBe(true);
   });
 });
 
@@ -169,7 +187,7 @@ describe('calculateRankingScore', () => {
   it('gives new sitters a boost', () => {
     const newSitter: SitterStats = {
       ...baseSitter,
-      created_at: new Date().toISOString(),
+      approved_at: new Date().toISOString(),
       has_avatar: true,
       has_bio: true,
       service_count: 1,
@@ -177,7 +195,7 @@ describe('calculateRankingScore', () => {
     };
 
     const newScore = calculateRankingScore(newSitter);
-    const oldScore = calculateRankingScore({ ...newSitter, created_at: baseSitter.created_at });
+    const oldScore = calculateRankingScore({ ...newSitter, approved_at: baseSitter.approved_at });
     expect(newScore).toBeGreaterThan(oldScore);
   });
 });

@@ -36,7 +36,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Domain | Endpoints |
 |--------|-----------|
 | Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/oauth`, `GET /auth/me`, `GET /auth/linked-accounts`, `DELETE /auth/linked-accounts/:provider`, `POST /auth/set-password`, `PUT /auth/password` |
-| Users | `PUT /users/me` |
+| Users | `PUT /users/me`, `POST /users/me/onboarding-started` |
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id`, `GET/PUT /pets/:id/care-instructions` |
 | Pet Vaccinations | `GET /pets/:petId/vaccinations`, `POST /pets/:petId/vaccinations`, `DELETE /pets/:petId/vaccinations/:id` |
 | Booking Care Tasks | `GET /bookings/:bookingId/care-tasks`, `PUT /bookings/:bookingId/care-tasks/:taskId/complete`, `PUT /bookings/:bookingId/care-tasks/:taskId/uncomplete`, `GET /care-tasks/today?tzOffset=` |
@@ -103,7 +103,7 @@ PostgreSQL with PostGIS.
 
 | Table | Key Columns / Notes |
 |-------|-------------------|
-| `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `slug` (unique, SEO-friendly URL), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `accepted_pet_sizes`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10), `max_pets_at_once`, `max_pets_per_walk`, `house_rules`, `emergency_procedures`, `has_insurance` |
+| `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `slug` (unique, SEO-friendly URL), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `accepted_pet_sizes`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10), `max_pets_at_once`, `max_pets_per_walk`, `house_rules`, `emergency_procedures`, `has_insurance`, onboarding: `onboarding_started_at`, `onboarding_reminder_sent_at`, `onboarding_reminder_count` (default 0) |
 | `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
 | `pet_vaccinations` | Vaccine records with expiration tracking |
 | `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB |
@@ -148,7 +148,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com` (owner only), 
 
 ## Testing
 
-1218 tests across 91 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+1245 tests across 92 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 
@@ -156,6 +156,10 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com` (owner only), 
 - **Validation strategy**: `docs/VALIDATION_GUIDE.md`
 - **Development practices**: `DEVELOPMENT.md`
 - **Business docs** (confidential, separate repo): `/Users/mshen/repos/mapshen/petlink-business/docs/` — contains BUSINESS_PLAN.md, BUSINESS_CANVAS.md, COMPETITOR_ANALYSIS.md
+
+## Code Review
+
+After opening a PR, always run high-effort (ultrathink) code review passes. Repeat until 3 consecutive passes come back clean (no new findings). Only then mark the review as complete.
 
 ## Design System
 

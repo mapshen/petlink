@@ -7,7 +7,7 @@
  *   - Response time (15%): faster = better (normalized to 0-1)
  *   - Repeat booking rate (15%): % of owners who rebook
  *   - Profile completeness (10%): has photo, bio, services, availability
- *   - New sitter boost (10%): 30-day boost for new sitters
+ *   - New sitter boost (10%): 45-day boost for newly approved sitters
  */
 
 export interface SitterStats {
@@ -22,7 +22,7 @@ export interface SitterStats {
   has_bio: boolean;
   service_count: number;
   has_availability: boolean;
-  created_at: string;
+  approved_at: string | null;
   distance_meters?: number | null;
 }
 
@@ -36,7 +36,7 @@ const WEIGHTS = {
 } as const;
 
 const MAX_RESPONSE_HOURS = 24;
-const NEW_SITTER_DAYS = 30;
+const NEW_SITTER_DAYS = 45;
 
 export function calculateRankingScore(stats: SitterStats): number {
   const reviewScore = computeReviewScore(stats.avg_rating, stats.review_count);
@@ -44,7 +44,7 @@ export function calculateRankingScore(stats: SitterStats): number {
   const responseScore = computeResponseScore(stats.avg_response_hours);
   const repeatScore = computeRepeatRate(stats.repeat_owner_count, stats.unique_owner_count);
   const profileScore = computeProfileCompleteness(stats);
-  const newBoost = computeNewSitterBoost(stats.created_at);
+  const newBoost = computeNewSitterBoost(stats.approved_at);
 
   return (
     reviewScore * WEIGHTS.review +
@@ -89,19 +89,21 @@ export function computeProfileCompleteness(stats: SitterStats): number {
   return score;
 }
 
-export function computeNewSitterBoost(createdAt: string): number {
-  const createdDate = new Date(createdAt);
+export function computeNewSitterBoost(approvedAt: string | null): number {
+  if (!approvedAt) return 0;
+  const approvedDate = new Date(approvedAt);
   const now = new Date();
-  const daysSinceCreated = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
-  if (daysSinceCreated <= NEW_SITTER_DAYS) {
-    return 1 - (daysSinceCreated / NEW_SITTER_DAYS);
+  const daysSinceApproved = (now.getTime() - approvedDate.getTime()) / (1000 * 60 * 60 * 24);
+  if (daysSinceApproved <= NEW_SITTER_DAYS) {
+    return 1 - (daysSinceApproved / NEW_SITTER_DAYS);
   }
   return 0;
 }
 
-export function isNewSitter(createdAt: string): boolean {
-  const createdDate = new Date(createdAt);
+export function isNewSitter(approvedAt: string | null): boolean {
+  if (!approvedAt) return false;
+  const approvedDate = new Date(approvedAt);
   const now = new Date();
-  const daysSinceCreated = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
-  return daysSinceCreated <= NEW_SITTER_DAYS;
+  const daysSinceApproved = (now.getTime() - approvedDate.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceApproved <= NEW_SITTER_DAYS;
 }

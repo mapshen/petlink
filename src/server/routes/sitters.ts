@@ -25,7 +25,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       SELECT DISTINCT ON (u.id)
              u.id, u.name, u.roles, u.bio, u.avatar_url, u.slug,
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
-             u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at,
+             u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at, u.approved_at,
              s.price_cents, s.type as service_type, s.max_pets
              ${species ? sql`, sp.years_experience as species_years_experience, sp.accepted_pet_sizes as species_pet_sizes, sp.skills as species_skills` : sql``}
              ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}
@@ -117,13 +117,13 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         has_bio: Boolean(sitter.bio),
         service_count: s?.service_count || 0,
         has_availability: Boolean(s?.has_availability),
-        created_at: sitter.created_at,
+        approved_at: sitter.approved_at,
         distance_meters: sitter.distance_meters,
       };
       return {
         ...sitter,
         ranking_score: calculateRankingScore(sitterStats),
-        is_new: isNewSitter(sitter.created_at),
+        is_new: isNewSitter(sitter.approved_at),
         review_count: s?.review_count || 0,
         avg_rating: s?.avg_rating ? Number(s.avg_rating.toFixed(1)) : null,
       };

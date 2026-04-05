@@ -488,8 +488,8 @@ export default function Search() {
                               <span className="text-stone-400">{sitter.years_experience}yr exp</span>
                             )}
                             {sitter.is_new && (
-                              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
-                                New
+                              <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                                New Sitter
                               </span>
                             )}
                             {sitter.accepted_species && sitter.accepted_species.length > 0 && (

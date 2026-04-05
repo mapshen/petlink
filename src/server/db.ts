@@ -774,6 +774,11 @@ export async function initDb() {
   await sql`ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS booking_reminders BOOLEAN DEFAULT TRUE`.catch(() => {});
   await sql`ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS booking_reminders_email BOOLEAN DEFAULT TRUE`.catch(() => {});
 
+  // Issue #337: Onboarding reminders
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_started_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_reminder_sent_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_reminder_count INTEGER DEFAULT 0`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});
