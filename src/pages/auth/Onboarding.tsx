@@ -5,7 +5,7 @@ import { useOnboardingStatus } from '../../hooks/useOnboardingStatus';
 import OnboardingProgress from '../../components/onboarding/OnboardingProgress';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { Service, SitterReference } from '../../types';
-import { formatCents } from '../../lib/money';
+import { formatCents, dollarsToCents } from '../../lib/money';
 import {
   Camera, Loader2, AlertCircle, ShieldCheck, CheckCircle, PartyPopper,
   ChevronRight, ChevronLeft, SkipForward, Save,
@@ -148,7 +148,7 @@ export default function Onboarding() {
         headers: getAuthHeaders(token),
         body: JSON.stringify({
           type: serviceType,
-          price_cents: Math.round(Number(servicePrice) * 100),
+          price_cents: dollarsToCents(Number(servicePrice)),
           description: serviceDesc || null,
         }),
       });
