@@ -157,6 +157,10 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com` (owner only), 
 - **Development practices**: `DEVELOPMENT.md`
 - **Business docs** (confidential, separate repo): `/Users/mshen/repos/mapshen/petlink-business/docs/` — contains BUSINESS_PLAN.md, BUSINESS_CANVAS.md, COMPETITOR_ANALYSIS.md
 
+## Code Review
+
+After opening a PR, always run high-effort (ultrathink) code review passes. Repeat until 3 consecutive passes come back clean (no new findings). Only then mark the review as complete.
+
 ## Design System
 
 - **Colors**: Emerald primary, Stone neutrals, Amber/Red accents
