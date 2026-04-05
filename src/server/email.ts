@@ -257,3 +257,42 @@ export function buildSitterNewBookingEmail(params: {
 `),
   };
 }
+
+export function buildOnboardingReminderEmail(params: {
+  sitterName: string;
+  steps: { profile: boolean; services: boolean; photos: boolean; verification: boolean };
+  reminderNumber: number;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.sitterName);
+  const check = '&#x2705;';
+  const cross = '&#x274C;';
+
+  const stepRows = [
+    { label: 'Profile (name &amp; bio)', done: params.steps.profile, required: true },
+    { label: 'Services &amp; pricing', done: params.steps.services, required: true },
+    { label: 'Profile photo', done: params.steps.photos, required: false },
+    { label: 'Verification', done: params.steps.verification, required: false },
+  ].map(s =>
+    `<tr><td style="padding:6px 0;color:${s.done ? '#059669' : '#dc2626'};font-size:14px">${s.done ? check : cross}</td><td style="padding:6px 0;color:#1c1917;font-size:14px">${s.label}${s.required ? ' <span style="color:#dc2626;font-size:11px">(required)</span>' : ''}</td></tr>`
+  ).join('');
+
+  const tip = params.reminderNumber === 1
+    ? 'Sitters with completed profiles get <strong>3x more booking requests</strong>.'
+    : params.reminderNumber === 2
+    ? 'Adding a photo and bio helps owners feel confident choosing you.'
+    : 'You\'re almost there! Just a few more steps to start earning.';
+
+  return {
+    subject: sanitizeSubject(`Finish setting up your PetLink sitter profile`),
+    html: emailWrapper('Complete Your Sitter Profile', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">${tip}</p>
+<p style="color:#44403c;line-height:1.6;font-weight:600">Your progress:</p>
+<table style="width:100%;border-collapse:collapse;margin:8px 0 16px">${stepRows}</table>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/onboarding" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Continue Setup</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">Takes about 5 minutes to complete. You can also reply to this email with questions.</p>
+`),
+  };
+}

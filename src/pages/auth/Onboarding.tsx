@@ -14,6 +14,13 @@ import { API_BASE } from '../../config';
 
 const STEPS = ['Profile', 'Services', 'Photos', 'Verification', 'Done'];
 
+const STEP_TIPS: Record<number, { tip: string; time: string }> = {
+  0: { tip: 'Sitters with a bio get 2x more profile views.', time: '~2 min' },
+  1: { tip: 'Set competitive prices — you can always adjust later.', time: '~2 min' },
+  2: { tip: 'Sitters with photos get 3x more booking requests.', time: '~1 min' },
+  3: { tip: 'Verified sitters earn 40% more on average.', time: '~3 min' },
+};
+
 const SERVICE_TYPES = [
   { value: 'walking', label: 'Pet Walking', icon: '🚶' },
   { value: 'sitting', label: 'House Sitting', icon: '🏠' },
@@ -54,6 +61,15 @@ export default function Onboarding() {
     if (!user) { navigate('/login'); return; }
     if (!user.roles?.includes('sitter')) { navigate('/home'); return; }
   }, [user, authLoading, navigate]);
+
+  // Record onboarding start (idempotent — only sets once)
+  useEffect(() => {
+    if (!user || !token) return;
+    fetch(`${API_BASE}/users/me/onboarding-started`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+    }).catch(() => {});
+  }, [user, token]);
 
   // Initialize form state from user data + determine starting step
   useEffect(() => {
@@ -202,7 +218,14 @@ export default function Onboarding() {
       <h1 className="text-3xl font-bold text-stone-900 mb-2">Set Up Your Sitter Profile</h1>
       <p className="text-stone-500 mb-8">Complete these steps to start getting bookings.</p>
 
-      <OnboardingProgress currentStep={step} steps={STEPS} />
+      <OnboardingProgress currentStep={step} steps={STEPS} onStepClick={(i) => { if (i < step) setStep(i); }} />
+
+      {STEP_TIPS[step] && (
+        <div className="mb-4 flex items-center gap-3 bg-emerald-50 border border-emerald-200 px-4 py-3 rounded-xl text-sm">
+          <span className="text-emerald-700 flex-grow">{STEP_TIPS[step].tip}</span>
+          <span className="text-emerald-500 text-xs font-medium whitespace-nowrap">{STEP_TIPS[step].time}</span>
+        </div>
+      )}
 
       {error && (
         <div role="alert" className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
@@ -236,7 +259,14 @@ export default function Onboarding() {
                 className="w-full p-3 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              <button
+                onClick={() => navigate('/home')}
+                className="inline-flex items-center gap-2 text-sm text-stone-400 hover:text-stone-600 transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                Save & Continue Later
+              </button>
               <button
                 onClick={saveProfile}
                 disabled={saving || !name.trim() || !bio.trim()}
@@ -329,14 +359,23 @@ export default function Onboarding() {
                 <ChevronLeft className="w-4 h-4" />
                 Back
               </button>
-              <button
-                onClick={() => setStep(2)}
-                disabled={services.length === 0}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate('/home')}
+                  className="inline-flex items-center gap-2 text-sm text-stone-400 hover:text-stone-600 transition-colors"
+                >
+                  <Save className="w-4 h-4" />
+                  Later
+                </button>
+                <button
+                  onClick={() => setStep(2)}
+                  disabled={services.length === 0}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         )}

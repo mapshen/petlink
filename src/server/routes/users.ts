@@ -111,6 +111,16 @@ export default function userRoutes(router: Router): void {
     res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });
   });
 
+  // --- Record Onboarding Start ---
+  router.post('/users/me/onboarding-started', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    // Only set once (idempotent)
+    await sql`
+      UPDATE users SET onboarding_started_at = NOW()
+      WHERE id = ${req.userId} AND onboarding_started_at IS NULL
+    `;
+    res.json({ ok: true });
+  });
+
   // --- Account Deletion (Soft Delete) ---
   router.delete('/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const userId = req.userId!;
