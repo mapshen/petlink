@@ -492,7 +492,6 @@ export interface SitterReference {
   client_email: string;
   rating?: number;
   comment?: string;
-  invite_token: string;
   status: 'pending' | 'completed';
   created_at: string;
   completed_at?: string;

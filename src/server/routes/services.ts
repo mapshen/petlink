@@ -15,8 +15,8 @@ export default function serviceRoutes(router: Router): void {
       res.status(403).json({ error: 'Only sitters can manage services' });
       return;
     }
-    if (currentUser.approval_status !== 'approved') {
-      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot manage services yet.' });
+    if (currentUser.approval_status !== 'approved' && currentUser.approval_status !== 'onboarding') {
+      res.status(403).json({ error: 'Your sitter account is not active.' });
       return;
     }
     const { type, price_cents, description, additional_pet_price_cents, max_pets, service_details, species,
@@ -43,8 +43,8 @@ export default function serviceRoutes(router: Router): void {
       res.status(403).json({ error: 'Only sitters can manage services' });
       return;
     }
-    if (currentUser.approval_status !== 'approved') {
-      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot manage services yet.' });
+    if (currentUser.approval_status !== 'approved' && currentUser.approval_status !== 'onboarding') {
+      res.status(403).json({ error: 'Your sitter account is not active.' });
       return;
     }
     const [service] = await sql`SELECT * FROM services WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
@@ -79,8 +79,8 @@ export default function serviceRoutes(router: Router): void {
       res.status(403).json({ error: 'Only sitters can manage services' });
       return;
     }
-    if (currentUser.approval_status !== 'approved') {
-      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot manage services yet.' });
+    if (currentUser.approval_status !== 'approved' && currentUser.approval_status !== 'onboarding') {
+      res.status(403).json({ error: 'Your sitter account is not active.' });
       return;
     }
     const [service] = await sql`SELECT * FROM services WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;

@@ -173,7 +173,7 @@ async function startServer() {
   tipRoutes(v1);
   profileMemberRoutes(v1, publicLimiter);
   inquiryRoutes(v1, io);
-  referenceRoutes(v1);
+  referenceRoutes(v1, publicLimiter);
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
   app.use('/api/v1', v1);

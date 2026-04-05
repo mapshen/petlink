@@ -1,4 +1,4 @@
-import type { Router } from 'express';
+import type { Router, RequestHandler } from 'express';
 import crypto from 'crypto';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
@@ -6,7 +6,10 @@ import { validate, inviteReferenceSchema, submitVouchSchema } from '../validatio
 import { sendEmail, buildReferenceInviteEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
-export default function referenceRoutes(router: Router): void {
+const MAX_REFERENCES_PER_SITTER = 10;
+const MAX_MANUAL_IMPORTS_PER_SITTER = 20;
+
+export default function referenceRoutes(router: Router, publicLimiter?: RequestHandler): void {
   // POST /references/invite — sitter invites a past client
   router.post('/references/invite', authMiddleware, validate(inviteReferenceSchema), async (req: AuthenticatedRequest, res) => {
     try {
@@ -17,6 +20,14 @@ export default function referenceRoutes(router: Router): void {
       }
 
       const { client_name, client_email } = req.body;
+
+      // Cap invites per sitter
+      const [{ count }] = await sql`SELECT count(*)::int as count FROM sitter_references WHERE sitter_id = ${req.userId}`;
+      if (count >= MAX_REFERENCES_PER_SITTER) {
+        res.status(429).json({ error: `Maximum of ${MAX_REFERENCES_PER_SITTER} reference invites allowed` });
+        return;
+      }
+
       const inviteToken = crypto.randomBytes(32).toString('hex');
 
       let reference;
@@ -34,6 +45,9 @@ export default function referenceRoutes(router: Router): void {
         throw err;
       }
 
+      // Strip token from response to prevent self-vouching
+      const { invite_token: _token, ...safeReference } = reference;
+
       // Send invite email (fire-and-forget)
       const email = buildReferenceInviteEmail({
         clientName: client_name,
@@ -44,7 +58,7 @@ export default function referenceRoutes(router: Router): void {
         logger.error({ err: sanitizeError(err) }, 'Failed to send reference invite email');
       });
 
-      res.status(201).json({ reference });
+      res.status(201).json({ reference: safeReference });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to create reference invite');
       res.status(500).json({ error: 'Failed to send invite' });
@@ -68,7 +82,8 @@ export default function referenceRoutes(router: Router): void {
   });
 
   // POST /references/vouch/:token — public endpoint, client submits vouch
-  router.post('/references/vouch/:token', validate(submitVouchSchema), async (req, res) => {
+  const limiterMiddleware = publicLimiter ? [publicLimiter] : [];
+  router.post('/references/vouch/:token', ...limiterMiddleware, validate(submitVouchSchema), async (req, res) => {
     try {
       const { token } = req.params;
       if (!token || token.length !== 64) {
@@ -99,7 +114,7 @@ export default function referenceRoutes(router: Router): void {
   });
 
   // GET /references/vouch/:token — public endpoint, get reference details for vouch form
-  router.get('/references/vouch/:token', async (req, res) => {
+  router.get('/references/vouch/:token', ...limiterMiddleware, async (req, res) => {
     try {
       const { token } = req.params;
       if (!token || token.length !== 64) {

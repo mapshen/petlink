@@ -113,6 +113,7 @@ export default function userRoutes(router: Router): void {
 
   // --- Submit Sitter Application (after completing Profile + Services) ---
   router.post('/users/me/submit-application', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
     const userId = req.userId!;
 
     const [user] = await sql`SELECT roles, approval_status, bio FROM users WHERE id = ${userId}`;
@@ -140,16 +141,24 @@ export default function userRoutes(router: Router): void {
       return;
     }
 
-    await sql`
+    const [result] = await sql`
       UPDATE users SET approval_status = 'pending_approval'
       WHERE id = ${userId} AND approval_status = 'onboarding'
+      RETURNING id
     `;
+    if (!result) {
+      res.status(409).json({ error: 'Application was already submitted' });
+      return;
+    }
 
     const [updated] = await sql`
       SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason FROM users WHERE id = ${userId}
     `;
 
     res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to submit application' });
+    }
   });
 
   // --- Record Onboarding Start ---

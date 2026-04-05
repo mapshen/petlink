@@ -194,6 +194,16 @@ export default function importRoutes(router: Router): void {
         return;
       }
 
+      // Cap manual imports per sitter
+      const [{ count }] = await sql`
+        SELECT count(*)::int as count FROM imported_reviews
+        WHERE sitter_id = ${req.userId} AND imported_profile_id IS NULL
+      `;
+      if (count >= 20) {
+        res.status(429).json({ error: 'Maximum of 20 manual review imports allowed' });
+        return;
+      }
+
       const { platform, reviewer_name, rating, comment, review_date } = req.body;
 
       const [review] = await sql`

@@ -19,8 +19,8 @@ export default function photoRoutes(router: Router, publicLimiter: RateLimitRequ
       res.status(403).json({ error: 'Only sitters can upload photos' });
       return;
     }
-    if (currentUser.approval_status !== 'approved') {
-      res.status(403).json({ error: 'Your sitter account is pending approval. You cannot upload photos yet.' });
+    if (currentUser.approval_status !== 'approved' && currentUser.approval_status !== 'onboarding') {
+      res.status(403).json({ error: 'Your sitter account is not active.' });
       return;
     }
     const { photo_url, caption, sort_order } = req.body;
