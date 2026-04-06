@@ -295,13 +295,13 @@ export default function userRoutes(router: Router): void {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await sql.begin(async (tx: any) => {
-        // 2. Cancel pending bookings (both as owner and sitter)
+        // Cancel pending bookings (both as owner and sitter)
         await tx`
           UPDATE bookings SET status = 'cancelled'
           WHERE (owner_id = ${userId} OR sitter_id = ${userId}) AND status = 'pending'
         `;
 
-        // 3. Anonymize user
+        // Anonymize user
         const timestamp = Date.now();
         const anonymizedEmail = `deleted_${userId}_${timestamp}@deleted.petlink.app`;
 
@@ -318,13 +318,13 @@ export default function userRoutes(router: Router): void {
           WHERE id = ${userId}
         `;
 
-        // 5. Anonymize reviews written by this user
+        // Anonymize reviews written by this user
         await tx`
           UPDATE reviews SET comment = NULL
           WHERE reviewer_id = ${userId}
         `;
 
-        // 6. Clean up child data (soft delete doesn't trigger CASCADE)
+        // Clean up child data (soft delete doesn't trigger CASCADE)
         await tx`DELETE FROM oauth_accounts WHERE user_id = ${userId}`;
         await tx`DELETE FROM favorites WHERE user_id = ${userId} OR sitter_id = ${userId}`;
         await tx`DELETE FROM notification_preferences WHERE user_id = ${userId}`;
