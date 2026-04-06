@@ -40,6 +40,8 @@ export default function DisputeDetail({ disputeId, token, currentUserId, isAdmin
   };
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
     fetchDispute();
   }, [disputeId, token]);
 
@@ -156,6 +158,7 @@ export default function DisputeDetail({ disputeId, token, currentUserId, isAdmin
         <div className="flex gap-2 pt-2 border-t border-stone-100">
           <Textarea
             placeholder="Add a message..."
+            aria-label="Dispute message"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             maxLength={2000}
