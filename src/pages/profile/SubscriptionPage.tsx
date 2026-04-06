@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Crown, Check, Zap, Shield, Clock, AlertCircle, CreditCard } from 'lucide-react';
+import { Crown, Check, Zap, Shield, Clock, AlertCircle, CreditCard, Star, TrendingUp, Eye } from 'lucide-react';
 import SubscriptionPaymentForm from '../../components/payment/SubscriptionPaymentForm';
 import { API_BASE } from '../../config';
-import { SitterSubscription } from '../../types';
+import type { SitterSubscription, SubscriptionTier } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -18,12 +18,69 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 
-const PRO_BENEFITS = [
-  { icon: Zap, text: 'Priority placement in search results' },
-  { icon: Shield, text: 'Pro badge on your profile' },
-  { icon: Clock, text: 'Faster payout processing (1 day vs 3 days)' },
-  { icon: Check, text: 'Advanced analytics and insights' },
-];
+interface TierConfig {
+  name: string;
+  price: string;
+  description: string;
+  features: { icon: React.ElementType; text: string }[];
+  gradient: string;
+  border: string;
+  badge?: string;
+  badgeColor?: string;
+  iconColor: string;
+}
+
+const TIERS: Record<SubscriptionTier, TierConfig> = {
+  free: {
+    name: 'Free',
+    price: '$0',
+    description: 'Basic sitter tools',
+    features: [
+      { icon: Check, text: 'Create services & accept bookings' },
+      { icon: Check, text: 'Messaging with owners' },
+      { icon: Check, text: 'Standard 3-day payouts' },
+      { icon: Check, text: '15% platform fee per booking' },
+    ],
+    gradient: 'bg-white',
+    border: 'border-stone-200',
+    iconColor: 'text-stone-400',
+  },
+  pro: {
+    name: 'Pro',
+    price: '$19.99',
+    description: 'Everything in Free, plus:',
+    features: [
+      { icon: Zap, text: '0% platform fee on all bookings' },
+      { icon: Shield, text: 'Verified Pro badge on profile' },
+      { icon: TrendingUp, text: 'Priority placement in search' },
+      { icon: Clock, text: 'Faster 1-day payouts' },
+      { icon: Eye, text: 'Advanced analytics & insights' },
+    ],
+    gradient: 'bg-gradient-to-br from-amber-50 to-amber-100',
+    border: 'border-amber-300 border-2',
+    badge: 'Recommended',
+    badgeColor: 'bg-amber-500',
+    iconColor: 'text-amber-600',
+  },
+  premium: {
+    name: 'Premium',
+    price: '$39.99',
+    description: 'Everything in Pro, plus:',
+    features: [
+      { icon: Star, text: 'Featured listing in search results' },
+      { icon: TrendingUp, text: 'Promoted with search boost' },
+      { icon: Crown, text: 'Premium badge on profile' },
+      { icon: Eye, text: 'Booking insights & recommendations' },
+    ],
+    gradient: 'bg-gradient-to-br from-violet-50 to-violet-100',
+    border: 'border-violet-300 border-2',
+    badge: 'Best Value',
+    badgeColor: 'bg-violet-500',
+    iconColor: 'text-violet-600',
+  },
+};
+
+const TIER_ORDER: Record<SubscriptionTier, number> = { free: 0, pro: 1, premium: 2 };
 
 export default function SubscriptionPage({ embedded = false }: { embedded?: boolean }) {
   const { user, token, loading: authLoading } = useAuth();
@@ -34,12 +91,13 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [subscriptionClientSecret, setSubscriptionClientSecret] = useState<string | null>(null);
+  const [upgradeTier, setUpgradeTier] = useState<'pro' | 'premium'>('pro');
   const [searchParams, setSearchParams] = useSearchParams();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
-      setSuccessMessage('Welcome to Pro! Your subscription is now active.');
+      setSuccessMessage('Your subscription is now active!');
       setSearchParams({}, { replace: true });
     }
     if (searchParams.get('cancelled') === 'true') {
@@ -66,29 +124,34 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
     }
   };
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (tier: 'pro' | 'premium') => {
     setActionLoading(true);
     setError(null);
+    setUpgradeTier(tier);
     try {
-      // Try embedded payment first
       const intentRes = await fetch(`${API_BASE}/subscription/create-intent`, {
         method: 'POST',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({}),
+        headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier }),
       });
       if (intentRes.ok) {
-        const intentData = await intentRes.json();
-        setSubscriptionClientSecret(intentData.clientSecret);
+        const data = await intentRes.json();
+        if (data.upgraded) {
+          setSuccessMessage(`Upgraded to ${TIERS[tier].name}!`);
+          fetchSubscription();
+          setActionLoading(false);
+          return;
+        }
+        setSubscriptionClientSecret(data.clientSecret);
         setShowPayment(true);
         setActionLoading(false);
         return;
       }
 
-      // Fallback to hosted checkout / dev mode
       const res = await fetch(`${API_BASE}/subscription/upgrade`, {
         method: 'POST',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({}),
+        headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -107,43 +170,45 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
     }
   };
 
-  const handleCancel = async () => {
+  const handleDowngrade = async (tier: 'free' | 'pro') => {
     setActionLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/subscription/cancel`, {
+      const endpoint = tier === 'free' ? '/subscription/cancel' : '/subscription/downgrade';
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({}),
+        headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to cancel');
+        throw new Error(data.error || 'Failed to change subscription');
       }
       setShowCancelDialog(false);
       fetchSubscription();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel');
+      setError(err instanceof Error ? err.message : 'Failed to change subscription');
     } finally {
       setActionLoading(false);
     }
   };
 
   if (!embedded) {
-    if (authLoading) return <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div><span className="sr-only">Loading...</span></div>;
+    if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" /></div>;
     if (!user) return <Navigate to="/login" replace />;
   }
 
-  const isPro = subscription?.tier === 'pro' && subscription?.status === 'active';
+  const currentTier: SubscriptionTier = (subscription?.status === 'active' ? subscription?.tier : 'free') || 'free';
+  const currentOrder = TIER_ORDER[currentTier];
   const periodEnd = subscription?.current_period_end
     ? new Date(subscription.current_period_end).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null;
 
   return (
-    <div className={embedded ? '' : 'max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
+    <div className={embedded ? '' : 'max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
       {!embedded && (
         <div className="flex items-center gap-3 mb-6">
-          <Crown className={`w-6 h-6 ${isPro ? 'text-amber-500' : 'text-stone-400'}`} />
+          <Crown className={`w-6 h-6 ${currentTier !== 'free' ? 'text-amber-500' : 'text-stone-400'}`} />
           <h1 className="text-2xl font-bold text-stone-900">Subscription</h1>
         </div>
       )}
@@ -152,7 +217,7 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
         <Alert className="mb-4 border-emerald-200 bg-emerald-50">
           <AlertDescription className="flex items-center justify-between text-emerald-800">
             <span>{successMessage}</span>
-            <button onClick={() => setSuccessMessage(null)} aria-label="Dismiss message" className="text-xs font-medium hover:underline">Dismiss</button>
+            <button onClick={() => setSuccessMessage(null)} className="text-xs font-medium hover:underline">Dismiss</button>
           </AlertDescription>
         </Alert>
       )}
@@ -161,126 +226,128 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
         <Alert variant="destructive" className="mb-4">
           <AlertDescription className="flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-xs font-medium hover:underline">Dismiss</button>
+            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
           </AlertDescription>
         </Alert>
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>
-      ) : isPro ? (
-        <div className="space-y-6">
-          {/* Active Pro Card */}
-          <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-amber-500 p-2 rounded-xl">
-                  <Crown className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-stone-900">PetLink Pro</h2>
-                  <span className="text-xs font-medium text-amber-700 bg-amber-200 px-2 py-0.5 rounded-full">Active</span>
-                </div>
-              </div>
-            </div>
-            {periodEnd && (
-              <p className="text-sm text-stone-600 mb-4">
-                Current period ends <span className="font-medium">{periodEnd}</span>
-              </p>
-            )}
-            <div className="space-y-2 mb-6">
-              {PRO_BENEFITS.map((benefit) => (
-                <div key={benefit.text} className="flex items-center gap-2">
-                  <benefit.icon className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm text-stone-700">{benefit.text}</span>
-                </div>
-              ))}
-            </div>
-            <Button variant="outline" onClick={() => setShowCancelDialog(true)} disabled={actionLoading}>
-              Cancel Subscription
-            </Button>
-          </div>
-        </div>
+        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" /></div>
       ) : (
         <div className="space-y-6">
-          {/* Free vs Pro Comparison */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Free Tier */}
-            <div className="bg-white border border-stone-200 rounded-2xl p-6">
-              <h3 className="text-sm font-bold text-stone-500 mb-1">Free</h3>
-              <p className="text-2xl font-bold text-stone-900 mb-4">$0<span className="text-sm font-normal text-stone-400">/month</span></p>
-              <p className="text-sm text-stone-500 mb-4">Basic sitter tools</p>
-              <ul className="space-y-2 text-sm text-stone-600">
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-stone-400" /> Create services</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-stone-400" /> Accept bookings</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-stone-400" /> Messaging</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-stone-400" /> Standard 3-day payouts</li>
-              </ul>
-              <div className="mt-6">
-                <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">Current Plan</span>
-              </div>
-            </div>
+          {/* 3-tier comparison */}
+          <div className="grid md:grid-cols-3 gap-4">
+            {(['free', 'pro', 'premium'] as SubscriptionTier[]).map((tier) => {
+              const config = TIERS[tier];
+              const tierOrder = TIER_ORDER[tier];
+              const isCurrent = tier === currentTier;
+              const isUpgrade = tierOrder > currentOrder;
+              const isDowngrade = tierOrder < currentOrder;
 
-            {/* Pro Tier */}
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-300 rounded-2xl p-6 relative">
-              <div className="absolute -top-3 right-4 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                Recommended
-              </div>
-              <h3 className="text-sm font-bold text-amber-700 mb-1">Pro</h3>
-              <p className="text-2xl font-bold text-stone-900 mb-4">$19.99<span className="text-sm font-normal text-stone-400">/month</span></p>
-              <p className="text-sm text-stone-600 mb-4">Everything in Free, plus:</p>
-              <ul className="space-y-2 text-sm text-stone-700">
-                {PRO_BENEFITS.map((benefit) => (
-                  <li key={benefit.text} className="flex items-center gap-2">
-                    <benefit.icon className="w-4 h-4 text-amber-600" /> {benefit.text}
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-6">
-                <Button onClick={handleUpgrade} disabled={actionLoading} className="w-full bg-amber-500 hover:bg-amber-600">
-                  <Crown className="w-4 h-4" /> {actionLoading ? 'Upgrading...' : 'Upgrade to Pro'}
-                </Button>
-              </div>
-            </div>
+              return (
+                <div key={tier} className={`${config.gradient} ${config.border} rounded-2xl p-6 relative`}>
+                  {config.badge && (
+                    <div className={`absolute -top-3 right-4 ${config.badgeColor} text-white text-xs font-bold px-3 py-1 rounded-full`}>
+                      {config.badge}
+                    </div>
+                  )}
+                  <h3 className={`text-sm font-bold ${tier === 'premium' ? 'text-violet-700' : tier === 'pro' ? 'text-amber-700' : 'text-stone-500'} mb-1`}>
+                    {config.name}
+                  </h3>
+                  <p className="text-2xl font-bold text-stone-900 mb-4">
+                    {config.price}<span className="text-sm font-normal text-stone-400">/month</span>
+                  </p>
+                  <p className="text-sm text-stone-600 mb-4">{config.description}</p>
+                  <ul className="space-y-2 text-sm text-stone-700">
+                    {config.features.map((f) => (
+                      <li key={f.text} className="flex items-center gap-2">
+                        <f.icon className={`w-4 h-4 ${config.iconColor}`} /> {f.text}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-6">
+                    {isCurrent && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">Current Plan</span>
+                        {tier !== 'free' && (
+                          <button
+                            onClick={() => setShowCancelDialog(true)}
+                            className="text-xs text-stone-400 hover:text-stone-600"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {isUpgrade && (
+                      <Button
+                        onClick={() => handleUpgrade(tier as 'pro' | 'premium')}
+                        disabled={actionLoading}
+                        className={`w-full ${tier === 'premium' ? 'bg-violet-500 hover:bg-violet-600' : 'bg-amber-500 hover:bg-amber-600'}`}
+                      >
+                        <Crown className="w-4 h-4" />
+                        {actionLoading ? 'Processing...' : `Upgrade to ${config.name}`}
+                      </Button>
+                    )}
+                    {isDowngrade && tier !== 'free' && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleDowngrade(tier as 'free' | 'pro')}
+                        disabled={actionLoading}
+                        className="w-full"
+                      >
+                        Downgrade to {config.name}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+
+          {/* Period info */}
+          {currentTier !== 'free' && periodEnd && (
+            <p className="text-sm text-stone-500 text-center">
+              Current period ends <span className="font-medium">{periodEnd}</span>
+            </p>
+          )}
 
           {/* Info note */}
           <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-stone-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm text-stone-600">You'll be redirected to Stripe to complete payment. Cancel anytime from this page.</p>
-            </div>
+            <p className="text-sm text-stone-600">Payments are processed securely via Stripe. Upgrade or downgrade anytime — prorated billing applies.</p>
           </div>
         </div>
       )}
 
+      {/* Cancel dialog */}
       <AlertDialog open={showCancelDialog} onOpenChange={(open) => { if (!open) setShowCancelDialog(false); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Pro Subscription</AlertDialogTitle>
+            <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
             <AlertDialogDescription>
-              You'll lose access to Pro benefits at the end of your current billing period. Are you sure?
+              You'll lose access to {TIERS[currentTier].name} benefits. Are you sure?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep Pro</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleCancel}>
+            <AlertDialogCancel>Keep {TIERS[currentTier].name}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => handleDowngrade('free')}>
               {actionLoading ? 'Cancelling...' : 'Cancel Subscription'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Embedded Subscription Payment */}
+      {/* Payment dialog */}
       <AlertDialog open={showPayment} onOpenChange={(open) => { if (!open) { setShowPayment(false); setSubscriptionClientSecret(null); } }}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-emerald-600" />
-              Subscribe to Pro
+              Subscribe to {TIERS[upgradeTier].name}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Payment is processed securely on this page.
+              {TIERS[upgradeTier].price}/month — payment processed securely.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {subscriptionClientSecret && (
@@ -289,7 +356,7 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
               onSuccess={() => {
                 setShowPayment(false);
                 setSubscriptionClientSecret(null);
-                setSuccessMessage('Welcome to Pro! Your subscription is now active.');
+                setSuccessMessage(`Welcome to ${TIERS[upgradeTier].name}! Your subscription is now active.`);
                 fetchSubscription();
               }}
               onError={(msg) => setError(msg)}

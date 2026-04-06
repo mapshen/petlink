@@ -111,8 +111,8 @@ export default function analyticsRoutes(router: Router): void {
         return;
       }
       const { start, end } = dateRange.data;
-      const [currentUser] = await sql`SELECT is_pro FROM users WHERE id = ${req.userId}`;
-      const isPro = currentUser?.is_pro === true;
+      const [currentUser] = await sql`SELECT subscription_tier FROM users WHERE id = ${req.userId}`;
+      const isPro = currentUser?.subscription_tier === 'pro' || currentUser?.subscription_tier === 'premium';
 
       if (start && end) {
         const result = await getProfileViewsAnalytics(req.userId!, start, end, isPro);

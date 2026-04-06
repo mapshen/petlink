@@ -57,6 +57,7 @@ export default function SitterProfileHeader({
   const [bioExpanded, setBioExpanded] = useState(false);
   const showFavorite = currentUser != null && currentUser.id !== sitter.id;
   const isPro = sitter.subscription_tier === 'pro';
+  const isPremium = sitter.subscription_tier === 'premium';
   const tags = buildHeaderTags(sitter);
   const speciesBadges = buildSpeciesBadges(speciesProfiles);
 
@@ -97,12 +98,17 @@ export default function SitterProfileHeader({
               <ShieldCheck className="w-3 h-3" />
               Verified
             </span>
-            {isPro && (
+            {isPremium ? (
+              <span className="bg-violet-100 text-violet-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <Crown className="w-3 h-3" />
+                Premium
+              </span>
+            ) : isPro ? (
               <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <Crown className="w-3 h-3" />
                 Pro
               </span>
-            )}
+            ) : null}
           </div>
 
           {/* Location */}

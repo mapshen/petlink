@@ -163,29 +163,30 @@ export default function paymentRoutes(router: Router): void {
           const session = event.data.object as {
             mode: string;
             subscription: string;
-            metadata: { petlink_user_id?: string };
+            metadata: { petlink_user_id?: string; petlink_tier?: string };
           };
           if (session.mode === 'subscription' && session.metadata?.petlink_user_id) {
             const userId = Number(session.metadata.petlink_user_id);
             const stripeSubId = session.subscription;
+            const tier = session.metadata.petlink_tier === 'premium' ? 'premium' : 'pro';
             const [existing] = await sql`SELECT id FROM sitter_subscriptions WHERE sitter_id = ${userId}`;
             if (existing) {
               await sql.begin(async (tx: any) => {
                 await tx`
-                  UPDATE sitter_subscriptions SET tier = 'pro', status = 'active',
+                  UPDATE sitter_subscriptions SET tier = ${tier}, status = 'active',
                     stripe_subscription_id = ${stripeSubId},
                     current_period_start = NOW(), current_period_end = NOW() + INTERVAL '30 days', updated_at = NOW()
                   WHERE sitter_id = ${userId}
                 `;
-                await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${userId}`;
+                await tx`UPDATE users SET subscription_tier = ${tier} WHERE id = ${userId}`;
               });
             } else {
               await sql.begin(async (tx: any) => {
                 await tx`
                   INSERT INTO sitter_subscriptions (sitter_id, tier, status, stripe_subscription_id, current_period_start, current_period_end)
-                  VALUES (${userId}, 'pro', 'active', ${stripeSubId}, NOW(), NOW() + INTERVAL '30 days')
+                  VALUES (${userId}, ${tier}, 'active', ${stripeSubId}, NOW(), NOW() + INTERVAL '30 days')
                 `;
-                await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${userId}`;
+                await tx`UPDATE users SET subscription_tier = ${tier} WHERE id = ${userId}`;
               });
             }
           }
