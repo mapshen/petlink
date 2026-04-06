@@ -136,8 +136,8 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
       });
       if (intentRes.ok) {
         const data = await intentRes.json();
-        if (data.upgraded) {
-          setSuccessMessage(`Upgraded to ${TIERS[tier].name}!`);
+        if (data.pending) {
+          setSuccessMessage(`Upgrading to ${TIERS[tier].name} — your subscription will update shortly.`);
           fetchSubscription();
           setActionLoading(false);
           return;
