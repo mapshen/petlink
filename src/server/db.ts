@@ -222,6 +222,9 @@ export async function initDb() {
   // Indexes for conversation query performance
   await sql`CREATE INDEX IF NOT EXISTS idx_messages_sender_receiver_created ON messages (sender_id, receiver_id, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_messages_receiver_unread ON messages (receiver_id) WHERE read_at IS NULL`;
+  // Trigram index for chat search (ILIKE pattern matching)
+  await sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_messages_content_trgm ON messages USING gin(content gin_trgm_ops)`.catch(() => {});
 
   await sql`
     CREATE TABLE IF NOT EXISTS reviews (

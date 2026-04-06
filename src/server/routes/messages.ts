@@ -2,6 +2,7 @@ import type { Router } from 'express';
 import type { Server } from 'socket.io';
 import sql from '../db.ts';
 import { authMiddleware, verifyToken, type AuthenticatedRequest } from '../auth.ts';
+import { messageSearchSchema } from '../validation.ts';
 import { createNotification, getPreferences } from '../notifications.ts';
 import { sendEmail, buildNewMessageEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
@@ -47,6 +48,69 @@ export default function messageRoutes(router: Router, io: Server): void {
       ORDER BY lm.created_at DESC
     `;
     res.json({ conversations });
+  });
+
+  // GET /messages/search — search message history (MUST be before :userId route)
+  router.get('/messages/search', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const parsed = messageSearchSchema.safeParse(req.query);
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid search query' });
+        return;
+      }
+
+      const { q, userId, limit, offset } = parsed.data;
+      // Escape ILIKE wildcards in user input
+      const escaped = q.replace(/[%_\\]/g, '\\$&');
+      const searchPattern = `%${escaped}%`;
+
+      const results = userId
+        ? await sql`
+            SELECT m.id, m.content, m.sender_id, m.receiver_id, m.created_at,
+              u.id as other_user_id, u.name as other_user_name, u.avatar_url as other_user_avatar
+            FROM messages m
+            JOIN users u ON u.id = CASE
+              WHEN m.sender_id = ${req.userId} THEN m.receiver_id
+              ELSE m.sender_id
+            END
+            WHERE ((m.sender_id = ${req.userId} AND m.receiver_id = ${userId})
+                OR (m.receiver_id = ${req.userId} AND m.sender_id = ${userId}))
+              AND m.content ILIKE ${searchPattern}
+            ORDER BY m.created_at DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `
+        : await sql`
+            SELECT m.id, m.content, m.sender_id, m.receiver_id, m.created_at,
+              u.id as other_user_id, u.name as other_user_name, u.avatar_url as other_user_avatar
+            FROM messages m
+            JOIN users u ON u.id = CASE
+              WHEN m.sender_id = ${req.userId} THEN m.receiver_id
+              ELSE m.sender_id
+            END
+            WHERE (m.sender_id = ${req.userId} OR m.receiver_id = ${req.userId})
+              AND m.content ILIKE ${searchPattern}
+            ORDER BY m.created_at DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `;
+
+      const [{ total }] = userId
+        ? await sql`
+            SELECT count(*)::int as total FROM messages
+            WHERE ((sender_id = ${req.userId} AND receiver_id = ${userId})
+                OR (receiver_id = ${req.userId} AND sender_id = ${userId}))
+              AND content ILIKE ${searchPattern}
+          `
+        : await sql`
+            SELECT count(*)::int as total FROM messages
+            WHERE (sender_id = ${req.userId} OR receiver_id = ${req.userId})
+              AND content ILIKE ${searchPattern}
+          `;
+
+      res.json({ results, total });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Message search failed');
+      res.status(500).json({ error: 'Search failed' });
+    }
   });
 
   router.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {

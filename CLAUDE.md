@@ -43,7 +43,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:idOrSlug` (accepts numeric ID or slug) |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
 | Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
-| Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read) |
+| Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read), `GET /messages/search?q=&userId=&limit=&offset=` |
 | Reviews | `POST /reviews` (3-day blind window, optional sub-ratings), `GET /reviews/:userId` (auth required), `GET /reviews/booking/:bookingId` (both reviews + can_review/can_respond), `PUT /reviews/:id/respond` |
 | Verification | `GET /verification/me`, `POST /verification/start`, `PUT /verification/update`, `GET /verification/:sitterId` |
 | Availability | `GET /availability/:sitterId`, `POST /availability`, `DELETE /availability/:id` |
@@ -150,7 +150,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com` (owner only), 
 
 ## Testing
 
-1270 tests across 94 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+1281 tests across 95 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 
