@@ -317,3 +317,31 @@ export function buildReferenceInviteEmail(params: {
 `),
   };
 }
+
+export function buildDepositCreditReminderEmail(params: {
+  ownerName: string;
+  sitterName: string;
+  creditCents: number;
+  daysRemaining: number;
+  sitterId: number;
+}): { subject: string; html: string } {
+  const owner = escapeHtml(params.ownerName);
+  const sitter = escapeHtml(params.sitterName);
+  const amount = `$${(params.creditCents / 100).toFixed(2)}`;
+  const urgency = params.daysRemaining <= 5
+    ? `<p style="color:#dc2626;font-weight:600;font-size:14px">Only ${params.daysRemaining} day${params.daysRemaining !== 1 ? 's' : ''} left!</p>`
+    : `<p style="color:#78716c;font-size:14px">Expires in ${params.daysRemaining} days.</p>`;
+
+  return {
+    subject: sanitizeSubject(`Your ${amount} credit with ${params.sitterName} is waiting`),
+    html: emailWrapper('Your Meet & Greet Credit', `
+<p style="color:#44403c;line-height:1.6">Hi ${owner},</p>
+<p style="color:#44403c;line-height:1.6">You have a <strong style="color:#059669">${amount} credit</strong> from your meet & greet with <strong>${sitter}</strong>. Book a service to use it!</p>
+${urgency}
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/sitter/${params.sitterId}" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Book ${sitter} Now</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">If you don't book within the credit window, the deposit will be released to the sitter as compensation for their time.</p>
+`),
+  };
+}

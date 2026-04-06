@@ -74,6 +74,7 @@ export default function SitterProfile() {
   const [wantsPickup, setWantsPickup] = useState(false);
   const [wantsGrooming, setWantsGrooming] = useState(false);
   const [showInquiry, setShowInquiry] = useState(false);
+  const [depositCredit, setDepositCredit] = useState<{ booking_id: number; amount_cents: number } | null>(null);
   const bookingRef = useRef<HTMLDivElement>(null);
 
   const scrollToBooking = useCallback(() => {
@@ -182,6 +183,15 @@ export default function SitterProfile() {
     };
     fetchPets();
   }, [user, token]);
+
+  // Fetch available deposit credit with this sitter
+  useEffect(() => {
+    if (!user || !sitter || !token) return;
+    fetch(`${API_BASE}/bookings/available-credit/${sitter.id}`, { headers: getAuthHeaders(token) })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.credit) setDepositCredit(data.credit); })
+      .catch(() => {});
+  }, [user, sitter, token]);
 
   const isOwnProfile = user != null && user.id === sitter?.id;
   const speciesTabs = speciesProfiles.map((p) => p.species);
@@ -477,6 +487,13 @@ export default function SitterProfile() {
               <div className="bg-white rounded-2xl border border-stone-200 p-6">
                 <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
                 <FirstBookingNudge />
+
+                {depositCredit && (
+                  <div className="mb-6 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 flex items-center gap-2">
+                    <span className="text-lg">&#x1F4B0;</span>
+                    <span>You have a <strong>{formatCents(depositCredit.amount_cents)} credit</strong> from your meet & greet — it will be applied to your next booking!</span>
+                  </div>
+                )}
 
                 {user && !user.emergency_contact_name && (
                   <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">

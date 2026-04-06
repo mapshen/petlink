@@ -233,10 +233,12 @@ export default function bookingRoutes(router: Router, io: Server): void {
         throw new Error('SITTER_UNAVAILABLE');
       }
 
+      // Set deposit_status for meet & greet bookings
+      const isMeetGreet = service.type === 'meet_greet';
       const [b] = await tx`
-        INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status)
-        VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending')
-        RETURNING id, status
+        INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status, deposit_status)
+        VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending', ${isMeetGreet ? 'held' : null})
+        RETURNING id, status, deposit_status
       `;
       const petRows = pet_ids.map((petId: number) => ({ booking_id: b.id, pet_id: petId }));
       await tx`INSERT INTO booking_pets ${tx(petRows, 'booking_id', 'pet_id')}`;
@@ -514,6 +516,62 @@ export default function bookingRoutes(router: Router, io: Server): void {
     // Strip payment_intent_id from response
     const { payment_intent_id: _pid, ...safeBooking } = updated;
     res.json({ booking: safeBooking, refund });
+  });
+
+  // --- Meet & Greet Deposit Credit ---
+  router.get('/bookings/available-credit/:sitterId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const sitterId = Number(req.params.sitterId);
+    if (!Number.isInteger(sitterId) || sitterId <= 0) {
+      res.status(400).json({ error: 'Invalid sitter ID' });
+      return;
+    }
+
+    const [credit] = await sql`
+      SELECT id, total_price_cents FROM bookings
+      WHERE owner_id = ${req.userId} AND sitter_id = ${sitterId}
+        AND status = 'completed' AND deposit_status = 'held'
+        AND created_at > NOW() - INTERVAL '30 days'
+      ORDER BY created_at DESC LIMIT 1
+    `;
+
+    res.json({ credit: credit ? { booking_id: credit.id, amount_cents: credit.total_price_cents } : null });
+  });
+
+  // --- Meet & Greet Notes ---
+  router.put('/bookings/:bookingId/meet-greet-notes', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const bookingId = Number(req.params.bookingId);
+      const { notes } = req.body;
+
+      if (!notes || typeof notes !== 'string' || notes.length > 2000) {
+        res.status(400).json({ error: 'Notes must be a string under 2000 characters' });
+        return;
+      }
+
+      const [booking] = await sql`SELECT id, sitter_id, status FROM bookings WHERE id = ${bookingId}`;
+      if (!booking) {
+        res.status(404).json({ error: 'Booking not found' });
+        return;
+      }
+      if (booking.sitter_id !== req.userId) {
+        res.status(403).json({ error: 'Only the sitter can add notes' });
+        return;
+      }
+      if (booking.status !== 'completed') {
+        res.status(400).json({ error: 'Can only add notes to completed bookings' });
+        return;
+      }
+
+      const [updated] = await sql`
+        UPDATE bookings SET meet_greet_notes = ${notes.trim()}
+        WHERE id = ${bookingId} AND sitter_id = ${req.userId}
+        RETURNING id, meet_greet_notes
+      `;
+
+      res.json({ booking: updated });
+    } catch {
+      res.status(500).json({ error: 'Failed to save notes' });
+    }
   });
 
   // --- Recurring Bookings ---
