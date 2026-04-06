@@ -105,7 +105,12 @@ export default function disputeRoutes(router: Router, io: Server): void {
   router.get('/disputes', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
     const isAdmin = currentUser?.roles?.includes('admin');
+    const validStatuses = ['open', 'under_review', 'awaiting_response', 'resolved', 'closed'];
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    if (status && !validStatuses.includes(status)) {
+      res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+      return;
+    }
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
 
@@ -295,10 +300,14 @@ export default function disputeRoutes(router: Router, io: Server): void {
   // Admin: update dispute status
   router.put('/disputes/:id/status', adminMiddleware, validate(updateDisputeStatusSchema), async (req: AuthenticatedRequest, res) => {
     const disputeId = Number(req.params.id);
+    if (!Number.isInteger(disputeId) || disputeId <= 0) {
+      res.status(400).json({ error: 'Invalid dispute ID' });
+      return;
+    }
     const { status } = req.body;
 
     const [dispute] = await sql`
-      SELECT d.*, b.owner_id, b.sitter_id, b.booking_id
+      SELECT d.*, b.owner_id, b.sitter_id
       FROM disputes d JOIN bookings b ON d.booking_id = b.id
       WHERE d.id = ${disputeId}
     `;
@@ -306,8 +315,8 @@ export default function disputeRoutes(router: Router, io: Server): void {
       res.status(404).json({ error: 'Dispute not found' });
       return;
     }
-    if (dispute.status === 'resolved') {
-      res.status(400).json({ error: 'Cannot change status of a resolved dispute' });
+    if (['resolved', 'closed'].includes(dispute.status)) {
+      res.status(400).json({ error: 'Cannot change status of a resolved or closed dispute' });
       return;
     }
 
@@ -347,6 +356,10 @@ export default function disputeRoutes(router: Router, io: Server): void {
   // Admin: resolve dispute
   router.put('/disputes/:id/resolve', adminMiddleware, validate(resolveDisputeSchema), async (req: AuthenticatedRequest, res) => {
     const disputeId = Number(req.params.id);
+    if (!Number.isInteger(disputeId) || disputeId <= 0) {
+      res.status(400).json({ error: 'Invalid dispute ID' });
+      return;
+    }
     const { resolution_type, resolution_amount_cents, resolution_notes } = req.body;
 
     const [dispute] = await sql`
@@ -363,58 +376,73 @@ export default function disputeRoutes(router: Router, io: Server): void {
       return;
     }
 
-    // Validate partial refund amount
+    // Validate refund preconditions
+    const isRefund = resolution_type === 'full_refund' || resolution_type === 'partial_refund';
+    if (isRefund && dispute.total_price_cents == null) {
+      res.status(400).json({ error: 'Cannot issue refund: booking has no price recorded' });
+      return;
+    }
     if (resolution_type === 'partial_refund') {
       if (!resolution_amount_cents) {
         res.status(400).json({ error: 'Partial refund requires an amount' });
         return;
       }
-      if (dispute.total_price_cents && resolution_amount_cents > dispute.total_price_cents) {
+      if (resolution_amount_cents > dispute.total_price_cents) {
         res.status(400).json({ error: 'Refund amount cannot exceed booking total' });
+        return;
+      }
+      if (dispute.payment_status !== 'captured') {
+        res.status(400).json({ error: 'Cannot partially refund: payment not yet captured' });
         return;
       }
     }
 
-    // Execute resolution actions
+    // Execute resolution actions + update dispute in transaction
+    let resolved;
     try {
+      // Stripe calls first (external, idempotent)
       if (resolution_type === 'full_refund' && dispute.payment_intent_id) {
         if (dispute.payment_status === 'captured') {
           await refundPayment(dispute.payment_intent_id);
         } else if (dispute.payment_status === 'pending') {
           await cancelPayment(dispute.payment_intent_id);
         }
-        await sql`UPDATE bookings SET payment_status = 'refunded' WHERE id = ${dispute.booking_id}`;
       }
-
       if (resolution_type === 'partial_refund' && dispute.payment_intent_id && resolution_amount_cents) {
         await refundPayment(dispute.payment_intent_id, resolution_amount_cents);
-        await sql`UPDATE bookings SET payment_status = 'refunded' WHERE id = ${dispute.booking_id}`;
       }
 
-      if (resolution_type === 'ban_sitter') {
-        await sql`UPDATE users SET approval_status = 'banned', approval_rejected_reason = ${resolution_notes} WHERE id = ${dispute.sitter_id}`;
-      }
-      if (resolution_type === 'ban_owner') {
-        await sql`UPDATE users SET approval_status = 'banned', approval_rejected_reason = ${resolution_notes} WHERE id = ${dispute.owner_id}`;
-      }
+      // DB updates in transaction
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      resolved = await sql.begin(async (tx: any) => {
+        if (isRefund) {
+          await tx`UPDATE bookings SET payment_status = 'refunded' WHERE id = ${dispute.booking_id}`;
+          await tx`UPDATE sitter_payouts SET status = 'cancelled' WHERE booking_id = ${dispute.booking_id} AND status = 'pending'`.catch(() => {});
+        }
+        if (resolution_type === 'ban_sitter') {
+          await tx`UPDATE users SET approval_status = 'banned', approval_rejected_reason = ${resolution_notes} WHERE id = ${dispute.sitter_id}`;
+        }
+        if (resolution_type === 'ban_owner') {
+          await tx`UPDATE users SET approval_status = 'banned', approval_rejected_reason = ${resolution_notes} WHERE id = ${dispute.owner_id}`;
+        }
+        const [r] = await tx`
+          UPDATE disputes SET
+            status = 'resolved',
+            resolution_type = ${resolution_type},
+            resolution_amount_cents = ${resolution_amount_cents ?? null},
+            resolution_notes = ${resolution_notes},
+            resolved_at = NOW(),
+            updated_at = NOW()
+          WHERE id = ${disputeId}
+          RETURNING *
+        `;
+        return r;
+      });
     } catch (err) {
       logger.error({ err: sanitizeError(err as Error), disputeId }, 'Failed to execute dispute resolution action');
       res.status(500).json({ error: 'Failed to process resolution. Please try again.' });
       return;
     }
-
-    // Update dispute
-    const [resolved] = await sql`
-      UPDATE disputes SET
-        status = 'resolved',
-        resolution_type = ${resolution_type},
-        resolution_amount_cents = ${resolution_amount_cents ?? null},
-        resolution_notes = ${resolution_notes},
-        resolved_at = NOW(),
-        updated_at = NOW()
-      WHERE id = ${disputeId}
-      RETURNING *
-    `;
 
     // Notify both parties
     const refundAmount = resolution_amount_cents

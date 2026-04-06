@@ -47,7 +47,7 @@ export default function DisputeResolutionForm({ disputeId, bookingTotal, token, 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const selectedOption = RESOLUTION_OPTIONS.find((o) => o.value === resolutionType);
-  const amountCents = Math.round(parseFloat(amount) * 100);
+  const amountCents = amount ? Math.round(parseFloat(amount) * 100) : 0;
   const isRefund = resolutionType === 'full_refund' || resolutionType === 'partial_refund';
   const isBan = resolutionType === 'ban_owner' || resolutionType === 'ban_sitter';
 

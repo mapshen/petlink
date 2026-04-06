@@ -434,16 +434,19 @@ export default function HomePage() {
                                 Tip
                               </Button>
                             )}
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                              onClick={() => setDisputeBookingId(booking.id)}
-                            >
-                              <Scale className="w-3.5 h-3.5" />
-                              Dispute
-                            </Button>
                           </>
+                        )}
+
+                        {['confirmed', 'in_progress', 'completed'].includes(booking.status) && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                            onClick={() => setDisputeBookingId(booking.id)}
+                          >
+                            <Scale className="w-3.5 h-3.5" />
+                            Dispute
+                          </Button>
                         )}
                       </div>
                     </div>
