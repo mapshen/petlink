@@ -278,23 +278,20 @@ export default function userRoutes(router: Router): void {
   router.delete('/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const userId = req.userId!;
 
-    // 1. Check for active bookings
-    const activeBookings = await sql`
-      SELECT id FROM bookings
-      WHERE (owner_id = ${userId} OR sitter_id = ${userId})
-        AND status IN ('confirmed', 'in_progress')
-    `;
-
-    if (activeBookings.length > 0) {
-      res.status(400).json({
-        error: 'Please complete or cancel active bookings before deleting your account.',
-      });
-      return;
-    }
-
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await sql.begin(async (tx: any) => {
+        // Check for active bookings inside transaction to avoid TOCTOU race
+        const activeBookings = await tx`
+          SELECT id FROM bookings
+          WHERE (owner_id = ${userId} OR sitter_id = ${userId})
+            AND status IN ('confirmed', 'in_progress')
+          LIMIT 1
+        `;
+        if (activeBookings.length > 0) {
+          throw new Error('ACTIVE_BOOKINGS');
+        }
+
         // Cancel pending bookings (both as owner and sitter)
         await tx`
           UPDATE bookings SET status = 'cancelled'
@@ -337,6 +334,13 @@ export default function userRoutes(router: Router): void {
         await tx`DELETE FROM availability WHERE sitter_id = ${userId}`;
         await tx`DELETE FROM recurring_bookings WHERE owner_id = ${userId} OR sitter_id = ${userId}`;
         await tx`DELETE FROM services WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_species_profiles WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM verifications WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM calendar_tokens WHERE user_id = ${userId}`;
+        await tx`DELETE FROM imported_reviews WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_references WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_subscriptions WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM profile_views WHERE sitter_id = ${userId}`;
       });
 
       // Revoke tokens after transaction commits (uses its own connection)
@@ -344,6 +348,10 @@ export default function userRoutes(router: Router): void {
 
       res.json({ success: true });
     } catch (error) {
+      if (error instanceof Error && error.message === 'ACTIVE_BOOKINGS') {
+        res.status(400).json({ error: 'Please complete or cancel active bookings before deleting your account.' });
+        return;
+      }
       logger.error({ err: sanitizeError(error) }, 'Account deletion failed');
       res.status(500).json({ error: 'Failed to delete account' });
     }

@@ -109,7 +109,7 @@ export default function speciesProfileRoutes(router: Router, publicLimiter?: Rat
       await sql`
         UPDATE users SET accepted_species = array_append(accepted_species, ${species})
         WHERE id = ${req.userId} AND NOT (${species} = ANY(accepted_species))
-      `.catch(() => {});
+      `.catch((err: unknown) => logger.warn({ err }, 'Failed to sync accepted_species'));
 
       res.json({ profile });
     } catch (error) {
