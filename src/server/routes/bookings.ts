@@ -7,6 +7,7 @@ import { createNotification, getPreferences } from '../notifications.ts';
 import { capturePayment, cancelPayment, refundPayment } from '../payments.ts';
 import { calculateRefund } from '../cancellation.ts';
 import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing.ts';
+import { getAddonBySlug } from '../../shared/addon-catalog.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { format as formatDate } from 'date-fns';
@@ -196,6 +197,14 @@ export default function bookingRoutes(router: Router, io: Server): void {
       if (selectedAddons.length !== addon_ids.length) {
         res.status(400).json({ error: 'One or more add-ons are invalid or do not belong to this sitter' });
         return;
+      }
+      // Validate add-ons are applicable to the booked service type
+      for (const addon of selectedAddons) {
+        const def = getAddonBySlug(addon.addon_slug);
+        if (!def || !def.applicableServices.includes(service.type as any)) {
+          res.status(400).json({ error: `Add-on "${addon.addon_slug}" is not available for ${service.type} service` });
+          return;
+        }
       }
     }
 

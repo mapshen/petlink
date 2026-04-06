@@ -175,7 +175,7 @@ async function startServer() {
   profileMemberRoutes(v1, publicLimiter);
   inquiryRoutes(v1, io);
   referenceRoutes(v1, publicLimiter);
-  addonRoutes(v1);
+  addonRoutes(v1, publicLimiter);
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
   app.use('/api/v1', v1);

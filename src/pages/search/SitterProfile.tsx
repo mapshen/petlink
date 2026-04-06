@@ -222,6 +222,11 @@ export default function SitterProfile() {
     }
   }, [bookingServices, selectedService]);
 
+  // Clear add-on selections when switching service type
+  useEffect(() => {
+    setSelectedAddonIds(new Set());
+  }, [selectedService]);
+
   const handleBooking = async () => {
     if (!user) {
       navigate('/login');
@@ -728,12 +733,15 @@ export default function SitterProfile() {
                             <span>{formatCents(pricing.breakdown.groomingCents)}</span>
                           </div>
                         )}
-                        {pricing.breakdown.addonDetails.map((a) => (
-                          <div key={a.slug} className="flex justify-between text-sm text-stone-600">
-                            <span>{getAddonBySlug(a.slug)?.emoji} {getAddonBySlug(a.slug)?.label ?? a.slug}</span>
-                            <span>{a.priceCents === 0 ? 'Free' : formatCents(a.priceCents)}</span>
-                          </div>
-                        ))}
+                        {pricing.breakdown.addonDetails.map((a) => {
+                          const addonDef = getAddonBySlug(a.slug);
+                          return (
+                            <div key={a.slug} className="flex justify-between text-sm text-stone-600">
+                              <span>{addonDef?.emoji} {addonDef?.label ?? a.slug}</span>
+                              <span>{a.priceCents === 0 ? 'Free' : formatCents(a.priceCents)}</span>
+                            </div>
+                          );
+                        })}
                         <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
                           <span>Total</span>
                           <span>{formatCents(pricing.totalCents)}</span>

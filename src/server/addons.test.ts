@@ -15,15 +15,24 @@ vi.mock('./auth.ts', () => ({
   },
 }));
 
+// --- Mock bot detection — pass-through in tests ---
+vi.mock('./bot-detection.ts', () => ({
+  botBlockMiddleware: (_req: any, _res: any, next: NextFunction) => next(),
+  requireUserAgent: (_req: any, _res: any, next: NextFunction) => next(),
+}));
+
 // Import route installer after mocks
 const { default: addonRoutes } = await import('./routes/addons.ts');
 const { default: request } = await import('supertest');
+
+// Dummy rate limiter (pass-through)
+const noopLimiter = (_req: any, _res: any, next: NextFunction) => next();
 
 function createApp() {
   const app = express();
   app.use(express.json());
   const router = express.Router();
-  addonRoutes(router);
+  addonRoutes(router, noopLimiter as any);
   app.use(router);
   return app;
 }
@@ -121,9 +130,7 @@ describe('POST /addons', () => {
   it('creates an add-on for an approved sitter', async () => {
     // 1st SQL call: user lookup
     mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
-    // 2nd SQL call: duplicate check
-    mockSqlFn.mockResolvedValueOnce([] as any);
-    // 3rd SQL call: insert
+    // 2nd SQL call: INSERT ... ON CONFLICT DO NOTHING RETURNING *
     const created = { id: 10, sitter_id: 1, addon_slug: 'bathing', price_cents: 1500, notes: 'Warm water only' };
     mockSqlFn.mockResolvedValueOnce([created] as any);
 
@@ -135,12 +142,11 @@ describe('POST /addons', () => {
     expect(res.body.addon.addon_slug).toBe('bathing');
     expect(res.body.addon.price_cents).toBe(1500);
     expect(res.body.addon.notes).toBe('Warm water only');
-    expect(mockSqlFn).toHaveBeenCalledTimes(3);
+    expect(mockSqlFn).toHaveBeenCalledTimes(2);
   });
 
   it('creates an add-on for an onboarding sitter', async () => {
     mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'onboarding' }] as any);
-    mockSqlFn.mockResolvedValueOnce([] as any);
     mockSqlFn.mockResolvedValueOnce([{ id: 11, sitter_id: 1, addon_slug: 'nail_trimming', price_cents: 800, notes: null }] as any);
 
     const res = await request(app)
@@ -153,7 +159,6 @@ describe('POST /addons', () => {
 
   it('creates an add-on with null notes when notes omitted', async () => {
     mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
-    mockSqlFn.mockResolvedValueOnce([] as any);
     mockSqlFn.mockResolvedValueOnce([{ id: 12, sitter_id: 1, addon_slug: 'daily_updates', price_cents: 0, notes: null }] as any);
 
     const res = await request(app)
@@ -162,6 +167,17 @@ describe('POST /addons', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.addon.notes).toBeNull();
+  });
+
+  it('returns 400 when canOfferFree is false and price is 0', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
+
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'medication_admin', price_cents: 0 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('This add-on requires a price above $0');
   });
 
   it('returns 403 when user does not have sitter role', async () => {
@@ -212,7 +228,8 @@ describe('POST /addons', () => {
 
   it('returns 409 when duplicate addon_slug for this sitter', async () => {
     mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
-    mockSqlFn.mockResolvedValueOnce([{ id: 5 }] as any); // duplicate found
+    // ON CONFLICT DO NOTHING returns empty when duplicate exists
+    mockSqlFn.mockResolvedValueOnce([] as any);
 
     const res = await request(app)
       .post('/addons')
@@ -220,7 +237,6 @@ describe('POST /addons', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('You have already enabled this add-on. Edit it instead.');
-    // Only user lookup + duplicate check, no insert
     expect(mockSqlFn).toHaveBeenCalledTimes(2);
   });
 

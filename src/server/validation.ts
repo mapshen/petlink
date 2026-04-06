@@ -121,7 +121,7 @@ export const createBookingSchema = z.object({
   end_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'end_time must be a valid date'),
   pickup_dropoff: z.boolean().optional().default(false),
   grooming_addon: z.boolean().optional().default(false),
-  addon_ids: z.array(z.number().int().positive('Invalid add-on ID')).max(12, 'Maximum 12 add-ons per booking').optional().default([]),
+  addon_ids: z.array(z.number().int().positive('Invalid add-on ID')).max(12, 'Maximum 12 add-ons per booking').refine((ids) => new Set(ids).size === ids.length, 'Duplicate add-on IDs are not allowed').optional().default([]),
 }).refine(
   (data) => new Date(data.end_time) > new Date(data.start_time),
   { message: 'end_time must be after start_time', path: ['end_time'] }
