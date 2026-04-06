@@ -144,7 +144,20 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     const total = results.length;
     const paginated = results.slice(offset, offset + limit);
 
-    res.json({ sitters: paginated, total, limit, offset });
+    // Batch-fetch addon slugs for returned sitters
+    const pageIds = paginated.map((s: any) => s.id);
+    const addonMap = new Map<number, string[]>();
+    if (pageIds.length > 0) {
+      const rows = await sql`SELECT sitter_id, addon_slug FROM sitter_addons WHERE sitter_id = ANY(${pageIds}) ORDER BY created_at`;
+      for (const r of rows) {
+        const slugs = addonMap.get(r.sitter_id) ?? [];
+        slugs.push(r.addon_slug);
+        addonMap.set(r.sitter_id, slugs);
+      }
+    }
+    const withAddons = paginated.map((s: any) => ({ ...s, addon_slugs: addonMap.get(s.id) ?? [] }));
+
+    res.json({ sitters: withAddons, total, limit, offset });
   });
 
   router.get('/sitters/:idOrSlug', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
@@ -162,6 +175,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
 
     const sitterId = sitter.id;
     const services = await sql`SELECT * FROM services WHERE sitter_id = ${sitterId}`;
+    const addons = await sql`SELECT id, addon_slug, price_cents, notes FROM sitter_addons WHERE sitter_id = ${sitterId} ORDER BY created_at`;
     const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${sitterId} ORDER BY sort_order, created_at`;
 
     // Public review stats (not gated behind auth)
@@ -210,7 +224,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       FROM profile_members WHERE sitter_id = ${sitterId} ORDER BY created_at
     `;
 
-    res.json({ sitter: sitterWithStats, services, reviews, photos, imported_reviews, profile_members: profileMembers });
+    res.json({ sitter: sitterWithStats, services, addons, reviews, photos, imported_reviews, profile_members: profileMembers });
   });
 
   // --- Profile View Tracking (Issue #165) ---

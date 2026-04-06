@@ -13,6 +13,7 @@ import { metersToMiles } from '../../lib/geo';
 import { getServiceLabel } from '../../shared/service-labels';
 import { getDisplayName } from '../../shared/display-name';
 import { formatCents } from '../../lib/money';
+import { getAddonBySlug } from '../../shared/addon-catalog';
 import LocationAutocomplete from '../../components/search/LocationAutocomplete';
 
 const SitterClusterMap = lazy(() => import('../../components/map/SitterClusterMap'));
@@ -502,6 +503,23 @@ export default function Search() {
                               </div>
                             )}
                           </div>
+                          {sitter.addon_slugs && sitter.addon_slugs.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {sitter.addon_slugs.slice(0, 4).map((slug: string) => {
+                                const def = getAddonBySlug(slug);
+                                return (
+                                  <span key={slug} className="bg-emerald-50 text-emerald-700 text-[10px] font-medium px-2 py-0.5 rounded-full">
+                                    {def?.emoji} {def?.shortLabel ?? slug}
+                                  </span>
+                                );
+                              })}
+                              {sitter.addon_slugs.length > 4 && (
+                                <span className="bg-stone-100 text-stone-500 text-[10px] font-medium px-2 py-0.5 rounded-full">
+                                  +{sitter.addon_slugs.length - 4} more
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

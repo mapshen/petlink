@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { User as UserIcon, PawPrint, Camera, Import, Info, Calendar, MapPin, FileText } from 'lucide-react';
+import { User as UserIcon, PawPrint, Camera, Import, Info, Calendar, MapPin, FileText, PackagePlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProfileTab from './ProfileTab';
 import SpeciesProfilesTab from './SpeciesProfilesTab';
@@ -11,6 +11,7 @@ import PhotosTab from './PhotosTab';
 import AvailabilityTab from './AvailabilityTab';
 import LocationTab from './LocationTab';
 import PoliciesTab from './PoliciesTab';
+import AddonsTab from './AddonsTab';
 import SitterPreview from '../../components/profile/SitterPreview';
 import ProfileStrength from '../../components/profile/ProfileStrength';
 import BecomeSitterDialog from '../../components/profile/BecomeSitterDialog';
@@ -28,6 +29,7 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'profile', label: 'About', icon: UserIcon, mode: 'both' },
   { id: 'species-profiles', label: 'Sitter Profile', icon: Info, mode: 'sitter' },
   { id: 'pets', label: 'My Pets', icon: PawPrint, mode: 'owner' },
+  { id: 'addons', label: 'Add-ons', icon: PackagePlus, mode: 'sitter' },
   { id: 'availability', label: 'Availability', icon: Calendar, mode: 'sitter' },
   { id: 'location', label: 'Location', icon: MapPin, mode: 'sitter' },
   { id: 'photos', label: 'Photos', icon: Camera, mode: 'sitter' },
@@ -157,6 +159,12 @@ export default function ProfilePage() {
                 className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 scroll-mt-24"
               >
                 <SpeciesProfilesTab />
+              </div>
+              <div
+                id="section-addons"
+                className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 scroll-mt-24"
+              >
+                <AddonsTab />
               </div>
               <div
                 id="section-availability"

@@ -7,6 +7,7 @@ import { createNotification, getPreferences } from '../notifications.ts';
 import { capturePayment, cancelPayment, refundPayment } from '../payments.ts';
 import { calculateRefund } from '../cancellation.ts';
 import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing.ts';
+import { getAddonBySlug } from '../../shared/addon-catalog.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { format as formatDate } from 'date-fns';
@@ -153,7 +154,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
 
   // --- Bookings ---
   router.post('/bookings', authMiddleware, validate(createBookingSchema), async (req: AuthenticatedRequest, res) => {
-    const { sitter_id, service_id, pet_ids, start_time, end_time, pickup_dropoff, grooming_addon } = req.body;
+    const { sitter_id, service_id, pet_ids, start_time, end_time, pickup_dropoff, grooming_addon, addon_ids } = req.body;
 
     const startMs = new Date(start_time).getTime();
     const endMs = new Date(end_time).getTime();
@@ -186,6 +187,27 @@ export default function bookingRoutes(router: Router, io: Server): void {
       return;
     }
 
+    // Validate and fetch selected add-ons
+    let selectedAddons: { id: number; addon_slug: string; price_cents: number }[] = [];
+    if (addon_ids && addon_ids.length > 0) {
+      selectedAddons = await sql`
+        SELECT id, addon_slug, price_cents FROM sitter_addons
+        WHERE id = ANY(${addon_ids}) AND sitter_id = ${sitter_id}
+      `;
+      if (selectedAddons.length !== addon_ids.length) {
+        res.status(400).json({ error: 'One or more add-ons are invalid or do not belong to this sitter' });
+        return;
+      }
+      // Validate add-ons are applicable to the booked service type
+      for (const addon of selectedAddons) {
+        const def = getAddonBySlug(addon.addon_slug);
+        if (!def || !def.applicableServices.includes(service.type as any)) {
+          res.status(400).json({ error: `Add-on "${addon.addon_slug}" is not available for ${service.type} service` });
+          return;
+        }
+      }
+    }
+
     // Check for holiday/puppy pricing
     const bookingDate = new Date(start_time);
     const bookedPets = await sql`SELECT age FROM pets WHERE id = ANY(${pet_ids})`;
@@ -203,6 +225,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       pickupDropoffFeeCents: service.pickup_dropoff_fee_cents,
       groomingAddon: grooming_addon,
       groomingAddonFeeCents: service.grooming_addon_fee_cents,
+      addons: selectedAddons.map((a) => ({ slug: a.addon_slug, priceCents: a.price_cents })),
     });
     const totalPrice = pricing.totalCents;
 
@@ -276,6 +299,12 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
       const petRows = pet_ids.map((petId: number) => ({ booking_id: b.id, pet_id: petId }));
       await tx`INSERT INTO booking_pets ${tx(petRows, 'booking_id', 'pet_id')}`;
+
+      // Insert selected add-ons (snapshot price at booking time)
+      if (selectedAddons.length > 0) {
+        const addonRows = selectedAddons.map((a) => ({ booking_id: b.id, addon_id: a.id, addon_slug: a.addon_slug, price_cents: a.price_cents }));
+        await tx`INSERT INTO booking_addons ${tx(addonRows, 'booking_id', 'addon_id', 'addon_slug', 'price_cents')}`;
+      }
 
       // Auto-populate care tasks from pet care instructions (inside transaction)
       const petsWithCare = await tx`SELECT id, care_instructions FROM pets WHERE id = ANY(${pet_ids}) AND care_instructions IS NOT NULL AND care_instructions != '[]'::jsonb`;
@@ -411,9 +440,24 @@ export default function bookingRoutes(router: Router, io: Server): void {
       },
       new Map<number, { id: number; name: string; photo_url: string | null; breed: string | null }[]>(),
     );
+    // Batch-fetch add-ons for all bookings
+    const bookingAddons = bookingIds.length > 0
+      ? await sql`
+          SELECT booking_id, addon_id, addon_slug, price_cents
+          FROM booking_addons
+          WHERE booking_id = ANY(${bookingIds})
+        `
+      : [];
+    const addonsByBooking = new Map<number, { addon_id: number | null; addon_slug: string; price_cents: number }[]>();
+    for (const row of bookingAddons) {
+      const existing = addonsByBooking.get(row.booking_id) ?? [];
+      existing.push({ addon_id: row.addon_id, addon_slug: row.addon_slug, price_cents: row.price_cents });
+      addonsByBooking.set(row.booking_id, existing);
+    }
+
     const enriched = bookings.map((b: { id: number; payment_intent_id?: string }) => {
       const { payment_intent_id: _pid, ...safe } = b;
-      return { ...safe, pets: petsByBooking.get(b.id) || [] };
+      return { ...safe, pets: petsByBooking.get(b.id) || [], addons: addonsByBooking.get(b.id) || [] };
     });
 
     res.json({ bookings: enriched, total: totalCount });

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
+import { ADDON_SLUGS } from '../shared/addon-catalog.ts';
 
 // --- Validation Middleware ---
 export function validate<T extends z.ZodType>(schema: T) {
@@ -120,6 +121,7 @@ export const createBookingSchema = z.object({
   end_time: z.string().refine((v) => !isNaN(new Date(v).getTime()), 'end_time must be a valid date'),
   pickup_dropoff: z.boolean().optional().default(false),
   grooming_addon: z.boolean().optional().default(false),
+  addon_ids: z.array(z.number().int().positive('Invalid add-on ID')).max(12, 'Maximum 12 add-ons per booking').refine((ids) => new Set(ids).size === ids.length, 'Duplicate add-on IDs are not allowed').optional().default([]),
 }).refine(
   (data) => new Date(data.end_time) > new Date(data.start_time),
   { message: 'end_time must be after start_time', path: ['end_time'] }
@@ -184,7 +186,19 @@ export const speciesProfileSchema = z.object({
   own_pets_description: z.string().max(500).optional().nullable(),
 });
 
-// --- Sitter Photo Schemas ---
+// --- Sitter Add-on Schemas ---
+const addonSlugEnum = z.enum(ADDON_SLUGS as [string, ...string[]], { message: 'Invalid add-on type' });
+export const sitterAddonSchema = z.object({
+  addon_slug: addonSlugEnum,
+  price_cents: z.number().int().min(0, 'Price cannot be negative').max(50000, 'Price must be under $500'),
+  notes: z.string().max(500, 'Notes must be under 500 characters').optional().nullable(),
+});
+
+export const updateSitterAddonSchema = z.object({
+  price_cents: z.number().int().min(0, 'Price cannot be negative').max(50000, 'Price must be under $500'),
+  notes: z.string().max(500, 'Notes must be under 500 characters').optional().nullable(),
+});
+
 // --- Tip Schemas ---
 export const createTipSchema = z.object({
   booking_id: z.number().int().positive('Invalid booking ID'),

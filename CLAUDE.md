@@ -42,6 +42,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Booking Care Tasks | `GET /bookings/:bookingId/care-tasks`, `PUT /bookings/:bookingId/care-tasks/:taskId/complete`, `PUT /bookings/:bookingId/care-tasks/:taskId/uncomplete`, `GET /care-tasks/today?tzOffset=` |
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:idOrSlug` (accepts numeric ID or slug) |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
+| Add-ons | `GET /addons/me`, `POST /addons`, `PUT /addons/:id`, `DELETE /addons/:id`, `GET /addons/sitter/:sitterId` |
 | Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read), `GET /messages/search?q=&userId=&limit=&offset=` |
 | Reviews | `POST /reviews` (3-day blind window, optional sub-ratings), `GET /reviews/:userId` (auth required), `GET /reviews/booking/:bookingId` (both reviews + can_review/can_respond), `PUT /reviews/:id/respond` |
@@ -127,6 +128,8 @@ PostgreSQL with PostGIS.
 | `favorites` | Owner favorite sitters |
 | `oauth_accounts` | Provider links (`provider`, `provider_id`, unique constraints) |
 | `sitter_subscriptions` | Pro tier with status tracking, Stripe billing, billing period |
+| `sitter_addons` | Sitter-enabled add-on services with custom pricing. `addon_slug` from shared catalog, `price_cents`, optional `notes`. Unique per (sitter_id, addon_slug) |
+| `booking_addons` | Junction table snapshotting selected add-ons at booking time. `addon_slug`, `price_cents` (immutable snapshot), PK (booking_id, addon_slug) |
 | `sitter_payouts` | Delayed payout scheduling, `amount_cents` INTEGER, `status` CHECK, unique `booking_id` |
 
 PostgreSQL enums: `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`. User roles use `TEXT[]` (not an enum).

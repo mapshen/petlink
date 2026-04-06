@@ -208,6 +208,28 @@ export async function initDb() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS sitter_addons (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      addon_slug TEXT NOT NULL,
+      price_cents INTEGER NOT NULL DEFAULT 0,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(sitter_id, addon_slug)
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS booking_addons (
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+      addon_id INTEGER REFERENCES sitter_addons(id) ON DELETE SET NULL,
+      addon_slug TEXT NOT NULL,
+      price_cents INTEGER NOT NULL,
+      PRIMARY KEY (booking_id, addon_slug)
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
       booking_id INTEGER,

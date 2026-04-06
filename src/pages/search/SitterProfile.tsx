@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile, ProfileMember } from '../../types';
+import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile, ProfileMember, SitterAddon } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
 import ImportedReviewBadge from '../../components/profile/ImportedReviewBadge';
 import SubRatingBars from '../../components/review/SubRatingBars';
@@ -28,6 +28,7 @@ import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
 import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing';
 import { formatCents, formatCentsDecimal } from '../../lib/money';
+import { getAddonBySlug } from '../../shared/addon-catalog';
 import { getPolicyDescription } from '../../shared/cancellation';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -73,6 +74,8 @@ export default function SitterProfile() {
   const [postsKey, setPostsKey] = useState(0);
   const [wantsPickup, setWantsPickup] = useState(false);
   const [wantsGrooming, setWantsGrooming] = useState(false);
+  const [sitterAddons, setSitterAddons] = useState<SitterAddon[]>([]);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<Set<number>>(new Set());
   const [showInquiry, setShowInquiry] = useState(false);
   const [depositCredit, setDepositCredit] = useState<{ booking_id: number; amount_cents: number } | null>(null);
   const bookingRef = useRef<HTMLDivElement>(null);
@@ -127,6 +130,7 @@ export default function SitterProfile() {
         setReviews(data.reviews);
         setImportedReviews(data.imported_reviews || []);
         setProfileMembers(data.profile_members || []);
+        setSitterAddons(data.addons || []);
         const rebookServiceId = Number(serviceIdParam);
         const matchedService = rebookServiceId && data.services.find((s: Service) => s.id === rebookServiceId);
         setSelectedService(matchedService ? matchedService.id : data.services.length > 0 ? data.services[0].id : null);
@@ -218,6 +222,11 @@ export default function SitterProfile() {
     }
   }, [bookingServices, selectedService]);
 
+  // Clear add-on selections when switching service type
+  useEffect(() => {
+    setSelectedAddonIds(new Set());
+  }, [selectedService]);
+
   const handleBooking = async () => {
     if (!user) {
       navigate('/login');
@@ -250,6 +259,7 @@ export default function SitterProfile() {
           end_time: endDate.toISOString(),
           pickup_dropoff: wantsPickup,
           grooming_addon: wantsGrooming,
+          addon_ids: [...selectedAddonIds],
         })
       });
 
@@ -269,6 +279,7 @@ export default function SitterProfile() {
       const bookingId = bookingData.id ?? bookingData.booking?.id;
       if (bookingId) {
         const selectedPetsForPrice = pets.filter((p) => selectedPetIds.includes(p.id));
+        const selectedAddonList = sitterAddons.filter((a) => selectedAddonIds.has(a.id));
         const pricing = calculateAdvancedPrice({
           basePriceCents: selectedSvcObj!.price_cents,
           additionalPetPriceCents: selectedSvcObj!.additional_pet_price_cents || 0,
@@ -281,6 +292,7 @@ export default function SitterProfile() {
           pickupDropoffFeeCents: selectedSvcObj!.pickup_dropoff_fee_cents,
           groomingAddon: wantsGrooming,
           groomingAddonFeeCents: selectedSvcObj!.grooming_addon_fee_cents,
+          addons: selectedAddonList.map((a) => ({ slug: a.addon_slug, priceCents: a.price_cents })),
         });
         const totalCents = pricing.totalCents;
         setPaymentAmount(totalCents);
@@ -338,6 +350,30 @@ export default function SitterProfile() {
           scrollToBooking();
         }}
       />
+
+      {sitterAddons.length > 0 && (
+        <div className="bg-white border-b border-stone-200 px-6 py-3">
+          <div className="max-w-[960px] mx-auto">
+            <div className="flex items-center gap-3 overflow-x-auto">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">Add-ons</span>
+              {sitterAddons.map((addon) => {
+                const def = getAddonBySlug(addon.addon_slug);
+                return (
+                  <div key={addon.id} className="flex items-center gap-1.5 bg-stone-50 px-2.5 py-1.5 rounded-lg flex-shrink-0">
+                    <span className="text-sm">{def?.emoji}</span>
+                    <div>
+                      <div className="text-xs font-medium text-stone-800">{def?.shortLabel ?? addon.addon_slug}</div>
+                      <div className="text-[10px] text-emerald-600 font-medium">
+                        {addon.price_cents === 0 ? 'Free' : `+${formatCents(addon.price_cents)}`}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} speciesTabs={speciesTabs} />
 
@@ -574,6 +610,17 @@ export default function SitterProfile() {
                   const selectedPets = pets.filter((p) => selectedPetIds.includes(p.id));
                   const hasPuppyPet = selectedPets.some((p) => isPuppy(p.age));
                   const holidayDate = selectedDate ? isUSHoliday(selectedDate) : false;
+
+                  // Filter add-ons applicable to the selected service type
+                  const applicableAddons = sitterAddons.filter((a) => {
+                    const def = getAddonBySlug(a.addon_slug);
+                    return def && def.applicableServices.includes(svc.type as any);
+                  });
+
+                  const addonItems = sitterAddons
+                    .filter((a) => selectedAddonIds.has(a.id))
+                    .map((a) => ({ slug: a.addon_slug, priceCents: a.price_cents }));
+
                   const pricing = calculateAdvancedPrice({
                     basePriceCents: svc.price_cents,
                     additionalPetPriceCents: svc.additional_pet_price_cents || 0,
@@ -586,31 +633,77 @@ export default function SitterProfile() {
                     pickupDropoffFeeCents: svc.pickup_dropoff_fee_cents,
                     groomingAddon: wantsGrooming,
                     groomingAddonFeeCents: svc.grooming_addon_fee_cents,
+                    addons: addonItems,
                   });
+
+                  const toggleAddon = (addonId: number) => {
+                    setSelectedAddonIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(addonId)) {
+                        next.delete(addonId);
+                      } else {
+                        next.add(addonId);
+                      }
+                      return next;
+                    });
+                  };
+
                   return (
                     <div className="mb-6 space-y-3">
-                      {/* Add-ons */}
-                      {(svc.pickup_dropoff_fee_cents || svc.grooming_addon_fee_cents) && (
+                      {/* Add-ons — dynamic from sitter's catalog */}
+                      {(applicableAddons.length > 0 || svc.pickup_dropoff_fee_cents || svc.grooming_addon_fee_cents) && (
                         <div className="p-3 bg-white border border-stone-200 rounded-xl space-y-2">
                           <div className="text-xs font-bold text-stone-500 uppercase tracking-wider">Add-ons</div>
-                          {svc.pickup_dropoff_fee_cents != null && svc.pickup_dropoff_fee_cents > 0 && (
+                          {/* Legacy add-ons (backward compat until fully migrated) */}
+                          {svc.pickup_dropoff_fee_cents != null && svc.pickup_dropoff_fee_cents > 0 && !applicableAddons.some((a) => a.addon_slug === 'pickup_dropoff') && (
                             <label className="flex items-center justify-between cursor-pointer text-sm">
                               <span className="flex items-center gap-2">
                                 <input type="checkbox" checked={wantsPickup} onChange={(e) => setWantsPickup(e.target.checked)} className="rounded text-emerald-600" />
-                                Pickup & drop-off
+                                🚗 Pickup & drop-off
                               </span>
                               <span className="text-stone-500">+{formatCents(svc.pickup_dropoff_fee_cents)}</span>
                             </label>
                           )}
-                          {svc.grooming_addon_fee_cents != null && svc.grooming_addon_fee_cents > 0 && (
+                          {svc.grooming_addon_fee_cents != null && svc.grooming_addon_fee_cents > 0 && !applicableAddons.some((a) => a.addon_slug === 'full_grooming') && (
                             <label className="flex items-center justify-between cursor-pointer text-sm">
                               <span className="flex items-center gap-2">
                                 <input type="checkbox" checked={wantsGrooming} onChange={(e) => setWantsGrooming(e.target.checked)} className="rounded text-emerald-600" />
-                                Grooming add-on
+                                💇 Grooming add-on
                               </span>
                               <span className="text-stone-500">+{formatCents(svc.grooming_addon_fee_cents)}</span>
                             </label>
                           )}
+                          {/* New catalog add-ons */}
+                          {applicableAddons.map((addon) => {
+                            const def = getAddonBySlug(addon.addon_slug);
+                            const isSelected = selectedAddonIds.has(addon.id);
+                            return (
+                              <label
+                                key={addon.id}
+                                className={`flex items-center justify-between cursor-pointer text-sm p-2 rounded-lg transition-colors ${
+                                  isSelected ? 'bg-emerald-50 border border-emerald-200' : 'hover:bg-stone-50'
+                                }`}
+                              >
+                                <span className="flex items-center gap-2 min-w-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleAddon(addon.id)}
+                                    className="rounded text-emerald-600 flex-shrink-0"
+                                  />
+                                  <span className="min-w-0">
+                                    <span className="text-stone-800">{def?.emoji} {def?.label ?? addon.addon_slug}</span>
+                                    {addon.notes && (
+                                      <span className="block text-xs text-stone-400 mt-0.5 truncate">{addon.notes}</span>
+                                    )}
+                                  </span>
+                                </span>
+                                <span className={`whitespace-nowrap ml-2 ${isSelected ? 'text-emerald-700 font-medium' : 'text-stone-400'}`}>
+                                  {addon.price_cents === 0 ? 'Free' : `+${formatCents(addon.price_cents)}`}
+                                </span>
+                              </label>
+                            );
+                          })}
                         </div>
                       )}
 
@@ -640,6 +733,15 @@ export default function SitterProfile() {
                             <span>{formatCents(pricing.breakdown.groomingCents)}</span>
                           </div>
                         )}
+                        {pricing.breakdown.addonDetails.map((a) => {
+                          const addonDef = getAddonBySlug(a.slug);
+                          return (
+                            <div key={a.slug} className="flex justify-between text-sm text-stone-600">
+                              <span>{addonDef?.emoji} {addonDef?.label ?? a.slug}</span>
+                              <span>{a.priceCents === 0 ? 'Free' : formatCents(a.priceCents)}</span>
+                            </div>
+                          );
+                        })}
                         <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
                           <span>Total</span>
                           <span>{formatCents(pricing.totalCents)}</span>
