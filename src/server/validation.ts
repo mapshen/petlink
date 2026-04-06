@@ -467,6 +467,15 @@ export const issueCreditSchema = z.object({
   expires_at: z.string().datetime().optional().nullable(),
 });
 
+// --- Private Pet Note Schema ---
+const petNoteFlags = ['aggressive', 'special_needs_undisclosed', 'medical_condition', 'other'] as const;
+
+export const privatePetNoteSchema = z.object({
+  content: z.string().trim().min(1, 'Content is required').max(2000, 'Content must be under 2000 characters'),
+  flags: z.array(z.enum(petNoteFlags, { message: 'Invalid flag' })).max(4).default([]),
+  booking_id: z.number().int().positive('Invalid booking ID'),
+});
+
 // --- Upload Signed URL Schema ---
 const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents', 'disputes'] as const;
 const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;

@@ -39,6 +39,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Users | `PUT /users/me`, `POST /users/me/onboarding-started`, `POST /users/me/submit-application`, `GET /owners/:id/trust-profile` |
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id`, `GET/PUT /pets/:id/care-instructions` |
 | Pet Vaccinations | `GET /pets/:petId/vaccinations`, `POST /pets/:petId/vaccinations`, `DELETE /pets/:petId/vaccinations/:id` |
+| Pet Notes | `POST /pets/:petId/notes` (sitter, completed booking), `PUT /pets/:petId/notes/:noteId` (sitter), `GET /admin/pets/:petId/notes` (admin), `GET /admin/pets/:petId/flag-summary` (admin) |
 | Booking Care Tasks | `GET /bookings/:bookingId/care-tasks`, `PUT /bookings/:bookingId/care-tasks/:taskId/complete`, `PUT /bookings/:bookingId/care-tasks/:taskId/uncomplete`, `GET /care-tasks/today?tzOffset=` |
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:idOrSlug` (accepts numeric ID or slug) |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
@@ -141,6 +142,7 @@ PostgreSQL with PostGIS.
 | `sitter_payouts` | Delayed payout scheduling, `amount_cents` INTEGER, `status` CHECK, unique `booking_id` |
 | `sitter_strikes` | Reliability tracking: `event_type` (sitter_no_show/sitter_cancel_24h/sitter_cancel_48h/meet_greet_no_show/dispute_resolution), `strike_weight`, `expires_at` (90-day rolling window). Thresholds: 1=warning, 3=flagged, 5=search demotion (-0.15), 7=suspension |
 | `credit_ledger` | User credit transactions: `amount_cents` (positive=credit, negative=redemption), `type` (referral/dispute_resolution/promo/beta_reward/milestone/redemption/expiration), `source_type`, `source_id`, `expires_at`. Balance = SUM of non-expired entries |
+| `private_pet_notes` | Sitter-only private notes about pets: `sitter_id`, `pet_id`, `booking_id`, `content` (max 2000), `flags` TEXT[] (aggressive/special_needs_undisclosed/medical_condition/other). UNIQUE(sitter_id, booking_id). Only visible to admins. `pet_flag_count` included in booking pets for sitters |
 
 PostgreSQL enums: `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`. User roles use `TEXT[]` (not an enum).
 
