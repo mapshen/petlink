@@ -32,9 +32,9 @@ export default function tipRoutes(router: Router): void {
 
       // Verify sitter has a Connect account for receiving tips
       const [sitter] = await sql`
-        SELECT stripe_account_id, stripe_payouts_enabled FROM users WHERE id = ${booking.sitter_id}
+        SELECT stripe_account_id, stripe_payouts_enabled, stripe_charges_enabled FROM users WHERE id = ${booking.sitter_id}
       `;
-      if (!sitter?.stripe_account_id || !sitter.stripe_payouts_enabled) {
+      if (!sitter?.stripe_account_id || !sitter.stripe_payouts_enabled || !sitter.stripe_charges_enabled) {
         res.status(400).json({ error: 'Sitter has not completed payout setup' });
         return;
       }

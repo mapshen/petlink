@@ -4,7 +4,7 @@ import type { SitterPayout } from '../types.ts';
 /**
  * Record a payout tracking entry for a completed booking.
  * With Stripe Connect, actual payout delivery is handled by Stripe —
- * this table serves as a read model populated by webhooks (payout.paid/payout.failed).
+ * this table serves as a read model populated by the transfer.created webhook.
  */
 export async function recordPayoutForBooking(
   bookingId: number,
