@@ -452,3 +452,11 @@ export const manualImportSchema = z.object({
   comment: z.string().max(2000).optional(),
   review_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional(),
 });
+
+// --- Message Search Schema ---
+export const messageSearchSchema = z.object({
+  q: z.string().min(2, 'Search query must be at least 2 characters').max(200),
+  userId: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  offset: z.coerce.number().int().min(0).optional().default(0),
+});

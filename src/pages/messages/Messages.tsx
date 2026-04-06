@@ -3,12 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Message, Conversation, Inquiry } from '../../types';
 import io, { Socket } from 'socket.io-client';
-import { Send, AlertCircle, ArrowLeft, MessageSquare, MessageCircleQuestion } from 'lucide-react';
+import { Send, AlertCircle, ArrowLeft, MessageSquare, MessageCircleQuestion, Search, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { API_BASE } from '../../config';
 import MessageBubble from '../../components/messages/MessageBubble';
 import OfferCard from '../../components/booking/OfferCard';
 import SendOfferForm from '../../components/booking/SendOfferForm';
+import SearchResults from '../../components/messages/SearchResults';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function Messages() {
@@ -30,6 +31,13 @@ export default function Messages() {
   );
   const [activeInquiry, setActiveInquiry] = useState<Inquiry | null>(null);
   const [showOfferForm, setShowOfferForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [highlightMessageId, setHighlightMessageId] = useState<number | null>(null);
+  const [highlightText, setHighlightText] = useState('');
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -182,6 +190,49 @@ export default function Messages() {
     }
   }, [recipientParam]);
 
+  // Debounced search
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!searchQuery || searchQuery.length < 2 || !user) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q: searchQuery, limit: '20' });
+        if (selectedUserId && showSearch) params.set('userId', String(selectedUserId));
+        const res = await fetch(`${API_BASE}/messages/search?${params}`, {
+          headers: getAuthHeaders(token),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data.results);
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [searchQuery, user, token, selectedUserId, showSearch]);
+
+  const handleSearchResultClick = (result: any) => {
+    selectConversation(result.other_user_id);
+    setHighlightMessageId(result.id);
+    setHighlightText(searchQuery);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearch(false);
+    // Scroll to message after render
+    setTimeout(() => {
+      document.getElementById(`message-${result.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+    // Clear highlight after 3 seconds
+    setTimeout(() => { setHighlightMessageId(null); setHighlightText(''); }, 3000);
+  };
+
   const selectConversation = (userId: number) => {
     setSelectedUserId(userId);
     setMobileView('thread');
@@ -217,9 +268,33 @@ export default function Messages() {
         <div className={`w-full md:w-80 md:flex-shrink-0 border-r border-stone-100 flex flex-col ${
           mobileView === 'list' ? 'flex' : 'hidden md:flex'
         }`}>
-          <div className="p-4 border-b border-stone-100 bg-stone-50">
+          <div className="p-4 border-b border-stone-100 bg-stone-50 space-y-2">
             <h2 className="font-bold text-stone-900">Messages</h2>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search messages..."
+                className="w-full pl-9 pr-8 py-2 bg-white border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
+              {searchQuery && (
+                <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
+          {/* Search results overlay */}
+          {searchQuery.length >= 2 && (
+            <SearchResults
+              results={searchResults}
+              query={searchQuery}
+              loading={searchLoading}
+              onSelectResult={handleSearchResultClick}
+            />
+          )}
           <div className="flex-grow overflow-y-auto">
             {conversations.length === 0 ? (
               <div className="p-8 text-center">
@@ -296,8 +371,40 @@ export default function Messages() {
                   alt={selectedConversation.other_user_name}
                   className="w-10 h-10 rounded-full"
                 />
-                <div className="font-bold text-stone-900">{selectedConversation.other_user_name}</div>
+                <div className="font-bold text-stone-900 flex-grow">{selectedConversation.other_user_name}</div>
+                <button
+                  onClick={() => { setShowSearch(!showSearch); setSearchQuery(''); setSearchResults([]); }}
+                  className="p-1.5 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100 transition-colors"
+                  aria-label="Search in conversation"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
               </div>
+
+              {/* In-thread search bar */}
+              {showSearch && (
+                <div className="px-4 py-2 border-b border-stone-100 bg-stone-50">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search in this conversation..."
+                      className="w-full pl-9 pr-8 py-2 bg-white border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      autoFocus
+                    />
+                    {searchQuery && (
+                      <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  {searchQuery.length >= 2 && (
+                    <SearchResults results={searchResults} query={searchQuery} loading={searchLoading} onSelectResult={handleSearchResultClick} />
+                  )}
+                </div>
+              )}
 
               {/* Inquiry context banner */}
               {activeInquiry && (
@@ -325,7 +432,7 @@ export default function Messages() {
 
               <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-stone-50/50">
                 {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} isCurrentUser={msg.sender_id === user.id} />
+                  <MessageBubble key={msg.id} message={msg} isCurrentUser={msg.sender_id === user.id} highlightText={highlightText} highlightId={highlightMessageId ?? undefined} />
                 ))}
 
                 {/* Offer card in thread */}
