@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Star, Calendar, ShieldCheck, Zap, PawPrint, ChevronDown, ChevronUp } from 'lucide-react';
+import { Star, Calendar, ShieldCheck, PawPrint, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { OwnerTrustProfile } from '../../types';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
@@ -18,14 +18,16 @@ export default function OwnerTrustCard({ ownerId, compact = false }: OwnerTrustC
 
   useEffect(() => {
     if (!token || !ownerId) { setLoading(false); return; }
-
+    const controller = new AbortController();
     fetch(`${API_BASE}/owners/${ownerId}/trust-profile`, {
       headers: getAuthHeaders(token),
+      signal: controller.signal,
     })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?.profile) setProfile(data.profile); })
       .catch(() => {})
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [token, ownerId]);
 
   if (loading || !profile) return null;
@@ -47,7 +49,7 @@ export default function OwnerTrustCard({ ownerId, compact = false }: OwnerTrustC
         <span>{profile.completed_bookings} bookings</span>
         {hasBadges && profile.badges.map(b => (
           <span key={b} className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">
-            {b === 'verified_owner' ? 'Verified' : 'Responsive'}
+            {b === 'verified_owner' && 'Verified'}
           </span>
         ))}
         <ChevronDown className="w-3 h-3 ml-auto" />
@@ -84,11 +86,6 @@ export default function OwnerTrustCard({ ownerId, compact = false }: OwnerTrustC
           {profile.badges.includes('verified_owner') && (
             <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium">
               <ShieldCheck className="w-3 h-3" /> Verified Owner
-            </span>
-          )}
-          {profile.badges.includes('responsive') && (
-            <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
-              <Zap className="w-3 h-3" /> Responsive
             </span>
           )}
         </div>

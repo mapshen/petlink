@@ -213,44 +213,40 @@ export default function userRoutes(router: Router): void {
         return;
       }
 
-      // Booking stats
-      const [bookingStats] = await sql`
-        SELECT
-          count(*) FILTER (WHERE status = 'completed')::int as completed_bookings,
-          count(*) FILTER (WHERE status = 'cancelled' AND owner_id = ${ownerId})::int as cancelled_bookings
-        FROM bookings WHERE owner_id = ${ownerId}
-      `;
-
-      // Review stats (reviews written by sitters about this owner)
-      const [reviewStats] = await sql`
-        SELECT
-          count(*)::int as review_count,
-          ROUND(avg(rating)::numeric, 1)::float as avg_rating,
-          ROUND(avg(pet_accuracy_rating)::numeric, 1)::float as avg_pet_accuracy,
-          ROUND(avg(communication_rating)::numeric, 1)::float as avg_communication,
-          ROUND(avg(preparedness_rating)::numeric, 1)::float as avg_preparedness
-        FROM reviews
-        WHERE reviewee_id = ${ownerId}
-          AND (published_at IS NOT NULL OR created_at < NOW() - INTERVAL '3 days')
-          AND pet_accuracy_rating IS NOT NULL
-      `;
-
-      // Pet count
-      const [{ pet_count }] = await sql`SELECT count(*)::int as pet_count FROM pets WHERE owner_id = ${ownerId}`;
-
-      // Response time (avg hours from booking creation to sitter's first response)
-      const [responseStats] = await sql`
-        SELECT AVG(EXTRACT(EPOCH FROM (b.responded_at - b.created_at)) / 3600)::float as avg_response_hours
-        FROM bookings b
-        WHERE b.owner_id = ${ownerId} AND b.responded_at IS NOT NULL
-      `;
+      // Parallel queries for trust data (all independent after access check)
+      // NOTE: Stats are global across all sitters (like Uber rider ratings),
+      // not scoped to the requesting sitter. This is intentional — owner
+      // reputation should reflect their entire history.
+      const [bookingStats, reviewStats, { pet_count }] = await Promise.all([
+        sql`
+          SELECT
+            count(*) FILTER (WHERE status = 'completed')::int as completed_bookings,
+            count(*) FILTER (WHERE status = 'cancelled')::int as total_cancellations
+          FROM bookings WHERE owner_id = ${ownerId}
+        `.then(r => r[0]),
+        sql`
+          SELECT
+            count(*)::int as review_count,
+            ROUND(avg(rating)::numeric, 1)::float as avg_rating,
+            ROUND(avg(pet_accuracy_rating)::numeric, 1)::float as avg_pet_accuracy,
+            ROUND(avg(communication_rating)::numeric, 1)::float as avg_communication,
+            ROUND(avg(preparedness_rating)::numeric, 1)::float as avg_preparedness
+          FROM reviews
+          WHERE reviewee_id = ${ownerId}
+            AND (published_at IS NOT NULL OR created_at < NOW() - INTERVAL '3 days')
+            AND pet_accuracy_rating IS NOT NULL
+        `.then(r => r[0]),
+        sql`SELECT count(*)::int as pet_count FROM pets WHERE owner_id = ${ownerId}`.then(r => r[0]),
+      ]);
 
       // Compute badges
-      const badges: string[] = [];
+      // NOTE: "verified_owner" = completed bookings with zero cancellations (any party).
+      // We cannot distinguish owner vs sitter cancellations without a cancelled_by column.
+      // This is a conservative metric — any cancellation disqualifies.
+      const badges: ('verified_owner')[] = [];
       const completed = bookingStats.completed_bookings || 0;
-      const cancelled = bookingStats.cancelled_bookings || 0;
+      const cancelled = bookingStats.total_cancellations || 0;
       if (completed >= 1 && cancelled === 0) badges.push('verified_owner');
-      if (responseStats.avg_response_hours != null && responseStats.avg_response_hours < 2) badges.push('responsive');
 
       const totalBookings = completed + cancelled;
 
@@ -263,11 +259,11 @@ export default function userRoutes(router: Router): void {
           completed_bookings: completed,
           cancelled_bookings: cancelled,
           cancellation_rate: totalBookings > 0 ? Number((cancelled / totalBookings).toFixed(3)) : 0,
-          avg_rating: reviewStats.avg_rating || null,
+          avg_rating: reviewStats.avg_rating ?? null,
           review_count: reviewStats.review_count || 0,
-          avg_pet_accuracy: reviewStats.avg_pet_accuracy || null,
-          avg_communication: reviewStats.avg_communication || null,
-          avg_preparedness: reviewStats.avg_preparedness || null,
+          avg_pet_accuracy: reviewStats.avg_pet_accuracy ?? null,
+          avg_communication: reviewStats.avg_communication ?? null,
+          avg_preparedness: reviewStats.avg_preparedness ?? null,
           pet_count,
           badges,
         },

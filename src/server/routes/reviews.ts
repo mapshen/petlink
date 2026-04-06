@@ -167,6 +167,10 @@ export default function reviewRoutes(router: Router): void {
   // Optional ?role=owner filter: only show reviews where the reviewee is an owner (sitter→owner reviews)
   router.get('/reviews/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const roleFilter = req.query.role as string | undefined;
+    if (roleFilter && roleFilter !== 'owner' && roleFilter !== 'sitter') {
+      res.status(400).json({ error: 'Invalid role filter. Must be "owner" or "sitter".' });
+      return;
+    }
 
     const reviews = await sql`
       SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar

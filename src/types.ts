@@ -514,7 +514,7 @@ export interface OwnerTrustProfile {
   avg_communication: number | null;
   avg_preparedness: number | null;
   pet_count: number;
-  badges: string[];
+  badges: ('verified_owner')[];
 }
 
 export interface ScrapedProfile {
