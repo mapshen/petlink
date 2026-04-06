@@ -1,243 +1,425 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import Database from 'better-sqlite3';
-import { ADDON_SLUGS } from '../shared/addon-catalog';
-import { sitterAddonSchema } from './validation';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import express from 'express';
+import type { Response, NextFunction } from 'express';
+import type { AuthenticatedRequest } from './auth.ts';
 
-describe('sitter add-ons management', () => {
-  let testDb: ReturnType<typeof Database>;
+// --- Mock DB before any route import ---
+const { mockSqlFn } = vi.hoisted(() => ({ mockSqlFn: vi.fn() }));
+vi.mock('./db.ts', () => ({ default: mockSqlFn }));
 
-  beforeAll(() => {
-    testDb = new Database(':memory:');
-    testDb.pragma('foreign_keys = ON');
-    testDb.exec(`
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        name TEXT NOT NULL,
-        roles TEXT DEFAULT 'owner',
-        approval_status TEXT DEFAULT 'approved'
-      );
-      CREATE TABLE sitter_addons (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sitter_id INTEGER NOT NULL,
-        addon_slug TEXT NOT NULL,
-        price_cents INTEGER NOT NULL DEFAULT 0,
-        notes TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(sitter_id, addon_slug),
-        FOREIGN KEY (sitter_id) REFERENCES users(id) ON DELETE CASCADE
-      );
-      CREATE TABLE bookings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sitter_id INTEGER NOT NULL,
-        owner_id INTEGER NOT NULL,
-        status TEXT DEFAULT 'pending',
-        start_time TEXT NOT NULL,
-        end_time TEXT NOT NULL,
-        total_price_cents INTEGER,
-        FOREIGN KEY (sitter_id) REFERENCES users(id),
-        FOREIGN KEY (owner_id) REFERENCES users(id)
-      );
-      CREATE TABLE booking_addons (
-        booking_id INTEGER NOT NULL,
-        addon_id INTEGER,
-        addon_slug TEXT NOT NULL,
-        price_cents INTEGER NOT NULL,
-        PRIMARY KEY (booking_id, addon_slug),
-        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
-        FOREIGN KEY (addon_id) REFERENCES sitter_addons(id) ON DELETE SET NULL
-      );
-    `);
+// --- Mock auth middleware — injects userId (default 1, overridable via header) ---
+vi.mock('./auth.ts', () => ({
+  authMiddleware: (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
+    req.userId = Number(req.headers['x-test-user-id'] ?? 1);
+    next();
+  },
+}));
 
-    // Sitter (id=1)
-    testDb.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES ('sitter@test.com', 'hash', 'Sitter', 'owner,sitter')").run();
-    // Owner (id=2)
-    testDb.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES ('owner@test.com', 'hash', 'Owner', 'owner')").run();
-    // Another sitter (id=3)
-    testDb.prepare("INSERT INTO users (email, password_hash, name, roles) VALUES ('sitter2@test.com', 'hash', 'Sitter2', 'owner,sitter')").run();
+// Import route installer after mocks
+const { default: addonRoutes } = await import('./routes/addons.ts');
+const { default: request } = await import('supertest');
+
+function createApp() {
+  const app = express();
+  app.use(express.json());
+  const router = express.Router();
+  addonRoutes(router);
+  app.use(router);
+  return app;
+}
+
+const app = createApp();
+
+// ---------------------------------------------------------------------------
+// GET /addons/me
+// ---------------------------------------------------------------------------
+describe('GET /addons/me', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns the authenticated sitter\'s add-ons', async () => {
+    const fakeAddons = [
+      { id: 1, sitter_id: 1, addon_slug: 'bathing', price_cents: 1500, notes: null },
+      { id: 2, sitter_id: 1, addon_slug: 'nail_trimming', price_cents: 1000, notes: 'Small dogs only' },
+    ];
+    mockSqlFn.mockResolvedValueOnce(fakeAddons as any);
+
+    const res = await request(app).get('/addons/me');
+
+    expect(res.status).toBe(200);
+    expect(res.body.addons).toHaveLength(2);
+    expect(res.body.addons[0].addon_slug).toBe('bathing');
+    expect(res.body.addons[1].notes).toBe('Small dogs only');
   });
 
-  afterAll(() => {
-    testDb.close();
-  });
+  it('returns empty array when sitter has no add-ons', async () => {
+    mockSqlFn.mockResolvedValueOnce([] as any);
 
-  // --- Sitter Add-on CRUD ---
+    const res = await request(app).get('/addons/me');
 
-  it('sitter can enable an add-on', () => {
-    const info = testDb.prepare(
-      "INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents, notes) VALUES (1, 'medication_admin', 500, 'Insulin injections OK')"
-    ).run();
-    expect(info.changes).toBe(1);
-
-    const addon = testDb.prepare('SELECT * FROM sitter_addons WHERE id = 1').get() as any;
-    expect(addon.sitter_id).toBe(1);
-    expect(addon.addon_slug).toBe('medication_admin');
-    expect(addon.price_cents).toBe(500);
-    expect(addon.notes).toBe('Insulin injections OK');
-  });
-
-  it('prevents duplicate slug for same sitter', () => {
-    expect(() => {
-      testDb.prepare(
-        "INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents) VALUES (1, 'medication_admin', 1000)"
-      ).run();
-    }).toThrow();
-  });
-
-  it('allows same slug for different sitters', () => {
-    const info = testDb.prepare(
-      "INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents) VALUES (3, 'medication_admin', 800)"
-    ).run();
-    expect(info.changes).toBe(1);
-  });
-
-  it('sitter can update add-on price and notes', () => {
-    testDb.prepare(
-      'UPDATE sitter_addons SET price_cents = 750, notes = NULL WHERE id = 1 AND sitter_id = 1'
-    ).run();
-    const addon = testDb.prepare('SELECT * FROM sitter_addons WHERE id = 1').get() as any;
-    expect(addon.price_cents).toBe(750);
-    expect(addon.notes).toBeNull();
-  });
-
-  it('sitter can enable multiple add-ons', () => {
-    testDb.prepare("INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents) VALUES (1, 'bathing', 1500)").run();
-    testDb.prepare("INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents) VALUES (1, 'pickup_dropoff', 1500)").run();
-    testDb.prepare("INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents, notes) VALUES (1, 'daily_updates', 0, NULL)").run();
-
-    const addons = testDb.prepare('SELECT * FROM sitter_addons WHERE sitter_id = 1 ORDER BY created_at').all() as any[];
-    expect(addons).toHaveLength(4);
-  });
-
-  it('sitter can delete an add-on', () => {
-    const info = testDb.prepare('DELETE FROM sitter_addons WHERE id = 1 AND sitter_id = 1').run();
-    expect(info.changes).toBe(1);
-
-    const remaining = testDb.prepare('SELECT * FROM sitter_addons WHERE sitter_id = 1').all() as any[];
-    expect(remaining).toHaveLength(3);
-  });
-
-  it('cannot delete another sitter add-on', () => {
-    const info = testDb.prepare('DELETE FROM sitter_addons WHERE id = 2 AND sitter_id = 1').run();
-    expect(info.changes).toBe(0);
-  });
-
-  // --- Booking Add-ons ---
-
-  it('booking can include selected add-ons with price snapshot', () => {
-    // Create a booking
-    testDb.prepare(
-      "INSERT INTO bookings (sitter_id, owner_id, start_time, end_time, total_price_cents) VALUES (1, 2, '2026-04-10T10:00:00Z', '2026-04-10T11:00:00Z', 4500)"
-    ).run();
-
-    // Snapshot add-ons at booking time
-    const addonRows = testDb.prepare('SELECT id, addon_slug, price_cents FROM sitter_addons WHERE sitter_id = 1').all() as any[];
-    for (const addon of addonRows) {
-      testDb.prepare(
-        'INSERT INTO booking_addons (booking_id, addon_id, addon_slug, price_cents) VALUES (1, ?, ?, ?)'
-      ).run(addon.id, addon.addon_slug, addon.price_cents);
-    }
-
-    const bookingAddons = testDb.prepare('SELECT * FROM booking_addons WHERE booking_id = 1').all() as any[];
-    expect(bookingAddons).toHaveLength(3);
-    expect(bookingAddons.map((a: any) => a.addon_slug).sort()).toEqual(['bathing', 'daily_updates', 'pickup_dropoff']);
-  });
-
-  it('booking addon prices are immutable snapshots', () => {
-    // Update sitter's price
-    testDb.prepare('UPDATE sitter_addons SET price_cents = 9999 WHERE addon_slug = ?').run('bathing');
-
-    // Booking addon price should remain unchanged
-    const [bookingAddon] = testDb.prepare(
-      "SELECT price_cents FROM booking_addons WHERE booking_id = 1 AND addon_slug = 'bathing'"
-    ).all() as any[];
-    expect(bookingAddon.price_cents).toBe(1500); // Original price at booking time
-  });
-
-  it('prevents duplicate add-on slug per booking', () => {
-    expect(() => {
-      testDb.prepare(
-        "INSERT INTO booking_addons (booking_id, addon_id, addon_slug, price_cents) VALUES (1, NULL, 'bathing', 1500)"
-      ).run();
-    }).toThrow();
-  });
-
-  it('deleting sitter addon sets booking addon_id to NULL', () => {
-    // Get addon_id before delete
-    const [before] = testDb.prepare(
-      "SELECT addon_id FROM booking_addons WHERE booking_id = 1 AND addon_slug = 'bathing'"
-    ).all() as any[];
-    expect(before.addon_id).not.toBeNull();
-
-    // Delete the sitter addon
-    testDb.prepare("DELETE FROM sitter_addons WHERE addon_slug = 'bathing' AND sitter_id = 1").run();
-
-    // booking addon_id should now be NULL
-    const [after] = testDb.prepare(
-      "SELECT addon_id, addon_slug, price_cents FROM booking_addons WHERE booking_id = 1 AND addon_slug = 'bathing'"
-    ).all() as any[];
-    expect(after.addon_id).toBeNull();
-    expect(after.addon_slug).toBe('bathing');
-    expect(after.price_cents).toBe(1500); // Price snapshot preserved
-  });
-
-  it('deleting booking cascades to booking_addons', () => {
-    testDb.prepare('DELETE FROM bookings WHERE id = 1').run();
-    const addons = testDb.prepare('SELECT * FROM booking_addons WHERE booking_id = 1').all();
-    expect(addons).toHaveLength(0);
-  });
-
-  it('deleting user cascades to sitter_addons', () => {
-    const before = testDb.prepare('SELECT * FROM sitter_addons WHERE sitter_id = 3').all();
-    expect(before).toHaveLength(1);
-
-    testDb.prepare('DELETE FROM users WHERE id = 3').run();
-
-    const after = testDb.prepare('SELECT * FROM sitter_addons WHERE sitter_id = 3').all();
-    expect(after).toHaveLength(0);
+    expect(res.status).toBe(200);
+    expect(res.body.addons).toEqual([]);
   });
 });
 
-describe('addon catalog validation', () => {
-  it('validates addon_slug against catalog', () => {
+// ---------------------------------------------------------------------------
+// GET /addons/sitter/:sitterId
+// ---------------------------------------------------------------------------
+describe('GET /addons/sitter/:sitterId', () => {
+  beforeEach(() => vi.clearAllMocks());
 
-    // Valid slug
-    const validResult = sitterAddonSchema.safeParse({
-      addon_slug: ADDON_SLUGS[0],
-      price_cents: 500,
-    });
-    expect(validResult.success).toBe(true);
+  it('returns add-ons for a valid sitter id', async () => {
+    const fakeAddons = [
+      { id: 1, addon_slug: 'bathing', price_cents: 1500, notes: null },
+    ];
+    mockSqlFn.mockResolvedValueOnce(fakeAddons as any);
 
-    // Invalid slug
-    const invalidResult = sitterAddonSchema.safeParse({
-      addon_slug: 'nonexistent_addon',
-      price_cents: 500,
-    });
-    expect(invalidResult.success).toBe(false);
+    const res = await request(app).get('/addons/sitter/5');
+
+    expect(res.status).toBe(200);
+    expect(res.body.addons).toHaveLength(1);
+    expect(res.body.addons[0].addon_slug).toBe('bathing');
   });
 
-  it('validates price_cents bounds', () => {
+  it('returns empty array when sitter has no add-ons', async () => {
+    mockSqlFn.mockResolvedValueOnce([] as any);
 
-    // Negative price
-    const negResult = sitterAddonSchema.safeParse({
-      addon_slug: 'medication_admin',
-      price_cents: -100,
-    });
-    expect(negResult.success).toBe(false);
+    const res = await request(app).get('/addons/sitter/5');
 
-    // Over max
-    const overResult = sitterAddonSchema.safeParse({
-      addon_slug: 'medication_admin',
-      price_cents: 60000,
-    });
-    expect(overResult.success).toBe(false);
+    expect(res.status).toBe(200);
+    expect(res.body.addons).toEqual([]);
+  });
 
-    // Zero is valid
-    const zeroResult = sitterAddonSchema.safeParse({
-      addon_slug: 'daily_updates',
-      price_cents: 0,
-    });
-    expect(zeroResult.success).toBe(true);
+  it('returns 400 for non-integer sitter id', async () => {
+    const res = await request(app).get('/addons/sitter/abc');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid sitter ID');
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for zero sitter id', async () => {
+    const res = await request(app).get('/addons/sitter/0');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid sitter ID');
+  });
+
+  it('returns 400 for negative sitter id', async () => {
+    const res = await request(app).get('/addons/sitter/-1');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid sitter ID');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /addons
+// ---------------------------------------------------------------------------
+describe('POST /addons', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('creates an add-on for an approved sitter', async () => {
+    // 1st SQL call: user lookup
+    mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
+    // 2nd SQL call: duplicate check
+    mockSqlFn.mockResolvedValueOnce([] as any);
+    // 3rd SQL call: insert
+    const created = { id: 10, sitter_id: 1, addon_slug: 'bathing', price_cents: 1500, notes: 'Warm water only' };
+    mockSqlFn.mockResolvedValueOnce([created] as any);
+
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing', price_cents: 1500, notes: 'Warm water only' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.addon.addon_slug).toBe('bathing');
+    expect(res.body.addon.price_cents).toBe(1500);
+    expect(res.body.addon.notes).toBe('Warm water only');
+    expect(mockSqlFn).toHaveBeenCalledTimes(3);
+  });
+
+  it('creates an add-on for an onboarding sitter', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'onboarding' }] as any);
+    mockSqlFn.mockResolvedValueOnce([] as any);
+    mockSqlFn.mockResolvedValueOnce([{ id: 11, sitter_id: 1, addon_slug: 'nail_trimming', price_cents: 800, notes: null }] as any);
+
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'nail_trimming', price_cents: 800 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.addon.addon_slug).toBe('nail_trimming');
+  });
+
+  it('creates an add-on with null notes when notes omitted', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
+    mockSqlFn.mockResolvedValueOnce([] as any);
+    mockSqlFn.mockResolvedValueOnce([{ id: 12, sitter_id: 1, addon_slug: 'daily_updates', price_cents: 0, notes: null }] as any);
+
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'daily_updates', price_cents: 0 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.addon.notes).toBeNull();
+  });
+
+  it('returns 403 when user does not have sitter role', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ roles: ['owner'], approval_status: 'approved' }] as any);
+
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing', price_cents: 1500 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Only sitters can manage add-ons');
+    // Only the user lookup query should have been called
+    expect(mockSqlFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 403 when sitter approval status is rejected', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'rejected' }] as any);
+
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing', price_cents: 1500 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Your sitter account is not active.');
+  });
+
+  it('returns 403 when sitter approval status is pending_approval', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'pending_approval' }] as any);
+
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing', price_cents: 1500 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Your sitter account is not active.');
+  });
+
+  it('returns 403 when sitter approval status is banned', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'banned' }] as any);
+
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing', price_cents: 1500 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Your sitter account is not active.');
+  });
+
+  it('returns 409 when duplicate addon_slug for this sitter', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
+    mockSqlFn.mockResolvedValueOnce([{ id: 5 }] as any); // duplicate found
+
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing', price_cents: 1500 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('You have already enabled this add-on. Edit it instead.');
+    // Only user lookup + duplicate check, no insert
+    expect(mockSqlFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns 400 for invalid addon_slug', async () => {
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'totally_fake_addon', price_cents: 1500 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+    // Validation rejects before any DB call
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for negative price_cents', async () => {
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing', price_cents: -100 });
+
+    expect(res.status).toBe(400);
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for price_cents over 50000', async () => {
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing', price_cents: 50001 });
+
+    expect(res.status).toBe(400);
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for non-integer price_cents', async () => {
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing', price_cents: 15.5 });
+
+    expect(res.status).toBe(400);
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when addon_slug is missing', async () => {
+    const res = await request(app)
+      .post('/addons')
+      .send({ price_cents: 1500 });
+
+    expect(res.status).toBe(400);
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when price_cents is missing', async () => {
+    const res = await request(app)
+      .post('/addons')
+      .send({ addon_slug: 'bathing' });
+
+    expect(res.status).toBe(400);
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /addons/:id
+// ---------------------------------------------------------------------------
+describe('PUT /addons/:id', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('updates price and notes for an owned add-on', async () => {
+    // Ownership check
+    mockSqlFn.mockResolvedValueOnce([{ id: 10, sitter_id: 1, addon_slug: 'bathing', price_cents: 1500, notes: null }] as any);
+    // Update
+    const updated = { id: 10, sitter_id: 1, addon_slug: 'bathing', price_cents: 2000, notes: 'With conditioner' };
+    mockSqlFn.mockResolvedValueOnce([updated] as any);
+
+    const res = await request(app)
+      .put('/addons/10')
+      .send({ price_cents: 2000, notes: 'With conditioner' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.addon.price_cents).toBe(2000);
+    expect(res.body.addon.notes).toBe('With conditioner');
+    expect(mockSqlFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('updates with null notes', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ id: 10, sitter_id: 1, addon_slug: 'bathing', price_cents: 1500, notes: 'old' }] as any);
+    const updated = { id: 10, sitter_id: 1, addon_slug: 'bathing', price_cents: 500, notes: null };
+    mockSqlFn.mockResolvedValueOnce([updated] as any);
+
+    const res = await request(app)
+      .put('/addons/10')
+      .send({ price_cents: 500, notes: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.addon.price_cents).toBe(500);
+    expect(res.body.addon.notes).toBeNull();
+  });
+
+  it('updates with zero price_cents', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ id: 10, sitter_id: 1, addon_slug: 'daily_updates', price_cents: 500, notes: null }] as any);
+    const updated = { id: 10, sitter_id: 1, addon_slug: 'daily_updates', price_cents: 0, notes: null };
+    mockSqlFn.mockResolvedValueOnce([updated] as any);
+
+    const res = await request(app)
+      .put('/addons/10')
+      .send({ price_cents: 0 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.addon.price_cents).toBe(0);
+  });
+
+  it('returns 404 when add-on not found', async () => {
+    mockSqlFn.mockResolvedValueOnce([] as any);
+
+    const res = await request(app)
+      .put('/addons/999')
+      .send({ price_cents: 2000 });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Add-on not found');
+    // Only the ownership check query
+    expect(mockSqlFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 404 when add-on belongs to another sitter', async () => {
+    // SQL filters by sitter_id = req.userId, so another sitter's add-on returns empty
+    mockSqlFn.mockResolvedValueOnce([] as any);
+
+    const res = await request(app)
+      .put('/addons/10')
+      .send({ price_cents: 2000 });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Add-on not found');
+  });
+
+  it('returns 400 for negative price_cents', async () => {
+    const res = await request(app)
+      .put('/addons/10')
+      .send({ price_cents: -1 });
+
+    expect(res.status).toBe(400);
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for price_cents over 50000', async () => {
+    const res = await request(app)
+      .put('/addons/10')
+      .send({ price_cents: 50001 });
+
+    expect(res.status).toBe(400);
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when price_cents is missing', async () => {
+    const res = await request(app)
+      .put('/addons/10')
+      .send({ notes: 'Just notes' });
+
+    expect(res.status).toBe(400);
+    expect(mockSqlFn).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /addons/:id
+// ---------------------------------------------------------------------------
+describe('DELETE /addons/:id', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('deletes an owned add-on', async () => {
+    // Ownership check
+    mockSqlFn.mockResolvedValueOnce([{ id: 10, sitter_id: 1, addon_slug: 'bathing', price_cents: 1500, notes: null }] as any);
+    // Delete
+    mockSqlFn.mockResolvedValueOnce([] as any);
+
+    const res = await request(app).delete('/addons/10');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(mockSqlFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns 404 when add-on not found', async () => {
+    mockSqlFn.mockResolvedValueOnce([] as any);
+
+    const res = await request(app).delete('/addons/999');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Add-on not found');
+    expect(mockSqlFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 404 when add-on belongs to another sitter', async () => {
+    // SQL query filters by sitter_id = req.userId, returns empty for wrong owner
+    mockSqlFn.mockResolvedValueOnce([] as any);
+
+    const res = await request(app).delete('/addons/10');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Add-on not found');
   });
 });
