@@ -39,7 +39,9 @@ export async function initDb() {
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
-  await sql`ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'refunded'`.catch(() => {});
+  // ALTER TYPE ADD VALUE cannot run inside a transaction — catch is intentional
+  await sql`ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'refunded'`
+    .catch((err: unknown) => logger.warn({ err }, 'payment_status enum migration (expected if already exists)'));
   await sql`
     DO $$ BEGIN
       CREATE TYPE service_type AS ENUM ('walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare');

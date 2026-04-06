@@ -301,10 +301,7 @@ export default function userRoutes(router: Router): void {
           WHERE (owner_id = ${userId} OR sitter_id = ${userId}) AND status = 'pending'
         `;
 
-        // 3. Revoke all refresh tokens
-        await revokeAllUserTokens(userId);
-
-        // 4. Anonymize user
+        // 3. Anonymize user
         const timestamp = Date.now();
         const anonymizedEmail = `deleted_${userId}_${timestamp}@deleted.petlink.app`;
 
@@ -338,9 +335,12 @@ export default function userRoutes(router: Router): void {
         await tx`DELETE FROM sitter_expenses WHERE sitter_id = ${userId}`;
         await tx`DELETE FROM featured_listings WHERE sitter_id = ${userId}`;
         await tx`DELETE FROM availability WHERE sitter_id = ${userId}`;
-        await tx`DELETE FROM recurring_bookings WHERE owner_id = ${userId}`;
+        await tx`DELETE FROM recurring_bookings WHERE owner_id = ${userId} OR sitter_id = ${userId}`;
         await tx`DELETE FROM services WHERE sitter_id = ${userId}`;
       });
+
+      // Revoke tokens after transaction commits (uses its own connection)
+      await revokeAllUserTokens(userId);
 
       res.json({ success: true });
     } catch (error) {
