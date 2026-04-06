@@ -53,6 +53,7 @@ export default function AdminDisputeQueue({ token, currentUserId }: Props) {
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setSelectedId(null); }}
+          aria-label="Filter by status"
           className="text-xs border border-stone-200 rounded-lg px-2 py-1.5 text-stone-600 bg-white"
         >
           <option value="">All statuses</option>

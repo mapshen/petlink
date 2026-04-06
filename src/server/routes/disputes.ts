@@ -55,20 +55,21 @@ export default function disputeRoutes(router: Router, io: Server): void {
       }
     }
 
-    // Check no active dispute exists (DB unique index also enforces this)
-    const [existing] = await sql`
-      SELECT id FROM disputes WHERE booking_id = ${booking_id} AND status NOT IN ('resolved', 'closed')
-    `;
-    if (existing) {
-      res.status(409).json({ error: 'An active dispute already exists for this booking' });
-      return;
+    // Insert dispute (unique partial index enforces one active per booking)
+    let dispute;
+    try {
+      [dispute] = await sql`
+        INSERT INTO disputes (booking_id, incident_id, filed_by, reason)
+        VALUES (${booking_id}, ${incident_id ?? null}, ${req.userId}, ${reason})
+        RETURNING *
+      `;
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        res.status(409).json({ error: 'An active dispute already exists for this booking' });
+        return;
+      }
+      throw err;
     }
-
-    const [dispute] = await sql`
-      INSERT INTO disputes (booking_id, incident_id, filed_by, reason)
-      VALUES (${booking_id}, ${incident_id ?? null}, ${req.userId}, ${reason})
-      RETURNING *
-    `;
 
     // Notify other party + admins
     const otherPartyId = booking.owner_id === req.userId ? booking.sitter_id : booking.owner_id;
@@ -380,6 +381,14 @@ export default function disputeRoutes(router: Router, io: Server): void {
     const isRefund = resolution_type === 'full_refund' || resolution_type === 'partial_refund';
     if (isRefund && dispute.total_price_cents == null) {
       res.status(400).json({ error: 'Cannot issue refund: booking has no price recorded' });
+      return;
+    }
+    if (isRefund && !dispute.payment_intent_id) {
+      res.status(400).json({ error: 'No payment to refund' });
+      return;
+    }
+    if (isRefund && !['captured', 'pending'].includes(dispute.payment_status)) {
+      res.status(400).json({ error: `Cannot refund: payment status is ${dispute.payment_status}` });
       return;
     }
     if (resolution_type === 'partial_refund') {

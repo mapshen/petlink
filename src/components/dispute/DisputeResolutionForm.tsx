@@ -136,8 +136,10 @@ export default function DisputeResolutionForm({ disputeId, bookingTotal, token, 
         <div>
           <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Resolution</label>
           <select
+            id="resolution-type"
             value={resolutionType}
             onChange={(e) => { setResolutionType(e.target.value as DisputeResolutionType); setError(null); }}
+            aria-label="Resolution type"
             className="w-full text-sm border border-stone-200 rounded-xl px-3 py-2 text-stone-800 bg-white"
           >
             <option value="">Select resolution...</option>
