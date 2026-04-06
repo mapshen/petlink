@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Booking, Inquiry } from '../../types';
-import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2, Heart } from 'lucide-react';
+import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2, Heart, AlertTriangle } from 'lucide-react';
 import TipDialog from '../../components/booking/TipDialog';
 import BookingGuidance from '../../components/booking/BookingGuidance';
 import BookingReviewDetail from '../../components/review/BookingReviewDetail';
@@ -17,6 +17,8 @@ import { useOnboardingStatus } from '../../hooks/useOnboardingStatus';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useReviewDialog } from '../../hooks/useReviewDialog';
 import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
+import IncidentReportForm from '../../components/incident/IncidentReportForm';
+import IncidentLog from '../../components/incident/IncidentLog';
 import { useHomeStats } from '../../hooks/useHomeStats';
 import { OwnerStatsRow, SitterStatsRow } from '../../components/home/HomeStats';
 import TodaySchedule from '../../components/home/TodaySchedule';
@@ -52,6 +54,8 @@ export default function HomePage() {
   const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
   const [tipBookingId, setTipBookingId] = useState<number | null>(null);
   const [tippedBookingIds, setTippedBookingIds] = useState<Set<number>>(new Set());
+  const [incidentBookingId, setIncidentBookingId] = useState<number | null>(null);
+  const [incidentRefreshKey, setIncidentRefreshKey] = useState(0);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
@@ -394,6 +398,18 @@ export default function HomePage() {
                           </Button>
                         )}
 
+                        {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => setIncidentBookingId(booking.id)}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Report
+                          </Button>
+                        )}
+
                         {booking.status === 'completed' && (
                           <>
                             {booking.service_type === 'meet_greet' ? (
@@ -424,8 +440,9 @@ export default function HomePage() {
                     <BookingGuidance status={booking.status} role={booking.sitter_id === user?.id ? 'sitter' : 'owner'} />
 
                     {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
-                      <div className="mt-4">
+                      <div className="mt-4 space-y-4">
                         <CareTasksChecklist bookingId={booking.id} token={token} isSitter={false} />
+                        <IncidentLog bookingId={booking.id} token={token} currentUserId={user?.id} refreshKey={incidentRefreshKey} />
                       </div>
                     )}
 
@@ -600,6 +617,23 @@ export default function HomePage() {
           />
         );
       })()}
+      {/* Incident Report Dialog */}
+      {incidentBookingId && (
+        <IncidentReportForm
+          bookingId={incidentBookingId}
+          token={token}
+          open={true}
+          onOpenChange={(open) => { if (!open) setIncidentBookingId(null); }}
+          onSubmitted={() => {
+            setIncidentRefreshKey((k) => k + 1);
+            setIncidentBookingId(null);
+          }}
+          bookingLabel={(() => {
+            const b = bookings.find((bk) => bk.id === incidentBookingId);
+            return b ? `Booking with ${b.sitter_name || b.owner_name || 'Unknown'}` : undefined;
+          })()}
+        />
+      )}
     </div>
   );
 }

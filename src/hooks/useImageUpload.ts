@@ -3,7 +3,10 @@ import { getAuthHeaders } from '../context/AuthContext';
 import { API_BASE } from '../config';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE_WITH_VIDEO = 10 * 1024 * 1024; // 10MB (for folders supporting video)
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_TYPES_WITH_VIDEO = [...ALLOWED_TYPES, 'video/mp4', 'video/quicktime', 'video/webm'];
+const VIDEO_FOLDERS = new Set(['incidents']);
 
 interface UploadState {
   uploading: boolean;
@@ -19,13 +22,17 @@ export function useImageUpload(token: string | null) {
   });
 
   const upload = useCallback(
-    async (file: File, folder: 'pets' | 'avatars' | 'verifications' | 'walks' | 'sitter-photos' | 'posts'): Promise<string | null> => {
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        setState((s) => ({ ...s, error: 'Please select a JPEG, PNG, WebP, or GIF image.' }));
+    async (file: File, folder: 'pets' | 'avatars' | 'verifications' | 'walks' | 'sitter-photos' | 'posts' | 'incidents'): Promise<string | null> => {
+      const allowsVideo = VIDEO_FOLDERS.has(folder);
+      const allowedTypes = allowsVideo ? ALLOWED_TYPES_WITH_VIDEO : ALLOWED_TYPES;
+      const maxSize = allowsVideo ? MAX_FILE_SIZE_WITH_VIDEO : MAX_FILE_SIZE;
+
+      if (!allowedTypes.includes(file.type)) {
+        setState((s) => ({ ...s, error: allowsVideo ? 'Please select an image or video file.' : 'Please select a JPEG, PNG, WebP, or GIF image.' }));
         return null;
       }
-      if (file.size > MAX_FILE_SIZE) {
-        setState((s) => ({ ...s, error: 'File size must be under 5MB.' }));
+      if (file.size > maxSize) {
+        setState((s) => ({ ...s, error: `File size must be under ${maxSize / (1024 * 1024)}MB.` }));
         return null;
       }
 

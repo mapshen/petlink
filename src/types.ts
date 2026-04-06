@@ -246,6 +246,29 @@ export interface Booking {
   addons?: BookingAddon[];
 }
 
+export type IncidentCategory = 'pet_injury' | 'property_damage' | 'safety_concern' | 'behavioral_issue' | 'service_issue' | 'other';
+
+export interface IncidentEvidence {
+  id: number;
+  incident_id: number;
+  media_url: string;
+  media_type: 'image' | 'video';
+  created_at: string;
+}
+
+export interface IncidentReport {
+  id: number;
+  booking_id: number;
+  reporter_id: number;
+  category: IncidentCategory;
+  description: string;
+  notes?: string | null;
+  evidence?: IncidentEvidence[];
+  reporter_name?: string;
+  reporter_avatar?: string | null;
+  created_at: string;
+}
+
 export type InquiryStatus = 'open' | 'offer_sent' | 'accepted' | 'declined' | 'expired';
 
 export interface Inquiry {

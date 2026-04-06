@@ -3,7 +3,7 @@ import sql from './db.ts';
 export interface Notification {
   id: number;
   user_id: number;
-  type: 'new_booking' | 'booking_status' | 'new_message' | 'walk_started' | 'walk_completed' | 'payment_update' | 'verification_update' | 'account_update' | 'care_task_reminder' | 'new_inquiry' | 'inquiry_offer';
+  type: 'new_booking' | 'booking_status' | 'new_message' | 'walk_started' | 'walk_completed' | 'payment_update' | 'verification_update' | 'account_update' | 'care_task_reminder' | 'new_inquiry' | 'inquiry_offer' | 'incident_report';
   title: string;
   body: string;
   data?: string;
@@ -45,6 +45,7 @@ export async function createNotification(
       care_task_reminder: 'booking_status',
       new_inquiry: 'new_booking',
       inquiry_offer: 'booking_status',
+      incident_report: 'booking_status',
     };
     const prefKey = prefMap[type];
     if (prefKey && !prefs[prefKey]) {

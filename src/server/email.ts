@@ -318,6 +318,48 @@ export function buildReferenceInviteEmail(params: {
   };
 }
 
+const INCIDENT_CATEGORY_LABELS: Record<string, string> = {
+  pet_injury: 'Pet Injury',
+  property_damage: 'Property Damage',
+  safety_concern: 'Safety Concern',
+  behavioral_issue: 'Behavioral Issue',
+  service_issue: 'Service Issue',
+  other: 'Other',
+};
+
+export function buildIncidentReportEmail(params: {
+  recipientName: string;
+  reporterName: string;
+  category: string;
+  description: string;
+  bookingId: number;
+}): { subject: string; html: string } {
+  const recipient = escapeHtml(params.recipientName);
+  const reporter = escapeHtml(params.reporterName);
+  const categoryLabel = INCIDENT_CATEGORY_LABELS[params.category] || params.category;
+  const desc = escapeHtml(params.description.slice(0, 300));
+
+  return {
+    subject: sanitizeSubject(`Incident Report — ${categoryLabel}`),
+    html: emailWrapper('Incident Reported', `
+<p style="color:#44403c;line-height:1.6">Hi ${recipient},</p>
+<p style="color:#44403c;line-height:1.6"><strong>${reporter}</strong> has filed an incident report on a booking with you.</p>
+<div style="background:#fef2f2;border-radius:8px;padding:16px;margin:16px 0;border-left:4px solid #dc2626">
+<p style="margin:0 0 4px;color:#78716c;font-size:13px">Category</p>
+<p style="margin:0;font-weight:600;color:#dc2626">${escapeHtml(categoryLabel)}</p>
+</div>
+<div style="background:#fafaf9;border-radius:8px;padding:16px;margin:16px 0">
+<p style="margin:0 0 4px;color:#78716c;font-size:13px">Description</p>
+<p style="margin:0;color:#1c1917;font-size:14px;line-height:1.5">${desc}${params.description.length > 300 ? '...' : ''}</p>
+</div>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/home" style="display:inline-block;background:#dc2626;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">View Details</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">If you have questions, please contact PetLink support.</p>
+`),
+  };
+}
+
 export function buildDepositCreditReminderEmail(params: {
   ownerName: string;
   sitterName: string;

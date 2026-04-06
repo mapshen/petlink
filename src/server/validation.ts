@@ -411,12 +411,26 @@ export const applyProfileSchema = z.object({
   profile_id: z.number().int().positive('Invalid profile ID'),
 });
 
+// --- Incident Report Schemas ---
+const incidentCategories = ['pet_injury', 'property_damage', 'safety_concern', 'behavioral_issue', 'service_issue', 'other'] as const;
+
+export const createIncidentSchema = z.object({
+  booking_id: z.number().int().positive('Invalid booking ID'),
+  category: z.enum(incidentCategories, { message: 'Invalid incident category' }),
+  description: z.string().trim().min(1, 'Description is required').max(2000, 'Description must be under 2000 characters'),
+  notes: z.string().max(1000, 'Notes must be under 1000 characters').optional().nullable(),
+  evidence: z.array(z.object({
+    media_url: z.string().url('Invalid media URL').refine((url) => url.startsWith('https://'), 'Media URL must use HTTPS'),
+    media_type: z.enum(['image', 'video'], { message: 'media_type must be image or video' }),
+  })).max(4, 'Maximum 4 evidence items').optional().default([]),
+});
+
 // --- Upload Signed URL Schema ---
-const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts'] as const;
+const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents'] as const;
 const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;
 
 export const signedUrlSchema = z.object({
-  folder: z.enum(validFolders, { message: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos, posts' }),
+  folder: z.enum(validFolders, { message: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos, posts, incidents' }),
   contentType: z.enum(allowedContentTypes, { message: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/quicktime, video/webm' }),
   fileSize: z.number().int().positive('fileSize must be a positive integer'),
 });
