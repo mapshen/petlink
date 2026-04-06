@@ -230,6 +230,30 @@ export async function initDb() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS incident_reports (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+      reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      category TEXT NOT NULL CHECK(category IN ('pet_injury', 'property_damage', 'safety_concern', 'behavioral_issue', 'service_issue', 'other')),
+      description TEXT NOT NULL,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_incident_reports_booking ON incident_reports (booking_id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS incident_evidence (
+      id SERIAL PRIMARY KEY,
+      incident_id INTEGER NOT NULL REFERENCES incident_reports(id) ON DELETE CASCADE,
+      media_url TEXT NOT NULL,
+      media_type TEXT NOT NULL CHECK(media_type IN ('image', 'video')),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_incident_evidence_incident ON incident_evidence (incident_id)`;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
       booking_id INTEGER,
@@ -818,6 +842,7 @@ export async function initDb() {
   // Extend notification_type enum for inquiry notifications
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'new_inquiry'`.catch(() => {});
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'inquiry_offer'`.catch(() => {});
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'incident_report'`.catch(() => {});
 
   // Issue #377: Meet & greet deposit with booking credit
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS deposit_status TEXT CHECK(deposit_status IN ('held', 'captured_as_deposit', 'applied', 'released_to_sitter', 'refunded'))`.catch(() => {});

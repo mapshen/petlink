@@ -27,3 +27,4 @@ export { default as profileMemberRoutes } from './profile-members.ts';
 export { default as inquiryRoutes } from './inquiries.ts';
 export { default as referenceRoutes } from './references.ts';
 export { default as addonRoutes } from './addons.ts';
+export { default as incidentRoutes } from './incidents.ts';
