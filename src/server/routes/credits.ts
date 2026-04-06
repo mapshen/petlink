@@ -1,11 +1,10 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
+import { adminMiddleware } from '../admin.ts';
 import { validate, issueCreditSchema } from '../validation.ts';
 import { getBalance, getCreditHistory, issueCredit } from '../credits.ts';
 import logger, { sanitizeError } from '../logger.ts';
-
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 export default function creditRoutes(router: Router): void {
   // Get current user's credit balance
@@ -33,15 +32,8 @@ export default function creditRoutes(router: Router): void {
   });
 
   // Admin-only: issue credits to a user
-  router.post('/credits/issue', authMiddleware, validate(issueCreditSchema), async (req: AuthenticatedRequest, res) => {
+  router.post('/credits/issue', adminMiddleware, validate(issueCreditSchema), async (req: AuthenticatedRequest, res) => {
     try {
-      // Verify admin
-      const [admin] = await sql`SELECT email, roles FROM users WHERE id = ${req.userId}`;
-      if (!admin?.roles?.includes('admin') || admin.email !== ADMIN_EMAIL) {
-        res.status(403).json({ error: 'Admin access required' });
-        return;
-      }
-
       const { user_id, amount_cents, type, description, expires_at } = req.body;
 
       // Verify target user exists

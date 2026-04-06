@@ -446,7 +446,9 @@ export default function disputeRoutes(router: Router, io: Server): void {
             'dispute_resolution',
             'dispute',
             `Credit from dispute #${dispute.id}: ${resolution_notes}`,
-            dispute.id
+            dispute.id,
+            null,
+            tx
           );
         }
         const [r] = await tx`

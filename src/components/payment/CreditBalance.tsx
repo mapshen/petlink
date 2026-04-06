@@ -136,7 +136,7 @@ export default function CreditBalance({ token }: CreditBalanceProps) {
               </div>
               <div className="text-right">
                 <div className={`text-sm font-semibold ${entry.amount_cents > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {entry.amount_cents > 0 ? '+' : ''}{formatCents(entry.amount_cents)}
+                  {entry.amount_cents > 0 ? '+' : '-'}{formatCents(Math.abs(entry.amount_cents))}
                 </div>
                 <div className="text-xs text-stone-400">
                   {new Date(entry.created_at).toLocaleDateString()}

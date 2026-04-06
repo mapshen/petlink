@@ -1,19 +1,5 @@
 import sql from './db.ts';
-
-export type CreditType = 'referral' | 'dispute_resolution' | 'promo' | 'beta_reward' | 'milestone' | 'redemption' | 'expiration';
-export type CreditSourceType = 'dispute' | 'referral_invite' | 'admin_grant' | 'beta_program' | 'booking' | 'subscription' | 'system';
-
-export interface CreditEntry {
-  id: number;
-  user_id: number;
-  amount_cents: number;
-  type: CreditType;
-  source_type: CreditSourceType;
-  source_id: number | null;
-  description: string;
-  expires_at: string | null;
-  created_at: string;
-}
+import type { CreditType, CreditSourceType, CreditEntry } from '../types.ts';
 
 /**
  * Get a user's current credit balance (sum of non-expired entries).
@@ -48,6 +34,7 @@ export async function getCreditHistory(
 
 /**
  * Issue credits to a user (positive amount).
+ * Accepts optional transaction handle for use within existing transactions.
  */
 export async function issueCredit(
   userId: number,
@@ -56,13 +43,16 @@ export async function issueCredit(
   sourceType: CreditSourceType,
   description: string,
   sourceId?: number | null,
-  expiresAt?: string | null
+  expiresAt?: string | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
 ): Promise<CreditEntry> {
   if (amountCents <= 0) {
     throw new Error('Credit amount must be positive');
   }
 
-  const [entry] = await sql`
+  const query = tx ?? sql;
+  const [entry] = await query`
     INSERT INTO credit_ledger (user_id, amount_cents, type, source_type, source_id, description, expires_at)
     VALUES (${userId}, ${amountCents}, ${type}, ${sourceType}, ${sourceId ?? null}, ${description}, ${expiresAt ?? null})
     RETURNING *
@@ -72,7 +62,8 @@ export async function issueCredit(
 
 /**
  * Apply (deduct) credits from a user's balance.
- * Returns the entry if successful. Throws if insufficient balance.
+ * Uses FOR UPDATE lock to prevent double-spend race condition.
+ * Throws if insufficient balance.
  */
 export async function applyCredits(
   userId: number,
@@ -85,15 +76,26 @@ export async function applyCredits(
     throw new Error('Redemption amount must be positive');
   }
 
-  const balance = await getBalance(userId);
-  if (balance < amountCents) {
-    throw new Error('Insufficient credit balance');
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [entry] = await sql.begin(async (tx: any) => {
+    // Lock user's credit rows to prevent concurrent balance reads
+    const [{ balance }] = await tx`
+      SELECT COALESCE(SUM(amount_cents), 0)::int AS balance
+      FROM credit_ledger
+      WHERE user_id = ${userId}
+        AND (expires_at IS NULL OR expires_at > NOW())
+      FOR UPDATE
+    `;
 
-  const [entry] = await sql`
-    INSERT INTO credit_ledger (user_id, amount_cents, type, source_type, source_id, description)
-    VALUES (${userId}, ${-amountCents}, 'redemption', ${sourceType}, ${sourceId ?? null}, ${description})
-    RETURNING *
-  `;
+    if (balance < amountCents) {
+      throw new Error('Insufficient credit balance');
+    }
+
+    return tx`
+      INSERT INTO credit_ledger (user_id, amount_cents, type, source_type, source_id, description)
+      VALUES (${userId}, ${-amountCents}, 'redemption', ${sourceType}, ${sourceId ?? null}, ${description})
+      RETURNING *
+    `;
+  });
   return entry as unknown as CreditEntry;
 }

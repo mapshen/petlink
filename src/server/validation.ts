@@ -457,11 +457,11 @@ export const updateDisputeStatusSchema = z.object({
 });
 
 // --- Credit Schemas ---
-const creditTypes = ['referral', 'dispute_resolution', 'promo', 'beta_reward', 'milestone'] as const;
+const creditTypes = ['promo', 'beta_reward', 'milestone'] as const;
 
 export const issueCreditSchema = z.object({
   user_id: z.number().int().positive('Invalid user ID'),
-  amount_cents: z.number().int().min(1, 'Amount must be at least $0.01').max(9999900, 'Amount must be under $100,000'),
+  amount_cents: z.number().int().min(1, 'Amount must be at least $0.01').max(500000, 'Amount must be under $5,000'),
   type: z.enum(creditTypes, { message: 'Invalid credit type' }),
   description: z.string().trim().min(1, 'Description is required').max(500, 'Description must be under 500 characters'),
   expires_at: z.string().datetime().optional().nullable(),

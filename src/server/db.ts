@@ -915,6 +915,8 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_credit_ledger_user_id ON credit_ledger (user_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_credit_ledger_user_expires ON credit_ledger (user_id, expires_at)`.catch(() => {});
+  // Prevent duplicate credits from the same source (e.g., dispute resolved twice)
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_source_unique ON credit_ledger (source_type, source_id) WHERE source_id IS NOT NULL AND type NOT IN ('redemption', 'expiration')`.catch(() => {});
 
   // Issue #390: Stripe Connect Express
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_status TEXT DEFAULT 'not_started'`.catch(() => {});

@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockSqlFn } = vi.hoisted(() => ({ mockSqlFn: vi.fn() }));
+const { mockSqlFn, mockTxFn, mockBeginFn } = vi.hoisted(() => {
+  const txFn = vi.fn();
+  const beginFn = vi.fn(async (cb: (tx: any) => Promise<any>) => cb(txFn));
+  const sqlFn = vi.fn();
+  (sqlFn as any).begin = beginFn;
+  return { mockSqlFn: sqlFn, mockTxFn: txFn, mockBeginFn: beginFn };
+});
 vi.mock('./db.ts', () => ({ default: mockSqlFn }));
 
 import {
@@ -76,9 +82,8 @@ describe('credits', () => {
 
   describe('applyCredits', () => {
     it('creates a negative redemption entry when sufficient balance', async () => {
-      // getBalance call
-      mockSqlFn.mockResolvedValueOnce([{ balance: 5000 }]);
-      // INSERT redemption
+      // Transaction: SELECT FOR UPDATE balance, then INSERT
+      mockTxFn.mockResolvedValueOnce([{ balance: 5000 }]);
       const entry = {
         id: 2,
         user_id: 42,
@@ -90,15 +95,16 @@ describe('credits', () => {
         expires_at: null,
         created_at: '2026-04-06T12:00:00Z',
       };
-      mockSqlFn.mockResolvedValueOnce([entry]);
+      mockTxFn.mockResolvedValueOnce([entry]);
 
       const result = await applyCredits(42, 2000, 'Applied to booking #10', 'booking', 10);
       expect(result.amount_cents).toBe(-2000);
       expect(result.type).toBe('redemption');
+      expect(mockBeginFn).toHaveBeenCalledTimes(1);
     });
 
-    it('throws when insufficient balance', async () => {
-      mockSqlFn.mockResolvedValueOnce([{ balance: 500 }]);
+    it('throws when insufficient balance within transaction', async () => {
+      mockTxFn.mockResolvedValueOnce([{ balance: 500 }]);
       await expect(applyCredits(42, 2000, 'test', 'booking')).rejects.toThrow('Insufficient credit balance');
     });
 
@@ -108,14 +114,14 @@ describe('credits', () => {
     });
 
     it('rejects when balance exactly equals zero', async () => {
-      mockSqlFn.mockResolvedValueOnce([{ balance: 0 }]);
+      mockTxFn.mockResolvedValueOnce([{ balance: 0 }]);
       await expect(applyCredits(42, 100, 'test', 'booking')).rejects.toThrow('Insufficient credit balance');
     });
 
     it('allows applying exact balance amount', async () => {
-      mockSqlFn.mockResolvedValueOnce([{ balance: 2000 }]);
+      mockTxFn.mockResolvedValueOnce([{ balance: 2000 }]);
       const entry = { id: 3, user_id: 42, amount_cents: -2000, type: 'redemption', source_type: 'booking', source_id: null, description: 'test', expires_at: null, created_at: '2026-04-06' };
-      mockSqlFn.mockResolvedValueOnce([entry]);
+      mockTxFn.mockResolvedValueOnce([entry]);
 
       const result = await applyCredits(42, 2000, 'test', 'booking');
       expect(result.amount_cents).toBe(-2000);
