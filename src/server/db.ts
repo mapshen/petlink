@@ -899,6 +899,25 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_reminder_sent_at TIMESTAMPTZ`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_reminder_count INTEGER DEFAULT 0`.catch(() => {});
 
+  // Issue #400: Credit ledger
+  await sql`
+    CREATE TABLE IF NOT EXISTS credit_ledger (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount_cents INTEGER NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('referral', 'dispute_resolution', 'promo', 'beta_reward', 'milestone', 'redemption', 'expiration')),
+      source_type TEXT NOT NULL CHECK(source_type IN ('dispute', 'referral_invite', 'admin_grant', 'beta_program', 'booking', 'subscription', 'system')),
+      source_id INTEGER,
+      description TEXT NOT NULL,
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_credit_ledger_user_id ON credit_ledger (user_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_credit_ledger_user_expires ON credit_ledger (user_id, expires_at)`.catch(() => {});
+  // Prevent duplicate credits from the same source (e.g., dispute resolved twice)
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_source_unique ON credit_ledger (source_type, source_id) WHERE source_id IS NOT NULL AND type NOT IN ('redemption', 'expiration')`.catch(() => {});
+
   // Issue #390: Stripe Connect Express
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_status TEXT DEFAULT 'not_started'`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_payouts_enabled BOOLEAN DEFAULT FALSE`.catch(() => {});

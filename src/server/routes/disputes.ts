@@ -7,6 +7,7 @@ import { validate, createDisputeSchema, disputeMessageSchema, resolveDisputeSche
 import { createNotification } from '../notifications.ts';
 import { sendEmail, buildDisputeStatusEmail, buildDisputeResolutionEmail } from '../email.ts';
 import { refundPayment, cancelPayment } from '../payments.ts';
+import { issueCredit } from '../credits.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 const DISPUTE_WINDOW_DAYS = 14;
@@ -405,6 +406,10 @@ export default function disputeRoutes(router: Router, io: Server): void {
         return;
       }
     }
+    if (resolution_type === 'credit' && !resolution_amount_cents) {
+      res.status(400).json({ error: 'Credit resolution requires an amount' });
+      return;
+    }
 
     // Execute resolution actions + update dispute in transaction
     let resolved;
@@ -433,6 +438,18 @@ export default function disputeRoutes(router: Router, io: Server): void {
         }
         if (resolution_type === 'ban_owner') {
           await tx`UPDATE users SET approval_status = 'banned', approval_rejected_reason = ${resolution_notes} WHERE id = ${dispute.owner_id}`;
+        }
+        if (resolution_type === 'credit' && resolution_amount_cents) {
+          await issueCredit(
+            dispute.filed_by,
+            resolution_amount_cents,
+            'dispute_resolution',
+            'dispute',
+            `Credit from dispute #${dispute.id}: ${resolution_notes}`,
+            dispute.id,
+            null,
+            tx
+          );
         }
         const [r] = await tx`
           UPDATE disputes SET

@@ -30,3 +30,4 @@ export { default as addonRoutes } from './addons.ts';
 export { default as incidentRoutes } from './incidents.ts';
 export { default as disputeRoutes } from './disputes.ts';
 export { default as connectRoutes } from './connect.ts';
+export { default as creditRoutes } from './credits.ts';
