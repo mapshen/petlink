@@ -292,44 +292,60 @@ export default function userRoutes(router: Router): void {
       return;
     }
 
-    // 2. Cancel pending bookings owned by the user
-    await sql`
-      UPDATE bookings SET status = 'cancelled'
-      WHERE owner_id = ${userId} AND status = 'pending'
-    `;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await sql.begin(async (tx: any) => {
+        // 2. Cancel pending bookings (both as owner and sitter)
+        await tx`
+          UPDATE bookings SET status = 'cancelled'
+          WHERE (owner_id = ${userId} OR sitter_id = ${userId}) AND status = 'pending'
+        `;
 
-    // 3. Revoke all refresh tokens
-    await revokeAllUserTokens(userId);
+        // 3. Revoke all refresh tokens
+        await revokeAllUserTokens(userId);
 
-    // 4. Anonymize user
-    const timestamp = Date.now();
-    const anonymizedEmail = `deleted_${userId}_${timestamp}@deleted.petlink.app`;
+        // 4. Anonymize user
+        const timestamp = Date.now();
+        const anonymizedEmail = `deleted_${userId}_${timestamp}@deleted.petlink.app`;
 
-    await sql`
-      UPDATE users SET
-        name = 'Deleted User',
-        email = ${anonymizedEmail},
-        bio = NULL,
-        avatar_url = NULL,
-        password_hash = NULL,
-        lat = NULL,
-        lng = NULL,
-        deleted_at = NOW()
-      WHERE id = ${userId}
-    `;
+        await tx`
+          UPDATE users SET
+            name = 'Deleted User',
+            email = ${anonymizedEmail},
+            bio = NULL,
+            avatar_url = NULL,
+            password_hash = NULL,
+            lat = NULL,
+            lng = NULL,
+            deleted_at = NOW()
+          WHERE id = ${userId}
+        `;
 
-    // 5. Anonymize reviews written by this user
-    await sql`
-      UPDATE reviews SET comment = NULL
-      WHERE reviewer_id = ${userId}
-    `;
+        // 5. Anonymize reviews written by this user
+        await tx`
+          UPDATE reviews SET comment = NULL
+          WHERE reviewer_id = ${userId}
+        `;
 
-    // 6. Clean up child data (soft delete doesn't trigger CASCADE)
-    await sql`DELETE FROM oauth_accounts WHERE user_id = ${userId}`.catch(() => {});
-    await sql`DELETE FROM favorites WHERE user_id = ${userId} OR sitter_id = ${userId}`.catch(() => {});
-    await sql`DELETE FROM notification_preferences WHERE user_id = ${userId}`.catch(() => {});
-    await sql`DELETE FROM push_subscriptions WHERE user_id = ${userId}`.catch(() => {});
+        // 6. Clean up child data (soft delete doesn't trigger CASCADE)
+        await tx`DELETE FROM oauth_accounts WHERE user_id = ${userId}`;
+        await tx`DELETE FROM favorites WHERE user_id = ${userId} OR sitter_id = ${userId}`;
+        await tx`DELETE FROM notification_preferences WHERE user_id = ${userId}`;
+        await tx`DELETE FROM push_subscriptions WHERE user_id = ${userId}`;
+        await tx`DELETE FROM sitter_photos WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_posts WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_addons WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_expenses WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM featured_listings WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM availability WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM recurring_bookings WHERE owner_id = ${userId}`;
+        await tx`DELETE FROM services WHERE sitter_id = ${userId}`;
+      });
 
-    res.json({ success: true });
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Account deletion failed');
+      res.status(500).json({ error: 'Failed to delete account' });
+    }
   });
 }

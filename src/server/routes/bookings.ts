@@ -79,7 +79,12 @@ export default function bookingRoutes(router: Router, io: Server): void {
 
   // --- Booking Care Tasks ---
   router.get('/bookings/:bookingId/care-tasks', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [booking] = await sql`SELECT id, owner_id, sitter_id FROM bookings WHERE id = ${req.params.bookingId}`;
+    const bookingId = Number(req.params.bookingId);
+    if (!Number.isInteger(bookingId) || bookingId <= 0) {
+      res.status(400).json({ error: 'Invalid booking ID' });
+      return;
+    }
+    const [booking] = await sql`SELECT id, owner_id, sitter_id FROM bookings WHERE id = ${bookingId}`;
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
       return;
@@ -92,14 +97,20 @@ export default function bookingRoutes(router: Router, io: Server): void {
       SELECT bct.*, p.name as pet_name
       FROM booking_care_tasks bct
       JOIN pets p ON bct.pet_id = p.id
-      WHERE bct.booking_id = ${req.params.bookingId}
+      WHERE bct.booking_id = ${bookingId}
       ORDER BY bct.pet_id, bct.time NULLS LAST, bct.created_at
     `;
     res.json({ tasks });
   });
 
   router.put('/bookings/:bookingId/care-tasks/:taskId/complete', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [booking] = await sql`SELECT id, sitter_id, status FROM bookings WHERE id = ${req.params.bookingId}`;
+    const bookingId = Number(req.params.bookingId);
+    const taskId = Number(req.params.taskId);
+    if (!Number.isInteger(bookingId) || bookingId <= 0 || !Number.isInteger(taskId) || taskId <= 0) {
+      res.status(400).json({ error: 'Invalid booking or task ID' });
+      return;
+    }
+    const [booking] = await sql`SELECT id, sitter_id, status FROM bookings WHERE id = ${bookingId}`;
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
       return;
@@ -112,21 +123,27 @@ export default function bookingRoutes(router: Router, io: Server): void {
       res.status(403).json({ error: 'Only the sitter can complete tasks' });
       return;
     }
-    const [task] = await sql`SELECT id FROM booking_care_tasks WHERE id = ${req.params.taskId} AND booking_id = ${req.params.bookingId}`;
+    const [task] = await sql`SELECT id FROM booking_care_tasks WHERE id = ${taskId} AND booking_id = ${bookingId}`;
     if (!task) {
       res.status(404).json({ error: 'Task not found' });
       return;
     }
     const [updated] = await sql`
       UPDATE booking_care_tasks SET completed = TRUE, completed_at = NOW()
-      WHERE id = ${req.params.taskId}
+      WHERE id = ${taskId}
       RETURNING *
     `;
     res.json({ task: updated });
   });
 
   router.put('/bookings/:bookingId/care-tasks/:taskId/uncomplete', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [booking] = await sql`SELECT id, sitter_id, status FROM bookings WHERE id = ${req.params.bookingId}`;
+    const bookingId = Number(req.params.bookingId);
+    const taskId = Number(req.params.taskId);
+    if (!Number.isInteger(bookingId) || bookingId <= 0 || !Number.isInteger(taskId) || taskId <= 0) {
+      res.status(400).json({ error: 'Invalid booking or task ID' });
+      return;
+    }
+    const [booking] = await sql`SELECT id, sitter_id, status FROM bookings WHERE id = ${bookingId}`;
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
       return;
@@ -139,14 +156,14 @@ export default function bookingRoutes(router: Router, io: Server): void {
       res.status(403).json({ error: 'Only the sitter can update tasks' });
       return;
     }
-    const [task] = await sql`SELECT id FROM booking_care_tasks WHERE id = ${req.params.taskId} AND booking_id = ${req.params.bookingId}`;
+    const [task] = await sql`SELECT id FROM booking_care_tasks WHERE id = ${taskId} AND booking_id = ${bookingId}`;
     if (!task) {
       res.status(404).json({ error: 'Task not found' });
       return;
     }
     const [updated] = await sql`
       UPDATE booking_care_tasks SET completed = FALSE, completed_at = NULL
-      WHERE id = ${req.params.taskId}
+      WHERE id = ${taskId}
       RETURNING *
     `;
     res.json({ task: updated });
@@ -696,13 +713,13 @@ export default function bookingRoutes(router: Router, io: Server): void {
       return;
     }
 
-    // Calculate next occurrence
+    // Calculate next occurrence (use UTC consistently to avoid server-timezone drift)
     const now = new Date();
-    const today = now.getDay();
+    const today = now.getUTCDay();
     let daysUntil = day_of_week - today;
     if (daysUntil <= 0) daysUntil += 7;
     const nextDate = new Date(now);
-    nextDate.setDate(now.getDate() + daysUntil);
+    nextDate.setUTCDate(now.getUTCDate() + daysUntil);
     const nextOccurrence = nextDate.toISOString().split('T')[0];
 
     const [recurring] = await sql`

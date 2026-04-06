@@ -9,6 +9,7 @@ import logger, { sanitizeError } from '../logger.ts';
 
 export default function messageRoutes(router: Router, io: Server): void {
   router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
     const conversations = await sql`
       WITH last_messages AS (
         SELECT DISTINCT ON (
@@ -48,6 +49,10 @@ export default function messageRoutes(router: Router, io: Server): void {
       ORDER BY lm.created_at DESC
     `;
     res.json({ conversations });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Conversations fetch failed');
+      res.status(500).json({ error: 'Failed to load conversations' });
+    }
   });
 
   // GET /messages/search — search message history (MUST be before :userId route)
@@ -114,11 +119,14 @@ export default function messageRoutes(router: Router, io: Server): void {
   });
 
   router.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
     const otherUserId = Number(req.params.userId);
     if (!Number.isInteger(otherUserId) || otherUserId <= 0) {
       res.status(400).json({ error: 'Invalid user ID' });
       return;
     }
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
     // Mark messages as read first, then fetch (so read_at is populated in response)
     await sql`
       UPDATE messages SET read_at = NOW()
@@ -129,8 +137,13 @@ export default function messageRoutes(router: Router, io: Server): void {
       WHERE (sender_id = ${req.userId} AND receiver_id = ${otherUserId})
          OR (sender_id = ${otherUserId} AND receiver_id = ${req.userId})
       ORDER BY created_at ASC
+      LIMIT ${limit} OFFSET ${offset}
     `;
     res.json({ messages });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch messages');
+      res.status(500).json({ error: 'Failed to load messages' });
+    }
   });
 
   // Socket.io with JWT authentication
@@ -169,8 +182,12 @@ export default function messageRoutes(router: Router, io: Server): void {
       const set = userSockets.get(userId);
       if (set) {
         const next = new Set([...set].filter(id => id !== socket.id));
-        if (next.size === 0) userSockets.delete(userId);
-        else userSockets.set(userId, next);
+        if (next.size === 0) {
+          userSockets.delete(userId);
+          messageLimiter.delete(userId);
+        } else {
+          userSockets.set(userId, next);
+        }
       }
     });
 

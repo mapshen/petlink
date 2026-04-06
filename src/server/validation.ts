@@ -61,6 +61,9 @@ export const updateProfileSchema = z.object({
   house_rules: z.string().max(2000).optional().nullable(),
   emergency_procedures: z.string().max(2000).optional().nullable(),
   has_insurance: z.boolean().optional().nullable(),
+  emergency_contact_name: z.string().max(200).optional().nullable(),
+  emergency_contact_phone: z.string().max(20).optional().nullable(),
+  emergency_contact_relationship: z.string().max(100).optional().nullable(),
 });
 
 // --- Pet Schemas ---

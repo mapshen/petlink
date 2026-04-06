@@ -14,6 +14,10 @@ function escapeHtml(str: string): string {
   return div.innerHTML;
 }
 
+function escapeAttr(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export interface MapSitter {
   readonly id: number;
   readonly name: string;
@@ -101,7 +105,7 @@ function MarkerClusterWrapper({ sitters, serviceType, highlightedSitterId }: {
 
       const popupContent = document.createElement('div');
       const safeName = escapeHtml(getDisplayName(sitter.name));
-      const safeAvatarUrl = sitter.avatar_url ? escapeHtml(sitter.avatar_url) : '';
+      const safeAvatarUrl = sitter.avatar_url ? escapeAttr(sitter.avatar_url) : '';
       popupContent.innerHTML = `
         <div style="width: 208px; font-family: system-ui, sans-serif;">
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">

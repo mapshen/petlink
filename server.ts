@@ -199,6 +199,9 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static(path.join(__dirname, 'dist')));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    });
   }
 
   httpServer.listen(PORT, '0.0.0.0', () => {

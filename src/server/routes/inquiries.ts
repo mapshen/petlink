@@ -111,7 +111,13 @@ export default function inquiryRoutes(router: Router, io: Server): void {
       const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
       const offset = Math.max(Number(req.query.offset) || 0, 0);
       const otherUserId = Number(req.query.other_user_id) || null;
-      const statusFilter = req.query.status as string | undefined;
+      const validStatuses = ['open', 'offer_sent', 'accepted', 'declined', 'expired'];
+      const rawStatus = typeof req.query.status === 'string' ? req.query.status : undefined;
+      if (rawStatus && !validStatuses.includes(rawStatus)) {
+        res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+        return;
+      }
+      const statusFilter = rawStatus;
 
       const rows = otherUserId
         ? await sql`

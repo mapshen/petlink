@@ -39,6 +39,7 @@ export async function initDb() {
     EXCEPTION WHEN duplicate_object THEN null;
     END $$
   `;
+  await sql`ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'refunded'`.catch(() => {});
   await sql`
     DO $$ BEGIN
       CREATE TYPE service_type AS ENUM ('walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare');

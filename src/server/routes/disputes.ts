@@ -426,7 +426,7 @@ export default function disputeRoutes(router: Router, io: Server): void {
       resolved = await sql.begin(async (tx: any) => {
         if (isRefund) {
           await tx`UPDATE bookings SET payment_status = 'refunded' WHERE id = ${dispute.booking_id}`;
-          await tx`UPDATE sitter_payouts SET status = 'cancelled' WHERE booking_id = ${dispute.booking_id} AND status = 'pending'`.catch(() => {});
+          await tx`UPDATE sitter_payouts SET status = 'cancelled' WHERE booking_id = ${dispute.booking_id} AND status = 'pending'`;
         }
         if (resolution_type === 'ban_sitter') {
           await tx`UPDATE users SET approval_status = 'banned', approval_rejected_reason = ${resolution_notes} WHERE id = ${dispute.sitter_id}`;
