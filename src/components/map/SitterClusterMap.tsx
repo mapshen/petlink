@@ -105,12 +105,13 @@ function MarkerClusterWrapper({ sitters, serviceType, highlightedSitterId }: {
 
       const popupContent = document.createElement('div');
       const safeName = escapeHtml(getDisplayName(sitter.name));
+      const safeNameAttr = escapeAttr(getDisplayName(sitter.name));
       const safeAvatarUrl = sitter.avatar_url ? escapeAttr(sitter.avatar_url) : '';
       popupContent.innerHTML = `
         <div style="width: 208px; font-family: system-ui, sans-serif;">
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
             <img src="${safeAvatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(sitter.name)}&size=40`}"
-                 alt="${safeName}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #e7e5e4;" />
+                 alt="${safeNameAttr}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #e7e5e4;" />
             <div>
               <div style="font-weight: 700; color: #1c1917; font-size: 14px;">${safeName}</div>
               ${sitter.distance_meters ? `<span style="font-size: 12px; color: #a8a29e;">${formatDistanceInline(sitter.distance_meters)} away</span>` : ''}
