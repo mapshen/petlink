@@ -320,6 +320,79 @@ export function buildReferenceInviteEmail(params: {
 
 import { getIncidentCategoryLabel } from '../shared/incident-categories.ts';
 
+const DISPUTE_STATUS_LABELS: Record<string, string> = {
+  open: 'Opened',
+  under_review: 'Under Review',
+  awaiting_response: 'Awaiting Your Response',
+  resolved: 'Resolved',
+  closed: 'Closed',
+};
+
+export function buildDisputeStatusEmail(params: {
+  recipientName: string;
+  status: string;
+  bookingId: number;
+  reason?: string;
+}): { subject: string; html: string } {
+  const recipient = escapeHtml(params.recipientName);
+  const statusLabel = DISPUTE_STATUS_LABELS[params.status] || params.status;
+  const statusColor = params.status === 'resolved' ? '#059669' : params.status === 'closed' ? '#78716c' : '#7e22ce';
+
+  return {
+    subject: sanitizeSubject(`Dispute ${statusLabel} — Booking #${params.bookingId}`),
+    html: emailWrapper(`Dispute ${statusLabel}`, `
+<p style="color:#44403c;line-height:1.6">Hi ${recipient},</p>
+<p style="color:#44403c;line-height:1.6">A dispute on your booking has been updated.</p>
+<div style="background:#faf5ff;border-radius:8px;padding:16px;margin:16px 0;border-left:4px solid ${statusColor}">
+<p style="margin:0 0 4px;color:#78716c;font-size:13px">Status</p>
+<p style="margin:0;font-weight:600;color:${statusColor}">${escapeHtml(statusLabel)}</p>
+</div>
+${params.reason ? `<div style="background:#fafaf9;border-radius:8px;padding:16px;margin:16px 0"><p style="margin:0 0 4px;color:#78716c;font-size:13px">Reason</p><p style="margin:0;color:#1c1917;font-size:14px">${escapeHtml(params.reason.slice(0, 300))}${params.reason.length > 300 ? '...' : ''}</p></div>` : ''}
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/home" style="display:inline-block;background:#7e22ce;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">View Dispute</a>
+</div>
+`),
+  };
+}
+
+export function buildDisputeResolutionEmail(params: {
+  recipientName: string;
+  resolutionType: string;
+  resolutionNotes: string;
+  refundAmount?: string;
+  bookingId: number;
+}): { subject: string; html: string } {
+  const recipient = escapeHtml(params.recipientName);
+  const typeLabels: Record<string, string> = {
+    full_refund: 'Full Refund',
+    partial_refund: 'Partial Refund',
+    credit: 'Account Credit',
+    warning_owner: 'Warning Issued',
+    warning_sitter: 'Warning Issued',
+    ban_owner: 'Account Action',
+    ban_sitter: 'Account Action',
+    no_action: 'No Action Taken',
+  };
+  const label = typeLabels[params.resolutionType] || params.resolutionType;
+
+  return {
+    subject: sanitizeSubject(`Dispute Resolved — ${label}`),
+    html: emailWrapper('Dispute Resolved', `
+<p style="color:#44403c;line-height:1.6">Hi ${recipient},</p>
+<p style="color:#44403c;line-height:1.6">A PetLink mediator has resolved the dispute on your booking.</p>
+<div style="background:#ecfdf5;border-radius:8px;padding:16px;margin:16px 0;border-left:4px solid #059669">
+<p style="margin:0 0 4px;color:#78716c;font-size:13px">Resolution</p>
+<p style="margin:0;font-weight:600;color:#059669">${escapeHtml(label)}</p>
+${params.refundAmount ? `<p style="margin:4px 0 0;color:#1c1917;font-size:14px">Refund: ${escapeHtml(params.refundAmount)}</p>` : ''}
+</div>
+<div style="background:#fafaf9;border-radius:8px;padding:16px;margin:16px 0">
+<p style="margin:0 0 4px;color:#78716c;font-size:13px">Notes</p>
+<p style="margin:0;color:#1c1917;font-size:14px;line-height:1.5">${escapeHtml(params.resolutionNotes.slice(0, 500))}${params.resolutionNotes.length > 500 ? '...' : ''}</p>
+</div>
+`),
+  };
+}
+
 export function buildIncidentReportEmail(params: {
   recipientName: string;
   reporterName: string;

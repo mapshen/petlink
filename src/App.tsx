@@ -28,6 +28,7 @@ const PromotePage = React.lazy(() => import('./pages/sitter/PromotePage'));
 const SubscriptionPage = React.lazy(() => import('./pages/profile/SubscriptionPage'));
 const AnalyticsPage = React.lazy(() => import('./pages/sitter/AnalyticsPage'));
 const AdminPage = React.lazy(() => import('./pages/admin/AdminPage'));
+const DisputesPage = React.lazy(() => import('./pages/disputes/DisputesPage'));
 const PaymentHistoryPage = React.lazy(() => import('./pages/payments/PaymentHistoryPage'));
 const ImportProfilePage = React.lazy(() => import('./pages/profile/ImportProfilePage'));
 const Onboarding = React.lazy(() => import('./pages/auth/Onboarding'));
@@ -68,6 +69,8 @@ export default function App() {
                 <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
                 <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
                 <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+                <Route path="/disputes" element={<ProtectedRoute><DisputesPage /></ProtectedRoute>} />
+                <Route path="/disputes/:id" element={<ProtectedRoute><DisputesPage /></ProtectedRoute>} />
                 <Route path="/payment-history" element={<ProtectedRoute><PaymentHistoryPage /></ProtectedRoute>} />
                 <Route path="/import-profile" element={<ProtectedRoute><ImportProfilePage /></ProtectedRoute>} />
                 <Route path="/pets" element={<Navigate to="/profile" replace />} />

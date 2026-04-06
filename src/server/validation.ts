@@ -425,12 +425,40 @@ export const createIncidentSchema = z.object({
   })).max(4, 'Maximum 4 evidence items').optional().default([]),
 });
 
+// --- Dispute Schemas ---
+const disputeStatuses = ['under_review', 'awaiting_response', 'closed'] as const;
+const resolutionTypes = ['full_refund', 'partial_refund', 'credit', 'warning_owner', 'warning_sitter', 'ban_sitter', 'ban_owner', 'no_action'] as const;
+
+export const createDisputeSchema = z.object({
+  booking_id: z.number().int().positive('Invalid booking ID'),
+  incident_id: z.number().int().positive('Invalid incident ID').optional().nullable(),
+  reason: z.string().trim().min(1, 'Reason is required').max(2000, 'Reason must be under 2000 characters'),
+});
+
+export const disputeMessageSchema = z.object({
+  content: z.string().trim().min(1, 'Message is required').max(2000, 'Message must be under 2000 characters'),
+  is_admin_note: z.boolean().optional().default(false),
+  evidence_urls: z.array(
+    z.string().url('Invalid URL').refine((url) => url.startsWith('https://'), 'URL must use HTTPS')
+  ).max(4, 'Maximum 4 evidence items').optional().default([]),
+});
+
+export const resolveDisputeSchema = z.object({
+  resolution_type: z.enum(resolutionTypes, { message: 'Invalid resolution type' }),
+  resolution_amount_cents: z.number().int().min(1, 'Refund amount must be at least $0.01').max(999900, 'Refund must be under $10,000').optional().nullable(),
+  resolution_notes: z.string().trim().min(1, 'Resolution notes are required').max(2000, 'Notes must be under 2000 characters'),
+});
+
+export const updateDisputeStatusSchema = z.object({
+  status: z.enum(disputeStatuses, { message: 'Status must be under_review, awaiting_response, or closed' }),
+});
+
 // --- Upload Signed URL Schema ---
-const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents'] as const;
+const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents', 'disputes'] as const;
 const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;
 
 export const signedUrlSchema = z.object({
-  folder: z.enum(validFolders, { message: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos, posts, incidents' }),
+  folder: z.enum(validFolders, { message: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos, posts, incidents, disputes' }),
   contentType: z.enum(allowedContentTypes, { message: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/quicktime, video/webm' }),
   fileSize: z.number().int().positive('fileSize must be a positive integer'),
 });

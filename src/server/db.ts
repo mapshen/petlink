@@ -254,6 +254,40 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_incident_evidence_incident ON incident_evidence (incident_id)`;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS disputes (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id),
+      incident_id INTEGER REFERENCES incident_reports(id),
+      filed_by INTEGER NOT NULL REFERENCES users(id),
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'under_review', 'awaiting_response', 'resolved', 'closed')),
+      assigned_admin_id INTEGER REFERENCES users(id),
+      resolution_type TEXT CHECK(resolution_type IN ('full_refund', 'partial_refund', 'credit', 'warning_owner', 'warning_sitter', 'ban_sitter', 'ban_owner', 'no_action')),
+      resolution_amount_cents INTEGER,
+      resolution_notes TEXT,
+      resolved_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_disputes_booking ON disputes (booking_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_disputes_status ON disputes (status)`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_disputes_active_booking ON disputes (booking_id) WHERE status NOT IN ('resolved', 'closed')`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS dispute_messages (
+      id SERIAL PRIMARY KEY,
+      dispute_id INTEGER NOT NULL REFERENCES disputes(id) ON DELETE CASCADE,
+      sender_id INTEGER NOT NULL REFERENCES users(id),
+      content TEXT NOT NULL,
+      is_admin_note BOOLEAN DEFAULT FALSE,
+      evidence_urls TEXT[] DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_dispute_messages_dispute ON dispute_messages (dispute_id)`;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
       booking_id INTEGER,
@@ -843,6 +877,7 @@ export async function initDb() {
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'new_inquiry'`.catch(() => {});
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'inquiry_offer'`.catch(() => {});
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'incident_report'`.catch(() => {});
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'dispute_update'`.catch(() => {});
 
   // Issue #377: Meet & greet deposit with booking credit
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS deposit_status TEXT CHECK(deposit_status IN ('held', 'captured_as_deposit', 'applied', 'released_to_sitter', 'refunded'))`.catch(() => {});

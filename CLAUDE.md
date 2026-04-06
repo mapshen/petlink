@@ -45,6 +45,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Add-ons | `GET /addons/me`, `POST /addons`, `PUT /addons/:id`, `DELETE /addons/:id`, `GET /addons/sitter/:sitterId` |
 | Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
 | Incidents | `POST /incidents`, `GET /incidents/booking/:bookingId`, `GET /incidents/:id` |
+| Disputes | `POST /disputes`, `GET /disputes`, `GET /disputes/:id`, `POST /disputes/:id/messages`, `PUT /disputes/:id/status` (admin), `PUT /disputes/:id/resolve` (admin) |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read), `GET /messages/search?q=&userId=&limit=&offset=` |
 | Reviews | `POST /reviews` (3-day blind window, optional sub-ratings), `GET /reviews/:userId` (auth required), `GET /reviews/booking/:bookingId` (both reviews + can_review/can_respond), `PUT /reviews/:id/respond` |
 | Verification | `GET /verification/me`, `POST /verification/start`, `PUT /verification/update`, `GET /verification/:sitterId` |
@@ -131,6 +132,8 @@ PostgreSQL with PostGIS.
 | `sitter_subscriptions` | Pro tier with status tracking, Stripe billing, billing period |
 | `incident_reports` | Incident reports on bookings: `booking_id`, `reporter_id`, `category` (pet_injury/property_damage/safety_concern/behavioral_issue/service_issue/other), `description`, optional `notes` |
 | `incident_evidence` | Media evidence attached to incidents: `incident_id`, `media_url`, `media_type` (image/video). CASCADE on incident delete |
+| `disputes` | Dispute mediation: `booking_id`, optional `incident_id`, `filed_by`, `reason`, `status` (open/under_review/awaiting_response/resolved/closed), `assigned_admin_id`, resolution fields. Partial unique: one active per booking |
+| `dispute_messages` | Threaded messages on disputes: `dispute_id`, `sender_id`, `content`, `is_admin_note` (internal), `evidence_urls` TEXT[]. CASCADE on dispute delete |
 | `sitter_addons` | Sitter-enabled add-on services with custom pricing. `addon_slug` from shared catalog, `price_cents`, optional `notes`. Unique per (sitter_id, addon_slug) |
 | `booking_addons` | Junction table snapshotting selected add-ons at booking time. `addon_slug`, `price_cents` (immutable snapshot), PK (booking_id, addon_slug) |
 | `sitter_payouts` | Delayed payout scheduling, `amount_cents` INTEGER, `status` CHECK, unique `booking_id` |
