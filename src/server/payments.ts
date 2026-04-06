@@ -152,25 +152,30 @@ export function constructWebhookEvent(body: string | Buffer, signature: string):
 
 // --- Stripe Billing (Subscriptions) ---
 
-const PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID;
+const PRICE_IDS: Record<string, string | undefined> = {
+  pro: process.env.STRIPE_PRO_PRICE_ID,
+  premium: process.env.STRIPE_PREMIUM_PRICE_ID,
+};
 
 export async function createSubscriptionCheckout(
   userId: number,
   email: string,
-  returnUrl: string
+  returnUrl: string,
+  tier: 'pro' | 'premium' = 'pro'
 ): Promise<string> {
   const stripe = getStripe();
-  if (!PRO_PRICE_ID) {
-    throw new Error('STRIPE_PRO_PRICE_ID is not configured');
+  const priceId = PRICE_IDS[tier];
+  if (!priceId) {
+    throw new Error(`STRIPE_${tier.toUpperCase()}_PRICE_ID is not configured`);
   }
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer_email: email,
-    line_items: [{ price: PRO_PRICE_ID, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${returnUrl}/subscription?success=true`,
     cancel_url: `${returnUrl}/subscription?cancelled=true`,
-    metadata: { petlink_user_id: String(userId) },
+    metadata: { petlink_user_id: String(userId), petlink_tier: tier },
   });
 
   return session.url!;

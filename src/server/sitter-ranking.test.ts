@@ -7,6 +7,7 @@ import {
   computeRepeatRate,
   computeProfileCompleteness,
   computeNewSitterBoost,
+  computeTierBoost,
   isNewSitter,
   type SitterStats,
 } from './sitter-ranking.ts';
@@ -197,5 +198,57 @@ describe('calculateRankingScore', () => {
     const newScore = calculateRankingScore(newSitter);
     const oldScore = calculateRankingScore({ ...newSitter, approved_at: baseSitter.approved_at });
     expect(newScore).toBeGreaterThan(oldScore);
+  });
+
+  it('gives Pro sitters a ranking boost over Free', () => {
+    const free = calculateRankingScore({ ...baseSitter, subscription_tier: 'free' });
+    const pro = calculateRankingScore({ ...baseSitter, subscription_tier: 'pro' });
+    expect(pro).toBeGreaterThan(free);
+    expect(pro - free).toBeCloseTo(0.05, 2);
+  });
+
+  it('gives Premium sitters a larger boost than Pro', () => {
+    const pro = calculateRankingScore({ ...baseSitter, subscription_tier: 'pro' });
+    const premium = calculateRankingScore({ ...baseSitter, subscription_tier: 'premium' });
+    expect(premium).toBeGreaterThan(pro);
+    expect(premium - pro).toBeCloseTo(0.05, 2);
+  });
+
+  it('caps score at 1.0 even with tier boost', () => {
+    const maxSitter: SitterStats = {
+      ...baseSitter,
+      avg_rating: 5.0,
+      review_count: 100,
+      completed_bookings: 100,
+      total_bookings: 100,
+      avg_response_hours: 0.5,
+      repeat_owner_count: 50,
+      unique_owner_count: 50,
+      has_avatar: true,
+      has_bio: true,
+      service_count: 5,
+      has_availability: true,
+      approved_at: new Date().toISOString(),
+      subscription_tier: 'premium',
+    };
+    expect(calculateRankingScore(maxSitter)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('computeTierBoost', () => {
+  it('returns 0 for free tier', () => {
+    expect(computeTierBoost('free')).toBe(0);
+  });
+
+  it('returns 0.05 for pro tier', () => {
+    expect(computeTierBoost('pro')).toBe(0.05);
+  });
+
+  it('returns 0.10 for premium tier', () => {
+    expect(computeTierBoost('premium')).toBe(0.10);
+  });
+
+  it('returns 0 for undefined', () => {
+    expect(computeTierBoost(undefined)).toBe(0);
   });
 });

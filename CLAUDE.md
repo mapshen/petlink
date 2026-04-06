@@ -56,10 +56,9 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Cancellation Policy | `GET /cancellation-policy`, `PUT /cancellation-policy` |
 | Walk Events | `GET/POST /walks/:bookingId/events` |
 | Notifications | `GET /notifications`, `POST /notifications/:id/read`, `POST /notifications/read-all`, `GET/PUT /notification-preferences` |
-| Subscriptions | `GET /subscription`, `POST /subscription/upgrade`, `POST /subscription/cancel` |
+| Subscriptions | `GET /subscription`, `POST /subscription/upgrade` (with `tier`), `POST /subscription/downgrade` (with `tier`), `POST /subscription/cancel`, `POST /subscription/create-intent` (with `tier`) |
 | Payouts | `GET /payouts` (paginated: `?limit=&offset=`), `GET /payouts/pending` |
 | Payments | `POST /payments/create-intent`, `POST /payments/capture`, `POST /payments/cancel`, `GET /payment-methods`, `DELETE /payment-methods/:id`, `GET /payment-history`, `POST /payments/link-bank`, `GET /payments/bank-accounts`, `DELETE /payments/bank-accounts/:id` |
-| Subscriptions | `GET /subscription`, `POST /subscription/upgrade`, `POST /subscription/cancel`, `POST /subscription/create-intent` |
 | Analytics | `GET /analytics/overview` (sitter stats by year), `GET /analytics/clients` (client list with pets, paginated), `GET /analytics/clients/:clientId` (client booking history), `GET /analytics/revenue` (weekly/monthly revenue breakdown) |
 | Inquiries | `POST /inquiries`, `GET /inquiries`, `GET /inquiries/:id`, `PUT /inquiries/:id/offer`, `PUT /inquiries/:id/accept`, `PUT /inquiries/:id/decline` |
 | References | `POST /references/invite`, `GET /references/me`, `GET /references/vouch/:token`, `POST /references/vouch/:token` |

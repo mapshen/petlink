@@ -19,7 +19,7 @@ export interface SitterWithService extends User {
 
 export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
 
-export type SubscriptionTier = 'free' | 'pro';
+export type SubscriptionTier = 'free' | 'pro' | 'premium';
 export type ConnectStatus = 'not_started' | 'onboarding' | 'active' | 'restricted' | 'disabled';
 
 export type CreditType = 'referral' | 'dispute_resolution' | 'promo' | 'beta_reward' | 'milestone' | 'redemption' | 'expiration';

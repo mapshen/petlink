@@ -8,6 +8,10 @@
  *   - Repeat booking rate (15%): % of owners who rebook
  *   - Profile completeness (10%): has photo, bio, services, availability
  *   - New sitter boost (10%): 45-day boost for newly approved sitters
+ *
+ * After base score, tier-based additive boost:
+ *   - Pro: +0.05 (priority placement)
+ *   - Premium: +0.10 (promoted in search)
  */
 
 export interface SitterStats {
@@ -24,6 +28,7 @@ export interface SitterStats {
   has_availability: boolean;
   approved_at: string | null;
   distance_meters?: number | null;
+  subscription_tier?: string;
 }
 
 const WEIGHTS = {
@@ -46,14 +51,22 @@ export function calculateRankingScore(stats: SitterStats): number {
   const profileScore = computeProfileCompleteness(stats);
   const newBoost = computeNewSitterBoost(stats.approved_at);
 
-  return (
+  const baseScore =
     reviewScore * WEIGHTS.review +
     completionScore * WEIGHTS.completion +
     responseScore * WEIGHTS.response +
     repeatScore * WEIGHTS.repeat +
     profileScore * WEIGHTS.profile +
-    newBoost * WEIGHTS.newBoost
-  );
+    newBoost * WEIGHTS.newBoost;
+
+  const tierBoost = computeTierBoost(stats.subscription_tier);
+  return Math.min(baseScore + tierBoost, 1);
+}
+
+export function computeTierBoost(subscriptionTier?: string): number {
+  if (subscriptionTier === 'premium') return 0.10;
+  if (subscriptionTier === 'pro') return 0.05;
+  return 0;
 }
 
 export function computeReviewScore(avgRating: number | null, reviewCount: number): number {

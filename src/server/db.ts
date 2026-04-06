@@ -650,7 +650,7 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS sitter_subscriptions (
       id SERIAL PRIMARY KEY,
       sitter_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-      tier TEXT NOT NULL DEFAULT 'free' CHECK(tier IN ('free', 'pro')),
+      tier TEXT NOT NULL DEFAULT 'free' CHECK(tier IN ('free', 'pro', 'premium')),
       stripe_subscription_id TEXT,
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'past_due', 'cancelled')),
       current_period_start TIMESTAMPTZ,
@@ -917,6 +917,12 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_credit_ledger_user_expires ON credit_ledger (user_id, expires_at)`.catch(() => {});
   // Prevent duplicate credits from the same source (e.g., dispute resolved twice)
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_source_unique ON credit_ledger (source_type, source_id) WHERE source_id IS NOT NULL AND type NOT IN ('redemption', 'expiration')`.catch(() => {});
+
+  // Issue #386: Extend subscription tiers to include premium
+  await sql`ALTER TABLE sitter_subscriptions DROP CONSTRAINT IF EXISTS sitter_subscriptions_tier_check`.catch(() => {});
+  await sql`ALTER TABLE sitter_subscriptions ADD CONSTRAINT sitter_subscriptions_tier_check CHECK(tier IN ('free', 'pro', 'premium'))`.catch(() => {});
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_subscription_tier_check`.catch(() => {});
+  await sql`ALTER TABLE users ADD CONSTRAINT users_subscription_tier_check CHECK(subscription_tier IN ('free', 'pro', 'premium'))`.catch(() => {});
 
   // Issue #390: Stripe Connect Express
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_status TEXT DEFAULT 'not_started'`.catch(() => {});
