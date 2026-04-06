@@ -16,6 +16,8 @@ const INCIDENT_CATEGORY_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
+const MAX_INCIDENTS_PER_USER_PER_BOOKING = 10;
+
 export default function incidentRoutes(router: Router, io: Server): void {
   // Create an incident report
   router.post('/incidents', authMiddleware, validate(createIncidentSchema), async (req: AuthenticatedRequest, res) => {
@@ -38,26 +40,39 @@ export default function incidentRoutes(router: Router, io: Server): void {
       return;
     }
 
-    // Insert incident report
-    const [incident] = await sql`
-      INSERT INTO incident_reports (booking_id, reporter_id, category, description, notes)
-      VALUES (${booking_id}, ${req.userId}, ${category}, ${description}, ${notes ?? null})
-      RETURNING *
+    // Rate limit: max incidents per user per booking
+    const [{ count: existingCount }] = await sql`
+      SELECT COUNT(*)::int as count FROM incident_reports
+      WHERE booking_id = ${booking_id} AND reporter_id = ${req.userId}
     `;
-
-    // Insert evidence if any
-    let evidenceRows: { id: number; media_url: string; media_type: string }[] = [];
-    if (evidence && evidence.length > 0) {
-      const rows = evidence.map((e: { media_url: string; media_type: string }) => ({
-        incident_id: incident.id,
-        media_url: e.media_url,
-        media_type: e.media_type,
-      }));
-      evidenceRows = await sql`
-        INSERT INTO incident_evidence ${sql(rows, 'incident_id', 'media_url', 'media_type')}
-        RETURNING id, media_url, media_type
-      `;
+    if (existingCount >= MAX_INCIDENTS_PER_USER_PER_BOOKING) {
+      res.status(429).json({ error: 'Maximum incident reports reached for this booking' });
+      return;
     }
+
+    // Insert incident + evidence in a transaction
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { incident, evidenceRows } = await sql.begin(async (tx: any) => {
+      const [inc] = await tx`
+        INSERT INTO incident_reports (booking_id, reporter_id, category, description, notes)
+        VALUES (${booking_id}, ${req.userId}, ${category}, ${description}, ${notes ?? null})
+        RETURNING *
+      `;
+
+      let evRows: { id: number; media_url: string; media_type: string }[] = [];
+      if (evidence && evidence.length > 0) {
+        const rows = evidence.map((e: { media_url: string; media_type: string }) => ({
+          incident_id: inc.id,
+          media_url: e.media_url,
+          media_type: e.media_type,
+        }));
+        evRows = await tx`
+          INSERT INTO incident_evidence ${tx(rows, 'incident_id', 'media_url', 'media_type')}
+          RETURNING id, media_url, media_type
+        `;
+      }
+      return { incident: inc, evidenceRows: evRows };
+    });
 
     // Determine the other party
     const otherPartyId = booking.owner_id === req.userId ? booking.sitter_id : booking.owner_id;
@@ -66,7 +81,7 @@ export default function incidentRoutes(router: Router, io: Server): void {
 
     const categoryLabel = INCIDENT_CATEGORY_LABELS[category] || category;
 
-    // Notify the other party
+    // Notify the other party (incident_report bypasses preferences — see notifications.ts)
     const notification = await createNotification(
       otherPartyId,
       'incident_report',
@@ -147,6 +162,7 @@ export default function incidentRoutes(router: Router, io: Server): void {
       JOIN users u ON ir.reporter_id = u.id
       WHERE ir.booking_id = ${bookingId}
       ORDER BY ir.created_at DESC
+      LIMIT 50
     `;
 
     // Batch-fetch evidence
@@ -158,8 +174,7 @@ export default function incidentRoutes(router: Router, io: Server): void {
     const evidenceByIncident = new Map<number, typeof evidence>();
     for (const e of evidence) {
       const existing = evidenceByIncident.get(e.incident_id) ?? [];
-      existing.push(e);
-      evidenceByIncident.set(e.incident_id, existing);
+      evidenceByIncident.set(e.incident_id, [...existing, e]);
     }
 
     const enriched = incidents.map((i: { id: number }) => ({

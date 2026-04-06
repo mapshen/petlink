@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, Calendar, Loader2, ChevronDown } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Calendar, Loader2, ChevronDown, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useBookingHistory, type BookingHistoryItem } from '../../hooks/useBookingHistory';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Button } from '../ui/button';
 import BookingReviewDetail from '../review/BookingReviewDetail';
+import IncidentReportForm from '../incident/IncidentReportForm';
+import IncidentLog from '../incident/IncidentLog';
 import { formatCents } from '../../lib/money';
 
 const STATUS_OPTIONS = [
@@ -63,12 +65,16 @@ interface BookingRowProps {
 
 function BookingRow({ booking, expanded, onToggle, userId, token, onLeaveReview }: BookingRowProps) {
   const isCompleted = booking.status === 'completed';
+  const isActive = booking.status === 'confirmed' || booking.status === 'in_progress';
+  const isExpandable = isCompleted || isActive;
+  const [incidentOpen, setIncidentOpen] = useState(false);
+  const [incidentRefreshKey, setIncidentRefreshKey] = useState(0);
 
   return (
     <>
       <tr
-        className={`border-b border-stone-100 hover:bg-stone-50 transition-colors ${isCompleted ? 'cursor-pointer' : ''}`}
-        onClick={isCompleted ? onToggle : undefined}
+        className={`border-b border-stone-100 hover:bg-stone-50 transition-colors ${isExpandable ? 'cursor-pointer' : ''}`}
+        onClick={isExpandable ? onToggle : undefined}
       >
         <td className="px-4 py-3 text-xs text-stone-700 whitespace-nowrap">
           {formatBookingDate(booking.start_time)}
@@ -101,7 +107,7 @@ function BookingRow({ booking, expanded, onToggle, userId, token, onLeaveReview 
           {formatCurrencyCents(booking.total_price_cents)}
         </td>
         <td className="px-4 py-3 text-center">
-          {isCompleted ? (
+          {isExpandable ? (
             <ChevronDown className={`w-3.5 h-3.5 text-stone-400 inline-block transition-transform ${expanded ? 'rotate-180' : ''}`} />
           ) : (
             <span className="text-[10px] text-stone-300">—</span>
@@ -118,6 +124,34 @@ function BookingRow({ booking, expanded, onToggle, userId, token, onLeaveReview 
                 token={token}
                 onLeaveReview={onLeaveReview}
                 compact
+              />
+            </div>
+          </td>
+        </tr>
+      )}
+      {expanded && isActive && (
+        <tr className="bg-stone-50/50 border-b border-stone-100">
+          <td colSpan={7} className="px-4 py-0">
+            <div className="py-4 pl-8 pr-4 space-y-3">
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-red-600 hover:bg-red-50 text-xs h-7"
+                  onClick={(e) => { e.stopPropagation(); setIncidentOpen(true); }}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                  Report Incident
+                </Button>
+              </div>
+              <IncidentLog bookingId={booking.id} token={token} currentUserId={userId} refreshKey={incidentRefreshKey} />
+              <IncidentReportForm
+                bookingId={booking.id}
+                token={token}
+                open={incidentOpen}
+                onOpenChange={setIncidentOpen}
+                onSubmitted={() => setIncidentRefreshKey((k) => k + 1)}
+                bookingLabel={`Booking with ${booking.owner_name || 'Unknown'}`}
               />
             </div>
           </td>

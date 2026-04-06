@@ -3,7 +3,7 @@ import type { IncidentReport } from '../../types';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 import IncidentCard from './IncidentCard';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface Props {
   readonly bookingId: number;
@@ -15,6 +15,7 @@ interface Props {
 export default function IncidentLog({ bookingId, token, currentUserId, refreshKey }: Props) {
   const [incidents, setIncidents] = useState<IncidentReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -30,7 +31,7 @@ export default function IncidentLog({ bookingId, token, currentUserId, refreshKe
         }
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
-          // Non-critical — incidents just won't load
+          setError(true);
         }
       } finally {
         setLoading(false);
@@ -44,6 +45,15 @@ export default function IncidentLog({ bookingId, token, currentUserId, refreshKe
     return (
       <div className="flex justify-center py-4">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-500" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-red-500">
+        <AlertCircle className="w-3.5 h-3.5" />
+        Failed to load incidents
       </div>
     );
   }

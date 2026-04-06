@@ -9,7 +9,17 @@ import { createIncidentSchema } from './validation.ts';
 // Part 1: Route integration tests (supertest + mocked DB)
 // ---------------------------------------------------------------------------
 
-const { mockSqlFn } = vi.hoisted(() => ({ mockSqlFn: vi.fn() }));
+const { mockSqlFn } = vi.hoisted(() => {
+  const fn = vi.fn() as any;
+  // Support sql.begin(async (tx) => { ... }) — tx uses the same mock
+  fn.begin = vi.fn(async (callback: (tx: any) => Promise<any>) => {
+    const txFn = vi.fn() as any;
+    // tx tagged template calls go through txFn — route up to mockSqlFn
+    txFn.mockImplementation((...args: any[]) => mockSqlFn(...args));
+    return callback(txFn);
+  });
+  return { mockSqlFn: fn };
+});
 vi.mock('./db.ts', () => ({ default: mockSqlFn }));
 
 vi.mock('./auth.ts', () => ({
@@ -62,10 +72,17 @@ describe('POST /incidents', () => {
   };
 
   it('creates an incident when user is the owner on a confirmed booking', async () => {
+    // 1: booking lookup
     mockSqlFn.mockResolvedValueOnce([{ id: 1, owner_id: 1, sitter_id: 2, status: 'confirmed' }] as any);
+    // 2: incident count (rate limit check)
+    mockSqlFn.mockResolvedValueOnce([{ count: 0 }] as any);
+    // 3: inside tx — insert incident
     mockSqlFn.mockResolvedValueOnce([{ id: 10, booking_id: 1, reporter_id: 1, category: 'pet_injury', description: 'Dog limping after walk', notes: null }] as any);
+    // 4: reporter lookup
     mockSqlFn.mockResolvedValueOnce([{ name: 'Owner', email: 'owner@test.com' }] as any);
+    // 5: other party lookup
     mockSqlFn.mockResolvedValueOnce([{ name: 'Sitter', email: 'sitter@test.com' }] as any);
+    // 6: admin lookup
     mockSqlFn.mockResolvedValueOnce([] as any);
 
     const res = await request(app)
@@ -81,6 +98,7 @@ describe('POST /incidents', () => {
 
   it('creates an incident when user is the sitter on an in_progress booking', async () => {
     mockSqlFn.mockResolvedValueOnce([{ id: 1, owner_id: 2, sitter_id: 5, status: 'in_progress' }] as any);
+    mockSqlFn.mockResolvedValueOnce([{ count: 0 }] as any); // rate limit check
     mockSqlFn.mockResolvedValueOnce([{ id: 11, booking_id: 1, reporter_id: 5, category: 'property_damage', description: 'Scratched furniture', notes: null }] as any);
     mockSqlFn.mockResolvedValueOnce([{ name: 'Sitter', email: 'sitter@test.com' }] as any);
     mockSqlFn.mockResolvedValueOnce([{ name: 'Owner', email: 'owner@test.com' }] as any);
@@ -97,6 +115,7 @@ describe('POST /incidents', () => {
 
   it('creates an incident with evidence items', async () => {
     mockSqlFn.mockResolvedValueOnce([{ id: 1, owner_id: 1, sitter_id: 2, status: 'confirmed' }] as any);
+    mockSqlFn.mockResolvedValueOnce([{ count: 0 }] as any); // rate limit check
     mockSqlFn.mockResolvedValueOnce([{ id: 12, booking_id: 1, reporter_id: 1, category: 'pet_injury', description: 'Hurt', notes: null }] as any);
     // sql(rows, ...) helper call (consumed by the postgres helper syntax)
     mockSqlFn.mockReturnValueOnce([]);

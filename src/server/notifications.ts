@@ -45,11 +45,14 @@ export async function createNotification(
       care_task_reminder: 'booking_status',
       new_inquiry: 'new_booking',
       inquiry_offer: 'booking_status',
-      incident_report: 'booking_status',
     };
-    const prefKey = prefMap[type];
-    if (prefKey && !prefs[prefKey]) {
-      return null;
+    // Safety-critical notifications always delivered regardless of preferences
+    const alwaysNotify = new Set(['incident_report']);
+    if (!alwaysNotify.has(type)) {
+      const prefKey = prefMap[type];
+      if (prefKey && !prefs[prefKey]) {
+        return null;
+      }
     }
   }
 
