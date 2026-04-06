@@ -18,6 +18,8 @@ export default function IncidentLog({ bookingId, token, currentUserId, refreshKe
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
+    setError(false);
     const controller = new AbortController();
     const fetchIncidents = async () => {
       try {

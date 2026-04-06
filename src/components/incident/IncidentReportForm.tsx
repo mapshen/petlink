@@ -138,11 +138,13 @@ export default function IncidentReportForm({ bookingId, token, open, onOpenChang
           {/* Category selector */}
           <div>
             <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Incident Type</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div role="radiogroup" aria-label="Incident Type" className="grid grid-cols-2 gap-2">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat.slug}
                   type="button"
+                  role="radio"
+                  aria-checked={category === cat.slug}
                   onClick={() => setCategory(cat.slug)}
                   className={`flex items-center gap-2 p-2.5 rounded-xl text-left transition-colors ${
                     category === cat.slug
@@ -203,6 +205,7 @@ export default function IncidentReportForm({ bookingId, token, open, onOpenChang
                   )}
                   <button
                     type="button"
+                    aria-label={`Remove evidence ${i + 1}`}
                     onClick={() => removeEvidence(i)}
                     className="absolute top-1 right-1 w-5 h-5 rounded-full bg-stone-900/60 text-white flex items-center justify-center hover:bg-stone-900/80"
                   >

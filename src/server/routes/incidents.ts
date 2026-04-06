@@ -40,19 +40,19 @@ export default function incidentRoutes(router: Router, io: Server): void {
       return;
     }
 
-    // Rate limit: max incidents per user per booking
-    const [{ count: existingCount }] = await sql`
-      SELECT COUNT(*)::int as count FROM incident_reports
-      WHERE booking_id = ${booking_id} AND reporter_id = ${req.userId}
-    `;
-    if (existingCount >= MAX_INCIDENTS_PER_USER_PER_BOOKING) {
-      res.status(429).json({ error: 'Maximum incident reports reached for this booking' });
-      return;
-    }
-
-    // Insert incident + evidence in a transaction
+    // Insert incident + evidence in a transaction (rate limit check inside tx to avoid TOCTOU)
+    let rateLimited = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { incident, evidenceRows } = await sql.begin(async (tx: any) => {
+    const result = await sql.begin(async (tx: any) => {
+      const [{ count: existingCount }] = await tx`
+        SELECT COUNT(*)::int as count FROM incident_reports
+        WHERE booking_id = ${booking_id} AND reporter_id = ${req.userId}
+      `;
+      if (existingCount >= MAX_INCIDENTS_PER_USER_PER_BOOKING) {
+        rateLimited = true;
+        return { incident: null, evidenceRows: [] };
+      }
+
       const [inc] = await tx`
         INSERT INTO incident_reports (booking_id, reporter_id, category, description, notes)
         VALUES (${booking_id}, ${req.userId}, ${category}, ${description}, ${notes ?? null})
@@ -73,6 +73,12 @@ export default function incidentRoutes(router: Router, io: Server): void {
       }
       return { incident: inc, evidenceRows: evRows };
     });
+
+    if (rateLimited) {
+      res.status(429).json({ error: 'Maximum incident reports reached for this booking' });
+      return;
+    }
+    const { incident, evidenceRows } = result;
 
     // Determine the other party
     const otherPartyId = booking.owner_id === req.userId ? booking.sitter_id : booking.owner_id;
@@ -206,6 +212,10 @@ export default function incidentRoutes(router: Router, io: Server): void {
 
     // Verify user is a party or admin
     const [booking] = await sql`SELECT owner_id, sitter_id FROM bookings WHERE id = ${incident.booking_id}`;
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
     const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
     const isAdmin = currentUser?.roles?.includes('admin');
     if (booking.owner_id !== req.userId && booking.sitter_id !== req.userId && !isAdmin) {

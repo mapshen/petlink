@@ -55,7 +55,7 @@ export default function HomePage() {
   const [tipBookingId, setTipBookingId] = useState<number | null>(null);
   const [tippedBookingIds, setTippedBookingIds] = useState<Set<number>>(new Set());
   const [incidentBookingId, setIncidentBookingId] = useState<number | null>(null);
-  const [incidentRefreshKey, setIncidentRefreshKey] = useState(0);
+  const [incidentRefreshKeys, setIncidentRefreshKeys] = useState<Record<number, number>>({});
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
     localStorage.getItem('petlink_onboarding_dismissed') === 'true'
@@ -442,7 +442,7 @@ export default function HomePage() {
                     {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
                       <div className="mt-4 space-y-4">
                         <CareTasksChecklist bookingId={booking.id} token={token} isSitter={false} />
-                        <IncidentLog bookingId={booking.id} token={token} currentUserId={user?.id} refreshKey={incidentRefreshKey} />
+                        <IncidentLog bookingId={booking.id} token={token} currentUserId={user?.id} refreshKey={incidentRefreshKeys[booking.id] ?? 0} />
                       </div>
                     )}
 
@@ -625,7 +625,8 @@ export default function HomePage() {
           open={true}
           onOpenChange={(open) => { if (!open) setIncidentBookingId(null); }}
           onSubmitted={() => {
-            setIncidentRefreshKey((k) => k + 1);
+            const bid = incidentBookingId;
+            setIncidentRefreshKeys((prev) => ({ ...prev, [bid!]: (prev[bid!] ?? 0) + 1 }));
             setIncidentBookingId(null);
           }}
           bookingLabel={(() => {
