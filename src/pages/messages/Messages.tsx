@@ -190,7 +190,7 @@ export default function Messages() {
     }
   }, [recipientParam]);
 
-  // Debounced search
+  // Debounced search with AbortController to cancel stale requests
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     if (!searchQuery || searchQuery.length < 2 || !user) {
@@ -198,27 +198,29 @@ export default function Messages() {
       return;
     }
     setSearchLoading(true);
+    const controller = new AbortController();
     searchTimerRef.current = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ q: searchQuery, limit: '20' });
         if (selectedUserId && showSearch) params.set('userId', String(selectedUserId));
         const res = await fetch(`${API_BASE}/messages/search?${params}`, {
           headers: getAuthHeaders(token),
+          signal: controller.signal,
         });
         if (res.ok) {
           const data = await res.json();
           setSearchResults(data.results);
         }
-      } catch {
-        // Silently fail
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
       } finally {
         setSearchLoading(false);
       }
     }, 300);
-    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+    return () => { controller.abort(); if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, [searchQuery, user, token, selectedUserId, showSearch]);
 
-  const handleSearchResultClick = (result: any) => {
+  const handleSearchResultClick = (result: { id: number; other_user_id: number }) => {
     selectConversation(result.other_user_id);
     setHighlightMessageId(result.id);
     setHighlightText(searchQuery);

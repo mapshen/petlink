@@ -2,7 +2,7 @@ import type { Router } from 'express';
 import type { Server } from 'socket.io';
 import sql from '../db.ts';
 import { authMiddleware, verifyToken, type AuthenticatedRequest } from '../auth.ts';
-import { validate, messageSearchSchema } from '../validation.ts';
+import { messageSearchSchema } from '../validation.ts';
 import { createNotification, getPreferences } from '../notifications.ts';
 import { sendEmail, buildNewMessageEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
