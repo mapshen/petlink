@@ -96,6 +96,10 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         LEFT JOIN LATERAL (
           SELECT EXISTS(SELECT 1 FROM availability a WHERE a.sitter_id = u.id) as has_avail
         ) av ON true
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(SUM(strike_weight), 0)::float as active_strike_weight
+          FROM sitter_strikes st WHERE st.sitter_id = u.id AND st.expires_at > NOW()
+        ) sr ON true
         WHERE u.id = ANY(${sitterIds})
       `;
       for (const s of stats) {
@@ -120,6 +124,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         approved_at: sitter.approved_at,
         distance_meters: sitter.distance_meters,
         subscription_tier: sitter.subscription_tier,
+        active_strike_weight: s?.active_strike_weight || 0,
       };
       return {
         ...sitter,

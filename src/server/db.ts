@@ -918,6 +918,24 @@ export async function initDb() {
   // Prevent duplicate credits from the same source (e.g., dispute resolved twice)
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_source_unique ON credit_ledger (source_type, source_id) WHERE source_id IS NOT NULL AND type NOT IN ('redemption', 'expiration')`.catch(() => {});
 
+  // Issue #378: Sitter reliability tracking
+  await sql`
+    CREATE TABLE IF NOT EXISTS sitter_strikes (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      booking_id INTEGER REFERENCES bookings(id),
+      event_type TEXT NOT NULL CHECK(event_type IN ('sitter_no_show', 'sitter_cancel_24h', 'sitter_cancel_48h', 'meet_greet_no_show', 'dispute_resolution')),
+      strike_weight REAL NOT NULL,
+      description TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_strikes_sitter_id ON sitter_strikes (sitter_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_strikes_sitter_expires ON sitter_strikes (sitter_id, expires_at)`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sitter_strikes_booking_event ON sitter_strikes (booking_id, event_type) WHERE booking_id IS NOT NULL`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reliability_level TEXT DEFAULT 'none'`.catch(() => {});
+
   // Issue #386: Extend subscription tiers to include premium
   await sql`ALTER TABLE sitter_subscriptions DROP CONSTRAINT IF EXISTS sitter_subscriptions_tier_check`.catch(() => {});
   await sql`ALTER TABLE sitter_subscriptions ADD CONSTRAINT sitter_subscriptions_tier_check CHECK(tier IN ('free', 'pro', 'premium'))`.catch(() => {});

@@ -456,6 +456,19 @@ export interface SitterPhoto {
   created_at: string;
 }
 
+export type StrikeEventType = 'sitter_no_show' | 'sitter_cancel_24h' | 'sitter_cancel_48h' | 'meet_greet_no_show' | 'dispute_resolution';
+
+export interface Strike {
+  id: number;
+  sitter_id: number;
+  booking_id: number | null;
+  event_type: StrikeEventType;
+  strike_weight: number;
+  description: string;
+  created_at: string;
+  expires_at: string;
+}
+
 export type ExpenseCategory = 'supplies' | 'transportation' | 'insurance' | 'marketing' | 'equipment' | 'training' | 'other';
 
 export interface SitterExpense {

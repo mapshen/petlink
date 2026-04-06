@@ -9,6 +9,7 @@ import { calculateRefund } from '../cancellation.ts';
 import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing.ts';
 import { getAddonBySlug } from '../../shared/addon-catalog.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
+import { recordStrike, evaluateConsequences, getStrikeEventForCancellation } from '../reliability.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { format as formatDate } from 'date-fns';
 
@@ -619,6 +620,22 @@ export default function bookingRoutes(router: Router, io: Server): void {
         UPDATE bookings SET deposit_status = ${isSitterCancel ? 'refunded' : 'released_to_sitter'}
         WHERE id = ${bookingId}
       `;
+    }
+
+    // Record reliability strike for sitter-initiated cancellations (in transaction)
+    if (status === 'cancelled' && updated.sitter_id === req.userId) {
+      try {
+        const strikeEvent = getStrikeEventForCancellation(new Date(updated.start_time), new Date());
+        if (strikeEvent) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await sql.begin(async (tx: any) => {
+            await recordStrike(updated.sitter_id, strikeEvent, `Sitter cancelled booking #${bookingId}`, bookingId, tx);
+            await evaluateConsequences(updated.sitter_id, tx);
+          });
+        }
+      } catch (err) {
+        logger.error({ err: sanitizeError(err), bookingId }, 'Failed to record reliability strike');
+      }
     }
 
     // Strip payment_intent_id from response
