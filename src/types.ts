@@ -500,6 +500,23 @@ export interface SitterReference {
   completed_at?: string;
 }
 
+export interface OwnerTrustProfile {
+  owner_id: number;
+  name: string;
+  avatar_url: string | null;
+  member_since: string;
+  completed_bookings: number;
+  cancelled_bookings: number;
+  cancellation_rate: number;
+  avg_rating: number | null;
+  review_count: number;
+  avg_pet_accuracy: number | null;
+  avg_communication: number | null;
+  avg_preparedness: number | null;
+  pet_count: number;
+  badges: ('verified_owner')[];
+}
+
 export interface ScrapedProfile {
   name: string;
   bio: string;

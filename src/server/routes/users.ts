@@ -178,6 +178,102 @@ export default function userRoutes(router: Router): void {
     res.json({ ok: true });
   });
 
+  // --- Owner Trust Profile (for sitters) ---
+  router.get('/owners/:id/trust-profile', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ownerId = Number(req.params.id);
+      if (!Number.isInteger(ownerId) || ownerId <= 0) {
+        res.status(400).json({ error: 'Invalid owner ID' });
+        return;
+      }
+
+      // Verify requester is a sitter with a relationship to this owner
+      const [requester] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!requester?.roles?.includes('sitter')) {
+        res.status(403).json({ error: 'Only sitters can view owner trust profiles' });
+        return;
+      }
+
+      const [hasRelationship] = await sql`
+        SELECT EXISTS(
+          SELECT 1 FROM bookings WHERE sitter_id = ${req.userId} AND owner_id = ${ownerId}
+          UNION ALL
+          SELECT 1 FROM inquiries WHERE sitter_id = ${req.userId} AND owner_id = ${ownerId}
+        ) as has_relationship
+      `;
+      if (!hasRelationship?.has_relationship) {
+        res.status(403).json({ error: 'No booking or inquiry relationship with this owner' });
+        return;
+      }
+
+      // Fetch owner basic info
+      const [owner] = await sql`SELECT id, name, avatar_url, created_at FROM users WHERE id = ${ownerId}`;
+      if (!owner) {
+        res.status(404).json({ error: 'Owner not found' });
+        return;
+      }
+
+      // Parallel queries for trust data (all independent after access check)
+      // NOTE: Stats are global across all sitters (like Uber rider ratings),
+      // not scoped to the requesting sitter. This is intentional — owner
+      // reputation should reflect their entire history.
+      const [bookingStats, reviewStats, { pet_count }] = await Promise.all([
+        sql`
+          SELECT
+            count(*) FILTER (WHERE status = 'completed')::int as completed_bookings,
+            count(*) FILTER (WHERE status = 'cancelled')::int as total_cancellations
+          FROM bookings WHERE owner_id = ${ownerId}
+        `.then(r => r[0]),
+        sql`
+          SELECT
+            count(*)::int as review_count,
+            ROUND(avg(rating)::numeric, 1)::float as avg_rating,
+            ROUND(avg(pet_accuracy_rating)::numeric, 1)::float as avg_pet_accuracy,
+            ROUND(avg(communication_rating)::numeric, 1)::float as avg_communication,
+            ROUND(avg(preparedness_rating)::numeric, 1)::float as avg_preparedness
+          FROM reviews
+          WHERE reviewee_id = ${ownerId}
+            AND (published_at IS NOT NULL OR created_at < NOW() - INTERVAL '3 days')
+            AND pet_accuracy_rating IS NOT NULL
+        `.then(r => r[0]),
+        sql`SELECT count(*)::int as pet_count FROM pets WHERE owner_id = ${ownerId}`.then(r => r[0]),
+      ]);
+
+      // Compute badges
+      // NOTE: "verified_owner" = completed bookings with zero cancellations (any party).
+      // We cannot distinguish owner vs sitter cancellations without a cancelled_by column.
+      // This is a conservative metric — any cancellation disqualifies.
+      const badges: ('verified_owner')[] = [];
+      const completed = bookingStats.completed_bookings || 0;
+      const cancelled = bookingStats.total_cancellations || 0;
+      if (completed >= 1 && cancelled === 0) badges.push('verified_owner');
+
+      const totalBookings = completed + cancelled;
+
+      res.json({
+        profile: {
+          owner_id: owner.id,
+          name: owner.name,
+          avatar_url: owner.avatar_url,
+          member_since: owner.created_at,
+          completed_bookings: completed,
+          cancelled_bookings: cancelled,
+          cancellation_rate: totalBookings > 0 ? Number((cancelled / totalBookings).toFixed(3)) : 0,
+          avg_rating: reviewStats.avg_rating ?? null,
+          review_count: reviewStats.review_count || 0,
+          avg_pet_accuracy: reviewStats.avg_pet_accuracy ?? null,
+          avg_communication: reviewStats.avg_communication ?? null,
+          avg_preparedness: reviewStats.avg_preparedness ?? null,
+          pet_count,
+          badges,
+        },
+      });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch owner trust profile');
+      res.status(500).json({ error: 'Failed to load trust profile' });
+    }
+  });
+
   // --- Account Deletion (Soft Delete) ---
   router.delete('/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const userId = req.userId!;
