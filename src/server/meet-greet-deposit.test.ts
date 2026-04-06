@@ -121,12 +121,12 @@ describe('meet & greet deposit system', () => {
       "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status, created_at) VALUES (2, 1, 1, 'completed', ?, ?, 1000, 'captured_as_deposit', ?)"
     ).run(thirtyOneDaysAgo, thirtyOneDaysAgo, thirtyOneDaysAgo);
 
-    // Check: completed, captured_as_deposit, older than 30 days, no follow-up
+    // Check: completed, captured_as_deposit, end_time older than 30 days, no follow-up
     const eligible = testDb.prepare(`
       SELECT id FROM bookings
       WHERE deposit_status = 'captured_as_deposit'
         AND status = 'completed'
-        AND created_at < datetime('now', '-30 days')
+        AND end_time < datetime('now', '-30 days')
         AND NOT EXISTS (
           SELECT 1 FROM bookings b2
           WHERE b2.deposit_applied_to_booking_id = bookings.id

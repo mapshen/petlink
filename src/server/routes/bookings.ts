@@ -253,7 +253,6 @@ export default function bookingRoutes(router: Router, io: Server): void {
         }
       }
 
-      const chargeAmount = totalPrice - creditApplied;
       const [b] = await tx`
         INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status, deposit_status)
         VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending', ${isMeetGreet ? 'held' : null})

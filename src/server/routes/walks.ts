@@ -5,6 +5,7 @@ import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, quickTapEventSchema } from '../validation.ts';
 import { createNotification } from '../notifications.ts';
 import { schedulePayoutForBooking, getPayoutDelay } from '../payouts.ts';
+import { capturePayment } from '../payments.ts';
 import { MAX_POSTS_PER_SITTER } from './posts.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
@@ -83,6 +84,17 @@ export default function walkRoutes(router: Router, io: Server): void {
     // If event is 'end', update booking to completed, schedule payout, and notify owner
     if (event_type === 'end') {
       await sql`UPDATE bookings SET status = 'completed' WHERE id = ${req.params.bookingId}`;
+
+      // Capture meet & greet deposit on completion (held → captured_as_deposit)
+      if (booking.deposit_status === 'held' && booking.payment_intent_id) {
+        try {
+          await capturePayment(booking.payment_intent_id);
+          await sql`UPDATE bookings SET deposit_status = 'captured_as_deposit' WHERE id = ${req.params.bookingId}`;
+        } catch (err) {
+          logger.error({ err: sanitizeError(err), bookingId: req.params.bookingId }, 'Failed to capture meet & greet deposit');
+        }
+      }
+
       const [sitterUser] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
       const endNotif = await createNotification(booking.owner_id, 'walk_completed', 'Walk Completed', `${sitterUser.name} has completed the walk.`, { booking_id: Number(req.params.bookingId) });
       if (endNotif) io.to(String(booking.owner_id)).emit('notification', endNotif);
