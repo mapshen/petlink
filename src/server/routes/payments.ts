@@ -10,7 +10,7 @@ import { handleAccountUpdated } from '../stripe-connect.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function paymentRoutes(router: Router): void {
-  // --- Payments (direct — no Stripe Connect) ---
+  // --- Payments (destination charges via Stripe Connect) ---
   router.post('/payments/create-intent', authMiddleware, validate(paymentIntentSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
@@ -35,10 +35,10 @@ export default function paymentRoutes(router: Router): void {
 
       // Look up sitter's Connect account for destination charge
       const [sitter] = await sql`
-        SELECT stripe_account_id, stripe_payouts_enabled, subscription_tier
+        SELECT stripe_account_id, stripe_payouts_enabled, stripe_charges_enabled, subscription_tier
         FROM users WHERE id = ${booking.sitter_id}
       `;
-      if (!sitter?.stripe_account_id || !sitter.stripe_payouts_enabled) {
+      if (!sitter?.stripe_account_id || !sitter.stripe_payouts_enabled || !sitter.stripe_charges_enabled) {
         res.status(400).json({ error: 'Sitter has not completed payout setup' });
         return;
       }
@@ -225,31 +225,31 @@ export default function paymentRoutes(router: Router): void {
           await handleAccountUpdated(account);
           break;
         }
-        case 'payout.paid': {
-          const payout = event.data.object as { id: string; amount: number };
-          const connectedAccountId = (event as unknown as { account?: string }).account;
-          if (connectedAccountId) {
-            const [user] = await sql`SELECT id FROM users WHERE stripe_account_id = ${connectedAccountId}`;
-            if (user) {
-              await sql`
-                UPDATE sitter_payouts SET status = 'completed', processed_at = NOW(), stripe_transfer_id = ${payout.id}
-                WHERE sitter_id = ${user.id} AND status = 'pending'
-                  AND amount_cents = ${payout.amount}
-              `;
-            }
+        case 'transfer.created': {
+          // Per-booking transfer to sitter's connected account
+          const transfer = event.data.object as { id: string; amount: number; destination: string; metadata?: Record<string, string> };
+          const [sitter] = await sql`SELECT id FROM users WHERE stripe_account_id = ${transfer.destination}`;
+          if (sitter) {
+            // Match by sitter + amount + pending status (LIMIT 1 for oldest first)
+            await sql`
+              UPDATE sitter_payouts SET status = 'completed', processed_at = NOW(), stripe_transfer_id = ${transfer.id}
+              WHERE id = (
+                SELECT id FROM sitter_payouts
+                WHERE sitter_id = ${sitter.id} AND status = 'pending' AND amount_cents = ${transfer.amount}
+                ORDER BY created_at ASC LIMIT 1
+              )
+            `;
           }
           break;
         }
         case 'payout.failed': {
+          // Bank-level payout failure — notify sitter to update banking info
           const payout = event.data.object as { id: string; failure_message?: string };
           const connectedAccountId = (event as unknown as { account?: string }).account;
           if (connectedAccountId) {
             const [user] = await sql`SELECT id FROM users WHERE stripe_account_id = ${connectedAccountId}`;
             if (user) {
-              await sql`
-                UPDATE sitter_payouts SET status = 'failed', processed_at = NOW()
-                WHERE sitter_id = ${user.id} AND status = 'pending'
-              `;
+              logger.warn({ sitterId: user.id, payoutId: payout.id }, 'Sitter bank payout failed');
               await createNotification(
                 user.id, 'payment_update', 'Payout Failed',
                 `Your payout could not be processed. ${payout.failure_message || 'Please update your banking information.'}`,

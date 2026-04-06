@@ -5,6 +5,7 @@ import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, quickTapEventSchema } from '../validation.ts';
 import { createNotification } from '../notifications.ts';
 import { recordPayoutForBooking } from '../payouts.ts';
+import { calculateApplicationFee } from '../stripe-connect.ts';
 import { capturePayment } from '../payments.ts';
 import { MAX_POSTS_PER_SITTER } from './posts.ts';
 import logger, { sanitizeError } from '../logger.ts';
@@ -107,10 +108,13 @@ export default function walkRoutes(router: Router, io: Server): void {
 
         // Record payout tracking entry — actual payout delivery is handled by Stripe Connect
         if (booking.total_price_cents && booking.total_price_cents > 0) {
+          const [sitterInfo] = await sql`SELECT subscription_tier FROM users WHERE id = ${booking.sitter_id}`;
+          const fee = calculateApplicationFee(booking.total_price_cents, sitterInfo?.subscription_tier || 'free');
+          const sitterNet = booking.total_price_cents - fee;
           await recordPayoutForBooking(
             Number(req.params.bookingId),
             booking.sitter_id,
-            booking.total_price_cents
+            sitterNet
           );
           const payoutNotif = await createNotification(booking.sitter_id, 'payment_update', 'Payout Scheduled', 'Your payout will be processed by Stripe automatically.', { booking_id: Number(req.params.bookingId) });
           if (payoutNotif) io.to(String(booking.sitter_id)).emit('notification', payoutNotif);

@@ -20,7 +20,7 @@ export async function createPaymentIntent(
     amount,
     currency: 'usd',
     capture_method: 'manual',
-    application_fee_amount: applicationFeeAmount,
+    ...(applicationFeeAmount > 0 ? { application_fee_amount: applicationFeeAmount } : {}),
     transfer_data: {
       destination: destinationAccountId,
     },
@@ -71,7 +71,7 @@ export async function createACHPaymentIntent(
     currency: 'usd',
     customer: customerId,
     payment_method_types: ['us_bank_account'],
-    application_fee_amount: applicationFeeAmount,
+    ...(applicationFeeAmount > 0 ? { application_fee_amount: applicationFeeAmount } : {}),
     transfer_data: {
       destination: destinationAccountId,
     },
@@ -131,11 +131,13 @@ export async function cancelPayment(paymentIntentId: string): Promise<void> {
 
 export async function refundPayment(paymentIntentId: string, amountCents?: number): Promise<void> {
   const stripe = getStripe();
+  const isFullRefund = amountCents === undefined;
   await stripe.refunds.create({
     payment_intent: paymentIntentId,
-    ...(amountCents !== undefined ? { amount: amountCents } : {}),
+    ...(isFullRefund ? {} : { amount: amountCents }),
     reverse_transfer: true,
-    refund_application_fee: true,
+    // Only refund full application fee on full refunds; partial refunds get proportional reversal
+    refund_application_fee: isFullRefund,
   });
 }
 

@@ -64,7 +64,7 @@ describe('payments', () => {
     expect(event.type).toBe('payment_intent.succeeded');
   });
 
-  it('refundPayment with partial amount calls refunds.create with reverse_transfer', async () => {
+  it('refundPayment with partial amount calls refunds.create with reverse_transfer but no fee refund', async () => {
     mockRefunds.create.mockClear();
     const { refundPayment } = await import('./payments.ts');
     await refundPayment('pi_test123', 2500);
@@ -72,11 +72,11 @@ describe('payments', () => {
       payment_intent: 'pi_test123',
       amount: 2500,
       reverse_transfer: true,
-      refund_application_fee: true,
+      refund_application_fee: false,
     });
   });
 
-  it('refundPayment without amount calls refunds.create for full refund with reverse_transfer', async () => {
+  it('refundPayment without amount calls refunds.create for full refund with fee refund', async () => {
     mockRefunds.create.mockClear();
     const { refundPayment } = await import('./payments.ts');
     await refundPayment('pi_test123');

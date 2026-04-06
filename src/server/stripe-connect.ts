@@ -31,14 +31,21 @@ export async function createConnectAccount(
     metadata: { petlink_user_id: String(userId) },
   });
 
-  await sql`
+  // Atomic write — only succeeds if no account was set between the caller's check and now
+  const [updated] = await sql`
     UPDATE users
     SET stripe_account_id = ${account.id},
         stripe_connect_status = 'onboarding',
         stripe_payouts_enabled = FALSE,
         stripe_charges_enabled = FALSE
-    WHERE id = ${userId}
+    WHERE id = ${userId} AND stripe_account_id IS NULL
+    RETURNING id
   `;
+  if (!updated) {
+    // Race condition: another request won — clean up the orphaned Stripe account
+    await stripe.accounts.del(account.id);
+    throw new Error('Connect account already exists');
+  }
 
   return { stripeAccountId: account.id };
 }
@@ -66,29 +73,29 @@ export async function createAccountLink(
 }
 
 /**
- * Retrieve the current status of a connected account from Stripe
- * and sync it to the database.
+ * Determine connect status from Stripe account flags.
  */
-export async function syncConnectAccountStatus(
-  stripeAccountId: string
+function determineConnectStatus(
+  chargesEnabled: boolean,
+  payoutsEnabled: boolean,
+  hasRequirements: boolean,
+  disabledReason: string | null | undefined
+): ConnectStatus {
+  if (chargesEnabled && payoutsEnabled) return 'active';
+  if (disabledReason) return 'disabled';
+  if (hasRequirements && (chargesEnabled || payoutsEnabled)) return 'restricted';
+  return 'onboarding';
+}
+
+/**
+ * Sync connect status to the database and return the info.
+ */
+async function syncStatusToDb(
+  stripeAccountId: string,
+  chargesEnabled: boolean,
+  payoutsEnabled: boolean,
+  status: ConnectStatus
 ): Promise<ConnectAccountInfo> {
-  const stripe = getStripe();
-  const account = await stripe.accounts.retrieve(stripeAccountId);
-
-  const chargesEnabled = account.charges_enabled ?? false;
-  const payoutsEnabled = account.payouts_enabled ?? false;
-  const hasRequirements = (account.requirements?.currently_due?.length ?? 0) > 0;
-  const disabledReason = account.requirements?.disabled_reason;
-
-  let status: ConnectStatus = 'onboarding';
-  if (chargesEnabled && payoutsEnabled) {
-    status = 'active';
-  } else if (disabledReason) {
-    status = 'disabled';
-  } else if (hasRequirements && (chargesEnabled || payoutsEnabled)) {
-    status = 'restricted';
-  }
-
   await sql`
     UPDATE users
     SET stripe_connect_status = ${status},
@@ -106,6 +113,25 @@ export async function syncConnectAccountStatus(
 }
 
 /**
+ * Retrieve the current status of a connected account from Stripe
+ * and sync it to the database.
+ */
+export async function syncConnectAccountStatus(
+  stripeAccountId: string
+): Promise<ConnectAccountInfo> {
+  const stripe = getStripe();
+  const account = await stripe.accounts.retrieve(stripeAccountId);
+
+  const chargesEnabled = account.charges_enabled ?? false;
+  const payoutsEnabled = account.payouts_enabled ?? false;
+  const hasRequirements = (account.requirements?.currently_due?.length ?? 0) > 0;
+  const disabledReason = account.requirements?.disabled_reason;
+  const status = determineConnectStatus(chargesEnabled, payoutsEnabled, hasRequirements, disabledReason);
+
+  return syncStatusToDb(stripeAccountId, chargesEnabled, payoutsEnabled, status);
+}
+
+/**
  * Handle account.updated webhook — sync status from Stripe event data.
  */
 export async function handleAccountUpdated(
@@ -120,32 +146,11 @@ export async function handleAccountUpdated(
   const payoutsEnabled = account.payouts_enabled ?? false;
   const hasRequirements = (account.requirements?.currently_due?.length ?? 0) > 0;
   const disabledReason = account.requirements?.disabled_reason;
-
-  let status: ConnectStatus = 'onboarding';
-  if (chargesEnabled && payoutsEnabled) {
-    status = 'active';
-  } else if (disabledReason) {
-    status = 'disabled';
-  } else if (hasRequirements && (chargesEnabled || payoutsEnabled)) {
-    status = 'restricted';
-  }
-
-  await sql`
-    UPDATE users
-    SET stripe_connect_status = ${status},
-        stripe_payouts_enabled = ${payoutsEnabled},
-        stripe_charges_enabled = ${chargesEnabled}
-    WHERE stripe_account_id = ${account.id}
-  `;
+  const status = determineConnectStatus(chargesEnabled, payoutsEnabled, hasRequirements, disabledReason);
 
   logger.info({ stripeAccountId: account.id, status, chargesEnabled, payoutsEnabled }, 'Connect account status synced');
 
-  return {
-    stripe_account_id: account.id,
-    stripe_connect_status: status,
-    stripe_payouts_enabled: payoutsEnabled,
-    stripe_charges_enabled: chargesEnabled,
-  };
+  return syncStatusToDb(account.id, chargesEnabled, payoutsEnabled, status);
 }
 
 /**

@@ -83,11 +83,12 @@ export default function ConnectSetup({ token }: ConnectSetupProps) {
           method: 'POST',
           headers: getAuthHeaders(token),
         });
-        if (!createRes.ok) {
+        if (!createRes.ok && createRes.status !== 409) {
           const data = await createRes.json().catch(() => ({}));
           setError(data.error || 'Failed to create payout account');
           return;
         }
+        // 409 = already exists, continue to onboarding link
       }
 
       // Get onboarding link

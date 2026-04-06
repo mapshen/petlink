@@ -44,7 +44,11 @@ export default function connectRoutes(router: Router): void {
         return;
       }
 
-      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.APP_URL;
+      if (!baseUrl) {
+        res.status(500).json({ error: 'Server misconfiguration: APP_URL not set' });
+        return;
+      }
       const type = req.body.type === 'account_update' ? 'account_update' as const : 'account_onboarding' as const;
 
       const { url, expiresAt } = await createAccountLink(
@@ -102,7 +106,11 @@ export default function connectRoutes(router: Router): void {
         return;
       }
 
-      const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.APP_URL;
+      if (!baseUrl) {
+        res.status(500).json({ error: 'Server misconfiguration: APP_URL not set' });
+        return;
+      }
       const { url, expiresAt } = await createAccountLink(
         user.stripe_account_id,
         `${baseUrl}/connect/return`,

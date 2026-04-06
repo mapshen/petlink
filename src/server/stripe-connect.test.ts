@@ -13,7 +13,7 @@ const {
   const acUpdate = vi.fn();
   const alCreate = vi.fn();
   const instance = {
-    accounts: { create: acCreate, retrieve: acRetrieve, update: acUpdate },
+    accounts: { create: acCreate, retrieve: acRetrieve, update: acUpdate, del: vi.fn() },
     accountLinks: { create: alCreate },
   };
   return {
@@ -52,8 +52,8 @@ describe('stripe-connect', () => {
   describe('createConnectAccount', () => {
     it('creates Express account and stores ID in database', async () => {
       mockAccountsCreate.mockResolvedValueOnce({ id: 'acct_test123' });
-      // DB UPDATE call
-      mockSqlFn.mockResolvedValueOnce([{ count: 1 }]);
+      // Atomic UPDATE ... WHERE stripe_account_id IS NULL RETURNING id
+      mockSqlFn.mockResolvedValueOnce([{ id: 42 }]);
 
       const result = await createConnectAccount(42, 'sitter@example.com');
 
@@ -63,6 +63,16 @@ describe('stripe-connect', () => {
         email: 'sitter@example.com',
         metadata: { petlink_user_id: '42' },
       }));
+    });
+
+    it('deletes orphaned Stripe account on race condition', async () => {
+      mockStripeInstance.accounts.del.mockResolvedValueOnce({});
+      mockAccountsCreate.mockResolvedValueOnce({ id: 'acct_orphan' });
+      // Atomic UPDATE returns empty — another request won the race
+      mockSqlFn.mockResolvedValueOnce([]);
+
+      await expect(createConnectAccount(42, 'sitter@example.com')).rejects.toThrow('Connect account already exists');
+      expect(mockStripeInstance.accounts.del).toHaveBeenCalledWith('acct_orphan');
     });
   });
 
