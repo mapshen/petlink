@@ -82,8 +82,8 @@ export default function AddonsTab() {
 
   const saveEdit = async (addon: SitterAddon) => {
     const priceCents = Math.round(parseFloat(editPrice) * 100);
-    if (isNaN(priceCents) || priceCents < 0) {
-      setError('Invalid price');
+    if (isNaN(priceCents) || priceCents < 0 || priceCents > 50000) {
+      setError('Price must be between $0 and $500');
       return;
     }
     setSaving(true);
@@ -94,11 +94,14 @@ export default function AddonsTab() {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
         body: JSON.stringify({ price_cents: priceCents, notes: editNotes || null }),
       });
-      if (!res.ok) throw new Error('Failed to update add-on');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update add-on');
+      }
       setEditingSlug(null);
       await fetchAddons();
-    } catch {
-      setError('Failed to update add-on');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update add-on');
     } finally {
       setSaving(false);
     }

@@ -347,6 +347,17 @@ describe('PUT /addons/:id', () => {
     expect(res.body.addon.price_cents).toBe(0);
   });
 
+  it('returns 400 when canOfferFree is false and price is 0', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ id: 10, sitter_id: 1, addon_slug: 'medication_admin', price_cents: 500, notes: null }] as any);
+
+    const res = await request(app)
+      .put('/addons/10')
+      .send({ price_cents: 0 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('This add-on requires a price above $0');
+  });
+
   it('returns 404 when add-on not found', async () => {
     mockSqlFn.mockResolvedValueOnce([] as any);
 
