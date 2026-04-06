@@ -30,6 +30,15 @@ export default function tipRoutes(router: Router): void {
         return;
       }
 
+      // Verify sitter has a Connect account for receiving tips
+      const [sitter] = await sql`
+        SELECT stripe_account_id, stripe_payouts_enabled, stripe_charges_enabled FROM users WHERE id = ${booking.sitter_id}
+      `;
+      if (!sitter?.stripe_account_id || !sitter.stripe_payouts_enabled || !sitter.stripe_charges_enabled) {
+        res.status(400).json({ error: 'Sitter has not completed payout setup' });
+        return;
+      }
+
       // Use advisory lock + transaction to prevent race condition on tip creation
       const result = await sql.begin(async (tx: any) => {
         await tx`SELECT pg_advisory_xact_lock(2, ${booking_id})`; // namespace 2 = tips (1 = bookings)
@@ -51,7 +60,7 @@ export default function tipRoutes(router: Router): void {
           RETURNING id, booking_id, tipper_id, sitter_id, amount_cents, status, created_at
         `;
 
-        const { clientSecret, paymentIntentId } = await createAutoPaymentIntent(amount_cents);
+        const { clientSecret, paymentIntentId } = await createAutoPaymentIntent(amount_cents, sitter.stripe_account_id);
         await tx`UPDATE tips SET stripe_payment_intent_id = ${paymentIntentId} WHERE id = ${tip.id}`;
 
         return { tip, clientSecret };

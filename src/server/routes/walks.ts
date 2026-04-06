@@ -4,7 +4,8 @@ import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, quickTapEventSchema } from '../validation.ts';
 import { createNotification } from '../notifications.ts';
-import { schedulePayoutForBooking, getPayoutDelay } from '../payouts.ts';
+import { recordPayoutForBooking } from '../payouts.ts';
+import { calculateApplicationFee } from '../stripe-connect.ts';
 import { capturePayment } from '../payments.ts';
 import { MAX_POSTS_PER_SITTER } from './posts.ts';
 import logger, { sanitizeError } from '../logger.ts';
@@ -105,18 +106,17 @@ export default function walkRoutes(router: Router, io: Server): void {
         const endNotif = await createNotification(booking.owner_id, 'walk_completed', 'Walk Completed', `${sitterUser.name} has completed the walk.`, { booking_id: Number(req.params.bookingId) });
         if (endNotif) io.to(String(booking.owner_id)).emit('notification', endNotif);
 
-        // Schedule delayed payout for sitter
-        // NOTE: Payouts are currently only triggered for walk-type bookings (via walk end event).
-        // This is acceptable for now since walks are the only booking type with a completion path.
+        // Record payout tracking entry — actual payout delivery is handled by Stripe Connect
         if (booking.total_price_cents && booking.total_price_cents > 0) {
-          const delayDays = await getPayoutDelay(booking.sitter_id);
-          await schedulePayoutForBooking(
+          const [sitterInfo] = await sql`SELECT subscription_tier FROM users WHERE id = ${booking.sitter_id}`;
+          const fee = calculateApplicationFee(booking.total_price_cents, sitterInfo?.subscription_tier || 'free');
+          const sitterNet = booking.total_price_cents - fee;
+          await recordPayoutForBooking(
             Number(req.params.bookingId),
             booking.sitter_id,
-            booking.total_price_cents,
-            delayDays
+            sitterNet
           );
-          const payoutNotif = await createNotification(booking.sitter_id, 'payment_update', 'Payout Scheduled', 'A payout has been scheduled for your completed booking.', { booking_id: Number(req.params.bookingId) });
+          const payoutNotif = await createNotification(booking.sitter_id, 'payment_update', 'Payout Scheduled', 'Your payout will be processed by Stripe automatically.', { booking_id: Number(req.params.bookingId) });
           if (payoutNotif) io.to(String(booking.sitter_id)).emit('notification', payoutNotif);
         }
       }

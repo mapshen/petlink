@@ -36,11 +36,16 @@ describe('payments', () => {
     process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_fake';
   });
 
-  it('createPaymentIntent returns client secret and id', async () => {
+  it('createPaymentIntent returns client secret and id with Connect destination', async () => {
     const { createPaymentIntent } = await import('./payments.ts');
-    const result = await createPaymentIntent(5000);
+    const result = await createPaymentIntent(5000, 'acct_sitter123', 750);
     expect(result.paymentIntentId).toBe('pi_test123');
     expect(result.clientSecret).toBe('pi_test123_secret_xyz');
+    expect(mockPaymentIntents.create).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 5000,
+      application_fee_amount: 750,
+      transfer_data: { destination: 'acct_sitter123' },
+    }));
   });
 
   it('capturePayment does not throw', async () => {
@@ -59,22 +64,26 @@ describe('payments', () => {
     expect(event.type).toBe('payment_intent.succeeded');
   });
 
-  it('refundPayment with partial amount calls refunds.create with amount', async () => {
+  it('refundPayment with partial amount calls refunds.create with reverse_transfer but no fee refund', async () => {
     mockRefunds.create.mockClear();
     const { refundPayment } = await import('./payments.ts');
     await refundPayment('pi_test123', 2500);
     expect(mockRefunds.create).toHaveBeenCalledWith({
       payment_intent: 'pi_test123',
       amount: 2500,
+      reverse_transfer: true,
+      refund_application_fee: false,
     });
   });
 
-  it('refundPayment without amount calls refunds.create for full refund', async () => {
+  it('refundPayment without amount calls refunds.create for full refund with fee refund', async () => {
     mockRefunds.create.mockClear();
     const { refundPayment } = await import('./payments.ts');
     await refundPayment('pi_test123');
     expect(mockRefunds.create).toHaveBeenCalledWith({
       payment_intent: 'pi_test123',
+      reverse_transfer: true,
+      refund_application_fee: true,
     });
   });
 });

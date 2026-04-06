@@ -2,17 +2,19 @@ import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, paymentIntentSchema, paymentActionSchema } from '../validation.ts';
-import { createPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent, listPaymentMethods, detachPaymentMethod, listCharges, createFinancialConnectionsSession, listBankAccounts, detachBankAccount } from '../payments.ts';
+import { createPaymentIntent, createACHPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent, listPaymentMethods, detachPaymentMethod, listCharges, createFinancialConnectionsSession, listBankAccounts, detachBankAccount } from '../payments.ts';
+import { calculateApplicationFee } from '../stripe-connect.ts';
 import { getPayoutsForSitter, getPendingPayoutsForSitter } from '../payouts.ts';
 import { createNotification } from '../notifications.ts';
+import { handleAccountUpdated } from '../stripe-connect.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function paymentRoutes(router: Router): void {
-  // --- Payments (direct — no Stripe Connect) ---
+  // --- Payments (destination charges via Stripe Connect) ---
   router.post('/payments/create-intent', authMiddleware, validate(paymentIntentSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const { booking_id } = req.body;
-      const [booking] = await sql`SELECT * FROM bookings WHERE id = ${booking_id} AND owner_id = ${req.userId}`;
+      const [booking] = await sql`SELECT id, owner_id, sitter_id, status, payment_intent_id, total_price_cents FROM bookings WHERE id = ${booking_id} AND owner_id = ${req.userId}`;
       if (!booking) {
         res.status(404).json({ error: 'Booking not found' });
         return;
@@ -30,7 +32,19 @@ export default function paymentRoutes(router: Router): void {
         res.status(400).json({ error: 'No payment required for free bookings' });
         return;
       }
-      const { clientSecret, paymentIntentId } = await createPaymentIntent(amountCents);
+
+      // Look up sitter's Connect account for destination charge
+      const [sitter] = await sql`
+        SELECT stripe_account_id, stripe_payouts_enabled, stripe_charges_enabled, subscription_tier
+        FROM users WHERE id = ${booking.sitter_id}
+      `;
+      if (!sitter?.stripe_account_id || !sitter.stripe_payouts_enabled || !sitter.stripe_charges_enabled) {
+        res.status(400).json({ error: 'Sitter has not completed payout setup' });
+        return;
+      }
+
+      const applicationFee = calculateApplicationFee(amountCents, sitter.subscription_tier || 'free');
+      const { clientSecret, paymentIntentId } = await createPaymentIntent(amountCents, sitter.stripe_account_id, applicationFee);
       await sql`UPDATE bookings SET payment_intent_id = ${paymentIntentId}, payment_status = 'held' WHERE id = ${booking_id}`;
       res.json({ clientSecret });
     } catch (error) {
@@ -198,6 +212,50 @@ export default function paymentRoutes(router: Router): void {
               UPDATE sitter_subscriptions SET status = 'past_due', updated_at = NOW()
               WHERE stripe_subscription_id = ${invoice.subscription}
             `;
+          }
+          break;
+        }
+        case 'account.updated': {
+          const account = event.data.object as {
+            id: string;
+            charges_enabled?: boolean;
+            payouts_enabled?: boolean;
+            requirements?: { currently_due?: string[]; disabled_reason?: string | null };
+          };
+          await handleAccountUpdated(account);
+          break;
+        }
+        case 'transfer.created': {
+          // Per-booking transfer to sitter's connected account
+          const transfer = event.data.object as { id: string; amount: number; destination: string; metadata?: Record<string, string> };
+          const [sitter] = await sql`SELECT id FROM users WHERE stripe_account_id = ${transfer.destination}`;
+          if (sitter) {
+            // Match by sitter + amount + pending status (LIMIT 1 for oldest first)
+            await sql`
+              UPDATE sitter_payouts SET status = 'completed', processed_at = NOW(), stripe_transfer_id = ${transfer.id}
+              WHERE id = (
+                SELECT id FROM sitter_payouts
+                WHERE sitter_id = ${sitter.id} AND status = 'pending' AND amount_cents = ${transfer.amount}
+                ORDER BY created_at ASC LIMIT 1
+              )
+            `;
+          }
+          break;
+        }
+        case 'payout.failed': {
+          // Bank-level payout failure — notify sitter to update banking info
+          const payout = event.data.object as { id: string; failure_message?: string };
+          const connectedAccountId = (event as unknown as { account?: string }).account;
+          if (connectedAccountId) {
+            const [user] = await sql`SELECT id FROM users WHERE stripe_account_id = ${connectedAccountId}`;
+            if (user) {
+              logger.warn({ sitterId: user.id, payoutId: payout.id }, 'Sitter bank payout failed');
+              await createNotification(
+                user.id, 'payment_update', 'Payout Failed',
+                `Your payout could not be processed. ${payout.failure_message || 'Please update your banking information.'}`,
+                {}
+              );
+            }
           }
           break;
         }

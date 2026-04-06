@@ -189,9 +189,13 @@ export default function bookingRoutes(router: Router, io: Server): void {
       res.status(400).json({ error: 'Cannot book yourself' });
       return;
     }
-    const [sitterUser] = await sql`SELECT approval_status FROM users WHERE id = ${sitter_id}`;
+    const [sitterUser] = await sql`SELECT approval_status, stripe_payouts_enabled, stripe_charges_enabled FROM users WHERE id = ${sitter_id}`;
     if (!sitterUser || sitterUser.approval_status !== 'approved') {
       res.status(400).json({ error: 'This sitter is not currently available for bookings' });
+      return;
+    }
+    if (!sitterUser.stripe_payouts_enabled || !sitterUser.stripe_charges_enabled) {
+      res.status(400).json({ error: 'This sitter has not completed payout setup and cannot accept bookings yet' });
       return;
     }
     const [service] = await sql`SELECT id, price_cents, type, additional_pet_price_cents, max_pets, holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;

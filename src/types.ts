@@ -20,6 +20,7 @@ export interface SitterWithService extends User {
 export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
 
 export type SubscriptionTier = 'free' | 'pro';
+export type ConnectStatus = 'not_started' | 'onboarding' | 'active' | 'restricted' | 'disabled';
 
 export interface SitterSubscription {
   id: number;

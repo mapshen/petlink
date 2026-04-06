@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { API_BASE } from '../../config';
-import { User, KeyRound, Link2, Crown, Bell, Trash2, Phone } from 'lucide-react';
+import { User, KeyRound, Link2, Crown, Bell, Trash2, Phone, Banknote } from 'lucide-react';
 import LinkedAccounts from '../../components/profile/LinkedAccounts';
 import SubscriptionPage from '../profile/SubscriptionPage';
 import PasswordSection from './PasswordSection';
 import NotificationSection from './NotificationSection';
 import EmergencyContactForm from './EmergencyContactForm';
+import ConnectSetup from '../../components/payment/ConnectSetup';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'emergency', label: 'Emergency Contact', icon: Phone },
   { id: 'security', label: 'Security', icon: KeyRound },
   { id: 'linked', label: 'Linked Accounts', icon: Link2 },
+  { id: 'payouts', label: 'Payouts', icon: Banknote },
   { id: 'subscription', label: 'Subscription', icon: Crown },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'danger', label: 'Danger Zone', icon: Trash2 },
@@ -74,6 +76,7 @@ export default function SettingsPage() {
 
   const visibleSections = ALL_SECTIONS.filter((s) => {
     if (s.id === 'subscription' && !isSitter) return false;
+    if (s.id === 'payouts' && !isSitter) return false;
     return true;
   });
 
@@ -151,6 +154,19 @@ export default function SettingsPage() {
               <LinkedAccounts embedded />
             </div>
           </div>
+
+          {/* Payouts (sitters only) */}
+          {isSitter && (
+            <div id="settings-payouts" className="bg-white rounded-2xl border border-stone-100 overflow-hidden scroll-mt-24">
+              <div className="px-6 py-4 border-b border-stone-100">
+                <h2 className="font-bold text-sm">Payouts</h2>
+                <p className="text-xs text-stone-400 mt-0.5">Manage your Stripe payout account</p>
+              </div>
+              <div className="px-6 py-5">
+                <ConnectSetup token={token} />
+              </div>
+            </div>
+          )}
 
           {/* Subscription (sitters only) */}
           {isSitter && (
