@@ -6,11 +6,12 @@ const { mockSqlFn, mockTxFn, mockBeginFn } = vi.hoisted(() => {
   const beginFn = vi.fn(async (cb: (tx: any) => Promise<any>) => cb(txFn));
   const sqlFn = vi.fn();
   (sqlFn as any).begin = beginFn;
+  (sqlFn as any).unsafe = vi.fn((s: string) => s);
   return { mockSqlFn: sqlFn, mockTxFn: txFn, mockBeginFn: beginFn };
 });
 vi.mock('./db.ts', () => ({ default: mockSqlFn }));
 
-const mockSendEmail = vi.fn().mockResolvedValue(null);
+const mockSendEmail = vi.fn().mockResolvedValue({ id: 'msg_123' });
 const mockEscapeHtml = vi.fn((s: string) => s);
 vi.mock('./email.ts', () => ({
   sendEmail: (...args: unknown[]) => mockSendEmail(...args),
@@ -24,133 +25,182 @@ vi.mock('./logger.ts', () => ({
   sanitizeError: (e: unknown) => e,
 }));
 
+const mockGetBalance = vi.fn();
+const mockApplyCredits = vi.fn();
+vi.mock('./credits.ts', () => ({
+  getBalance: (...args: unknown[]) => mockGetBalance(...args),
+  applyCredits: (...args: unknown[]) => mockApplyCredits(...args),
+  issueCredit: vi.fn().mockResolvedValue({ id: 1, amount_cents: 12000 }),
+}));
+
 // --- Import after mocks ---
 import { checkCreditLowWarnings } from './credit-low-warning.ts';
+import { betaCreditSchema } from './validation.ts';
 
-describe('beta-credits', () => {
+describe('credit low warning scheduler', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  // --- Credit Low Warning Scheduler ---
-  describe('checkCreditLowWarnings', () => {
-    it('sends warning email for sitters with low balance (0 < balance < $10)', async () => {
-      // Query 1: find sitters with low balance
-      mockSqlFn.mockResolvedValueOnce([
-        { sitter_id: 42, email: 'sitter@example.com', name: 'Jane', balance_cents: 800 },
-      ]);
-      // Query 2: update credit_low_warning_sent_at
-      mockSqlFn.mockResolvedValueOnce([]);
+  it('sends warning email for sitters with low balance (0 < balance < $10)', async () => {
+    mockSqlFn.mockResolvedValueOnce([
+      { sitter_id: 42, email: 'sitter@example.com', name: 'Jane', balance_cents: 800 },
+    ]);
+    mockSqlFn.mockResolvedValueOnce([]);
 
-      const sent = await checkCreditLowWarnings();
-      expect(sent).toBe(1);
-      expect(mockSendEmail).toHaveBeenCalledTimes(1);
-    });
+    const sent = await checkCreditLowWarnings();
+    expect(sent).toBe(1);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledWith(expect.objectContaining({
+      to: 'sitter@example.com',
+      subject: 'Credits running low',
+    }));
+  });
 
-    it('does not send warning for sitters with zero balance', async () => {
-      mockSqlFn.mockResolvedValueOnce([]);
+  it('does not send warning for sitters with zero balance', async () => {
+    mockSqlFn.mockResolvedValueOnce([]);
 
-      const sent = await checkCreditLowWarnings();
-      expect(sent).toBe(0);
-      expect(mockSendEmail).not.toHaveBeenCalled();
-    });
+    const sent = await checkCreditLowWarnings();
+    expect(sent).toBe(0);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
 
-    it('does not re-warn sitters already warned within 25 days', async () => {
-      // The SQL query filters out sitters warned within 25 days, so empty result
-      mockSqlFn.mockResolvedValueOnce([]);
+  it('does not re-warn sitters already warned within 25 days', async () => {
+    mockSqlFn.mockResolvedValueOnce([]);
+    const sent = await checkCreditLowWarnings();
+    expect(sent).toBe(0);
+  });
 
-      const sent = await checkCreditLowWarnings();
-      expect(sent).toBe(0);
-    });
+  it('handles multiple sitters with low balances', async () => {
+    mockSqlFn.mockResolvedValueOnce([
+      { sitter_id: 42, email: 'a@example.com', name: 'A', balance_cents: 500 },
+      { sitter_id: 43, email: 'b@example.com', name: 'B', balance_cents: 900 },
+    ]);
+    mockSqlFn.mockResolvedValueOnce([]);
+    mockSqlFn.mockResolvedValueOnce([]);
 
-    it('handles multiple sitters with low balances', async () => {
-      mockSqlFn.mockResolvedValueOnce([
-        { sitter_id: 42, email: 'a@example.com', name: 'A', balance_cents: 500 },
-        { sitter_id: 43, email: 'b@example.com', name: 'B', balance_cents: 900 },
-      ]);
-      // Two update queries
-      mockSqlFn.mockResolvedValueOnce([]);
-      mockSqlFn.mockResolvedValueOnce([]);
+    const sent = await checkCreditLowWarnings();
+    expect(sent).toBe(2);
+    expect(mockSendEmail).toHaveBeenCalledTimes(2);
+  });
 
-      const sent = await checkCreditLowWarnings();
-      expect(sent).toBe(2);
-      expect(mockSendEmail).toHaveBeenCalledTimes(2);
-    });
+  it('does NOT mark as warned when email fails', async () => {
+    mockSqlFn.mockResolvedValueOnce([
+      { sitter_id: 42, email: 'a@example.com', name: 'A', balance_cents: 500 },
+      { sitter_id: 43, email: 'b@example.com', name: 'B', balance_cents: 900 },
+    ]);
+    // First email fails
+    mockSendEmail.mockRejectedValueOnce(new Error('email failed'));
+    // Second email succeeds
+    mockSendEmail.mockResolvedValueOnce({ id: 'msg_456' });
+    // Only one UPDATE for the successful send
+    mockSqlFn.mockResolvedValueOnce([]);
 
-    it('continues processing when email send fails for one sitter', async () => {
-      mockSqlFn.mockResolvedValueOnce([
-        { sitter_id: 42, email: 'a@example.com', name: 'A', balance_cents: 500 },
-        { sitter_id: 43, email: 'b@example.com', name: 'B', balance_cents: 900 },
-      ]);
-      // First email fails, second succeeds
-      mockSendEmail.mockRejectedValueOnce(new Error('email failed'));
-      mockSqlFn.mockResolvedValueOnce([]);
-      mockSqlFn.mockResolvedValueOnce([]);
-
-      const sent = await checkCreditLowWarnings();
-      // Both still count as "processed" (warning_sent_at updated even if email fails)
-      expect(sent).toBe(2);
-    });
+    const sent = await checkCreditLowWarnings();
+    // Only one succeeded
+    expect(sent).toBe(1);
+    // SQL called: 1 (query) + 1 (update for sitter 43 only) = 2
+    expect(mockSqlFn).toHaveBeenCalledTimes(2);
   });
 });
 
-// --- Invoice Paid Handler Tests ---
-describe('invoice.paid webhook handler logic', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('should skip if subscription not found', () => {
-    // This tests the guard: if no sitter_subscription matches, return early
-    // Tested at integration level in the webhook route
-    expect(true).toBe(true);
-  });
-
-  it('should skip credit application when balance is zero', () => {
-    // If balance is 0, no credit should be applied
-    // Verified by the getBalance check returning 0
-    expect(true).toBe(true);
-  });
-
-  it('should apply min(balance, invoiceAmount) as credit', () => {
-    // If balance is 800 and invoice is 1999, apply 800
+// --- Invoice Paid Credit Application Logic ---
+describe('invoice.paid credit application logic', () => {
+  it('applies min(balance, invoiceAmount) when balance < invoice', () => {
     const balance = 800;
     const invoiceAmount = 1999;
     const applyAmount = Math.min(balance, invoiceAmount);
     expect(applyAmount).toBe(800);
   });
 
-  it('should cap credit application at invoice amount', () => {
-    // If balance is 5000 and invoice is 1999, apply 1999
+  it('caps credit application at invoice amount when balance > invoice', () => {
     const balance = 5000;
     const invoiceAmount = 1999;
     const applyAmount = Math.min(balance, invoiceAmount);
     expect(applyAmount).toBe(1999);
   });
+
+  it('applies exact balance when balance equals invoice', () => {
+    const balance = 1999;
+    const invoiceAmount = 1999;
+    const applyAmount = Math.min(balance, invoiceAmount);
+    expect(applyAmount).toBe(1999);
+  });
+
+  it('does not apply credits when balance is zero', () => {
+    const balance = 0;
+    const invoiceAmount = 1999;
+    const shouldApply = balance > 0;
+    expect(shouldApply).toBe(false);
+  });
 });
 
-// --- Beta Cohort Validation Tests ---
+// --- Beta Credit Schema Validation ---
+describe('betaCreditSchema validation', () => {
+  it('accepts valid founding cohort with valid amount', () => {
+    const result = betaCreditSchema.safeParse({ amount_cents: 12000, cohort: 'founding' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts valid early_beta cohort', () => {
+    const result = betaCreditSchema.safeParse({ amount_cents: 6000, cohort: 'early_beta' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts valid post_beta cohort', () => {
+    const result = betaCreditSchema.safeParse({ amount_cents: 2000, cohort: 'post_beta' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects amount below minimum ($20)', () => {
+    const result = betaCreditSchema.safeParse({ amount_cents: 1999, cohort: 'post_beta' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects amount above maximum ($240)', () => {
+    const result = betaCreditSchema.safeParse({ amount_cents: 24001, cohort: 'founding' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid cohort', () => {
+    const result = betaCreditSchema.safeParse({ amount_cents: 12000, cohort: 'unknown' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-integer amount', () => {
+    const result = betaCreditSchema.safeParse({ amount_cents: 12000.5, cohort: 'founding' });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts max founding amount ($240)', () => {
+    const result = betaCreditSchema.safeParse({ amount_cents: 24000, cohort: 'founding' });
+    expect(result.success).toBe(true);
+  });
+});
+
+// --- Cohort Range Validation ---
 describe('beta cohort credit ranges', () => {
   const COHORT_RANGES = {
-    founding: { min: 12000, max: 24000 },    // $120-$240
-    early_beta: { min: 6000, max: 12000 },   // $60-$120
-    post_beta: { min: 2000, max: 4000 },     // $20-$40
+    founding: { min: 12000, max: 24000 },
+    early_beta: { min: 6000, max: 12000 },
+    post_beta: { min: 2000, max: 4000 },
   } as const;
 
-  it('founding sitter range is $120-$240', () => {
+  it('founding range covers $120-$240', () => {
     expect(COHORT_RANGES.founding.min).toBe(12000);
     expect(COHORT_RANGES.founding.max).toBe(24000);
   });
 
-  it('early_beta range is $60-$120', () => {
+  it('early_beta range covers $60-$120', () => {
     expect(COHORT_RANGES.early_beta.min).toBe(6000);
     expect(COHORT_RANGES.early_beta.max).toBe(12000);
   });
 
-  it('post_beta range is $20-$40', () => {
+  it('post_beta range covers $20-$40', () => {
     expect(COHORT_RANGES.post_beta.min).toBe(2000);
     expect(COHORT_RANGES.post_beta.max).toBe(4000);
   });
 
   it('rejects amounts outside cohort range', () => {
-    const cohort = 'founding' as keyof typeof COHORT_RANGES;
-    const range = COHORT_RANGES[cohort];
+    const range = COHORT_RANGES.founding;
     expect(11999 >= range.min).toBe(false);
     expect(24001 <= range.max).toBe(false);
   });

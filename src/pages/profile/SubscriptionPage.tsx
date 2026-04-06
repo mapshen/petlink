@@ -5,6 +5,7 @@ import { Crown, Check, Zap, Shield, Clock, AlertCircle, CreditCard, Star, Trendi
 import SubscriptionPaymentForm from '../../components/payment/SubscriptionPaymentForm';
 import { API_BASE } from '../../config';
 import type { SitterSubscription, SubscriptionTier } from '../../types';
+import { formatCents } from '../../lib/money';
 import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -261,7 +262,7 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
                   <p className="text-xs text-emerald-600">Auto-applied to subscription renewals</p>
                 </div>
               </div>
-              <div className="text-xl font-bold text-emerald-700">${(creditBalance / 100).toFixed(2)}</div>
+              <div className="text-xl font-bold text-emerald-700">{formatCents(creditBalance)}</div>
             </div>
           )}
 

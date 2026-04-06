@@ -3,10 +3,12 @@ import { sendEmail, buildCreditLowWarningEmail } from './email.ts';
 import logger, { sanitizeError } from './logger.ts';
 
 const LOW_BALANCE_THRESHOLD_CENTS = 1000; // $10
+const REWARNING_INTERVAL_DAYS = 25;
 
 /**
  * Check for sitters with low credit balances and send warning emails.
  * Runs daily. Only warns once every 25 days per sitter.
+ * Only marks as warned if email send succeeds.
  */
 export async function checkCreditLowWarnings(): Promise<number> {
   let sentCount = 0;
@@ -20,7 +22,7 @@ export async function checkCreditLowWarnings(): Promise<number> {
       JOIN credit_ledger cl ON cl.user_id = u.id
         AND (cl.expires_at IS NULL OR cl.expires_at > NOW())
       WHERE u.roles @> '{sitter}'::text[]
-        AND (u.credit_low_warning_sent_at IS NULL OR u.credit_low_warning_sent_at < NOW() - INTERVAL '25 days')
+        AND (u.credit_low_warning_sent_at IS NULL OR u.credit_low_warning_sent_at < NOW() - INTERVAL '${sql.unsafe(String(REWARNING_INTERVAL_DAYS))} days')
       GROUP BY u.id, u.email, u.name
       HAVING COALESCE(SUM(cl.amount_cents), 0) > 0
         AND COALESCE(SUM(cl.amount_cents), 0) < ${LOW_BALANCE_THRESHOLD_CENTS}
@@ -34,22 +36,21 @@ export async function checkCreditLowWarnings(): Promise<number> {
           dashboardUrl: `${process.env.APP_URL || 'https://petlink.app'}/settings`,
         });
 
-        sendEmail({
+        await sendEmail({
           to: sitter.email,
           ...emailContent,
-        }).catch(() => {});
+        });
 
-        // Mark as warned (idempotency: only update if not recently warned)
+        // Only mark as warned after successful email send
         await sql`
           UPDATE users SET credit_low_warning_sent_at = NOW()
           WHERE id = ${sitter.sitter_id}
-            AND (credit_low_warning_sent_at IS NULL OR credit_low_warning_sent_at < NOW() - INTERVAL '25 days')
+            AND (credit_low_warning_sent_at IS NULL OR credit_low_warning_sent_at < NOW() - INTERVAL '${sql.unsafe(String(REWARNING_INTERVAL_DAYS))} days')
         `.catch(() => {});
 
         sentCount++;
       } catch (err) {
         logger.warn({ err: sanitizeError(err), sitterId: sitter.sitter_id }, 'Failed to send credit low warning');
-        sentCount++;
       }
     }
   } catch (err) {

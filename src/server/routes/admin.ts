@@ -164,8 +164,12 @@ export default function adminRoutes(router: Router): void {
         return;
       }
 
-      // Set cohort and founding badge in a transaction
+      // Atomic: set cohort + issue credits in single transaction
       const isFounding = cohort === 'founding';
+      const creditType = cohort === 'founding' ? 'beta_reward' : 'promo';
+      const description = `${cohort === 'founding' ? 'Founding Sitter' : cohort === 'early_beta' ? 'Early Beta' : 'New Sitter'} promotional credits`;
+
+      let entry;
       await sql.begin(async (tx: any) => {
         await tx`
           UPDATE users
@@ -173,12 +177,8 @@ export default function adminRoutes(router: Router): void {
               founding_sitter = ${isFounding || sitter.founding_sitter}
           WHERE id = ${sitterId}
         `;
+        entry = await issueCredit(sitterId, amount_cents, creditType, 'beta_program', description, null, null, tx);
       });
-
-      // Issue credits
-      const creditType = cohort === 'founding' ? 'beta_reward' : 'promo';
-      const description = `${cohort === 'founding' ? 'Founding Sitter' : cohort === 'early_beta' ? 'Early Beta' : 'New Sitter'} promotional credits`;
-      const entry = await issueCredit(sitterId, amount_cents, creditType, 'beta_program', description);
 
       // Send welcome email
       const emailContent = buildFoundingSitterWelcomeEmail({

@@ -518,6 +518,7 @@ function BetaCreditPanel({ token, sitters, onRefresh }: { token: string | null; 
                 value={amount}
                 onChange={e => setAmount(Number(e.target.value))}
                 className="w-full"
+                aria-label="Credit amount"
               />
               <div className="flex justify-between text-xs text-stone-400 mt-1">
                 <span>${(cohortConfig.min / 100).toFixed(0)}</span>

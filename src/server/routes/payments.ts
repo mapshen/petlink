@@ -252,6 +252,15 @@ export default function paymentRoutes(router: Router): void {
           };
           if (!invoice.subscription || invoice.amount_paid <= 0) break;
 
+          // Idempotency: skip if this event was already processed
+          const [alreadyProcessed] = await sql`
+            SELECT 1 FROM credit_ledger WHERE stripe_event_id = ${event.id}
+          `.catch(() => [] as any[]);
+          if (alreadyProcessed) {
+            logger.info({ eventId: event.id }, 'invoice.paid already processed, skipping');
+            break;
+          }
+
           // Find sitter by subscription
           const [subSitter] = await sql`
             SELECT ss.sitter_id, u.email, u.name, u.stripe_customer_id
@@ -276,12 +285,14 @@ export default function paymentRoutes(router: Router): void {
             const balance = await getBalance(subSitter.sitter_id);
             if (balance > 0) {
               const applyAmount = Math.min(balance, invoice.amount_paid);
-              await applyCredits(
-                subSitter.sitter_id,
-                applyAmount,
-                `Applied to subscription renewal (invoice ${invoice.id})`,
-                'subscription'
-              );
+
+              // Atomic: deduct credits with stripe_event_id for idempotency
+              await sql`
+                INSERT INTO credit_ledger (user_id, amount_cents, type, source_type, description, stripe_event_id)
+                VALUES (${subSitter.sitter_id}, ${-applyAmount}, 'redemption', 'subscription',
+                        ${'Applied to subscription renewal (invoice ' + invoice.id + ')'}, ${event.id})
+                ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL DO NOTHING
+              `;
 
               // Apply Stripe customer balance for next invoice
               if (subSitter.stripe_customer_id) {
