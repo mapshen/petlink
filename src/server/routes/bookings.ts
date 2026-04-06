@@ -622,13 +622,16 @@ export default function bookingRoutes(router: Router, io: Server): void {
       `;
     }
 
-    // Record reliability strike for sitter-initiated cancellations
+    // Record reliability strike for sitter-initiated cancellations (in transaction)
     if (status === 'cancelled' && updated.sitter_id === req.userId) {
       try {
         const strikeEvent = getStrikeEventForCancellation(new Date(updated.start_time), new Date());
         if (strikeEvent) {
-          await recordStrike(updated.sitter_id, strikeEvent, `Sitter cancelled booking #${bookingId}`, bookingId);
-          await evaluateConsequences(updated.sitter_id);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await sql.begin(async (tx: any) => {
+            await recordStrike(updated.sitter_id, strikeEvent, `Sitter cancelled booking #${bookingId}`, bookingId, tx);
+            await evaluateConsequences(updated.sitter_id, tx);
+          });
         }
       } catch (err) {
         logger.error({ err: sanitizeError(err), bookingId }, 'Failed to record reliability strike');

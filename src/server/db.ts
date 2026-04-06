@@ -933,6 +933,8 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_strikes_sitter_id ON sitter_strikes (sitter_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_strikes_sitter_expires ON sitter_strikes (sitter_id, expires_at)`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sitter_strikes_booking_event ON sitter_strikes (booking_id, event_type) WHERE booking_id IS NOT NULL`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reliability_level TEXT DEFAULT 'none'`.catch(() => {});
 
   // Issue #386: Extend subscription tiers to include premium
   await sql`ALTER TABLE sitter_subscriptions DROP CONSTRAINT IF EXISTS sitter_subscriptions_tier_check`.catch(() => {});

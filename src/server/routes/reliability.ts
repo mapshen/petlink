@@ -2,7 +2,7 @@ import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { adminMiddleware } from '../admin.ts';
-import { getActiveStrikeWeight, getStrikeHistory } from '../reliability.ts';
+import { getActiveStrikeWeight, getStrikeHistory, THRESHOLDS } from '../reliability.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function reliabilityRoutes(router: Router): void {
@@ -16,9 +16,9 @@ export default function reliabilityRoutes(router: Router): void {
       }
       const activeWeight = await getActiveStrikeWeight(req.userId!);
       let status: 'good' | 'warning' | 'at_risk' | 'suspended' = 'good';
-      if (activeWeight >= 7) status = 'suspended';
-      else if (activeWeight >= 5) status = 'at_risk';
-      else if (activeWeight >= 1) status = 'warning';
+      if (activeWeight >= THRESHOLDS.SUSPENSION) status = 'suspended';
+      else if (activeWeight >= THRESHOLDS.DEMOTION) status = 'at_risk';
+      else if (activeWeight >= THRESHOLDS.WARNING) status = 'warning';
 
       res.json({ active_strikes: activeWeight, status });
     } catch (error) {

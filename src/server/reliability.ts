@@ -1,8 +1,7 @@
 import sql from './db.ts';
 import { createNotification } from './notifications.ts';
 import logger from './logger.ts';
-
-export type StrikeEventType = 'sitter_no_show' | 'sitter_cancel_24h' | 'sitter_cancel_48h' | 'meet_greet_no_show' | 'dispute_resolution';
+import type { Strike, StrikeEventType } from '../types.ts';
 
 const STRIKE_WEIGHTS: Record<StrikeEventType, number> = {
   sitter_no_show: 2,
@@ -14,47 +13,55 @@ const STRIKE_WEIGHTS: Record<StrikeEventType, number> = {
 
 const ROLLING_WINDOW_DAYS = 90;
 
-// Consequence thresholds
-const THRESHOLD_WARNING = 1;
-const THRESHOLD_FLAGGED = 3;
-const THRESHOLD_DEMOTION = 5;
-const THRESHOLD_SUSPENSION = 7;
-
-export interface Strike {
-  id: number;
-  sitter_id: number;
-  booking_id: number | null;
-  event_type: StrikeEventType;
-  strike_weight: number;
-  description: string;
-  created_at: string;
-  expires_at: string;
-}
+// Exported thresholds — used by routes and ranking
+export const THRESHOLDS = {
+  WARNING: 1,
+  FLAGGED: 3,
+  DEMOTION: 5,
+  SUSPENSION: 7,
+} as const;
 
 /**
  * Record a strike against a sitter.
+ * Accepts optional transaction handle for atomicity.
  */
 export async function recordStrike(
   sitterId: number,
   eventType: StrikeEventType,
   description: string,
-  bookingId?: number | null
+  bookingId?: number | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
 ): Promise<Strike> {
   const weight = STRIKE_WEIGHTS[eventType];
-  const [strike] = await sql`
+  const expiresAt = new Date(Date.now() + ROLLING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const query = tx ?? sql;
+  const [strike] = await query`
     INSERT INTO sitter_strikes (sitter_id, booking_id, event_type, strike_weight, description, expires_at)
-    VALUES (${sitterId}, ${bookingId ?? null}, ${eventType}, ${weight}, ${description},
-            NOW() + INTERVAL '${sql.unsafe(String(ROLLING_WINDOW_DAYS))} days')
+    VALUES (${sitterId}, ${bookingId ?? null}, ${eventType}, ${weight}, ${description}, ${expiresAt})
+    ON CONFLICT (booking_id, event_type) WHERE booking_id IS NOT NULL DO NOTHING
     RETURNING *
   `;
+  if (!strike) {
+    // Duplicate — strike already recorded for this booking+event
+    const [existing] = await query`
+      SELECT * FROM sitter_strikes WHERE booking_id = ${bookingId} AND event_type = ${eventType}
+    `;
+    return existing as unknown as Strike;
+  }
   return strike as unknown as Strike;
 }
 
 /**
  * Get the total active (non-expired) strike weight for a sitter.
  */
-export async function getActiveStrikeWeight(sitterId: number): Promise<number> {
-  const [row] = await sql`
+export async function getActiveStrikeWeight(
+  sitterId: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
+): Promise<number> {
+  const query = tx ?? sql;
+  const [row] = await query`
     SELECT COALESCE(SUM(strike_weight), 0)::float AS total
     FROM sitter_strikes
     WHERE sitter_id = ${sitterId} AND expires_at > NOW()
@@ -82,36 +89,43 @@ export async function getStrikeHistory(
 
 /**
  * Evaluate consequences based on active strike weight.
- * Returns the current consequence level and takes appropriate action.
+ * Only sends notifications on level transitions to avoid spam.
  */
 export async function evaluateConsequences(
-  sitterId: number
+  sitterId: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
 ): Promise<{ level: 'none' | 'warning' | 'flagged' | 'demotion' | 'suspension'; activeWeight: number }> {
-  const activeWeight = await getActiveStrikeWeight(sitterId);
+  const query = tx ?? sql;
+  const activeWeight = await getActiveStrikeWeight(sitterId, tx);
 
-  if (activeWeight >= THRESHOLD_SUSPENSION) {
-    await sql`UPDATE users SET approval_status = 'banned', approval_rejected_reason = 'Automated suspension: reliability threshold exceeded' WHERE id = ${sitterId} AND approval_status = 'approved'`;
-    await createNotification(sitterId, 'account_update', 'Account Suspended', 'Your account has been suspended due to reliability concerns. Please contact support.', {});
-    logger.warn({ sitterId, activeWeight }, 'Sitter suspended due to reliability strikes');
-    return { level: 'suspension', activeWeight };
+  let level: 'none' | 'warning' | 'flagged' | 'demotion' | 'suspension' = 'none';
+  if (activeWeight >= THRESHOLDS.SUSPENSION) level = 'suspension';
+  else if (activeWeight >= THRESHOLDS.DEMOTION) level = 'demotion';
+  else if (activeWeight >= THRESHOLDS.FLAGGED) level = 'flagged';
+  else if (activeWeight >= THRESHOLDS.WARNING) level = 'warning';
+
+  // Check if level changed — only act on transitions
+  const [user] = await query`SELECT reliability_level FROM users WHERE id = ${sitterId}`;
+  const previousLevel = user?.reliability_level || 'none';
+
+  if (level !== previousLevel) {
+    await query`UPDATE users SET reliability_level = ${level} WHERE id = ${sitterId}`;
+
+    if (level === 'suspension') {
+      await query`UPDATE users SET approval_status = 'banned', approval_rejected_reason = 'Automated suspension: reliability threshold exceeded' WHERE id = ${sitterId} AND approval_status = 'approved'`;
+      await createNotification(sitterId, 'account_update', 'Account Suspended', 'Your account has been suspended due to reliability concerns. Please contact support.', {});
+      logger.warn({ sitterId, activeWeight }, 'Sitter suspended due to reliability strikes');
+    } else if (level === 'demotion') {
+      await createNotification(sitterId, 'account_update', 'Search Visibility Reduced', 'Your search ranking has been reduced due to recent cancellations or no-shows. Maintain good standing for 90 days to restore it.', {});
+    } else if (level === 'flagged') {
+      await createNotification(sitterId, 'account_update', 'Reliability Notice', 'Your account has been flagged for admin review due to recent cancellations. Please maintain your bookings to avoid further action.', {});
+    } else if (level === 'warning') {
+      await createNotification(sitterId, 'account_update', 'Reliability Warning', 'A cancellation or missed booking has been recorded. Repeated issues may affect your search ranking.', {});
+    }
   }
 
-  if (activeWeight >= THRESHOLD_DEMOTION) {
-    await createNotification(sitterId, 'account_update', 'Search Visibility Reduced', 'Your search ranking has been reduced due to recent cancellations or no-shows. Maintain good standing for 90 days to restore it.', {});
-    return { level: 'demotion', activeWeight };
-  }
-
-  if (activeWeight >= THRESHOLD_FLAGGED) {
-    await createNotification(sitterId, 'account_update', 'Reliability Notice', 'Your account has been flagged for admin review due to recent cancellations. Please maintain your bookings to avoid further action.', {});
-    return { level: 'flagged', activeWeight };
-  }
-
-  if (activeWeight >= THRESHOLD_WARNING) {
-    await createNotification(sitterId, 'account_update', 'Reliability Warning', 'A cancellation or missed booking has been recorded. Repeated issues may affect your search ranking.', {});
-    return { level: 'warning', activeWeight };
-  }
-
-  return { level: 'none', activeWeight };
+  return { level, activeWeight };
 }
 
 /**
@@ -124,5 +138,5 @@ export function getStrikeEventForCancellation(
   const hoursUntilStart = (startTime.getTime() - cancelTime.getTime()) / (1000 * 60 * 60);
   if (hoursUntilStart < 24) return 'sitter_cancel_24h';
   if (hoursUntilStart < 48) return 'sitter_cancel_48h';
-  return null; // No strike for cancellations 48+ hours before
+  return null;
 }

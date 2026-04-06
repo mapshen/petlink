@@ -74,11 +74,10 @@ export function computeTierBoost(subscriptionTier?: string): number {
   return 0;
 }
 
-const DEMOTION_STRIKE_THRESHOLD = 5;
 const DEMOTION_PENALTY = 0.15;
 
 export function computeReliabilityPenalty(activeStrikeWeight?: number): number {
-  if (!activeStrikeWeight || activeStrikeWeight < DEMOTION_STRIKE_THRESHOLD) return 0;
+  if (!activeStrikeWeight || activeStrikeWeight < 5) return 0;
   return DEMOTION_PENALTY;
 }
 
