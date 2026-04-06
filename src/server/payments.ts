@@ -10,15 +10,20 @@ export function getStripe(): Stripe {
 }
 
 export async function createPaymentIntent(
-  amount: number
+  amount: number,
+  destinationAccountId: string,
+  applicationFeeAmount: number
 ): Promise<{ clientSecret: string; paymentIntentId: string }> {
   const stripe = getStripe();
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount,
     currency: 'usd',
-    // Hold funds — capture later after service completion (escrow)
     capture_method: 'manual',
+    application_fee_amount: applicationFeeAmount,
+    transfer_data: {
+      destination: destinationAccountId,
+    },
   });
 
   if (!paymentIntent.client_secret) {
@@ -30,15 +35,19 @@ export async function createPaymentIntent(
   };
 }
 
-/** Create a payment intent with automatic capture (for tips — no escrow) */
+/** Create a payment intent with automatic capture (for tips — 100% goes to sitter) */
 export async function createAutoPaymentIntent(
-  amount: number
+  amount: number,
+  destinationAccountId: string
 ): Promise<{ clientSecret: string; paymentIntentId: string }> {
   const stripe = getStripe();
   const paymentIntent = await stripe.paymentIntents.create({
     amount,
     currency: 'usd',
     capture_method: 'automatic',
+    transfer_data: {
+      destination: destinationAccountId,
+    },
   });
   if (!paymentIntent.client_secret) {
     throw new Error('Payment intent created without client secret');
@@ -51,7 +60,9 @@ export async function createAutoPaymentIntent(
 
 export async function createACHPaymentIntent(
   amount: number,
-  customerId: string
+  customerId: string,
+  destinationAccountId: string,
+  applicationFeeAmount: number
 ): Promise<{ clientSecret: string; paymentIntentId: string }> {
   const stripe = getStripe();
 
@@ -60,8 +71,10 @@ export async function createACHPaymentIntent(
     currency: 'usd',
     customer: customerId,
     payment_method_types: ['us_bank_account'],
-    // ACH does not support manual capture — payment processed immediately
-    // Escrow safety comes from the delayed payout system
+    application_fee_amount: applicationFeeAmount,
+    transfer_data: {
+      destination: destinationAccountId,
+    },
   });
 
   if (!paymentIntent.client_secret) {
@@ -121,6 +134,8 @@ export async function refundPayment(paymentIntentId: string, amountCents?: numbe
   await stripe.refunds.create({
     payment_intent: paymentIntentId,
     ...(amountCents !== undefined ? { amount: amountCents } : {}),
+    reverse_transfer: true,
+    refund_application_fee: true,
   });
 }
 

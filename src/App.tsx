@@ -37,6 +37,8 @@ const TermsOfService = React.lazy(() => import('./pages/legal/TermsOfService'));
 const Sitemap = React.lazy(() => import('./pages/legal/Sitemap'));
 const HowItWorks = React.lazy(() => import('./pages/HowItWorks'));
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'));
+const ConnectReturn = React.lazy(() => import('./pages/payments/ConnectReturn'));
+const ConnectRefresh = React.lazy(() => import('./pages/payments/ConnectRefresh'));
 
 function LoadingSpinner() {
   return (
@@ -81,6 +83,8 @@ export default function App() {
                 <Route path="/sitemap" element={<Sitemap />} />
                 <Route path="/how-it-works" element={<HowItWorks />} />
                 <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/connect/return" element={<ProtectedRoute><ConnectReturn /></ProtectedRoute>} />
+                <Route path="/connect/refresh" element={<ProtectedRoute><ConnectRefresh /></ProtectedRoute>} />
                 <Route path="/track/:bookingId" element={<ProtectedRoute><TrackWalk /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

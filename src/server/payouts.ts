@@ -1,32 +1,19 @@
-import { addDays } from 'date-fns';
 import sql from './db.ts';
 import type { SitterPayout } from '../types.ts';
 
-const STANDARD_DELAY_DAYS = 3;
-const PRO_DELAY_DAYS = 1;
-
-export async function getPayoutDelay(sitterId: number): Promise<number> {
-  const [user] = await sql`SELECT is_pro, roles FROM users WHERE id = ${sitterId}`;
-  if (!user) {
-    throw new Error(`Sitter not found: ${sitterId}`);
-  }
-  if (!user.roles.includes('sitter')) {
-    throw new Error(`User ${sitterId} is not a sitter`);
-  }
-  return user.is_pro ? PRO_DELAY_DAYS : STANDARD_DELAY_DAYS;
-}
-
-export async function schedulePayoutForBooking(
+/**
+ * Record a payout tracking entry for a completed booking.
+ * With Stripe Connect, actual payout delivery is handled by Stripe —
+ * this table serves as a read model populated by webhooks (payout.paid/payout.failed).
+ */
+export async function recordPayoutForBooking(
   bookingId: number,
   sitterId: number,
-  amountCents: number,
-  delayDays: number
+  amountCents: number
 ): Promise<SitterPayout> {
-  const scheduledAt = addDays(new Date(), delayDays);
-
   const [payout] = await sql`
     INSERT INTO sitter_payouts (booking_id, sitter_id, amount_cents, status, scheduled_at)
-    VALUES (${bookingId}, ${sitterId}, ${amountCents}, 'pending', ${scheduledAt.toISOString()})
+    VALUES (${bookingId}, ${sitterId}, ${amountCents}, 'pending', NOW())
     ON CONFLICT (booking_id) DO NOTHING
     RETURNING *
   `;
@@ -36,23 +23,13 @@ export async function schedulePayoutForBooking(
   return payout as unknown as SitterPayout;
 }
 
-export async function getPendingPayouts(): Promise<SitterPayout[]> {
-  const payouts = await sql`
-    SELECT id, booking_id, sitter_id, amount_cents, status, scheduled_at, processed_at, created_at
-    FROM sitter_payouts
-    WHERE scheduled_at <= NOW() AND status = 'pending'
-    ORDER BY scheduled_at ASC
-  `;
-  return payouts as unknown as SitterPayout[];
-}
-
 export async function getPayoutsForSitter(
   sitterId: number,
   limit = 50,
   offset = 0
 ): Promise<SitterPayout[]> {
   const payouts = await sql`
-    SELECT id, booking_id, sitter_id, amount_cents, status, scheduled_at, processed_at, created_at
+    SELECT id, booking_id, sitter_id, amount_cents, status, scheduled_at, processed_at, stripe_transfer_id, created_at
     FROM sitter_payouts
     WHERE sitter_id = ${sitterId}
     ORDER BY created_at DESC
@@ -63,7 +40,7 @@ export async function getPayoutsForSitter(
 
 export async function getPendingPayoutsForSitter(sitterId: number): Promise<SitterPayout[]> {
   const payouts = await sql`
-    SELECT id, booking_id, sitter_id, amount_cents, status, scheduled_at, processed_at, created_at
+    SELECT id, booking_id, sitter_id, amount_cents, status, scheduled_at, processed_at, stripe_transfer_id, created_at
     FROM sitter_payouts
     WHERE sitter_id = ${sitterId} AND status = 'pending'
     ORDER BY scheduled_at ASC

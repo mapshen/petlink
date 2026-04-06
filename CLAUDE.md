@@ -25,7 +25,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 
 - **Database**: PostgreSQL via `postgres` (porsager), schema in `src/server/db.ts`. All tables live in a dedicated `petlink` schema (configurable via `DB_SCHEMA` env var). PostGIS extension also installed in the `petlink` schema. Connection `search_path` set to `petlink` only — no `public`.
 - **Auth**: JWT + bcrypt (`src/server/auth.ts`). Bearer tokens in `Authorization` header. Async middleware validates token + user existence. OAuth sign-in via Google, Apple, Facebook (`src/server/oauth.ts`). OAuth-only users have `password_hash = NULL`.
-- **Payments**: Direct payment escrow (`src/server/payments.ts`). Manual capture for hold/release flow.
+- **Payments**: Stripe Connect Express destination charges (`src/server/payments.ts`). Manual capture for hold/release escrow. Application fee (15% free tier, 0% Pro). Sitter Connect onboarding via `src/server/stripe-connect.ts`.
 - **Notifications**: In-app + real-time via Socket.io (`src/server/notifications.ts`). Per-user preferences.
 - **Storage**: S3-compatible signed URL uploads (`src/server/storage.ts`). Supports AWS S3 and MinIO.
 - **Rate limiting**: 100 req/15min API, 20 req/15min auth endpoints, 30 req/15min public endpoints. Rate limiters in `src/server/rate-limit.ts`.
@@ -63,8 +63,9 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Analytics | `GET /analytics/overview` (sitter stats by year), `GET /analytics/clients` (client list with pets, paginated), `GET /analytics/clients/:clientId` (client booking history), `GET /analytics/revenue` (weekly/monthly revenue breakdown) |
 | Inquiries | `POST /inquiries`, `GET /inquiries`, `GET /inquiries/:id`, `PUT /inquiries/:id/offer`, `PUT /inquiries/:id/accept`, `PUT /inquiries/:id/decline` |
 | References | `POST /references/invite`, `GET /references/me`, `GET /references/vouch/:token`, `POST /references/vouch/:token` |
+| Connect | `POST /connect/account`, `POST /connect/onboarding-link`, `GET /connect/status`, `POST /connect/refresh-link` |
 | Uploads | `POST /uploads/signed-url` |
-| Webhooks | `POST /webhooks/stripe`, `POST /webhooks/background-check` |
+| Webhooks | `POST /webhooks/stripe` (handles `payment_intent.succeeded/canceled`, `checkout.session.completed`, `customer.subscription.deleted`, `invoice.payment_failed`, `account.updated`, `payout.paid`, `payout.failed`), `POST /webhooks/background-check` |
 | Admin | `GET /admin/pending-sitters`, `GET /admin/sitters` (paginated, `?status=&limit=&offset=`), `PUT /admin/sitters/:id/approval` (requires `ADMIN_EMAIL`) |
 | Health | `GET /health` (no auth, returns DB connectivity status) |
 

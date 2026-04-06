@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { Booking, SitterPayout, PayoutStatus } from '../../types';
 import { Button } from '../../components/ui/button';
@@ -87,6 +87,9 @@ export default function WalletPage() {
   const [hasMorePayouts, setHasMorePayouts] = useState(true);
   const [payoutsLoading, setPayoutsLoading] = useState(false);
 
+  // Connect status
+  const [connectEnabled, setConnectEnabled] = useState<boolean | null>(null);
+
   // Expense form
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -101,8 +104,21 @@ export default function WalletPage() {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchBookings(), fetchExpenses(), fetchSummary(), fetchPayoutsInitial()]);
+    await Promise.all([fetchBookings(), fetchExpenses(), fetchSummary(), fetchPayoutsInitial(), fetchConnectStatus()]);
     setLoading(false);
+  };
+
+  const fetchConnectStatus = async () => {
+    if (!isSitter) return;
+    try {
+      const res = await fetch(`${API_BASE}/connect/status`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setConnectEnabled(data.stripe_payouts_enabled ?? false);
+      }
+    } catch {
+      // Non-critical
+    }
   };
 
   const fetchBookings = async () => {
@@ -241,6 +257,22 @@ export default function WalletPage() {
           </select>
         </div>
       </div>
+
+      {/* Connect Status Banner */}
+      {isSitter && connectEnabled === false && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Payout setup required</p>
+            <p className="text-sm text-amber-700 mt-1">
+              Set up your payout account to receive payments from bookings.{' '}
+              <Link to="/settings#settings-payouts" className="underline font-medium hover:text-amber-900">
+                Go to Settings
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       {summary && isSitter && (
