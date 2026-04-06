@@ -794,6 +794,13 @@ export async function initDb() {
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'new_inquiry'`.catch(() => {});
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'inquiry_offer'`.catch(() => {});
 
+  // Issue #377: Meet & greet deposit with booking credit
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS deposit_status TEXT CHECK(deposit_status IN ('held', 'captured_as_deposit', 'applied', 'released_to_sitter', 'refunded'))`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS deposit_applied_to_booking_id INTEGER REFERENCES bookings(id)`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS meet_greet_notes TEXT`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS deposit_reminder_count INTEGER DEFAULT 0`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_bookings_deposit_status ON bookings (deposit_status) WHERE deposit_status IS NOT NULL`.catch(() => {});
+
   // Issue #348: Day-before booking reminders
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_reminder_sent_at TIMESTAMPTZ`.catch(() => {});
   await sql`ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS booking_reminders BOOLEAN DEFAULT TRUE`.catch(() => {});
