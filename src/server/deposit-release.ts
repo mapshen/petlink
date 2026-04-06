@@ -1,76 +1,69 @@
 import sql from './db.ts';
-import { capturePayment } from './payments.ts';
-import { schedulePayoutForBooking } from './payouts.ts';
+import { refundPayment } from './payments.ts';
 import { sendEmail, buildDepositCreditReminderEmail } from './email.ts';
 import { createNotification } from './notifications.ts';
 import logger, { sanitizeError } from './logger.ts';
 import type { Server } from 'socket.io';
 
 /**
- * Deposit release scheduler.
+ * Deposit credit reminder scheduler.
  *
- * Handles two jobs:
- * 1. Release held deposits to sitters after 30-day expiry
- * 2. Send graduated credit reminder emails to owners (Day 7, 14, 25)
+ * Meet & greet deposits are captured immediately on booking completion
+ * (handled in the booking status transition). This scheduler:
+ *
+ * 1. Sends graduated credit reminder emails (Day 7, 14, 25 after completion)
+ * 2. Marks expired credits (30+ days after completion with no follow-up booking)
+ *
+ * Deposits are already captured, so "release to sitter" means no action needed —
+ * the sitter already has the funds. We just update the status for bookkeeping.
  *
  * Runs hourly.
  */
 
 const DEPOSIT_EXPIRY_DAYS = 30;
-const REMINDER_SCHEDULE = [7, 14, 25]; // Days after meet & greet completion
+const REMINDER_SCHEDULE = [7, 14, 25]; // Days after meet & greet end_time
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 export async function checkDepositReleases(io: Server): Promise<number> {
   let processedCount = 0;
+  const cutoffDate = new Date(Date.now() - DEPOSIT_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   try {
-    // --- 1. Release expired deposits to sitters ---
-    const expiredDeposits = await sql`
-      SELECT b.id, b.sitter_id, b.owner_id, b.total_price_cents, b.payment_intent_id,
-             s.name as sitter_name, o.name as owner_name
-      FROM bookings b
-      JOIN users s ON b.sitter_id = s.id
-      JOIN users o ON b.owner_id = o.id
-      JOIN services svc ON b.service_id = svc.id
-      WHERE b.deposit_status = 'held'
-        AND b.status = 'completed'
-        AND svc.type = 'meet_greet'
-        AND b.created_at < NOW() - INTERVAL '${DEPOSIT_EXPIRY_DAYS} days'
-        AND NOT EXISTS (
-          SELECT 1 FROM bookings b2 WHERE b2.deposit_applied_to_booking_id = b.id
-        )
+    // --- 1. Mark expired deposits (sitter keeps the money, just update status) ---
+    const expired = await sql`
+      UPDATE bookings SET deposit_status = 'released_to_sitter'
+      WHERE id IN (
+        SELECT b.id FROM bookings b
+        JOIN services svc ON b.service_id = svc.id
+        WHERE b.deposit_status = 'captured_as_deposit'
+          AND b.status = 'completed'
+          AND svc.type = 'meet_greet'
+          AND b.end_time < ${cutoffDate}::timestamptz
+          AND NOT EXISTS (
+            SELECT 1 FROM bookings b2 WHERE b2.deposit_applied_to_booking_id = b.id
+          )
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING id, owner_id, sitter_id, total_price_cents
     `.catch((err) => {
-      logger.error({ err: sanitizeError(err) }, 'Failed to query expired deposits');
+      logger.error({ err: sanitizeError(err) }, 'Failed to expire deposits');
       return [] as any[];
     });
 
-    for (const deposit of expiredDeposits) {
-      try {
-        // Capture the held payment → sitter gets paid
-        if (deposit.payment_intent_id) {
-          await capturePayment(deposit.payment_intent_id);
-          await schedulePayoutForBooking(deposit.id, deposit.sitter_id, deposit.total_price_cents, 1);
-        }
-
-        await sql`UPDATE bookings SET deposit_status = 'released_to_sitter' WHERE id = ${deposit.id}`;
-
-        // Notify owner
-        const notification = await createNotification(
-          deposit.owner_id, 'booking_status', 'Deposit Released',
-          `Your $${(deposit.total_price_cents / 100).toFixed(2)} meet & greet deposit with ${deposit.sitter_name} has been released to the sitter.`,
-          { booking_id: deposit.id }
-        );
-        if (notification) io.to(String(deposit.owner_id)).emit('notification', notification);
-
-        processedCount++;
-      } catch (err) {
-        logger.error({ err: sanitizeError(err), bookingId: deposit.id }, 'Failed to release deposit');
-      }
+    for (const deposit of expired) {
+      const [sitter] = await sql`SELECT name FROM users WHERE id = ${deposit.sitter_id}`;
+      const notification = await createNotification(
+        deposit.owner_id, 'booking_status', 'Deposit Expired',
+        `Your $${(deposit.total_price_cents / 100).toFixed(2)} meet & greet credit with ${sitter.name} has expired.`,
+        { booking_id: deposit.id }
+      );
+      if (notification) io.to(String(deposit.owner_id)).emit('notification', notification);
+      processedCount++;
     }
 
     // --- 2. Send credit reminder emails ---
     const reminderCandidates = await sql`
-      SELECT b.id, b.owner_id, b.sitter_id, b.total_price_cents, b.deposit_reminder_count, b.created_at,
+      SELECT b.id, b.owner_id, b.sitter_id, b.total_price_cents, b.deposit_reminder_count, b.end_time,
              o.name as owner_name, o.email as owner_email,
              s.name as sitter_name
       FROM bookings b
@@ -78,7 +71,7 @@ export async function checkDepositReleases(io: Server): Promise<number> {
       JOIN users s ON b.sitter_id = s.id
       JOIN services svc ON b.service_id = svc.id
       LEFT JOIN notification_preferences np ON np.user_id = b.owner_id
-      WHERE b.deposit_status = 'held'
+      WHERE b.deposit_status = 'captured_as_deposit'
         AND b.status = 'completed'
         AND svc.type = 'meet_greet'
         AND b.deposit_reminder_count < ${REMINDER_SCHEDULE.length}
@@ -89,7 +82,7 @@ export async function checkDepositReleases(io: Server): Promise<number> {
     });
 
     for (const booking of reminderCandidates) {
-      const daysSinceCompletion = (Date.now() - new Date(booking.created_at).getTime()) / (1000 * 60 * 60 * 24);
+      const daysSinceCompletion = (Date.now() - new Date(booking.end_time).getTime()) / (1000 * 60 * 60 * 24);
       const nextReminderDay = REMINDER_SCHEDULE[booking.deposit_reminder_count];
       if (daysSinceCompletion < nextReminderDay) continue;
 
@@ -117,7 +110,7 @@ export async function checkDepositReleases(io: Server): Promise<number> {
     }
 
     if (processedCount > 0) {
-      logger.info({ count: processedCount }, 'Processed deposit releases and reminders');
+      logger.info({ count: processedCount }, 'Processed deposit expirations and reminders');
     }
   } catch (error) {
     logger.error({ err: sanitizeError(error) }, 'Deposit release check failed');
@@ -131,11 +124,11 @@ let initialTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 export function startDepositReleaseScheduler(io: Server): void {
   if (intervalId) return;
-  initialTimeoutId = setTimeout(() => {
+  initialTimeoutId = setTimeout(async () => {
     initialTimeoutId = null;
-    checkDepositReleases(io);
-  }, 90_000); // 90s startup delay
-  intervalId = setInterval(() => checkDepositReleases(io), CHECK_INTERVAL_MS);
+    await checkDepositReleases(io);
+    intervalId = setInterval(() => checkDepositReleases(io), CHECK_INTERVAL_MS);
+  }, 90_000);
   logger.info('Deposit release scheduler started (hourly)');
 }
 

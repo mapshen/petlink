@@ -30,7 +30,7 @@ describe('meet & greet deposit system', () => {
         start_time TEXT NOT NULL,
         end_time TEXT NOT NULL,
         total_price_cents INTEGER,
-        deposit_status TEXT CHECK(deposit_status IN ('held', 'applied', 'released_to_sitter', 'refunded')),
+        deposit_status TEXT CHECK(deposit_status IN ('held', 'captured_as_deposit', 'applied', 'released_to_sitter', 'refunded')),
         deposit_applied_to_booking_id INTEGER REFERENCES bookings(id),
         meet_greet_notes TEXT,
         deposit_reminder_count INTEGER DEFAULT 0,
@@ -78,9 +78,9 @@ describe('meet & greet deposit system', () => {
   // --- Credit Application ---
 
   it('deposit can be applied to a follow-up booking', () => {
-    // Create completed meet & greet with held deposit
+    // Create completed meet & greet with captured deposit
     testDb.prepare(
-      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status) VALUES (2, 1, 1, 'completed', '2026-05-01T10:00:00Z', '2026-05-01T10:30:00Z', 1000, 'held')"
+      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status) VALUES (2, 1, 1, 'completed', '2026-05-01T10:00:00Z', '2026-05-01T10:30:00Z', 1000, 'captured_as_deposit')"
     ).run();
 
     // Create follow-up booking
@@ -115,16 +115,16 @@ describe('meet & greet deposit system', () => {
 
   // --- Deposit Release (30-day expiry) ---
 
-  it('held deposit eligible for release after 30 days', () => {
+  it('captured deposit eligible for release after 30 days', () => {
     const thirtyOneDaysAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
     testDb.prepare(
-      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status, created_at) VALUES (2, 1, 1, 'completed', ?, ?, 1000, 'held', ?)"
+      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status, created_at) VALUES (2, 1, 1, 'completed', ?, ?, 1000, 'captured_as_deposit', ?)"
     ).run(thirtyOneDaysAgo, thirtyOneDaysAgo, thirtyOneDaysAgo);
 
-    // Check: completed, held, older than 30 days, no follow-up
+    // Check: completed, captured_as_deposit, older than 30 days, no follow-up
     const eligible = testDb.prepare(`
       SELECT id FROM bookings
-      WHERE deposit_status = 'held'
+      WHERE deposit_status = 'captured_as_deposit'
         AND status = 'completed'
         AND created_at < datetime('now', '-30 days')
         AND NOT EXISTS (
@@ -136,20 +136,20 @@ describe('meet & greet deposit system', () => {
     expect(eligible).toHaveLength(1);
   });
 
-  it('held deposit NOT eligible if follow-up booking exists', () => {
+  it('captured deposit NOT eligible if follow-up booking exists', () => {
     testDb.prepare(
       "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status) VALUES (2, 1, 1, 'completed', '2026-04-01T10:00:00Z', '2026-04-01T10:30:00Z', 1000, 'applied')"
     ).run();
 
     const eligible = testDb.prepare(
-      "SELECT id FROM bookings WHERE deposit_status = 'held' AND status = 'completed'"
+      "SELECT id FROM bookings WHERE deposit_status = 'captured_as_deposit' AND status = 'completed'"
     ).all();
     expect(eligible).toHaveLength(0); // already applied
   });
 
-  it('release sets deposit_status to released_to_sitter', () => {
+  it('expiry sets deposit_status to released_to_sitter', () => {
     testDb.prepare(
-      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status) VALUES (2, 1, 1, 'completed', '2026-04-01T10:00:00Z', '2026-04-01T10:30:00Z', 1000, 'held')"
+      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status) VALUES (2, 1, 1, 'completed', '2026-04-01T10:00:00Z', '2026-04-01T10:30:00Z', 1000, 'captured_as_deposit')"
     ).run();
 
     testDb.prepare("UPDATE bookings SET deposit_status = 'released_to_sitter' WHERE id = 1").run();
@@ -189,7 +189,7 @@ describe('meet & greet deposit system', () => {
 
   it('sitter can add meet & greet notes after completion', () => {
     testDb.prepare(
-      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status) VALUES (2, 1, 1, 'completed', '2026-05-01T10:00:00Z', '2026-05-01T10:30:00Z', 1000, 'held')"
+      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status) VALUES (2, 1, 1, 'completed', '2026-05-01T10:00:00Z', '2026-05-01T10:30:00Z', 1000, 'captured_as_deposit')"
     ).run();
 
     testDb.prepare("UPDATE bookings SET meet_greet_notes = 'Buddy was friendly, no issues with my cats.' WHERE id = 1 AND sitter_id = 2").run();
@@ -202,7 +202,7 @@ describe('meet & greet deposit system', () => {
 
   it('tracks deposit reminder count', () => {
     testDb.prepare(
-      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status, deposit_reminder_count) VALUES (2, 1, 1, 'completed', '2026-05-01T10:00:00Z', '2026-05-01T10:30:00Z', 1000, 'held', 0)"
+      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status, deposit_reminder_count) VALUES (2, 1, 1, 'completed', '2026-05-01T10:00:00Z', '2026-05-01T10:30:00Z', 1000, 'captured_as_deposit', 0)"
     ).run();
 
     testDb.prepare("UPDATE bookings SET deposit_reminder_count = deposit_reminder_count + 1 WHERE id = 1").run();
@@ -216,13 +216,13 @@ describe('meet & greet deposit system', () => {
 
   it('finds available credit for owner-sitter pair', () => {
     testDb.prepare(
-      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status) VALUES (2, 1, 1, 'completed', '2026-05-01T10:00:00Z', '2026-05-01T10:30:00Z', 1000, 'held')"
+      "INSERT INTO bookings (sitter_id, owner_id, service_id, status, start_time, end_time, total_price_cents, deposit_status) VALUES (2, 1, 1, 'completed', '2026-05-01T10:00:00Z', '2026-05-01T10:30:00Z', 1000, 'captured_as_deposit')"
     ).run();
 
     const credit = testDb.prepare(`
       SELECT id, total_price_cents FROM bookings
       WHERE owner_id = 1 AND sitter_id = 2
-        AND status = 'completed' AND deposit_status = 'held'
+        AND status = 'completed' AND deposit_status = 'captured_as_deposit'
     `).get() as any;
 
     expect(credit).toBeTruthy();
@@ -237,7 +237,7 @@ describe('meet & greet deposit system', () => {
     const credit = testDb.prepare(`
       SELECT id FROM bookings
       WHERE owner_id = 1 AND sitter_id = 2
-        AND status = 'completed' AND deposit_status = 'held'
+        AND status = 'completed' AND deposit_status = 'captured_as_deposit'
     `).all();
 
     expect(credit).toHaveLength(0);

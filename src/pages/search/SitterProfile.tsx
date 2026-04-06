@@ -186,6 +186,7 @@ export default function SitterProfile() {
 
   // Fetch available deposit credit with this sitter
   useEffect(() => {
+    setDepositCredit(null);
     if (!user || !sitter || !token) return;
     fetch(`${API_BASE}/bookings/available-credit/${sitter.id}`, { headers: getAuthHeaders(token) })
       .then(r => r.ok ? r.json() : null)
@@ -490,7 +491,7 @@ export default function SitterProfile() {
 
                 {depositCredit && (
                   <div className="mb-6 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 flex items-center gap-2">
-                    <span className="text-lg">&#x1F4B0;</span>
+                    <CreditCard className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                     <span>You have a <strong>{formatCents(depositCredit.amount_cents)} credit</strong> from your meet & greet — it will be applied to your next booking!</span>
                   </div>
                 )}

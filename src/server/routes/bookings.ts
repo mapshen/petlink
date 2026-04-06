@@ -233,13 +233,48 @@ export default function bookingRoutes(router: Router, io: Server): void {
         throw new Error('SITTER_UNAVAILABLE');
       }
 
-      // Set deposit_status for meet & greet bookings
+      // Check for available deposit credit from a completed meet & greet
       const isMeetGreet = service.type === 'meet_greet';
+      const creditCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      let creditApplied = 0;
+      let creditBookingId: number | null = null;
+      if (!isMeetGreet) {
+        const [availableCredit] = await tx`
+          SELECT id, total_price_cents FROM bookings
+          WHERE owner_id = ${req.userId} AND sitter_id = ${sitter_id}
+            AND status = 'completed' AND deposit_status = 'captured_as_deposit'
+            AND end_time > ${creditCutoff}::timestamptz
+          ORDER BY end_time DESC LIMIT 1
+          FOR UPDATE
+        `;
+        if (availableCredit) {
+          creditApplied = Math.min(availableCredit.total_price_cents, totalPrice);
+          creditBookingId = availableCredit.id;
+        }
+      }
+
+      const chargeAmount = totalPrice - creditApplied;
       const [b] = await tx`
         INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status, deposit_status)
         VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending', ${isMeetGreet ? 'held' : null})
         RETURNING id, status, deposit_status
       `;
+
+      // Apply credit: mark the meet & greet deposit as applied + refund to owner
+      if (creditBookingId && creditApplied > 0) {
+        await tx`
+          UPDATE bookings SET deposit_status = 'applied', deposit_applied_to_booking_id = ${b.id}
+          WHERE id = ${creditBookingId} AND deposit_status = 'captured_as_deposit'
+        `;
+        // Refund the credit amount to the owner (the deposit was already captured)
+        const [meetGreetBooking] = await tx`SELECT payment_intent_id FROM bookings WHERE id = ${creditBookingId}`;
+        if (meetGreetBooking?.payment_intent_id) {
+          // Fire-and-forget refund — the credit amount goes back to the owner's card
+          refundPayment(meetGreetBooking.payment_intent_id, creditApplied).catch((err: unknown) => {
+            logger.error({ err: sanitizeError(err as Error), bookingId: creditBookingId }, 'Failed to refund deposit credit');
+          });
+        }
+      }
       const petRows = pet_ids.map((petId: number) => ({ booking_id: b.id, pet_id: petId }));
       await tx`INSERT INTO booking_pets ${tx(petRows, 'booking_id', 'pet_id')}`;
 
@@ -513,6 +548,15 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
     }
 
+    // Update deposit_status for cancelled meet & greet bookings
+    if (updated.deposit_status === 'held' && status === 'cancelled') {
+      const isSitterCancel = updated.sitter_id === req.userId;
+      await sql`
+        UPDATE bookings SET deposit_status = ${isSitterCancel ? 'refunded' : 'released_to_sitter'}
+        WHERE id = ${bookingId}
+      `;
+    }
+
     // Strip payment_intent_id from response
     const { payment_intent_id: _pid, ...safeBooking } = updated;
     res.json({ booking: safeBooking, refund });
@@ -526,12 +570,13 @@ export default function bookingRoutes(router: Router, io: Server): void {
       return;
     }
 
+    const creditCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const [credit] = await sql`
       SELECT id, total_price_cents FROM bookings
       WHERE owner_id = ${req.userId} AND sitter_id = ${sitterId}
-        AND status = 'completed' AND deposit_status = 'held'
-        AND created_at > NOW() - INTERVAL '30 days'
-      ORDER BY created_at DESC LIMIT 1
+        AND status = 'completed' AND deposit_status = 'captured_as_deposit'
+        AND end_time > ${creditCutoff}::timestamptz
+      ORDER BY end_time DESC LIMIT 1
     `;
 
     res.json({ credit: credit ? { booking_id: credit.id, amount_cents: credit.total_price_cents } : null });
@@ -543,7 +588,8 @@ export default function bookingRoutes(router: Router, io: Server): void {
       const bookingId = Number(req.params.bookingId);
       const { notes } = req.body;
 
-      if (!notes || typeof notes !== 'string' || notes.length > 2000) {
+      const trimmedNotes = typeof notes === 'string' ? notes.trim() : '';
+      if (!trimmedNotes || trimmedNotes.length > 2000) {
         res.status(400).json({ error: 'Notes must be a string under 2000 characters' });
         return;
       }
@@ -563,7 +609,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
 
       const [updated] = await sql`
-        UPDATE bookings SET meet_greet_notes = ${notes.trim()}
+        UPDATE bookings SET meet_greet_notes = ${trimmedNotes}
         WHERE id = ${bookingId} AND sitter_id = ${req.userId}
         RETURNING id, meet_greet_notes
       `;

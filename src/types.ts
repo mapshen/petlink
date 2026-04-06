@@ -223,7 +223,7 @@ export interface Booking {
   service_type?: string;
   pets?: { id: number; name: string; photo_url?: string; breed?: string }[];
   payment_method?: 'card' | 'ach_debit';
-  deposit_status?: 'held' | 'applied' | 'released_to_sitter' | 'refunded' | null;
+  deposit_status?: 'held' | 'captured_as_deposit' | 'applied' | 'released_to_sitter' | 'refunded' | null;
   deposit_applied_to_booking_id?: number | null;
   meet_greet_notes?: string | null;
 }
