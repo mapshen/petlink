@@ -921,6 +921,8 @@ export async function initDb() {
   // Issue #386: Extend subscription tiers to include premium
   await sql`ALTER TABLE sitter_subscriptions DROP CONSTRAINT IF EXISTS sitter_subscriptions_tier_check`.catch(() => {});
   await sql`ALTER TABLE sitter_subscriptions ADD CONSTRAINT sitter_subscriptions_tier_check CHECK(tier IN ('free', 'pro', 'premium'))`.catch(() => {});
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_subscription_tier_check`.catch(() => {});
+  await sql`ALTER TABLE users ADD CONSTRAINT users_subscription_tier_check CHECK(subscription_tier IN ('free', 'pro', 'premium'))`.catch(() => {});
 
   // Issue #390: Stripe Connect Express
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_status TEXT DEFAULT 'not_started'`.catch(() => {});

@@ -206,6 +206,23 @@ export default function paymentRoutes(router: Router): void {
           }
           break;
         }
+        case 'customer.subscription.updated': {
+          const sub = event.data.object as { id: string; metadata?: { petlink_tier?: string }; items?: { data: { price: { id: string } }[] } };
+          const newTier = sub.metadata?.petlink_tier;
+          if (newTier && (newTier === 'pro' || newTier === 'premium')) {
+            const [existing] = await sql`SELECT sitter_id FROM sitter_subscriptions WHERE stripe_subscription_id = ${sub.id}`;
+            if (existing) {
+              await sql.begin(async (tx: any) => {
+                await tx`
+                  UPDATE sitter_subscriptions SET tier = ${newTier}, status = 'active', updated_at = NOW()
+                  WHERE stripe_subscription_id = ${sub.id}
+                `;
+                await tx`UPDATE users SET subscription_tier = ${newTier} WHERE id = ${existing.sitter_id}`;
+              });
+            }
+          }
+          break;
+        }
         case 'invoice.payment_failed': {
           const invoice = event.data.object as unknown as { subscription: string };
           if (invoice.subscription) {

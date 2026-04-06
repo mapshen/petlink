@@ -7,10 +7,14 @@ import { getOrCreateStripeCustomer } from '../stripe-customers.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { z } from 'zod';
 
-const TIER_ORDER = { free: 0, pro: 1, premium: 2 } as const;
+const TIER_ORDER: Record<string, number> = { free: 0, pro: 1, premium: 2 };
 
 const upgradeSchema = z.object({
   tier: z.enum(['pro', 'premium'], { message: 'tier must be pro or premium' }),
+});
+
+const downgradeSchema = z.object({
+  tier: z.enum(['free', 'pro'], { message: 'Can only downgrade to free or pro' }),
 });
 
 function getPriceId(tier: 'pro' | 'premium'): string | undefined {
@@ -18,32 +22,65 @@ function getPriceId(tier: 'pro' | 'premium'): string | undefined {
   return process.env.STRIPE_PREMIUM_PRICE_ID;
 }
 
+function getTierOrder(tier: string): number {
+  return TIER_ORDER[tier] ?? 0;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function requireSitter(user: any, res: any): boolean {
+  if (!user.roles.includes('sitter')) {
+    res.status(403).json({ error: 'Only sitters can manage subscriptions' });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Update an existing Stripe subscription to a new price (for tier changes).
+ * Does NOT update the DB — the webhook handles that after payment confirms.
+ */
+async function changeStripeSubscriptionPrice(
+  stripeSubscriptionId: string,
+  newTier: 'pro' | 'premium'
+): Promise<string> {
+  const priceId = getPriceId(newTier);
+  if (!priceId) throw new Error(`STRIPE_${newTier.toUpperCase()}_PRICE_ID is not configured`);
+  const stripe = getStripe();
+  const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const updated = await stripe.subscriptions.update(stripeSubscriptionId, {
+    items: [{ id: sub.items.data[0].id, price: priceId }],
+    proration_behavior: 'create_prorations',
+    metadata: { petlink_tier: newTier },
+  });
+  return updated.id;
+}
+
 export default function subscriptionRoutes(router: Router): void {
   router.get('/subscription', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
-    if (!user.roles.includes('sitter')) {
-      res.status(403).json({ error: 'Only sitters can view subscriptions' });
-      return;
+    try {
+      const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!requireSitter(user, res)) return;
+      const [sub] = await sql`
+        SELECT id, sitter_id, tier, status, stripe_subscription_id, current_period_start, current_period_end, created_at, updated_at
+        FROM sitter_subscriptions WHERE sitter_id = ${req.userId}
+      `;
+      res.json({ subscription: sub || null });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Subscription fetch error');
+      res.status(500).json({ error: 'Failed to load subscription' });
     }
-    const [sub] = await sql`
-      SELECT id, sitter_id, tier, status, stripe_subscription_id, current_period_start, current_period_end, created_at, updated_at
-      FROM sitter_subscriptions WHERE sitter_id = ${req.userId}
-    `;
-    res.json({ subscription: sub || null });
   });
 
-  // Create payment intent for subscription (supports pro and premium)
+  // Create payment intent for new subscription or upgrade existing
   router.post('/subscription/create-intent', authMiddleware, validate(upgradeSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const [user] = await sql`SELECT roles, email FROM users WHERE id = ${req.userId}`;
-      if (!user.roles.includes('sitter')) {
-        res.status(403).json({ error: 'Only sitters can subscribe' });
-        return;
-      }
+      if (!requireSitter(user, res)) return;
+
       const { tier } = req.body;
-      const [existing] = await sql`SELECT tier, status FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
+      const [existing] = await sql`SELECT tier, status, stripe_subscription_id FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
       const currentTier = (existing?.status === 'active' ? existing?.tier : 'free') || 'free';
-      if (TIER_ORDER[tier as keyof typeof TIER_ORDER] <= TIER_ORDER[currentTier as keyof typeof TIER_ORDER]) {
+      if (getTierOrder(tier) <= getTierOrder(currentTier)) {
         res.status(409).json({ error: `Already at ${currentTier} tier or higher` });
         return;
       }
@@ -55,24 +92,10 @@ export default function subscriptionRoutes(router: Router): void {
       }
       const customerId = await getOrCreateStripeCustomer(req.userId!, user.email);
 
-      // If upgrading from an existing Stripe subscription, update the subscription instead
+      // Upgrade existing Stripe subscription — DB update deferred to webhook
       if (existing?.stripe_subscription_id && existing?.status === 'active') {
-        const stripe = getStripe();
-        const sub = await stripe.subscriptions.retrieve(existing.stripe_subscription_id);
-        const updatedSub = await stripe.subscriptions.update(existing.stripe_subscription_id, {
-          items: [{ id: sub.items.data[0].id, price: priceId }],
-          proration_behavior: 'create_prorations',
-        });
-
-        await sql.begin(async (tx: any) => {
-          await tx`
-            UPDATE sitter_subscriptions SET tier = ${tier}, updated_at = NOW()
-            WHERE sitter_id = ${req.userId}
-          `;
-          await tx`UPDATE users SET subscription_tier = ${tier} WHERE id = ${req.userId}`;
-        });
-
-        res.json({ subscription_id: updatedSub.id, upgraded: true });
+        const subId = await changeStripeSubscriptionPrice(existing.stripe_subscription_id, tier);
+        res.json({ subscription_id: subId, pending: true });
         return;
       }
 
@@ -84,45 +107,24 @@ export default function subscriptionRoutes(router: Router): void {
     }
   });
 
-  // Upgrade via hosted checkout (fallback, or new subscriptions)
+  // Upgrade via hosted checkout or Stripe subscription update
   router.post('/subscription/upgrade', authMiddleware, validate(upgradeSchema), async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT roles, email FROM users WHERE id = ${req.userId}`;
-    if (!user.roles.includes('sitter')) {
-      res.status(403).json({ error: 'Only sitters can subscribe' });
-      return;
-    }
-
-    const { tier } = req.body;
-    const [existing] = await sql`SELECT id, tier, status, stripe_subscription_id FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
-    const currentTier = (existing?.status === 'active' ? existing?.tier : 'free') || 'free';
-    if (TIER_ORDER[tier as keyof typeof TIER_ORDER] <= TIER_ORDER[currentTier as keyof typeof TIER_ORDER]) {
-      res.status(409).json({ error: `Already at ${currentTier} tier or higher` });
-      return;
-    }
-
     try {
-      // If upgrading existing Stripe subscription (e.g., pro → premium)
+      const [user] = await sql`SELECT roles, email FROM users WHERE id = ${req.userId}`;
+      if (!requireSitter(user, res)) return;
+
+      const { tier } = req.body;
+      const [existing] = await sql`SELECT id, tier, status, stripe_subscription_id FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
+      const currentTier = (existing?.status === 'active' ? existing?.tier : 'free') || 'free';
+      if (getTierOrder(tier) <= getTierOrder(currentTier)) {
+        res.status(409).json({ error: `Already at ${currentTier} tier or higher` });
+        return;
+      }
+
+      // Upgrade existing Stripe subscription — DB update deferred to webhook
       if (existing?.stripe_subscription_id && existing?.status === 'active') {
-        const priceId = getPriceId(tier);
-        if (!priceId) throw new Error(`Price ID not configured for ${tier}`);
-
-        const stripe = getStripe();
-        const sub = await stripe.subscriptions.retrieve(existing.stripe_subscription_id);
-        await stripe.subscriptions.update(existing.stripe_subscription_id, {
-          items: [{ id: sub.items.data[0].id, price: priceId }],
-          proration_behavior: 'create_prorations',
-        });
-
-        const [updated] = await sql.begin(async (tx: any) => {
-          const [s] = await tx`
-            UPDATE sitter_subscriptions SET tier = ${tier}, updated_at = NOW()
-            WHERE sitter_id = ${req.userId}
-            RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
-          `;
-          await tx`UPDATE users SET subscription_tier = ${tier} WHERE id = ${req.userId}`;
-          return [s];
-        });
-        res.json({ subscription: updated });
+        const subId = await changeStripeSubscriptionPrice(existing.stripe_subscription_id, tier);
+        res.json({ subscription_id: subId, pending: true });
         return;
       }
 
@@ -133,16 +135,16 @@ export default function subscriptionRoutes(router: Router): void {
     } catch (error: any) {
       if (error.message?.includes('PRICE_ID') && process.env.NODE_ENV !== 'production') {
         // Dev/beta mode: activate directly without Stripe
-        const tierUpdate = tier;
+        const [existing] = await sql`SELECT id FROM sitter_subscriptions WHERE sitter_id = ${req.userId}`;
         if (existing) {
           const [updated] = await sql.begin(async (tx: any) => {
             const [s] = await tx`
-              UPDATE sitter_subscriptions SET tier = ${tierUpdate}, status = 'active',
+              UPDATE sitter_subscriptions SET tier = ${req.body.tier}, status = 'active',
                 current_period_start = NOW(), current_period_end = NOW() + INTERVAL '30 days', updated_at = NOW()
               WHERE sitter_id = ${req.userId}
               RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
             `;
-            await tx`UPDATE users SET subscription_tier = ${tierUpdate} WHERE id = ${req.userId}`;
+            await tx`UPDATE users SET subscription_tier = ${req.body.tier} WHERE id = ${req.userId}`;
             return [s];
           });
           res.json({ subscription: updated });
@@ -150,10 +152,10 @@ export default function subscriptionRoutes(router: Router): void {
           const [sub] = await sql.begin(async (tx: any) => {
             const [s] = await tx`
               INSERT INTO sitter_subscriptions (sitter_id, tier, status, current_period_start, current_period_end)
-              VALUES (${req.userId}, ${tierUpdate}, 'active', NOW(), NOW() + INTERVAL '30 days')
+              VALUES (${req.userId}, ${req.body.tier}, 'active', NOW(), NOW() + INTERVAL '30 days')
               RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
             `;
-            await tx`UPDATE users SET subscription_tier = ${tierUpdate} WHERE id = ${req.userId}`;
+            await tx`UPDATE users SET subscription_tier = ${req.body.tier} WHERE id = ${req.userId}`;
             return [s];
           });
           res.status(201).json({ subscription: sub });
@@ -166,10 +168,11 @@ export default function subscriptionRoutes(router: Router): void {
   });
 
   // Downgrade to a lower tier
-  router.post('/subscription/downgrade', authMiddleware, validate(z.object({
-    tier: z.enum(['free', 'pro'], { message: 'Can only downgrade to free or pro' }),
-  })), async (req: AuthenticatedRequest, res) => {
+  router.post('/subscription/downgrade', authMiddleware, validate(downgradeSchema), async (req: AuthenticatedRequest, res) => {
     try {
+      const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!requireSitter(user, res)) return;
+
       const { tier: targetTier } = req.body;
       const [existing] = await sql`
         SELECT id, tier, status, stripe_subscription_id
@@ -179,15 +182,12 @@ export default function subscriptionRoutes(router: Router): void {
         res.status(404).json({ error: 'No active subscription' });
         return;
       }
-      const currentOrder = TIER_ORDER[existing.tier as keyof typeof TIER_ORDER] ?? 0;
-      const targetOrder = TIER_ORDER[targetTier as keyof typeof TIER_ORDER] ?? 0;
-      if (targetOrder >= currentOrder) {
+      if (getTierOrder(targetTier) >= getTierOrder(existing.tier)) {
         res.status(400).json({ error: 'Target tier must be lower than current tier' });
         return;
       }
 
       if (targetTier === 'free') {
-        // Cancel subscription entirely
         if (existing.stripe_subscription_id) {
           try {
             await cancelStripeSubscription(existing.stripe_subscription_id);
@@ -206,15 +206,9 @@ export default function subscriptionRoutes(router: Router): void {
         });
         res.json({ subscription: updated });
       } else {
-        // Downgrade premium → pro: update Stripe subscription to Pro price
-        const priceId = getPriceId('pro');
-        if (existing.stripe_subscription_id && priceId) {
-          const stripe = getStripe();
-          const sub = await stripe.subscriptions.retrieve(existing.stripe_subscription_id);
-          await stripe.subscriptions.update(existing.stripe_subscription_id, {
-            items: [{ id: sub.items.data[0].id, price: priceId }],
-            proration_behavior: 'create_prorations',
-          });
+        // Downgrade premium → pro
+        if (existing.stripe_subscription_id) {
+          await changeStripeSubscriptionPrice(existing.stripe_subscription_id, 'pro');
         }
         const [updated] = await sql.begin(async (tx: any) => {
           const [s] = await tx`
@@ -236,6 +230,9 @@ export default function subscriptionRoutes(router: Router): void {
   // Cancel subscription (drops to free)
   router.post('/subscription/cancel', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
+      const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!requireSitter(user, res)) return;
+
       const [sub] = await sql`
         SELECT id, stripe_subscription_id
         FROM sitter_subscriptions WHERE sitter_id = ${req.userId} AND tier != 'free' AND status = 'active'

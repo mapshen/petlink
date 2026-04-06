@@ -194,7 +194,7 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
   };
 
   if (!embedded) {
-    if (authLoading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" /></div>;
+    if (authLoading) return <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" /><span className="sr-only">Loading...</span></div>;
     if (!user) return <Navigate to="/login" replace />;
   }
 
@@ -217,7 +217,7 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
         <Alert className="mb-4 border-emerald-200 bg-emerald-50">
           <AlertDescription className="flex items-center justify-between text-emerald-800">
             <span>{successMessage}</span>
-            <button onClick={() => setSuccessMessage(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+            <button onClick={() => setSuccessMessage(null)} aria-label="Dismiss success message" className="text-xs font-medium hover:underline">Dismiss</button>
           </AlertDescription>
         </Alert>
       )}
@@ -226,7 +226,7 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
         <Alert variant="destructive" className="mb-4">
           <AlertDescription className="flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-xs font-medium hover:underline">Dismiss</button>
           </AlertDescription>
         </Alert>
       )}
