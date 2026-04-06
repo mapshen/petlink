@@ -85,25 +85,35 @@ export default function paymentRoutes(router: Router): void {
 
   // --- Payouts ---
   router.get('/payouts', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
-    if (!user.roles.includes('sitter')) {
-      res.status(403).json({ error: 'Only sitters can view payouts' });
-      return;
+    try {
+      const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!user.roles.includes('sitter')) {
+        res.status(403).json({ error: 'Only sitters can view payouts' });
+        return;
+      }
+      const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+      const payouts = await getPayoutsForSitter(req.userId!, limit, offset);
+      res.json({ payouts });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Payouts fetch error');
+      res.status(500).json({ error: 'Failed to load payouts' });
     }
-    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
-    const offset = Math.max(Number(req.query.offset) || 0, 0);
-    const payouts = await getPayoutsForSitter(req.userId!, limit, offset);
-    res.json({ payouts });
   });
 
   router.get('/payouts/pending', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
-    if (!user.roles.includes('sitter')) {
-      res.status(403).json({ error: 'Only sitters can view payouts' });
-      return;
+    try {
+      const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!user.roles.includes('sitter')) {
+        res.status(403).json({ error: 'Only sitters can view payouts' });
+        return;
+      }
+      const payouts = await getPendingPayoutsForSitter(req.userId!);
+      res.json({ payouts });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Pending payouts fetch error');
+      res.status(500).json({ error: 'Failed to load pending payouts' });
     }
-    const payouts = await getPendingPayoutsForSitter(req.userId!);
-    res.json({ payouts });
   });
 
   // --- Stripe Webhook ---

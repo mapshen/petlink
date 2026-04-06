@@ -4,128 +4,149 @@ import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, speciesProfileSchema } from '../validation.ts';
 import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
+import logger, { sanitizeError } from '../logger.ts';
 
 const VALID_SPECIES = ['dog', 'cat', 'bird', 'reptile', 'small_animal'];
 
 export default function speciesProfileRoutes(router: Router, publicLimiter?: RateLimitRequestHandler): void {
   // Get all species profiles for the current sitter
   router.get('/species-profiles/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const profiles = await sql`
-      SELECT * FROM sitter_species_profiles
-      WHERE sitter_id = ${req.userId}
-      ORDER BY species
-    `;
-    res.json({ profiles });
+    try {
+      const profiles = await sql`
+        SELECT * FROM sitter_species_profiles
+        WHERE sitter_id = ${req.userId}
+        ORDER BY species
+      `;
+      res.json({ profiles });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch species profiles');
+      res.status(500).json({ error: 'Failed to fetch species profiles' });
+    }
   });
 
   // Get species profiles for a specific sitter (public)
   const publicMiddleware = publicLimiter ? [requireUserAgent, botBlockMiddleware, publicLimiter] : [];
   router.get('/species-profiles/:sitterId', ...publicMiddleware, async (req, res) => {
-    const sitterId = Number(req.params.sitterId);
-    if (!Number.isInteger(sitterId) || sitterId <= 0) {
-      res.status(400).json({ error: 'Invalid sitter ID' });
-      return;
+    try {
+      const sitterId = Number(req.params.sitterId);
+      if (!Number.isInteger(sitterId) || sitterId <= 0) {
+        res.status(400).json({ error: 'Invalid sitter ID' });
+        return;
+      }
+      const profiles = await sql`
+        SELECT * FROM sitter_species_profiles
+        WHERE sitter_id = ${sitterId}
+        ORDER BY species
+      `;
+      res.json({ profiles });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch sitter species profiles');
+      res.status(500).json({ error: 'Failed to fetch sitter species profiles' });
     }
-    const profiles = await sql`
-      SELECT * FROM sitter_species_profiles
-      WHERE sitter_id = ${sitterId}
-      ORDER BY species
-    `;
-    res.json({ profiles });
   });
 
   // Upsert a species profile
   router.put('/species-profiles/:species', authMiddleware, validate(speciesProfileSchema), async (req: AuthenticatedRequest, res) => {
-    const species = req.params.species;
-    if (!VALID_SPECIES.includes(species)) {
-      res.status(400).json({ error: `Invalid species. Must be one of: ${VALID_SPECIES.join(', ')}` });
-      return;
-    }
+    try {
+      const species = req.params.species;
+      if (!VALID_SPECIES.includes(species)) {
+        res.status(400).json({ error: `Invalid species. Must be one of: ${VALID_SPECIES.join(', ')}` });
+        return;
+      }
 
-    const [currentUser] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
-    if (!currentUser.roles.includes('sitter')) {
-      res.status(403).json({ error: 'Only sitters can manage species profiles' });
-      return;
-    }
+      const [currentUser] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
+      if (!currentUser.roles.includes('sitter')) {
+        res.status(403).json({ error: 'Only sitters can manage species profiles' });
+        return;
+      }
 
-    const {
-      years_experience, accepted_pet_sizes, skills, max_pets, max_pets_per_walk,
-      has_yard, has_fenced_yard, dogs_on_furniture, dogs_on_bed, potty_break_frequency,
-      accepts_puppies, accepts_unspayed, accepts_unneutered, accepts_females_in_heat,
-      owns_same_species, own_pets_description,
-    } = req.body;
-
-    const [profile] = await sql`
-      INSERT INTO sitter_species_profiles (
-        sitter_id, species, years_experience, accepted_pet_sizes, skills,
-        max_pets, max_pets_per_walk, has_yard, has_fenced_yard,
-        dogs_on_furniture, dogs_on_bed, potty_break_frequency,
+      const {
+        years_experience, accepted_pet_sizes, skills, max_pets, max_pets_per_walk,
+        has_yard, has_fenced_yard, dogs_on_furniture, dogs_on_bed, potty_break_frequency,
         accepts_puppies, accepts_unspayed, accepts_unneutered, accepts_females_in_heat,
-        owns_same_species, own_pets_description
-      ) VALUES (
-        ${req.userId}, ${species},
-        ${years_experience ?? null}, ${accepted_pet_sizes ?? []}, ${skills ?? []},
-        ${max_pets ?? 1}, ${max_pets_per_walk ?? null},
-        ${has_yard ?? false}, ${has_fenced_yard ?? false},
-        ${dogs_on_furniture ?? false}, ${dogs_on_bed ?? false},
-        ${potty_break_frequency ?? null},
-        ${accepts_puppies ?? true}, ${accepts_unspayed ?? true},
-        ${accepts_unneutered ?? true}, ${accepts_females_in_heat ?? true},
-        ${owns_same_species ?? false}, ${own_pets_description ?? null}
-      )
-      ON CONFLICT (sitter_id, species) DO UPDATE SET
-        years_experience = EXCLUDED.years_experience,
-        accepted_pet_sizes = EXCLUDED.accepted_pet_sizes,
-        skills = EXCLUDED.skills,
-        max_pets = EXCLUDED.max_pets,
-        max_pets_per_walk = EXCLUDED.max_pets_per_walk,
-        has_yard = EXCLUDED.has_yard,
-        has_fenced_yard = EXCLUDED.has_fenced_yard,
-        dogs_on_furniture = EXCLUDED.dogs_on_furniture,
-        dogs_on_bed = EXCLUDED.dogs_on_bed,
-        potty_break_frequency = EXCLUDED.potty_break_frequency,
-        accepts_puppies = EXCLUDED.accepts_puppies,
-        accepts_unspayed = EXCLUDED.accepts_unspayed,
-        accepts_unneutered = EXCLUDED.accepts_unneutered,
-        accepts_females_in_heat = EXCLUDED.accepts_females_in_heat,
-        owns_same_species = EXCLUDED.owns_same_species,
-        own_pets_description = EXCLUDED.own_pets_description
-      RETURNING *
-    `;
+        owns_same_species, own_pets_description,
+      } = req.body;
 
-    // Also add species to user's accepted_species if not already there
-    await sql`
-      UPDATE users SET accepted_species = array_append(accepted_species, ${species})
-      WHERE id = ${req.userId} AND NOT (${species} = ANY(accepted_species))
-    `.catch(() => {});
+      const [profile] = await sql`
+        INSERT INTO sitter_species_profiles (
+          sitter_id, species, years_experience, accepted_pet_sizes, skills,
+          max_pets, max_pets_per_walk, has_yard, has_fenced_yard,
+          dogs_on_furniture, dogs_on_bed, potty_break_frequency,
+          accepts_puppies, accepts_unspayed, accepts_unneutered, accepts_females_in_heat,
+          owns_same_species, own_pets_description
+        ) VALUES (
+          ${req.userId}, ${species},
+          ${years_experience ?? null}, ${accepted_pet_sizes ?? []}, ${skills ?? []},
+          ${max_pets ?? 1}, ${max_pets_per_walk ?? null},
+          ${has_yard ?? false}, ${has_fenced_yard ?? false},
+          ${dogs_on_furniture ?? false}, ${dogs_on_bed ?? false},
+          ${potty_break_frequency ?? null},
+          ${accepts_puppies ?? true}, ${accepts_unspayed ?? true},
+          ${accepts_unneutered ?? true}, ${accepts_females_in_heat ?? true},
+          ${owns_same_species ?? false}, ${own_pets_description ?? null}
+        )
+        ON CONFLICT (sitter_id, species) DO UPDATE SET
+          years_experience = EXCLUDED.years_experience,
+          accepted_pet_sizes = EXCLUDED.accepted_pet_sizes,
+          skills = EXCLUDED.skills,
+          max_pets = EXCLUDED.max_pets,
+          max_pets_per_walk = EXCLUDED.max_pets_per_walk,
+          has_yard = EXCLUDED.has_yard,
+          has_fenced_yard = EXCLUDED.has_fenced_yard,
+          dogs_on_furniture = EXCLUDED.dogs_on_furniture,
+          dogs_on_bed = EXCLUDED.dogs_on_bed,
+          potty_break_frequency = EXCLUDED.potty_break_frequency,
+          accepts_puppies = EXCLUDED.accepts_puppies,
+          accepts_unspayed = EXCLUDED.accepts_unspayed,
+          accepts_unneutered = EXCLUDED.accepts_unneutered,
+          accepts_females_in_heat = EXCLUDED.accepts_females_in_heat,
+          owns_same_species = EXCLUDED.owns_same_species,
+          own_pets_description = EXCLUDED.own_pets_description
+        RETURNING *
+      `;
 
-    res.json({ profile });
+      // Also add species to user's accepted_species if not already there
+      await sql`
+        UPDATE users SET accepted_species = array_append(accepted_species, ${species})
+        WHERE id = ${req.userId} AND NOT (${species} = ANY(accepted_species))
+      `.catch((err: unknown) => logger.warn({ err }, 'Failed to sync accepted_species'));
+
+      res.json({ profile });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to upsert species profile');
+      res.status(500).json({ error: 'Failed to upsert species profile' });
+    }
   });
 
   // Delete a species profile
   router.delete('/species-profiles/:species', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const species = req.params.species;
-    if (!VALID_SPECIES.includes(species)) {
-      res.status(400).json({ error: `Invalid species` });
-      return;
+    try {
+      const species = req.params.species;
+      if (!VALID_SPECIES.includes(species)) {
+        res.status(400).json({ error: `Invalid species` });
+        return;
+      }
+
+      const [existing] = await sql`
+        SELECT id FROM sitter_species_profiles
+        WHERE sitter_id = ${req.userId} AND species = ${species}
+      `;
+      if (!existing) {
+        res.status(404).json({ error: 'Species profile not found' });
+        return;
+      }
+
+      // Delete profile, services, and update user in a transaction
+      await sql.begin(async (tx: any) => {
+        await tx`DELETE FROM sitter_species_profiles WHERE sitter_id = ${req.userId} AND species = ${species}`;
+        await tx`DELETE FROM services WHERE sitter_id = ${req.userId} AND species = ${species}`;
+        await tx`UPDATE users SET accepted_species = array_remove(accepted_species, ${species}) WHERE id = ${req.userId}`;
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to delete species profile');
+      res.status(500).json({ error: 'Failed to delete species profile' });
     }
-
-    const [existing] = await sql`
-      SELECT id FROM sitter_species_profiles
-      WHERE sitter_id = ${req.userId} AND species = ${species}
-    `;
-    if (!existing) {
-      res.status(404).json({ error: 'Species profile not found' });
-      return;
-    }
-
-    // Delete profile, services, and update user in a transaction
-    await sql.begin(async (tx: any) => {
-      await tx`DELETE FROM sitter_species_profiles WHERE sitter_id = ${req.userId} AND species = ${species}`;
-      await tx`DELETE FROM services WHERE sitter_id = ${req.userId} AND species = ${species}`;
-      await tx`UPDATE users SET accepted_species = array_remove(accepted_species, ${species}) WHERE id = ${req.userId}`;
-    });
-
-    res.json({ success: true });
   });
 }

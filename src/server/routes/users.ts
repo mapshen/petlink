@@ -278,58 +278,82 @@ export default function userRoutes(router: Router): void {
   router.delete('/users/me', authMiddleware, async (req: AuthenticatedRequest, res) => {
     const userId = req.userId!;
 
-    // 1. Check for active bookings
-    const activeBookings = await sql`
-      SELECT id FROM bookings
-      WHERE (owner_id = ${userId} OR sitter_id = ${userId})
-        AND status IN ('confirmed', 'in_progress')
-    `;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await sql.begin(async (tx: any) => {
+        // Check for active bookings inside transaction to avoid TOCTOU race
+        const activeBookings = await tx`
+          SELECT id FROM bookings
+          WHERE (owner_id = ${userId} OR sitter_id = ${userId})
+            AND status IN ('confirmed', 'in_progress')
+          LIMIT 1
+        `;
+        if (activeBookings.length > 0) {
+          throw new Error('ACTIVE_BOOKINGS');
+        }
 
-    if (activeBookings.length > 0) {
-      res.status(400).json({
-        error: 'Please complete or cancel active bookings before deleting your account.',
+        // Cancel pending bookings (both as owner and sitter)
+        await tx`
+          UPDATE bookings SET status = 'cancelled'
+          WHERE (owner_id = ${userId} OR sitter_id = ${userId}) AND status = 'pending'
+        `;
+
+        // Anonymize user
+        const timestamp = Date.now();
+        const anonymizedEmail = `deleted_${userId}_${timestamp}@deleted.petlink.app`;
+
+        await tx`
+          UPDATE users SET
+            name = 'Deleted User',
+            email = ${anonymizedEmail},
+            bio = NULL,
+            avatar_url = NULL,
+            password_hash = NULL,
+            lat = NULL,
+            lng = NULL,
+            deleted_at = NOW()
+          WHERE id = ${userId}
+        `;
+
+        // Anonymize reviews written by this user
+        await tx`
+          UPDATE reviews SET comment = NULL
+          WHERE reviewer_id = ${userId}
+        `;
+
+        // Clean up child data (soft delete doesn't trigger CASCADE)
+        await tx`DELETE FROM oauth_accounts WHERE user_id = ${userId}`;
+        await tx`DELETE FROM favorites WHERE user_id = ${userId} OR sitter_id = ${userId}`;
+        await tx`DELETE FROM notification_preferences WHERE user_id = ${userId}`;
+        await tx`DELETE FROM push_subscriptions WHERE user_id = ${userId}`;
+        await tx`DELETE FROM sitter_photos WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_posts WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_addons WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_expenses WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM featured_listings WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM availability WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM recurring_bookings WHERE owner_id = ${userId} OR sitter_id = ${userId}`;
+        await tx`DELETE FROM services WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_species_profiles WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM verifications WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM calendar_tokens WHERE user_id = ${userId}`;
+        await tx`DELETE FROM imported_reviews WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_references WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM sitter_subscriptions WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM profile_views WHERE sitter_id = ${userId}`;
       });
-      return;
+
+      // Revoke tokens after transaction commits (uses its own connection)
+      await revokeAllUserTokens(userId);
+
+      res.json({ success: true });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'ACTIVE_BOOKINGS') {
+        res.status(400).json({ error: 'Please complete or cancel active bookings before deleting your account.' });
+        return;
+      }
+      logger.error({ err: sanitizeError(error) }, 'Account deletion failed');
+      res.status(500).json({ error: 'Failed to delete account' });
     }
-
-    // 2. Cancel pending bookings owned by the user
-    await sql`
-      UPDATE bookings SET status = 'cancelled'
-      WHERE owner_id = ${userId} AND status = 'pending'
-    `;
-
-    // 3. Revoke all refresh tokens
-    await revokeAllUserTokens(userId);
-
-    // 4. Anonymize user
-    const timestamp = Date.now();
-    const anonymizedEmail = `deleted_${userId}_${timestamp}@deleted.petlink.app`;
-
-    await sql`
-      UPDATE users SET
-        name = 'Deleted User',
-        email = ${anonymizedEmail},
-        bio = NULL,
-        avatar_url = NULL,
-        password_hash = NULL,
-        lat = NULL,
-        lng = NULL,
-        deleted_at = NOW()
-      WHERE id = ${userId}
-    `;
-
-    // 5. Anonymize reviews written by this user
-    await sql`
-      UPDATE reviews SET comment = NULL
-      WHERE reviewer_id = ${userId}
-    `;
-
-    // 6. Clean up child data (soft delete doesn't trigger CASCADE)
-    await sql`DELETE FROM oauth_accounts WHERE user_id = ${userId}`.catch(() => {});
-    await sql`DELETE FROM favorites WHERE user_id = ${userId} OR sitter_id = ${userId}`.catch(() => {});
-    await sql`DELETE FROM notification_preferences WHERE user_id = ${userId}`.catch(() => {});
-    await sql`DELETE FROM push_subscriptions WHERE user_id = ${userId}`.catch(() => {});
-
-    res.json({ success: true });
   });
 }

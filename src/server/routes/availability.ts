@@ -4,37 +4,53 @@ import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, availabilitySchema } from '../validation.ts';
 import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
+import logger, { sanitizeError } from '../logger.ts';
 
 export default function availabilityRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
   router.get('/availability/:sitterId', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
-    const slots = await sql`
-      SELECT * FROM availability WHERE sitter_id = ${req.params.sitterId} ORDER BY day_of_week, start_time
-    `;
-    res.json({ slots });
+    try {
+      const slots = await sql`
+        SELECT * FROM availability WHERE sitter_id = ${req.params.sitterId} ORDER BY day_of_week, start_time
+      `;
+      res.json({ slots });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch availability');
+      res.status(500).json({ error: 'Failed to fetch availability' });
+    }
   });
 
   router.post('/availability', authMiddleware, validate(availabilitySchema), async (req: AuthenticatedRequest, res) => {
-    const [currentUser] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
-    if (!currentUser.roles.includes('sitter')) {
-      res.status(403).json({ error: 'Only sitters can set availability.' });
-      return;
+    try {
+      const [currentUser] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
+      if (!currentUser.roles.includes('sitter')) {
+        res.status(403).json({ error: 'Only sitters can set availability.' });
+        return;
+      }
+      const { day_of_week, specific_date, start_time, end_time, recurring } = req.body;
+      const [slot] = await sql`
+        INSERT INTO availability (sitter_id, day_of_week, specific_date, start_time, end_time, recurring)
+        VALUES (${req.userId}, ${day_of_week ?? null}, ${specific_date || null}, ${start_time}, ${end_time}, ${recurring ? true : false})
+        RETURNING *
+      `;
+      res.status(201).json({ slot });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to create availability slot');
+      res.status(500).json({ error: 'Failed to create availability slot' });
     }
-    const { day_of_week, specific_date, start_time, end_time, recurring } = req.body;
-    const [slot] = await sql`
-      INSERT INTO availability (sitter_id, day_of_week, specific_date, start_time, end_time, recurring)
-      VALUES (${req.userId}, ${day_of_week ?? null}, ${specific_date || null}, ${start_time}, ${end_time}, ${recurring ? true : false})
-      RETURNING *
-    `;
-    res.status(201).json({ slot });
   });
 
   router.delete('/availability/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const [slot] = await sql`SELECT * FROM availability WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
-    if (!slot) {
-      res.status(404).json({ error: 'Availability slot not found' });
-      return;
+    try {
+      const [slot] = await sql`SELECT * FROM availability WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+      if (!slot) {
+        res.status(404).json({ error: 'Availability slot not found' });
+        return;
+      }
+      await sql`DELETE FROM availability WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to delete availability slot');
+      res.status(500).json({ error: 'Failed to delete availability slot' });
     }
-    await sql`DELETE FROM availability WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
-    res.json({ success: true });
   });
 }

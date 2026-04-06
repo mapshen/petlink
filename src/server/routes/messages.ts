@@ -9,45 +9,50 @@ import logger, { sanitizeError } from '../logger.ts';
 
 export default function messageRoutes(router: Router, io: Server): void {
   router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const conversations = await sql`
-      WITH last_messages AS (
-        SELECT DISTINCT ON (
-          LEAST(sender_id, receiver_id),
-          GREATEST(sender_id, receiver_id)
+    try {
+      const conversations = await sql`
+        WITH last_messages AS (
+          SELECT DISTINCT ON (
+            LEAST(sender_id, receiver_id),
+            GREATEST(sender_id, receiver_id)
+          )
+            sender_id,
+            receiver_id,
+            content,
+            created_at
+          FROM messages
+          WHERE sender_id = ${req.userId} OR receiver_id = ${req.userId}
+          ORDER BY
+            LEAST(sender_id, receiver_id),
+            GREATEST(sender_id, receiver_id),
+            created_at DESC
+        ),
+        unread_counts AS (
+          SELECT sender_id AS from_user, COUNT(*)::int AS unread
+          FROM messages
+          WHERE receiver_id = ${req.userId} AND read_at IS NULL
+          GROUP BY sender_id
         )
-          sender_id,
-          receiver_id,
-          content,
-          created_at
-        FROM messages
-        WHERE sender_id = ${req.userId} OR receiver_id = ${req.userId}
-        ORDER BY
-          LEAST(sender_id, receiver_id),
-          GREATEST(sender_id, receiver_id),
-          created_at DESC
-      ),
-      unread_counts AS (
-        SELECT sender_id AS from_user, COUNT(*)::int AS unread
-        FROM messages
-        WHERE receiver_id = ${req.userId} AND read_at IS NULL
-        GROUP BY sender_id
-      )
-      SELECT
-        u.id AS other_user_id,
-        u.name AS other_user_name,
-        u.avatar_url AS other_user_avatar,
-        lm.content AS last_message,
-        lm.created_at AS last_message_at,
-        COALESCE(uc.unread, 0)::int AS unread_count
-      FROM last_messages lm
-      JOIN users u ON u.id = CASE
-        WHEN lm.sender_id = ${req.userId} THEN lm.receiver_id
-        ELSE lm.sender_id
-      END
-      LEFT JOIN unread_counts uc ON uc.from_user = u.id
-      ORDER BY lm.created_at DESC
-    `;
-    res.json({ conversations });
+        SELECT
+          u.id AS other_user_id,
+          u.name AS other_user_name,
+          u.avatar_url AS other_user_avatar,
+          lm.content AS last_message,
+          lm.created_at AS last_message_at,
+          COALESCE(uc.unread, 0)::int AS unread_count
+        FROM last_messages lm
+        JOIN users u ON u.id = CASE
+          WHEN lm.sender_id = ${req.userId} THEN lm.receiver_id
+          ELSE lm.sender_id
+        END
+        LEFT JOIN unread_counts uc ON uc.from_user = u.id
+        ORDER BY lm.created_at DESC
+      `;
+      res.json({ conversations });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Conversations fetch failed');
+      res.status(500).json({ error: 'Failed to load conversations' });
+    }
   });
 
   // GET /messages/search — search message history (MUST be before :userId route)
@@ -114,23 +119,31 @@ export default function messageRoutes(router: Router, io: Server): void {
   });
 
   router.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const otherUserId = Number(req.params.userId);
-    if (!Number.isInteger(otherUserId) || otherUserId <= 0) {
-      res.status(400).json({ error: 'Invalid user ID' });
-      return;
+    try {
+      const otherUserId = Number(req.params.userId);
+      if (!Number.isInteger(otherUserId) || otherUserId <= 0) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+      const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+      // Mark messages as read first, then fetch (so read_at is populated in response)
+      await sql`
+        UPDATE messages SET read_at = NOW()
+        WHERE sender_id = ${otherUserId} AND receiver_id = ${req.userId} AND read_at IS NULL
+      `;
+      const messages = await sql`
+        SELECT * FROM messages
+        WHERE (sender_id = ${req.userId} AND receiver_id = ${otherUserId})
+           OR (sender_id = ${otherUserId} AND receiver_id = ${req.userId})
+        ORDER BY created_at ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+      res.json({ messages });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch messages');
+      res.status(500).json({ error: 'Failed to load messages' });
     }
-    // Mark messages as read first, then fetch (so read_at is populated in response)
-    await sql`
-      UPDATE messages SET read_at = NOW()
-      WHERE sender_id = ${otherUserId} AND receiver_id = ${req.userId} AND read_at IS NULL
-    `;
-    const messages = await sql`
-      SELECT * FROM messages
-      WHERE (sender_id = ${req.userId} AND receiver_id = ${otherUserId})
-         OR (sender_id = ${otherUserId} AND receiver_id = ${req.userId})
-      ORDER BY created_at ASC
-    `;
-    res.json({ messages });
   });
 
   // Socket.io with JWT authentication
@@ -169,8 +182,12 @@ export default function messageRoutes(router: Router, io: Server): void {
       const set = userSockets.get(userId);
       if (set) {
         const next = new Set([...set].filter(id => id !== socket.id));
-        if (next.size === 0) userSockets.delete(userId);
-        else userSockets.set(userId, next);
+        if (next.size === 0) {
+          userSockets.delete(userId);
+          messageLimiter.delete(userId);
+        } else {
+          userSockets.set(userId, next);
+        }
       }
     });
 
