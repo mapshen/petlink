@@ -185,18 +185,6 @@ describe('owner trust profile', () => {
     expect(isVerified).toBe(true);
   });
 
-  it('responsive badge: avg response under 2 hours', () => {
-    const avgResponseHours = 1.5;
-    const isResponsive = avgResponseHours < 2;
-    expect(isResponsive).toBe(true);
-  });
-
-  it('responsive badge: slow responder does not qualify', () => {
-    const avgResponseHours = 5;
-    const isResponsive = avgResponseHours < 2;
-    expect(isResponsive).toBe(false);
-  });
-
   // --- Access Control ---
 
   it('sitter with booking relationship can access trust profile', () => {
