@@ -50,27 +50,7 @@ export default function messageRoutes(router: Router, io: Server): void {
     res.json({ conversations });
   });
 
-  router.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
-    const otherUserId = Number(req.params.userId);
-    if (!Number.isInteger(otherUserId) || otherUserId <= 0) {
-      res.status(400).json({ error: 'Invalid user ID' });
-      return;
-    }
-    // Mark messages as read first, then fetch (so read_at is populated in response)
-    await sql`
-      UPDATE messages SET read_at = NOW()
-      WHERE sender_id = ${otherUserId} AND receiver_id = ${req.userId} AND read_at IS NULL
-    `;
-    const messages = await sql`
-      SELECT * FROM messages
-      WHERE (sender_id = ${req.userId} AND receiver_id = ${otherUserId})
-         OR (sender_id = ${otherUserId} AND receiver_id = ${req.userId})
-      ORDER BY created_at ASC
-    `;
-    res.json({ messages });
-  });
-
-  // GET /messages/search — search message history
+  // GET /messages/search — search message history (MUST be before :userId route)
   router.get('/messages/search', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const parsed = messageSearchSchema.safeParse(req.query);
@@ -80,7 +60,9 @@ export default function messageRoutes(router: Router, io: Server): void {
       }
 
       const { q, userId, limit, offset } = parsed.data;
-      const searchPattern = `%${q}%`;
+      // Escape ILIKE wildcards in user input
+      const escaped = q.replace(/[%_\\]/g, '\\$&');
+      const searchPattern = `%${escaped}%`;
 
       const results = userId
         ? await sql`
@@ -91,8 +73,8 @@ export default function messageRoutes(router: Router, io: Server): void {
               WHEN m.sender_id = ${req.userId} THEN m.receiver_id
               ELSE m.sender_id
             END
-            WHERE (m.sender_id = ${req.userId} AND m.receiver_id = ${userId}
-                OR m.receiver_id = ${req.userId} AND m.sender_id = ${userId})
+            WHERE ((m.sender_id = ${req.userId} AND m.receiver_id = ${userId})
+                OR (m.receiver_id = ${req.userId} AND m.sender_id = ${userId}))
               AND m.content ILIKE ${searchPattern}
             ORDER BY m.created_at DESC
             LIMIT ${limit} OFFSET ${offset}
@@ -114,8 +96,8 @@ export default function messageRoutes(router: Router, io: Server): void {
       const [{ total }] = userId
         ? await sql`
             SELECT count(*)::int as total FROM messages
-            WHERE (sender_id = ${req.userId} AND receiver_id = ${userId}
-                OR receiver_id = ${req.userId} AND sender_id = ${userId})
+            WHERE ((sender_id = ${req.userId} AND receiver_id = ${userId})
+                OR (receiver_id = ${req.userId} AND sender_id = ${userId}))
               AND content ILIKE ${searchPattern}
           `
         : await sql`
@@ -129,6 +111,26 @@ export default function messageRoutes(router: Router, io: Server): void {
       logger.error({ err: sanitizeError(error) }, 'Message search failed');
       res.status(500).json({ error: 'Search failed' });
     }
+  });
+
+  router.get('/messages/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const otherUserId = Number(req.params.userId);
+    if (!Number.isInteger(otherUserId) || otherUserId <= 0) {
+      res.status(400).json({ error: 'Invalid user ID' });
+      return;
+    }
+    // Mark messages as read first, then fetch (so read_at is populated in response)
+    await sql`
+      UPDATE messages SET read_at = NOW()
+      WHERE sender_id = ${otherUserId} AND receiver_id = ${req.userId} AND read_at IS NULL
+    `;
+    const messages = await sql`
+      SELECT * FROM messages
+      WHERE (sender_id = ${req.userId} AND receiver_id = ${otherUserId})
+         OR (sender_id = ${otherUserId} AND receiver_id = ${req.userId})
+      ORDER BY created_at ASC
+    `;
+    res.json({ messages });
   });
 
   // Socket.io with JWT authentication

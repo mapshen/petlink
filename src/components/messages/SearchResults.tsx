@@ -22,10 +22,10 @@ interface SearchResultsProps {
 
 function highlightMatch(text: string, query: string): React.ReactNode {
   if (!query || query.length < 2) return text;
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  const parts = text.split(regex);
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
   return parts.map((part, i) =>
-    regex.test(part)
+    part.toLowerCase() === query.toLowerCase()
       ? <mark key={i} className="bg-emerald-200 text-emerald-900 rounded-sm px-0.5">{part}</mark>
       : part
   );

@@ -11,10 +11,10 @@ interface MessageBubbleProps {
 
 function renderContent(content: string, highlightText?: string): React.ReactNode {
   if (!highlightText || highlightText.length < 2) return content;
-  const regex = new RegExp(`(${highlightText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  const parts = content.split(regex);
+  const escaped = highlightText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = content.split(new RegExp(`(${escaped})`, 'gi'));
   return parts.map((part, i) =>
-    regex.test(part)
+    part.toLowerCase() === highlightText.toLowerCase()
       ? <mark key={i} className="bg-yellow-200 text-yellow-900 rounded-sm px-0.5">{part}</mark>
       : part
   );
