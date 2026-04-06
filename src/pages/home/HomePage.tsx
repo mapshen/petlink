@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Booking, Inquiry } from '../../types';
-import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2, Heart, AlertTriangle } from 'lucide-react';
+import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2, Heart, AlertTriangle, Scale } from 'lucide-react';
 import TipDialog from '../../components/booking/TipDialog';
 import BookingGuidance from '../../components/booking/BookingGuidance';
 import BookingReviewDetail from '../../components/review/BookingReviewDetail';
@@ -19,6 +19,7 @@ import { useReviewDialog } from '../../hooks/useReviewDialog';
 import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
 import IncidentReportForm from '../../components/incident/IncidentReportForm';
 import IncidentLog from '../../components/incident/IncidentLog';
+import DisputeInitiateDialog from '../../components/dispute/DisputeInitiateDialog';
 import { useHomeStats } from '../../hooks/useHomeStats';
 import { OwnerStatsRow, SitterStatsRow } from '../../components/home/HomeStats';
 import TodaySchedule from '../../components/home/TodaySchedule';
@@ -55,6 +56,7 @@ export default function HomePage() {
   const [tipBookingId, setTipBookingId] = useState<number | null>(null);
   const [tippedBookingIds, setTippedBookingIds] = useState<Set<number>>(new Set());
   const [incidentBookingId, setIncidentBookingId] = useState<number | null>(null);
+  const [disputeBookingId, setDisputeBookingId] = useState<number | null>(null);
   const [incidentRefreshKeys, setIncidentRefreshKeys] = useState<Record<number, number>>({});
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [checklistDismissed, setChecklistDismissed] = useState(() =>
@@ -432,6 +434,15 @@ export default function HomePage() {
                                 Tip
                               </Button>
                             )}
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                              onClick={() => setDisputeBookingId(booking.id)}
+                            >
+                              <Scale className="w-3.5 h-3.5" />
+                              Dispute
+                            </Button>
                           </>
                         )}
                       </div>
@@ -631,6 +642,20 @@ export default function HomePage() {
           }}
           bookingLabel={(() => {
             const b = bookings.find((bk) => bk.id === incidentBookingId);
+            return b ? `Booking with ${b.sitter_name || b.owner_name || 'Unknown'}` : undefined;
+          })()}
+        />
+      )}
+      {/* Dispute Dialog */}
+      {disputeBookingId && (
+        <DisputeInitiateDialog
+          bookingId={disputeBookingId}
+          token={token}
+          open={true}
+          onOpenChange={(open) => { if (!open) setDisputeBookingId(null); }}
+          onSubmitted={() => setDisputeBookingId(null)}
+          bookingLabel={(() => {
+            const b = bookings.find((bk) => bk.id === disputeBookingId);
             return b ? `Booking with ${b.sitter_name || b.owner_name || 'Unknown'}` : undefined;
           })()}
         />

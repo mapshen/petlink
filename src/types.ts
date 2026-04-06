@@ -269,6 +269,47 @@ export interface IncidentReport {
   created_at: string;
 }
 
+export type DisputeStatus = 'open' | 'under_review' | 'awaiting_response' | 'resolved' | 'closed';
+export type DisputeResolutionType = 'full_refund' | 'partial_refund' | 'credit' | 'warning_owner' | 'warning_sitter' | 'ban_sitter' | 'ban_owner' | 'no_action';
+
+export interface Dispute {
+  id: number;
+  booking_id: number;
+  incident_id?: number | null;
+  filed_by: number;
+  reason: string;
+  status: DisputeStatus;
+  assigned_admin_id?: number | null;
+  resolution_type?: DisputeResolutionType | null;
+  resolution_amount_cents?: number | null;
+  resolution_notes?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  filed_by_name?: string;
+  owner_name?: string;
+  sitter_name?: string;
+  owner_id?: number;
+  sitter_id?: number;
+  assigned_admin_name?: string | null;
+  incident_count?: number;
+  service_type?: string;
+  total_price_cents?: number;
+}
+
+export interface DisputeMessage {
+  id: number;
+  dispute_id: number;
+  sender_id: number;
+  content: string;
+  is_admin_note: boolean;
+  evidence_urls: string[];
+  created_at: string;
+  sender_name?: string;
+  sender_avatar?: string | null;
+  sender_role?: 'owner' | 'sitter' | 'admin';
+}
+
 export type InquiryStatus = 'open' | 'offer_sent' | 'accepted' | 'declined' | 'expired';
 
 export interface Inquiry {

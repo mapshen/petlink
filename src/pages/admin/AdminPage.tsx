@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { API_BASE } from '../../config';
-import { Shield, Check, X, Ban, Loader2, Users, Home, PawPrint, Award, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, Check, X, Ban, Loader2, Users, Home, PawPrint, Award, ChevronDown, ChevronUp, Scale } from 'lucide-react';
+import AdminDisputeQueue from '../../components/dispute/AdminDisputeQueue';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent } from '../../components/ui/card';
@@ -41,7 +42,7 @@ interface AdminSitter {
   manual_import_count?: number;
 }
 
-type Tab = 'pending' | 'approved' | 'rejected' | 'banned' | 'all';
+type Tab = 'pending' | 'approved' | 'rejected' | 'banned' | 'all' | 'disputes';
 type ActionType = 'reject' | 'ban';
 
 export default function AdminPage() {
@@ -317,6 +318,7 @@ export default function AdminPage() {
           { key: 'rejected', label: 'Rejected' },
           { key: 'banned', label: 'Banned' },
           { key: 'all', label: `All (${allTotal})` },
+          { key: 'disputes', label: 'Disputes' },
         ] as const).map((t) => (
           <Button
             key={t.key}
@@ -344,7 +346,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {tab !== 'pending' && (
+      {tab !== 'pending' && tab !== 'disputes' && (
         <div className="space-y-3">
           {allSitters.length === 0 ? (
             <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
@@ -357,6 +359,10 @@ export default function AdminPage() {
             ))
           )}
         </div>
+      )}
+
+      {tab === 'disputes' && (
+        <AdminDisputeQueue token={token} currentUserId={user?.id} />
       )}
 
       {/* Reject / Ban Dialog */}
