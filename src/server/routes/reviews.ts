@@ -164,12 +164,18 @@ export default function reviewRoutes(router: Router): void {
   });
 
   // Get reviews for a user (only published ones)
+  // Optional ?role=owner filter: only show reviews where the reviewee is an owner (sitter→owner reviews)
   router.get('/reviews/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    const roleFilter = req.query.role as string | undefined;
+
     const reviews = await sql`
       SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
       FROM reviews r
       JOIN users u ON r.reviewer_id = u.id
-      WHERE r.reviewee_id = ${req.params.userId} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+      WHERE r.reviewee_id = ${req.params.userId}
+        AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+        ${roleFilter === 'owner' ? sql`AND r.pet_accuracy_rating IS NOT NULL` : sql``}
+        ${roleFilter === 'sitter' ? sql`AND r.pet_care_rating IS NOT NULL` : sql``}
       ORDER BY r.created_at DESC
     `;
 

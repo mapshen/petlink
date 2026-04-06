@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Circle, MessageCircleQuestion } from 'lucide-react';
 import type { AttentionItem } from '../../hooks/attentionItemsUtils';
+import OwnerTrustCard from '../booking/OwnerTrustCard';
 
 const CATEGORY_ICONS: Record<string, string> = {
   feeding: '\u{1F37D}\uFE0F',
@@ -95,6 +96,7 @@ function PendingBookingItem({
   const serviceType = (d.service_type as string)?.replace(/[-_]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
 
   return (
+    <>
     <div className="px-5 py-3 border-b border-amber-200 flex items-center gap-3">
       <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-base">{'\u{1F514}'}</div>
       <div className="flex-1 min-w-0">
@@ -130,6 +132,12 @@ function PendingBookingItem({
         <span className="text-xs text-amber-600 font-medium">Pending</span>
       )}
     </div>
+    {isSitter && d.owner_id && (
+      <div className="px-5 pb-3 border-b border-amber-200">
+        <OwnerTrustCard ownerId={d.owner_id as number} compact />
+      </div>
+    )}
+    </>
   );
 }
 
