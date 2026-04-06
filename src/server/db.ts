@@ -98,7 +98,7 @@ export async function initDb() {
       stripe_account_id TEXT,
       stripe_customer_id TEXT,
       subscription_tier TEXT DEFAULT 'free',
-      approval_status TEXT DEFAULT 'approved' CHECK(approval_status IN ('approved', 'pending_approval', 'rejected', 'banned')),
+      approval_status TEXT DEFAULT 'approved' CHECK(approval_status IN ('approved', 'pending_approval', 'rejected', 'banned', 'onboarding')),
       approval_rejected_reason TEXT,
       approved_by INTEGER REFERENCES users(id),
       approved_at TIMESTAMPTZ,
@@ -634,6 +634,31 @@ export async function initDb() {
   // Backfill verification_status from legacy verified column
   await sql`UPDATE imported_profiles SET verification_status = 'verified' WHERE verified = true AND (verification_status IS NULL OR verification_status = 'pending')`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_imported_reviews_sitter_id ON imported_reviews (sitter_id)`.catch(() => {});
+  // Allow manual imported reviews without an imported_profile
+  await sql`ALTER TABLE imported_reviews ALTER COLUMN imported_profile_id DROP NOT NULL`.catch(() => {});
+
+  // Sitter references (client vouches)
+  await sql`
+    CREATE TABLE IF NOT EXISTS sitter_references (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      client_name TEXT NOT NULL,
+      client_email TEXT NOT NULL,
+      rating INTEGER CHECK(rating >= 1 AND rating <= 5),
+      comment TEXT,
+      invite_token TEXT UNIQUE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'completed')),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      completed_at TIMESTAMPTZ,
+      UNIQUE(sitter_id, client_email)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_references_sitter ON sitter_references (sitter_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_references_token ON sitter_references (invite_token)`.catch(() => {});
+
+  // Extend approval_status for gated onboarding flow
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_approval_status_check`.catch(() => {});
+  await sql`ALTER TABLE users ADD CONSTRAINT users_approval_status_check CHECK(approval_status IN ('approved', 'pending_approval', 'rejected', 'banned', 'onboarding'))`.catch(() => {});
 
   // Issue #146: Calendar token-based iCal export
   await sql`

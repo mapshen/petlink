@@ -7,6 +7,7 @@ import {
 } from '../auth.ts';
 import { validate, updateProfileSchema } from '../validation.ts';
 import { isAdminUser } from '../admin.ts';
+import logger, { sanitizeError } from '../logger.ts';
 export default function userRoutes(router: Router): void {
   router.put(
     '/users/me',
@@ -87,8 +88,8 @@ export default function userRoutes(router: Router): void {
       return;
     }
 
-    if (user.approval_status === 'pending_approval') {
-      res.status(400).json({ error: 'Your application is already pending review' });
+    if (user.approval_status === 'pending_approval' || user.approval_status === 'onboarding') {
+      res.status(400).json({ error: 'Your sitter application is already in progress' });
       return;
     }
 
@@ -100,7 +101,7 @@ export default function userRoutes(router: Router): void {
     await sql`
       UPDATE users SET
         roles = array_append(roles, 'sitter'),
-        approval_status = 'pending_approval'
+        approval_status = 'onboarding'
       WHERE id = ${userId}
     `;
 
@@ -109,6 +110,57 @@ export default function userRoutes(router: Router): void {
     `;
 
     res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });
+  });
+
+  // --- Submit Sitter Application (after completing Profile + Services) ---
+  router.post('/users/me/submit-application', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+    const userId = req.userId!;
+
+    const [user] = await sql`SELECT roles, approval_status, bio FROM users WHERE id = ${userId}`;
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    if (!user.roles.includes('sitter')) {
+      res.status(400).json({ error: 'You must start the sitter application first' });
+      return;
+    }
+    if (user.approval_status !== 'onboarding') {
+      res.status(400).json({ error: 'Application already submitted' });
+      return;
+    }
+
+    // Validate required steps: Profile (bio) + at least one Service
+    if (!user.bio) {
+      res.status(400).json({ error: 'Please complete your profile (add a bio) before submitting' });
+      return;
+    }
+    const [serviceCheck] = await sql`SELECT EXISTS(SELECT 1 FROM services WHERE sitter_id = ${userId}) as has_services`;
+    if (!serviceCheck.has_services) {
+      res.status(400).json({ error: 'Please add at least one service before submitting' });
+      return;
+    }
+
+    const [result] = await sql`
+      UPDATE users SET approval_status = 'pending_approval'
+      WHERE id = ${userId} AND approval_status = 'onboarding'
+      RETURNING id
+    `;
+    if (!result) {
+      res.status(409).json({ error: 'Application was already submitted' });
+      return;
+    }
+
+    const [updated] = await sql`
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason FROM users WHERE id = ${userId}
+    `;
+
+    res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to submit application');
+      res.status(500).json({ error: 'Failed to submit application' });
+    }
   });
 
   // --- Record Onboarding Start ---

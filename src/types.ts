@@ -59,7 +59,7 @@ export interface User {
   emergency_procedures?: string;
   has_insurance?: boolean;
   subscription_tier?: SubscriptionTier;
-  approval_status?: 'approved' | 'pending_approval' | 'rejected' | 'banned';
+  approval_status?: 'approved' | 'pending_approval' | 'rejected' | 'banned' | 'onboarding';
   approval_rejected_reason?: string;
   is_admin?: boolean;
   avg_rating?: number | null;
@@ -475,7 +475,7 @@ export interface ImportedProfile {
 
 export interface ImportedReview {
   id: number;
-  imported_profile_id: number;
+  imported_profile_id?: number | null;
   sitter_id: number;
   platform: ImportPlatform;
   reviewer_name: string;
@@ -483,6 +483,18 @@ export interface ImportedReview {
   comment?: string;
   review_date?: string;
   created_at: string;
+}
+
+export interface SitterReference {
+  id: number;
+  sitter_id: number;
+  client_name: string;
+  client_email: string;
+  rating?: number;
+  comment?: string;
+  status: 'pending' | 'completed';
+  created_at: string;
+  completed_at?: string;
 }
 
 export interface ScrapedProfile {

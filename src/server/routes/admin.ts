@@ -24,17 +24,19 @@ export default function adminRoutes(router: Router): void {
     const status = req.query.status as string | undefined;
     const limit = Math.min(Number(req.query.limit) || 50, 100);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
-    const validStatuses = ['approved', 'pending_approval', 'rejected', 'banned'];
+    const validStatuses = ['approved', 'pending_approval', 'rejected', 'banned', 'onboarding'];
     const statusFilter = status && validStatuses.includes(status) ? status : undefined;
 
     const sitters = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, created_at, approval_status, approved_at, approval_rejected_reason,
-             years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description,
-             accepted_species, skills
-      FROM users
-      WHERE roles @> '{sitter}'::text[]
-      ${statusFilter ? sql`AND approval_status = ${statusFilter}` : sql``}
-      ORDER BY created_at DESC
+      SELECT u.id, u.email, u.name, u.roles, u.bio, u.avatar_url, u.created_at, u.approval_status, u.approved_at, u.approval_rejected_reason,
+             u.years_experience, u.home_type, u.has_yard, u.has_fenced_yard, u.has_own_pets, u.own_pets_description,
+             u.accepted_species, u.skills,
+             (SELECT count(*)::int FROM sitter_references WHERE sitter_id = u.id AND status = 'completed') as reference_count,
+             (SELECT count(*)::int FROM imported_reviews WHERE sitter_id = u.id AND imported_profile_id IS NULL) as manual_import_count
+      FROM users u
+      WHERE u.roles @> '{sitter}'::text[]
+      ${statusFilter ? sql`AND u.approval_status = ${statusFilter}` : sql``}
+      ORDER BY u.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
     const [{ total }] = await sql`

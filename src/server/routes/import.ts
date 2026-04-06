@@ -1,8 +1,9 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
-import { validate, importPreviewSchema, verifyImportSchema, confirmImportSchema, applyProfileSchema } from '../validation.ts';
+import { validate, importPreviewSchema, verifyImportSchema, confirmImportSchema, applyProfileSchema, manualImportSchema } from '../validation.ts';
 import { parseRoverUrl, generateVerificationCode, scrapeRoverProfile, checkVerificationCode } from '../profile-import.ts';
+import logger, { sanitizeError } from '../logger.ts';
 
 export default function importRoutes(router: Router): void {
   router.post('/import/preview', authMiddleware, validate(importPreviewSchema), async (req: AuthenticatedRequest, res) => {
@@ -182,5 +183,39 @@ export default function importRoutes(router: Router): void {
     }
     await sql`DELETE FROM imported_profiles WHERE id = ${req.params.id}`;
     res.json({ success: true });
+  });
+
+  // POST /import/manual — manually enter a review from another platform (no scraping)
+  router.post('/import/manual', authMiddleware, validate(manualImportSchema), async (req: AuthenticatedRequest, res) => {
+    try {
+      const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!currentUser?.roles?.includes('sitter')) {
+        res.status(403).json({ error: 'Only sitters can import reviews' });
+        return;
+      }
+
+      // Cap manual imports per sitter
+      const [{ count }] = await sql`
+        SELECT count(*)::int as count FROM imported_reviews
+        WHERE sitter_id = ${req.userId} AND imported_profile_id IS NULL
+      `;
+      if (count >= 20) {
+        res.status(429).json({ error: 'Maximum of 20 manual review imports allowed' });
+        return;
+      }
+
+      const { platform, reviewer_name, rating, comment, review_date } = req.body;
+
+      const [review] = await sql`
+        INSERT INTO imported_reviews (sitter_id, platform, reviewer_name, rating, comment, review_date)
+        VALUES (${req.userId}, ${platform}, ${reviewer_name}, ${rating}, ${comment || null}, ${review_date || null})
+        RETURNING *
+      `;
+
+      res.status(201).json({ review });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to manually import review');
+      res.status(500).json({ error: 'Failed to import review' });
+    }
   });
 }
