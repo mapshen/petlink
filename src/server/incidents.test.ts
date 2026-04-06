@@ -255,6 +255,19 @@ describe('POST /incidents', () => {
     expect(res.status).toBe(400);
     expect(mockSqlFn).not.toHaveBeenCalled();
   });
+
+  it('returns 429 when user exceeds per-booking incident limit', async () => {
+    mockSqlFn.mockResolvedValueOnce([{ id: 1, owner_id: 1, sitter_id: 2, status: 'confirmed' }] as any);
+    mockSqlFn.mockResolvedValueOnce([{ count: 10 }] as any); // at limit
+
+    const res = await request(app)
+      .post('/incidents')
+      .set('x-test-user-id', '1')
+      .send(validBody);
+
+    expect(res.status).toBe(429);
+    expect(res.body.error).toBe('Maximum incident reports reached for this booking');
+  });
 });
 
 // ---------------------------------------------------------------------------

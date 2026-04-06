@@ -251,6 +251,7 @@ export async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_incident_evidence_incident ON incident_evidence (incident_id)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS messages (

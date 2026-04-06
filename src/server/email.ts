@@ -318,14 +318,7 @@ export function buildReferenceInviteEmail(params: {
   };
 }
 
-const INCIDENT_CATEGORY_LABELS: Record<string, string> = {
-  pet_injury: 'Pet Injury',
-  property_damage: 'Property Damage',
-  safety_concern: 'Safety Concern',
-  behavioral_issue: 'Behavioral Issue',
-  service_issue: 'Service Issue',
-  other: 'Other',
-};
+import { getIncidentCategoryLabel } from '../shared/incident-categories.ts';
 
 export function buildIncidentReportEmail(params: {
   recipientName: string;
@@ -336,7 +329,7 @@ export function buildIncidentReportEmail(params: {
 }): { subject: string; html: string } {
   const recipient = escapeHtml(params.recipientName);
   const reporter = escapeHtml(params.reporterName);
-  const categoryLabel = INCIDENT_CATEGORY_LABELS[params.category] || params.category;
+  const categoryLabel = getIncidentCategoryLabel(params.category);
   const desc = escapeHtml(params.description.slice(0, 300));
 
   return {

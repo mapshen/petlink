@@ -6,15 +6,7 @@ import { validate, createIncidentSchema } from '../validation.ts';
 import { createNotification } from '../notifications.ts';
 import { sendEmail, buildIncidentReportEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
-
-const INCIDENT_CATEGORY_LABELS: Record<string, string> = {
-  pet_injury: 'Pet Injury',
-  property_damage: 'Property Damage',
-  safety_concern: 'Safety Concern',
-  behavioral_issue: 'Behavioral Issue',
-  service_issue: 'Service Issue',
-  other: 'Other',
-};
+import { getIncidentCategoryLabel } from '../../shared/incident-categories.ts';
 
 const MAX_INCIDENTS_PER_USER_PER_BOOKING = 10;
 
@@ -43,7 +35,9 @@ export default function incidentRoutes(router: Router, io: Server): void {
     // Insert incident + evidence in a transaction (rate limit check inside tx to avoid TOCTOU)
     let rateLimited = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await sql.begin(async (tx: any) => {
+    let result: { incident: any; evidenceRows: any[] };
+    try {
+    result = await sql.begin(async (tx: any) => {
       const [{ count: existingCount }] = await tx`
         SELECT COUNT(*)::int as count FROM incident_reports
         WHERE booking_id = ${booking_id} AND reporter_id = ${req.userId}
@@ -73,6 +67,11 @@ export default function incidentRoutes(router: Router, io: Server): void {
       }
       return { incident: inc, evidenceRows: evRows };
     });
+    } catch (err) {
+      logger.error({ err: sanitizeError(err as Error) }, 'Failed to create incident report');
+      res.status(500).json({ error: 'Failed to create incident report' });
+      return;
+    }
 
     if (rateLimited) {
       res.status(429).json({ error: 'Maximum incident reports reached for this booking' });
@@ -85,7 +84,7 @@ export default function incidentRoutes(router: Router, io: Server): void {
     const [reporter] = await sql`SELECT name, email FROM users WHERE id = ${req.userId}`;
     const [otherParty] = await sql`SELECT name, email FROM users WHERE id = ${otherPartyId}`;
 
-    const categoryLabel = INCIDENT_CATEGORY_LABELS[category] || category;
+    const categoryLabel = getIncidentCategoryLabel(category);
 
     // Notify the other party (incident_report bypasses preferences — see notifications.ts)
     const notification = await createNotification(
