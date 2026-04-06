@@ -12,6 +12,9 @@
  * After base score, tier-based additive boost:
  *   - Pro: +0.05 (priority placement)
  *   - Premium: +0.10 (promoted in search)
+ *
+ * Reliability penalty:
+ *   - 5+ active strikes: -0.15 (temporary search demotion)
  */
 
 export interface SitterStats {
@@ -29,6 +32,7 @@ export interface SitterStats {
   approved_at: string | null;
   distance_meters?: number | null;
   subscription_tier?: string;
+  active_strike_weight?: number;
 }
 
 const WEIGHTS = {
@@ -60,13 +64,22 @@ export function calculateRankingScore(stats: SitterStats): number {
     newBoost * WEIGHTS.newBoost;
 
   const tierBoost = computeTierBoost(stats.subscription_tier);
-  return Math.min(baseScore + tierBoost, 1);
+  const reliabilityPenalty = computeReliabilityPenalty(stats.active_strike_weight);
+  return Math.max(0, Math.min(baseScore + tierBoost - reliabilityPenalty, 1));
 }
 
 export function computeTierBoost(subscriptionTier?: string): number {
   if (subscriptionTier === 'premium') return 0.10;
   if (subscriptionTier === 'pro') return 0.05;
   return 0;
+}
+
+const DEMOTION_STRIKE_THRESHOLD = 5;
+const DEMOTION_PENALTY = 0.15;
+
+export function computeReliabilityPenalty(activeStrikeWeight?: number): number {
+  if (!activeStrikeWeight || activeStrikeWeight < DEMOTION_STRIKE_THRESHOLD) return 0;
+  return DEMOTION_PENALTY;
 }
 
 export function computeReviewScore(avgRating: number | null, reviewCount: number): number {
