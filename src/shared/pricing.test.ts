@@ -136,3 +136,77 @@ describe('calculateAdvancedPrice (cents)', () => {
     expect(result.totalCents).toBe(2500);
   });
 });
+
+describe('calculateAdvancedPrice addons (cents)', () => {
+  it('defaults addonsCents to 0 and addonDetails to [] when no addons provided', () => {
+    const result = calculateAdvancedPrice({ basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 1 });
+    expect(result.breakdown.addonsCents).toBe(0);
+    expect(result.breakdown.addonDetails).toEqual([]);
+    expect(result.totalCents).toBe(2500);
+  });
+
+  it('defaults addonsCents to 0 when addons is empty array', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 1,
+      addons: [],
+    });
+    expect(result.breakdown.addonsCents).toBe(0);
+    expect(result.breakdown.addonDetails).toEqual([]);
+    expect(result.totalCents).toBe(2500);
+  });
+
+  it('adds single addon to total', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 0, petCount: 1,
+      addons: [{ slug: 'nail-trim', priceCents: 800 }],
+    });
+    expect(result.totalCents).toBe(3300); // 2500 + 800
+    expect(result.breakdown.addonsCents).toBe(800);
+    expect(result.breakdown.addonDetails).toEqual([{ slug: 'nail-trim', priceCents: 800 }]);
+  });
+
+  it('sums multiple addons correctly', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 0, petCount: 1,
+      addons: [
+        { slug: 'nail-trim', priceCents: 800 },
+        { slug: 'teeth-brushing', priceCents: 500 },
+        { slug: 'flea-treatment', priceCents: 1200 },
+      ],
+    });
+    expect(result.totalCents).toBe(5000); // 2500 + 800 + 500 + 1200
+    expect(result.breakdown.addonsCents).toBe(2500);
+    expect(result.breakdown.addonDetails).toHaveLength(3);
+  });
+
+  it('handles addon with zero price (free addon)', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 0, petCount: 1,
+      addons: [{ slug: 'photo-update', priceCents: 0 }],
+    });
+    expect(result.totalCents).toBe(2500);
+    expect(result.breakdown.addonsCents).toBe(0);
+    expect(result.breakdown.addonDetails).toEqual([{ slug: 'photo-update', priceCents: 0 }]);
+  });
+
+  it('stacks addons with holiday rate + extra pets', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 3,
+      isHoliday: true, holidayRateCents: 3500,
+      addons: [
+        { slug: 'nail-trim', priceCents: 800 },
+        { slug: 'teeth-brushing', priceCents: 500 },
+      ],
+    });
+    // Holiday base: 3500 + 2 extra pets: 1100 + addons: 1300 = 5900
+    expect(result.totalCents).toBe(5900);
+    expect(result.breakdown.baseCents).toBe(3500);
+    expect(result.breakdown.extraPetsCents).toBe(1100);
+    expect(result.breakdown.addonsCents).toBe(1300);
+    expect(result.breakdown.holidayApplied).toBe(true);
+    expect(result.breakdown.addonDetails).toEqual([
+      { slug: 'nail-trim', priceCents: 800 },
+      { slug: 'teeth-brushing', priceCents: 500 },
+    ]);
+  });
+});

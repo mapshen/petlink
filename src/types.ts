@@ -14,6 +14,7 @@ export interface SitterWithService extends User {
   review_count?: number;
   avg_rating?: number | null;
   service_radius_miles?: number;
+  addon_slugs?: string[];
 }
 
 export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
@@ -206,6 +207,22 @@ export interface FeaturedListing {
   created_at: string;
 }
 
+export interface SitterAddon {
+  id: number;
+  sitter_id: number;
+  addon_slug: string;
+  price_cents: number;
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface BookingAddon {
+  booking_id: number;
+  addon_id: number | null;
+  addon_slug: string;
+  price_cents: number;
+}
+
 export interface Booking {
   id: number;
   sitter_id: number;
@@ -226,6 +243,7 @@ export interface Booking {
   deposit_status?: 'held' | 'captured_as_deposit' | 'applied' | 'released_to_sitter' | 'refunded' | null;
   deposit_applied_to_booking_id?: number | null;
   meet_greet_notes?: string | null;
+  addons?: BookingAddon[];
 }
 
 export type InquiryStatus = 'open' | 'offer_sent' | 'accepted' | 'declined' | 'expired';

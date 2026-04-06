@@ -65,6 +65,7 @@ export interface PricingOptions {
   pickupDropoffFeeCents?: number;
   groomingAddon?: boolean;
   groomingAddonFeeCents?: number;
+  addons?: { slug: string; priceCents: number }[];
 }
 
 /** All amounts in integer cents */
@@ -73,6 +74,8 @@ export interface PriceBreakdown {
   extraPetsCents: number;
   pickupDropoffCents: number;
   groomingCents: number;
+  addonsCents: number;
+  addonDetails: { slug: string; priceCents: number }[];
   holidayApplied: boolean;
   puppyApplied: boolean;
 }
@@ -90,6 +93,7 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
     hasPuppy, puppyRateCents,
     pickupDropoff, pickupDropoffFeeCents,
     groomingAddon, groomingAddonFeeCents,
+    addons,
   } = options;
 
   // Rate precedence: holiday > puppy > base.
@@ -110,7 +114,10 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
   const pickupCents = pickupDropoff && pickupDropoffFeeCents ? pickupDropoffFeeCents : 0;
   const groomCents = groomingAddon && groomingAddonFeeCents ? groomingAddonFeeCents : 0;
 
-  const totalCents = effectiveBaseCents + extraPetsCents + pickupCents + groomCents;
+  const addonDetails = addons ?? [];
+  const addonsCents = addonDetails.reduce((sum, a) => sum + a.priceCents, 0);
+
+  const totalCents = effectiveBaseCents + extraPetsCents + pickupCents + groomCents + addonsCents;
 
   return {
     totalCents,
@@ -119,6 +126,8 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
       extraPetsCents,
       pickupDropoffCents: pickupCents,
       groomingCents: groomCents,
+      addonsCents,
+      addonDetails,
       holidayApplied,
       puppyApplied,
     },
