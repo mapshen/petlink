@@ -206,20 +206,23 @@ export default function subscriptionRoutes(router: Router): void {
         });
         res.json({ subscription: updated });
       } else {
-        // Downgrade premium → pro
+        // Downgrade premium → pro — DB update deferred to customer.subscription.updated webhook
         if (existing.stripe_subscription_id) {
           await changeStripeSubscriptionPrice(existing.stripe_subscription_id, 'pro');
+          res.json({ pending: true });
+        } else {
+          // No Stripe subscription (dev mode) — update DB directly
+          const [updated] = await sql.begin(async (tx: any) => {
+            const [s] = await tx`
+              UPDATE sitter_subscriptions SET tier = 'pro', updated_at = NOW()
+              WHERE sitter_id = ${req.userId}
+              RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
+            `;
+            await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
+            return [s];
+          });
+          res.json({ subscription: updated });
         }
-        const [updated] = await sql.begin(async (tx: any) => {
-          const [s] = await tx`
-            UPDATE sitter_subscriptions SET tier = 'pro', updated_at = NOW()
-            WHERE sitter_id = ${req.userId}
-            RETURNING id, sitter_id, tier, status, current_period_start, current_period_end, created_at, updated_at
-          `;
-          await tx`UPDATE users SET subscription_tier = 'pro' WHERE id = ${req.userId}`;
-          return [s];
-        });
-        res.json({ subscription: updated });
       }
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Subscription downgrade error');

@@ -167,6 +167,15 @@ export default function paymentRoutes(router: Router): void {
           };
           if (session.mode === 'subscription' && session.metadata?.petlink_user_id) {
             const userId = Number(session.metadata.petlink_user_id);
+            if (!Number.isInteger(userId) || userId <= 0) {
+              logger.warn({ raw: session.metadata.petlink_user_id }, 'Invalid petlink_user_id in checkout metadata');
+              break;
+            }
+            const [subUser] = await sql`SELECT roles FROM users WHERE id = ${userId}`;
+            if (!subUser?.roles?.includes('sitter')) {
+              logger.warn({ userId }, 'Checkout completed for non-sitter user, skipping');
+              break;
+            }
             const stripeSubId = session.subscription;
             const tier = session.metadata.petlink_tier === 'premium' ? 'premium' : 'pro';
             const [existing] = await sql`SELECT id FROM sitter_subscriptions WHERE sitter_id = ${userId}`;
