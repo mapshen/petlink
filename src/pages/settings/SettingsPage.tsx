@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { API_BASE } from '../../config';
-import { User, KeyRound, Link2, Crown, Bell, Trash2, Phone, Banknote } from 'lucide-react';
+import { User, KeyRound, Link2, Crown, Bell, Trash2, Phone, Banknote, Coins } from 'lucide-react';
 import LinkedAccounts from '../../components/profile/LinkedAccounts';
 import SubscriptionPage from '../profile/SubscriptionPage';
 import PasswordSection from './PasswordSection';
 import NotificationSection from './NotificationSection';
 import EmergencyContactForm from './EmergencyContactForm';
 import ConnectSetup from '../../components/payment/ConnectSetup';
+import CreditBalance from '../../components/payment/CreditBalance';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,7 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'emergency', label: 'Emergency Contact', icon: Phone },
   { id: 'security', label: 'Security', icon: KeyRound },
   { id: 'linked', label: 'Linked Accounts', icon: Link2 },
+  { id: 'credits', label: 'Credits', icon: Coins },
   { id: 'payouts', label: 'Payouts', icon: Banknote },
   { id: 'subscription', label: 'Subscription', icon: Crown },
   { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -152,6 +154,17 @@ export default function SettingsPage() {
             </div>
             <div className="px-6 py-5">
               <LinkedAccounts embedded />
+            </div>
+          </div>
+
+          {/* Credits */}
+          <div id="settings-credits" className="bg-white rounded-2xl border border-stone-100 overflow-hidden scroll-mt-24">
+            <div className="px-6 py-4 border-b border-stone-100">
+              <h2 className="font-bold text-sm">Credits</h2>
+              <p className="text-xs text-stone-400 mt-0.5">View your credit balance and history</p>
+            </div>
+            <div className="px-6 py-5">
+              <CreditBalance token={token} />
             </div>
           </div>
 

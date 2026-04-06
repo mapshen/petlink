@@ -22,6 +22,21 @@ export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
 export type SubscriptionTier = 'free' | 'pro';
 export type ConnectStatus = 'not_started' | 'onboarding' | 'active' | 'restricted' | 'disabled';
 
+export type CreditType = 'referral' | 'dispute_resolution' | 'promo' | 'beta_reward' | 'milestone' | 'redemption' | 'expiration';
+export type CreditSourceType = 'dispute' | 'referral_invite' | 'admin_grant' | 'beta_program' | 'booking' | 'subscription' | 'system';
+
+export interface CreditEntry {
+  id: number;
+  user_id: number;
+  amount_cents: number;
+  type: CreditType;
+  source_type: CreditSourceType;
+  source_id: number | null;
+  description: string;
+  expires_at: string | null;
+  created_at: string;
+}
+
 export interface SitterSubscription {
   id: number;
   sitter_id: number;

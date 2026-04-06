@@ -456,6 +456,17 @@ export const updateDisputeStatusSchema = z.object({
   status: z.enum(disputeStatuses, { message: 'Status must be under_review, awaiting_response, or closed' }),
 });
 
+// --- Credit Schemas ---
+const creditTypes = ['referral', 'dispute_resolution', 'promo', 'beta_reward', 'milestone'] as const;
+
+export const issueCreditSchema = z.object({
+  user_id: z.number().int().positive('Invalid user ID'),
+  amount_cents: z.number().int().min(1, 'Amount must be at least $0.01').max(9999900, 'Amount must be under $100,000'),
+  type: z.enum(creditTypes, { message: 'Invalid credit type' }),
+  description: z.string().trim().min(1, 'Description is required').max(500, 'Description must be under 500 characters'),
+  expires_at: z.string().datetime().optional().nullable(),
+});
+
 // --- Upload Signed URL Schema ---
 const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents', 'disputes'] as const;
 const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;
