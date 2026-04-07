@@ -8,6 +8,7 @@ import { formatCents } from '../../lib/money';
 import { buildProfileUrl, buildCardData } from '../../lib/qr-business-card';
 import { useSitterPreviewData } from '../../hooks/useSitterPreviewData';
 import QRBusinessCard from '../../components/promote/QRBusinessCard';
+import MarketingMaterials from '../../components/promote/MarketingMaterials';
 import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -155,6 +156,13 @@ export default function PromotePage({ embedded = false }: { embedded?: boolean }
       {cardData && (
         <div className="bg-white rounded-xl border border-stone-200 p-6 mb-6">
           <QRBusinessCard cardData={cardData} profileUrl={profileUrl} />
+        </div>
+      )}
+
+      {/* Marketing Materials */}
+      {cardData && (
+        <div className="bg-white rounded-xl border border-stone-200 p-6 mb-6">
+          <MarketingMaterials cardData={cardData} profileUrl={profileUrl} />
         </div>
       )}
 
