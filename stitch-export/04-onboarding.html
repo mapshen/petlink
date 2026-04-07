@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PetLink — Sitter Onboarding</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="min-h-screen bg-stone-50 font-sans text-stone-900">
+
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+  <h1 class="text-3xl font-bold text-stone-900 mb-2">Set Up Your Sitter Profile</h1>
+  <p class="text-stone-500 mb-8">Complete these steps to start getting bookings.</p>
+
+  <!-- Progress Bar -->
+  <div class="flex items-center gap-1 mb-10">
+    <div class="flex items-center gap-1">
+      <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">1</div>
+      <span class="text-xs font-medium text-emerald-600 mr-2">Profile</span>
+    </div>
+    <div class="flex-1 h-0.5 bg-emerald-600"></div>
+    <div class="flex items-center gap-1">
+      <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">2</div>
+      <span class="text-xs font-medium text-emerald-600 mr-2">Services</span>
+    </div>
+    <div class="flex-1 h-0.5 bg-stone-200"></div>
+    <div class="flex items-center gap-1">
+      <div class="w-8 h-8 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center text-xs font-bold">3</div>
+      <span class="text-xs font-medium text-stone-400 mr-2">Photos</span>
+    </div>
+    <div class="flex-1 h-0.5 bg-stone-200"></div>
+    <div class="flex items-center gap-1">
+      <div class="w-8 h-8 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center text-xs font-bold">4</div>
+      <span class="text-xs font-medium text-stone-400 mr-2">Verify</span>
+    </div>
+    <div class="flex-1 h-0.5 bg-stone-200"></div>
+    <div class="flex items-center gap-1">
+      <div class="w-8 h-8 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center text-xs font-bold">5</div>
+      <span class="text-xs font-medium text-stone-400">Done</span>
+    </div>
+  </div>
+
+  <!-- Step 1: Profile -->
+  <div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 mb-8">
+    <h2 class="text-xl font-bold text-stone-900 mb-5">Step 1 — Tell us about yourself</h2>
+    <div class="space-y-5">
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1">Name</label>
+        <input type="text" value="Sarah Johnson" class="w-full p-3 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1">Bio</label>
+        <textarea rows="4" placeholder="Tell pet owners about your experience with animals..." class="w-full p-3 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">I've been caring for animals my whole life. With 3 years of professional pet sitting experience, I treat every pet like my own family member. I have a fenced backyard perfect for playtime!</textarea>
+      </div>
+      <div class="flex justify-end">
+        <button class="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors">Next &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Services -->
+  <div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 mb-8">
+    <h2 class="text-xl font-bold text-stone-900 mb-2">Step 2 — Set up your services</h2>
+    <p class="text-sm text-stone-500 mb-5">Add at least one service to let pet owners book you.</p>
+
+    <!-- Existing services -->
+    <div class="space-y-2 mb-5">
+      <div class="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+        <div class="flex items-center gap-2"><span>&#x1F6B6;</span><span class="font-medium text-stone-900">Pet Walking</span></div>
+        <span class="font-bold text-emerald-600">$25.00</span>
+      </div>
+      <div class="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+        <div class="flex items-center gap-2"><span>&#x1F3E0;</span><span class="font-medium text-stone-900">House Sitting</span></div>
+        <span class="font-bold text-emerald-600">$40.00</span>
+      </div>
+    </div>
+
+    <!-- Add service form -->
+    <div class="border border-stone-200 rounded-xl p-4 space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1">Service Type</label>
+        <select class="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500">
+          <option>&#x1F44B; Drop-in Visit</option>
+          <option>&#x1F3E0; Daycare</option>
+          <option>&#x2702;&#xFE0F; Grooming</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1">Price per session ($)</label>
+        <input type="number" placeholder="e.g. 25" class="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-stone-700 mb-1">Description (optional)</label>
+        <textarea rows="2" placeholder="Describe what's included..." class="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 resize-none"></textarea>
+      </div>
+      <button class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">&#x1F4BE; Add Service</button>
+    </div>
+
+    <div class="flex justify-between pt-5">
+      <button class="inline-flex items-center gap-2 px-4 py-3 text-stone-600 hover:text-stone-900 transition-colors">&larr; Back</button>
+      <button class="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors">Next &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Photos -->
+  <div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 mb-8">
+    <h2 class="text-xl font-bold text-stone-900 mb-2">Step 3 — Add a profile photo</h2>
+    <p class="text-sm text-stone-500 mb-5">Pet owners are more likely to book sitters with a profile photo.</p>
+
+    <div class="flex flex-col items-center gap-4 py-4">
+      <div class="relative group">
+        <img src="https://ui-avatars.com/api/?name=Sarah+Johnson&size=160&background=d1fae5&color=059669" alt="Sarah Johnson" class="w-32 h-32 rounded-full border-4 border-emerald-50 object-cover">
+        <div class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+      </div>
+      <p class="text-xs text-stone-400">Click to upload. JPEG, PNG, WebP or GIF. Max 5MB.</p>
+    </div>
+
+    <div class="flex justify-between pt-2">
+      <button class="text-stone-600 hover:text-stone-900 transition-colors">&larr; Back</button>
+      <div class="flex items-center gap-3">
+        <button class="text-stone-400 hover:text-stone-600 transition-colors text-sm">&#x23ED; Skip</button>
+        <button class="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors">Next &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Verification -->
+  <div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 mb-8">
+    <h2 class="text-xl font-bold text-stone-900 mb-2">Step 4 — Verify your identity</h2>
+    <p class="text-sm text-stone-500 mb-5">Verified sitters get a badge on their profile and earn more trust with pet owners.</p>
+
+    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center">
+      <svg class="w-12 h-12 mx-auto mb-3 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      <h3 class="font-bold text-stone-900 mb-2">Identity Verification</h3>
+      <p class="text-sm text-stone-600 mb-4">We'll verify your identity through a quick background check. This helps keep the platform safe for pets and their owners.</p>
+    </div>
+
+    <div class="flex justify-between pt-5">
+      <button class="text-stone-600 hover:text-stone-900 transition-colors">&larr; Back</button>
+      <div class="flex items-center gap-3">
+        <button class="text-stone-400 hover:text-stone-600 transition-colors text-sm">&#x23ED; Skip</button>
+        <button class="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors">Start Verification &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5: Done -->
+  <div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 text-center">
+    <div class="text-5xl mb-4">&#x1F389;</div>
+    <h2 class="text-2xl font-bold text-stone-900 mb-2">You're all set!</h2>
+    <p class="text-stone-600 max-w-md mx-auto mb-6">Your sitter profile is ready. Pet owners can now find and book you.</p>
+
+    <div class="bg-stone-50 rounded-xl p-4 text-sm text-stone-500 max-w-sm mx-auto mb-6">
+      <p class="font-medium text-stone-700 mb-2">Optional steps remaining:</p>
+      <div class="flex items-center gap-2 mb-1"><svg class="w-4 h-4 text-stone-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg><span>Upload a profile photo</span></div>
+      <div class="flex items-center gap-2"><svg class="w-4 h-4 text-stone-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg><span>Complete identity verification</span></div>
+      <p class="mt-2 text-xs text-stone-400">You can do these anytime from your profile settings.</p>
+    </div>
+
+    <button class="inline-flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors">Go to Home &rarr;</button>
+  </div>
+</div>
+
+</body>
+</html>

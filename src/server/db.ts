@@ -956,6 +956,31 @@ export async function initDb() {
   await sql`ALTER TABLE credit_ledger ADD COLUMN IF NOT EXISTS stripe_event_id TEXT`.catch(() => {});
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_stripe_event ON credit_ledger (stripe_event_id) WHERE stripe_event_id IS NOT NULL`.catch(() => {});
 
+  // Issue #406: Private pet notes from sitters
+  await sql`
+    CREATE TABLE IF NOT EXISTS private_pet_notes (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+      content TEXT NOT NULL CHECK(char_length(content) <= 2000),
+      flags TEXT[] DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(sitter_id, booking_id, pet_id)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_private_pet_notes_pet ON private_pet_notes (pet_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_private_pet_notes_sitter ON private_pet_notes (sitter_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_private_pet_notes_booking ON private_pet_notes (booking_id)`.catch(() => {});
+
+  // Issue #409: Extended stay billing
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS nightly_rate_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS half_day_rate_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS nights INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS half_days INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_extended_stay BOOLEAN DEFAULT false`.catch(() => {});
+
   // Issue #415: Credit dormancy policy
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS dormancy_warning_sent_at TIMESTAMPTZ`.catch(() => {});
