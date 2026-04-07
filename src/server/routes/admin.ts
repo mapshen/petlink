@@ -1,12 +1,14 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
 import { type AuthenticatedRequest } from '../auth.ts';
-import { validate, approvalDecisionSchema } from '../validation.ts';
+import { validate, approvalDecisionSchema, betaCreditSchema } from '../validation.ts';
 import { adminMiddleware } from '../admin.ts';
-import { sendEmail, buildApprovalStatusEmail } from '../email.ts';
+import { sendEmail, buildApprovalStatusEmail, buildFoundingSitterWelcomeEmail } from '../email.ts';
 import { createNotification } from '../notifications.ts';
+import { issueCredit } from '../credits.ts';
 import { clearLockout } from '../login-lockout.ts';
 import logger, { sanitizeError } from '../logger.ts';
+import type { BetaCohort } from '../../types.ts';
 
 export default function adminRoutes(router: Router): void {
   router.get('/admin/pending-sitters', adminMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -121,6 +123,83 @@ export default function adminRoutes(router: Router): void {
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to update sitter approval');
       res.status(500).json({ error: 'Failed to update sitter approval' });
+    }
+  });
+
+  // Admin: issue beta promotional credits to a sitter
+  router.post('/admin/users/:id/beta-credit', adminMiddleware, validate(betaCreditSchema), async (req: AuthenticatedRequest, res) => {
+    try {
+      const sitterId = Number(req.params.id);
+      if (!sitterId || isNaN(sitterId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      const { amount_cents, cohort } = req.body as { amount_cents: number; cohort: BetaCohort };
+
+      // Validate amount is within cohort range
+      const COHORT_RANGES: Record<BetaCohort, { min: number; max: number }> = {
+        founding: { min: 12000, max: 24000 },
+        early_beta: { min: 6000, max: 12000 },
+        post_beta: { min: 2000, max: 4000 },
+      };
+      const range = COHORT_RANGES[cohort];
+      if (amount_cents < range.min || amount_cents > range.max) {
+        res.status(400).json({ error: `Amount must be between $${range.min / 100} and $${range.max / 100} for ${cohort} cohort` });
+        return;
+      }
+
+      // Verify target is a sitter
+      const [sitter] = await sql`
+        SELECT id, email, name, roles, beta_cohort, founding_sitter
+        FROM users WHERE id = ${sitterId} AND roles @> '{sitter}'::text[]
+      `;
+      if (!sitter) {
+        res.status(404).json({ error: 'Sitter not found' });
+        return;
+      }
+
+      if (sitter.beta_cohort) {
+        res.status(409).json({ error: `Sitter already assigned to ${sitter.beta_cohort} cohort` });
+        return;
+      }
+
+      // Atomic: set cohort + issue credits in single transaction
+      const isFounding = cohort === 'founding';
+      const creditType = cohort === 'founding' ? 'beta_reward' : 'promo';
+      const description = `${cohort === 'founding' ? 'Founding Sitter' : cohort === 'early_beta' ? 'Early Beta' : 'New Sitter'} promotional credits`;
+
+      let entry;
+      await sql.begin(async (tx: any) => {
+        await tx`
+          UPDATE users
+          SET beta_cohort = ${cohort},
+              founding_sitter = ${isFounding || sitter.founding_sitter}
+          WHERE id = ${sitterId}
+        `;
+        entry = await issueCredit(sitterId, amount_cents, creditType, 'beta_program', description, null, null, tx);
+      });
+
+      // Send welcome email
+      const emailContent = buildFoundingSitterWelcomeEmail({
+        sitterName: sitter.name,
+        creditAmountCents: amount_cents,
+        cohort,
+      });
+      sendEmail({ to: sitter.email, ...emailContent }).catch(() => {});
+
+      // In-app notification
+      await createNotification(
+        sitterId,
+        'account_update',
+        isFounding ? 'Welcome, Founding Sitter!' : 'Credits Added',
+        `You've received $${(amount_cents / 100).toFixed(2)} in platform credits${isFounding ? ' and the Founding Sitter badge' : ''}.`
+      );
+
+      res.status(201).json({ entry, cohort, founding_sitter: isFounding });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to issue beta credits');
+      res.status(500).json({ error: 'Failed to issue beta credits' });
     }
   });
 

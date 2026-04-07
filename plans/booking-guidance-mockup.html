@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking Guidance Mockup — PetLink</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background: #fafaf9; font-family: system-ui, -apple-system, sans-serif; }
+</style>
+</head>
+<body class="p-6 max-w-2xl mx-auto space-y-8">
+
+<h1 class="text-2xl font-extrabold text-stone-900 mb-2">Booking Guidance Mockup</h1>
+<p class="text-sm text-stone-500 mb-8">Shows how contextual guidance appears on booking cards for each status.</p>
+
+<!-- ===== PENDING (Owner View) ===== -->
+<div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-3">
+      <img src="https://i.pravatar.cc/40?u=bob" class="w-10 h-10 rounded-full" alt="">
+      <div>
+        <h3 class="font-bold text-stone-900">Bob S.</h3>
+        <div class="text-sm text-stone-500">Dog Walking</div>
+        <div class="text-xs text-stone-400">Buddy</div>
+      </div>
+    </div>
+    <div class="text-right">
+      <div class="text-sm font-medium text-stone-900">Apr 5, 2026</div>
+      <div class="text-xs text-stone-500">10:00 AM - 11:00 AM</div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between mb-3">
+    <span class="bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">Pending</span>
+    <button class="text-xs text-red-600 font-medium hover:underline">Cancel</button>
+  </div>
+
+  <!-- GUIDANCE BANNER -->
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+    <div class="text-amber-500 mt-0.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </div>
+    <div>
+      <div class="text-sm font-semibold text-amber-800">Waiting for sitter to respond</div>
+      <div class="text-xs text-amber-600 mt-0.5">Sitters typically respond within a few hours. You'll get a notification when they do.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONFIRMED (Owner View) ===== -->
+<div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-3">
+      <img src="https://i.pravatar.cc/40?u=sarah" class="w-10 h-10 rounded-full" alt="">
+      <div>
+        <h3 class="font-bold text-stone-900">Sarah M.</h3>
+        <div class="text-sm text-stone-500">House Sitting</div>
+        <div class="text-xs text-stone-400">Mittens, Whiskers</div>
+      </div>
+    </div>
+    <div class="text-right">
+      <div class="text-sm font-medium text-stone-900">Apr 8, 2026</div>
+      <div class="text-xs text-stone-500">6:00 PM - 9:00 AM</div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between mb-3">
+    <span class="bg-emerald-100 text-emerald-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">Confirmed</span>
+    <div class="flex gap-2">
+      <button class="text-xs text-red-600 font-medium hover:underline">Cancel</button>
+      <button class="text-xs bg-emerald-600 text-white px-3 py-1 rounded-full font-medium">Message Sitter</button>
+    </div>
+  </div>
+
+  <!-- GUIDANCE BANNER -->
+  <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-start gap-2.5">
+    <div class="text-emerald-500 mt-0.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <div>
+      <div class="text-sm font-semibold text-emerald-800">Booking confirmed! Get ready</div>
+      <div class="text-xs text-emerald-600 mt-0.5">Make sure your pet's care instructions are up to date. The sitter will review them before the session.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== IN PROGRESS (Owner View) ===== -->
+<div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-3">
+      <img src="https://i.pravatar.cc/40?u=james" class="w-10 h-10 rounded-full" alt="">
+      <div>
+        <h3 class="font-bold text-stone-900">James W.</h3>
+        <div class="text-sm text-stone-500">Dog Walking</div>
+        <div class="text-xs text-stone-400">Buddy</div>
+      </div>
+    </div>
+    <div class="text-right">
+      <div class="text-sm font-medium text-stone-900">Today</div>
+      <div class="text-xs text-stone-500">2:00 PM - 3:00 PM</div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between mb-3">
+    <span class="bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+      <span class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
+      In Progress
+    </span>
+    <button class="text-xs bg-blue-600 text-white px-3 py-1 rounded-full font-medium">Track Session</button>
+  </div>
+
+  <!-- GUIDANCE BANNER -->
+  <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2.5">
+    <div class="text-blue-500 mt-0.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+    </div>
+    <div>
+      <div class="text-sm font-semibold text-blue-800">Your sitter is with your pet right now</div>
+      <div class="text-xs text-blue-600 mt-0.5">You may receive photo updates during the session. Track the walk in real time.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== COMPLETED (Owner View) ===== -->
+<div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-3">
+      <img src="https://i.pravatar.cc/40?u=lisa" class="w-10 h-10 rounded-full" alt="">
+      <div>
+        <h3 class="font-bold text-stone-900">Lisa P.</h3>
+        <div class="text-sm text-stone-500">Cat Sitting</div>
+        <div class="text-xs text-stone-400">Mittens</div>
+      </div>
+    </div>
+    <div class="text-right">
+      <div class="text-sm font-medium text-stone-900">Apr 1, 2026</div>
+      <div class="text-xs text-stone-500">Completed</div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between mb-3">
+    <span class="bg-stone-100 text-stone-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">Completed</span>
+    <div class="flex gap-2">
+      <button class="text-xs bg-emerald-600 text-white px-3 py-1 rounded-full font-medium">Book Again</button>
+      <button class="text-xs bg-pink-50 text-pink-600 border border-pink-200 px-3 py-1 rounded-full font-medium">💝 Tip</button>
+    </div>
+  </div>
+
+  <!-- GUIDANCE BANNER -->
+  <div class="bg-violet-50 border border-violet-200 rounded-xl p-3 flex items-start gap-2.5">
+    <div class="text-violet-500 mt-0.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+    </div>
+    <div>
+      <div class="text-sm font-semibold text-violet-800">How did it go? Leave a review</div>
+      <div class="text-xs text-violet-600 mt-0.5">Your feedback helps other pet owners find great sitters. Reviews are visible after 3 days.</div>
+    </div>
+  </div>
+</div>
+
+<hr class="my-8 border-stone-200">
+
+<!-- ===== SITTER VIEW: PENDING ===== -->
+<h2 class="text-lg font-bold text-stone-900 mb-4">Sitter View</h2>
+
+<div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-3">
+      <img src="https://i.pravatar.cc/40?u=alice" class="w-10 h-10 rounded-full" alt="">
+      <div>
+        <h3 class="font-bold text-stone-900">Alice O.</h3>
+        <div class="text-sm text-stone-500">Dog Walking</div>
+        <div class="text-xs text-stone-400">Buddy (Golden Retriever)</div>
+      </div>
+    </div>
+    <div class="text-right">
+      <div class="text-sm font-medium text-stone-900">Apr 5, 2026</div>
+      <div class="text-xs text-stone-500">10:00 AM - 11:00 AM</div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between mb-3">
+    <span class="bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">New Request</span>
+    <div class="flex gap-2">
+      <button class="text-xs text-red-600 font-medium border border-red-200 px-3 py-1 rounded-full">Decline</button>
+      <button class="text-xs bg-emerald-600 text-white px-3 py-1 rounded-full font-medium">Accept</button>
+    </div>
+  </div>
+
+  <!-- GUIDANCE BANNER (sitter) -->
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+    <div class="text-amber-500 mt-0.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+    </div>
+    <div>
+      <div class="text-sm font-semibold text-amber-800">New booking request — respond promptly</div>
+      <div class="text-xs text-amber-600 mt-0.5">Review the pet's care instructions and confirm or decline within 24 hours. Quick responses improve your ranking.</div>
+    </div>
+  </div>
+</div>
+
+<hr class="my-8 border-stone-200">
+
+<!-- ===== FIRST-BOOKING NUDGE ===== -->
+<h2 class="text-lg font-bold text-stone-900 mb-4">First-Booking Nudge (on booking form)</h2>
+
+<div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+  <div class="bg-sky-50 border border-sky-200 rounded-xl p-4 space-y-2">
+    <div class="flex items-center gap-2">
+      <svg class="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span class="text-sm font-bold text-sky-800">Your first booking — here's how it works</span>
+    </div>
+    <ol class="text-xs text-sky-700 space-y-1.5 pl-7 list-decimal">
+      <li><strong>Submit your request</strong> — the sitter will be notified immediately</li>
+      <li><strong>Sitter reviews & confirms</strong> — usually within a few hours</li>
+      <li><strong>Payment is held</strong> — you're not charged until the service is complete</li>
+      <li><strong>Day of service</strong> — you'll receive updates and can track in real time</li>
+      <li><strong>After completion</strong> — leave a review and tip if you'd like!</li>
+    </ol>
+    <button class="text-xs text-sky-500 hover:text-sky-700 font-medium">Got it, don't show again</button>
+  </div>
+</div>
+
+<hr class="my-8 border-stone-200">
+
+<!-- ===== DAY-BEFORE REMINDER SETTING ===== -->
+<h2 class="text-lg font-bold text-stone-900 mb-4">Day-Before Reminder (Settings)</h2>
+
+<div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 space-y-4">
+  <h3 class="font-bold text-stone-900">Notification Preferences</h3>
+
+  <div class="space-y-3">
+    <label class="flex items-center justify-between">
+      <div>
+        <div class="text-sm font-medium text-stone-900">Booking reminders</div>
+        <div class="text-xs text-stone-500">Get reminded the day before your booking</div>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-1.5 text-xs text-stone-600">
+          <input type="checkbox" checked class="rounded text-emerald-600"> App
+        </label>
+        <label class="flex items-center gap-1.5 text-xs text-stone-600">
+          <input type="checkbox" checked class="rounded text-emerald-600"> Email
+        </label>
+      </div>
+    </label>
+
+    <label class="flex items-center justify-between border-t border-stone-100 pt-3">
+      <div>
+        <div class="text-sm font-medium text-stone-900">New bookings</div>
+        <div class="text-xs text-stone-500">When someone books your services</div>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-1.5 text-xs text-stone-600">
+          <input type="checkbox" checked class="rounded text-emerald-600"> App
+        </label>
+        <label class="flex items-center gap-1.5 text-xs text-stone-600">
+          <input type="checkbox" checked class="rounded text-emerald-600"> Email
+        </label>
+      </div>
+    </label>
+
+    <label class="flex items-center justify-between border-t border-stone-100 pt-3">
+      <div>
+        <div class="text-sm font-medium text-stone-900">Messages</div>
+        <div class="text-xs text-stone-500">When you receive a new message</div>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-1.5 text-xs text-stone-600">
+          <input type="checkbox" checked class="rounded text-emerald-600"> App
+        </label>
+        <label class="flex items-center gap-1.5 text-xs text-stone-600">
+          <input type="checkbox" class="rounded text-emerald-600"> Email
+        </label>
+      </div>
+    </label>
+  </div>
+</div>
+
+</body>
+</html>

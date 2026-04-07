@@ -170,7 +170,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     const param = req.params.idOrSlug;
     const isNumeric = /^\d+$/.test(param);
     const [sitter] = await sql`
-      SELECT id, name, roles, bio, avatar_url, slug, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance, subscription_tier FROM users
+      SELECT id, name, roles, bio, avatar_url, slug, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance, subscription_tier, founding_sitter FROM users
       WHERE ${isNumeric ? sql`id = ${Number(param)}` : sql`slug = ${param}`}
         AND roles @> '{sitter}'::text[] AND approval_status = 'approved'
     `;

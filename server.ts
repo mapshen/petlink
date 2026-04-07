@@ -13,6 +13,7 @@ import { startCareTaskReminderScheduler, stopCareTaskReminderScheduler } from '.
 import { startBookingReminderScheduler, stopBookingReminderScheduler } from './src/server/booking-reminders.ts';
 import { startOnboardingReminderScheduler, stopOnboardingReminderScheduler } from './src/server/onboarding-reminders.ts';
 import { startDepositReleaseScheduler, stopDepositReleaseScheduler } from './src/server/deposit-release.ts';
+import { startCreditLowWarningScheduler, stopCreditLowWarningScheduler } from './src/server/credit-low-warning.ts';
 import sql from './src/server/db.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/server/rate-limit.ts';
 import {
@@ -215,6 +216,7 @@ async function startServer() {
     startBookingReminderScheduler(io);
     startOnboardingReminderScheduler();
     startDepositReleaseScheduler(io);
+    startCreditLowWarningScheduler();
   });
 
   const shutdown = () => {
@@ -222,6 +224,7 @@ async function startServer() {
     stopBookingReminderScheduler();
     stopOnboardingReminderScheduler();
     stopDepositReleaseScheduler();
+    stopCreditLowWarningScheduler();
     io.close();
     httpServer.close(() => {
       sql.end({ timeout: 5 }).then(() => process.exit(0)).catch(() => process.exit(1));

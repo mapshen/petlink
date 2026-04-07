@@ -250,3 +250,20 @@ export async function getStripeSubscription(stripeSubscriptionId: string): Promi
   const stripe = getStripe();
   return stripe.subscriptions.retrieve(stripeSubscriptionId);
 }
+
+/**
+ * Apply a balance transaction to a Stripe customer.
+ * Negative amounts create a credit that reduces the next invoice.
+ */
+export async function createStripeCustomerBalanceTransaction(
+  customerId: string,
+  amountCents: number,
+  description: string
+): Promise<void> {
+  const stripe = getStripe();
+  await stripe.customers.createBalanceTransaction(customerId, {
+    amount: amountCents,
+    currency: 'usd',
+    description,
+  });
+}
