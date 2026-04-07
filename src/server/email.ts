@@ -453,3 +453,58 @@ ${urgency}
 `),
   };
 }
+
+export function buildCreditLowWarningEmail(params: {
+  sitterName: string;
+  balanceCents: number;
+  dashboardUrl: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.sitterName);
+  const amount = `$${(params.balanceCents / 100).toFixed(2)}`;
+
+  return {
+    subject: sanitizeSubject(`Your PetLink credit balance is running low (${amount} remaining)`),
+    html: emailWrapper('Credits Running Low', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Your PetLink credit balance is <strong style="color:#d97706">${amount}</strong>. Once your credits are used up, your subscription will be charged at the regular rate.</p>
+<p style="color:#44403c;line-height:1.6">Pro sitters keep 100% of their earnings with zero platform fees — the math speaks for itself.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${escapeHtml(params.dashboardUrl)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">View Your Credits</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">Questions about your subscription? Contact PetLink support.</p>
+`),
+  };
+}
+
+export function buildFoundingSitterWelcomeEmail(params: {
+  sitterName: string;
+  creditAmountCents: number;
+  cohort: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.sitterName);
+  const amount = `$${(params.creditAmountCents / 100).toFixed(2)}`;
+  const cohortLabel = params.cohort === 'founding' ? 'Founding Sitter' : params.cohort === 'early_beta' ? 'Early Beta Sitter' : 'Sitter';
+  const badgeHtml = params.cohort === 'founding'
+    ? '<span style="display:inline-block;background:#d1fae5;color:#065f46;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600">&#127775; Founding Sitter</span>'
+    : '';
+
+  return {
+    subject: sanitizeSubject(`Welcome to PetLink, ${params.sitterName}! You've received ${amount} in credits`),
+    html: emailWrapper(`Welcome, ${cohortLabel}!`, `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Thank you for being one of our earliest sitters. We've added <strong style="color:#059669">${amount} in platform credits</strong> to your account.</p>
+${badgeHtml ? `<div style="text-align:center;margin:16px 0">${badgeHtml}</div>` : ''}
+<p style="color:#44403c;line-height:1.6">These credits will automatically apply to your Pro subscription renewals — so you'll enjoy zero platform fees while your credits last.</p>
+<ul style="color:#44403c;line-height:1.8;padding-left:20px">
+<li><strong>0% platform fee</strong> on every booking</li>
+<li><strong>Priority search placement</strong></li>
+<li><strong>Full analytics dashboard</strong></li>
+${params.cohort === 'founding' ? '<li><strong>Permanent Founding Sitter badge</strong> on your profile</li>' : ''}
+</ul>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/profile" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Set Up Your Profile</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">Your credits never expire. They'll automatically apply at each subscription renewal.</p>
+`),
+  };
+}

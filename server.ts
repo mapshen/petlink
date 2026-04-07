@@ -13,6 +13,7 @@ import { startCareTaskReminderScheduler, stopCareTaskReminderScheduler } from '.
 import { startBookingReminderScheduler, stopBookingReminderScheduler } from './src/server/booking-reminders.ts';
 import { startOnboardingReminderScheduler, stopOnboardingReminderScheduler } from './src/server/onboarding-reminders.ts';
 import { startDepositReleaseScheduler, stopDepositReleaseScheduler } from './src/server/deposit-release.ts';
+import { startCreditLowWarningScheduler, stopCreditLowWarningScheduler } from './src/server/credit-low-warning.ts';
 import sql from './src/server/db.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/server/rate-limit.ts';
 import {
@@ -20,7 +21,7 @@ import {
   bookingRoutes, reviewRoutes, verificationRoutes, availabilityRoutes,
   photoRoutes, favoriteRoutes, messageRoutes, notificationRoutes,
   paymentRoutes, subscriptionRoutes, walkRoutes, analyticsRoutes,
-  adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes, speciesProfileRoutes, tipRoutes, profileMemberRoutes, inquiryRoutes, referenceRoutes, addonRoutes, incidentRoutes, disputeRoutes, connectRoutes, creditRoutes, reliabilityRoutes,
+  adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes, speciesProfileRoutes, tipRoutes, profileMemberRoutes, inquiryRoutes, referenceRoutes, addonRoutes, incidentRoutes, disputeRoutes, connectRoutes, creditRoutes, reliabilityRoutes, petNoteRoutes,
 } from './src/server/routes/index.ts';
 import type { ErrorRequestHandler } from 'express';
 import logger, { sanitizeError } from './src/server/logger.ts';
@@ -181,6 +182,7 @@ async function startServer() {
   connectRoutes(v1);
   creditRoutes(v1);
   reliabilityRoutes(v1);
+  petNoteRoutes(v1);
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
   app.use('/api/v1', v1);
@@ -214,6 +216,7 @@ async function startServer() {
     startBookingReminderScheduler(io);
     startOnboardingReminderScheduler();
     startDepositReleaseScheduler(io);
+    startCreditLowWarningScheduler();
   });
 
   const shutdown = () => {
@@ -221,6 +224,7 @@ async function startServer() {
     stopBookingReminderScheduler();
     stopOnboardingReminderScheduler();
     stopDepositReleaseScheduler();
+    stopCreditLowWarningScheduler();
     io.close();
     httpServer.close(() => {
       sql.end({ timeout: 5 }).then(() => process.exit(0)).catch(() => process.exit(1));

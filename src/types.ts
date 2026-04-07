@@ -22,8 +22,10 @@ export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
 export type SubscriptionTier = 'free' | 'pro' | 'premium';
 export type ConnectStatus = 'not_started' | 'onboarding' | 'active' | 'restricted' | 'disabled';
 
-export type CreditType = 'referral' | 'dispute_resolution' | 'promo' | 'beta_reward' | 'milestone' | 'redemption' | 'expiration';
+export type CreditType = 'referral' | 'dispute_resolution' | 'promo' | 'beta_reward' | 'milestone' | 'redemption' | 'expiration' | 'dormancy_forfeiture';
 export type CreditSourceType = 'dispute' | 'referral_invite' | 'admin_grant' | 'beta_program' | 'booking' | 'subscription' | 'system';
+
+export type BetaCohort = 'founding' | 'early_beta' | 'post_beta';
 
 export interface CreditEntry {
   id: number;
@@ -34,6 +36,7 @@ export interface CreditEntry {
   source_id: number | null;
   description: string;
   expires_at: string | null;
+  stripe_event_id?: string | null;
   created_at: string;
 }
 
@@ -84,6 +87,8 @@ export interface User {
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
   emergency_contact_relationship?: string | null;
+  founding_sitter?: boolean;
+  beta_cohort?: BetaCohort;
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';
