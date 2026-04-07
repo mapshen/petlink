@@ -155,8 +155,7 @@ export async function getBackupsForBooking(
 ): Promise<BookingBackup[]> {
   try {
     const rows = await sql`
-      SELECT DISTINCT ON (bb.id)
-             bb.id, bb.booking_id, bb.sitter_id, bb.rank, bb.status, bb.created_at,
+      SELECT bb.id, bb.booking_id, bb.sitter_id, bb.rank, bb.status, bb.created_at,
              u.name, u.slug, u.avatar_url,
              (SELECT ROUND(AVG(rating)::numeric, 1)::float
               FROM reviews
@@ -164,14 +163,15 @@ export async function getBackupsForBooking(
              (SELECT count(*)::int
               FROM reviews
               WHERE reviewee_id = u.id AND hidden_at IS NULL AND published_at IS NOT NULL) as review_count,
-             s.price_cents
+             (SELECT s.price_cents FROM services s
+              WHERE s.sitter_id = u.id AND s.type = bsvc.type
+              LIMIT 1) as price_cents
       FROM booking_backups bb
       JOIN users u ON u.id = bb.sitter_id
       JOIN bookings b ON b.id = bb.booking_id
       LEFT JOIN services bsvc ON bsvc.id = b.service_id
-      LEFT JOIN services s ON s.sitter_id = u.id AND s.type = bsvc.type
       WHERE bb.booking_id = ${bookingId}
-      ORDER BY bb.id, bb.rank ASC
+      ORDER BY bb.rank ASC
     `;
     return rows as unknown as BookingBackup[];
   } catch (err) {
