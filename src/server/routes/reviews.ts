@@ -325,7 +325,8 @@ export default function reviewRoutes(router: Router): void {
         return;
       }
 
-      res.json({ review: updated });
+      const { private_flags: _pf, private_note: _pn, ...publicUpdated } = updated;
+      res.json({ review: publicUpdated });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to respond to review');
       res.status(500).json({ error: 'Failed to respond to review' });
