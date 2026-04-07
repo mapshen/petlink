@@ -110,13 +110,13 @@ export async function updatePreferences(userId: number, prefs: Partial<Omit<Noti
           booking_reminders = COALESCE(${prefs.booking_reminders ?? null}, booking_reminders),
           booking_reminders_email = COALESCE(${prefs.booking_reminders_email ?? null}, booking_reminders_email),
           email_enabled = COALESCE(${prefs.email_enabled ?? null}, email_enabled),
-          lost_pet_alerts = COALESCE(${(prefs as any).lost_pet_alerts ?? null}, lost_pet_alerts)
+          lost_pet_alerts = COALESCE(${prefs.lost_pet_alerts ?? null}, lost_pet_alerts)
       WHERE user_id = ${userId}
     `;
   } else {
     await sql`
       INSERT INTO notification_preferences (user_id, new_booking, booking_status, new_message, walk_updates, booking_reminders, booking_reminders_email, email_enabled, lost_pet_alerts)
-      VALUES (${userId}, ${prefs.new_booking ?? true}, ${prefs.booking_status ?? true}, ${prefs.new_message ?? true}, ${prefs.walk_updates ?? true}, ${prefs.booking_reminders ?? true}, ${prefs.booking_reminders_email ?? true}, ${prefs.email_enabled ?? true}, ${(prefs as any).lost_pet_alerts ?? true})
+      VALUES (${userId}, ${prefs.new_booking ?? true}, ${prefs.booking_status ?? true}, ${prefs.new_message ?? true}, ${prefs.walk_updates ?? true}, ${prefs.booking_reminders ?? true}, ${prefs.booking_reminders_email ?? true}, ${prefs.email_enabled ?? true}, ${prefs.lost_pet_alerts ?? true})
     `;
   }
   return getPreferences(userId);
