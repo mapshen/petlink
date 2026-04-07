@@ -702,3 +702,37 @@ export function buildDormancyForfeitureEmail(params: {
 `),
   };
 }
+
+export function buildReviewReminderEmail(params: {
+  ownerName: string;
+  sitterName: string;
+  serviceName: string;
+  bookingId: number;
+  creditAmountCents: number;
+  isFirstReview: boolean;
+  firstReviewBonusCents: number;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.ownerName);
+  const sitter = escapeHtml(params.sitterName);
+  const service = escapeHtml(params.serviceName);
+  const creditAmount = `$${(params.creditAmountCents / 100).toFixed(2)}`;
+  const bonusAmount = `$${(params.firstReviewBonusCents / 100).toFixed(2)}`;
+  const rewardLine = params.isFirstReview
+    ? `Leave your first review and earn a <strong>${bonusAmount}</strong> credit bonus!`
+    : `Share your experience and earn a <strong>${creditAmount}</strong> credit toward your next booking.`;
+  const reviewUrl = `${process.env.APP_URL || 'https://petlink.app'}/bookings?review=${params.bookingId}`;
+
+  return {
+    subject: sanitizeSubject(`How was your ${params.serviceName} with ${params.sitterName}?`),
+    html: emailWrapper('How was your booking?', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Your ${service} with <strong>${sitter}</strong> is complete. We hope everything went well!</p>
+<p style="color:#44403c;line-height:1.6">${rewardLine}</p>
+<p style="color:#78716c;font-size:13px">Your honest feedback helps other pet owners find great sitters — positive or constructive, every review matters.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${reviewUrl}" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Leave a Review</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">Reviews must include a written comment to earn credit.</p>
+`),
+  };
+}

@@ -1131,6 +1131,10 @@ export async function initDb() {
   // Issue #370: Lifestyle badges on sitter profiles
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS lifestyle_badges TEXT[] DEFAULT '{}'`.catch(() => {});
 
+  // Issue #340: Review incentives — reminder dedup column + notification type
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS review_reminder_sent_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'review_reminder'`.catch(() => {});
+
   // Issue #392: Tax tools Phase 1
   await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS auto_logged BOOLEAN DEFAULT false`.catch(() => {});
   await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS source_reference TEXT`.catch(() => {});

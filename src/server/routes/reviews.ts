@@ -3,6 +3,7 @@ import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, createReviewSchema, reviewResponseSchema } from '../validation.ts';
 import logger, { sanitizeError } from '../logger.ts';
+import { issueReviewCredit } from '../review-incentives.ts';
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -85,7 +86,13 @@ export default function reviewRoutes(router: Router): void {
         await sql`UPDATE reviews SET published_at = NOW() WHERE booking_id = ${booking_id} AND published_at IS NULL`;
       }
 
-      res.status(201).json({ id: review.id });
+      // Issue credit reward for reviews with a comment (FTC-compliant: rewards writing, not positivity)
+      let creditResult = null;
+      if (isOwner && comment) {
+        creditResult = await issueReviewCredit(req.userId!, booking_id);
+      }
+
+      res.status(201).json({ id: review.id, credit: creditResult });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to create review');
       res.status(500).json({ error: 'Failed to create review' });
