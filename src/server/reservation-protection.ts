@@ -4,6 +4,7 @@ import { sendEmail, buildReservationProtectionEmail } from './email.ts';
 import logger, { sanitizeError } from './logger.ts';
 
 const PROTECTION_WINDOW_MS = 48 * 60 * 60 * 1000; // 48 hours
+const REPLACEMENT_SEARCH_RADIUS_METERS = 50_000; // 50km / ~31 miles
 
 /**
  * Determine if reservation protection should trigger.
@@ -64,26 +65,9 @@ export async function triggerReservationProtection(
     let replacementSitters: { id: number; name: string; slug: string; price_cents: number; avg_rating: number | null }[] = [];
 
     if (originalSitter?.lat && originalSitter?.lng && service) {
-      // Find nearby approved sitters offering the same service type, excluding the original sitter
-      const rows = await sql`
-        SELECT u.id, u.name, u.slug,
-               s.price_cents,
-               (SELECT ROUND(AVG(rating)::numeric, 1)::float FROM reviews WHERE reviewee_id = u.id AND published_at IS NOT NULL) as avg_rating
-        FROM users u
-        JOIN services s ON s.sitter_id = u.id AND s.type = ${service.type}
-        WHERE u.id != ${booking.sitter_id}
-          AND u.roles @> '{sitter}'::text[]
-          AND u.approval_status = 'approved'
-          AND u.lat IS NOT NULL AND u.lng IS NOT NULL
-          AND ST_DWithin(
-            ST_MakePoint(u.lng, u.lat)::geography,
-            ST_MakePoint(${originalSitter.lng}, ${originalSitter.lat})::geography,
-            50000
-          )
-        ORDER BY avg_rating DESC NULLS LAST
-        LIMIT 5
-      `.catch(() => [] as any[]);
-      replacementSitters = rows as typeof replacementSitters;
+      replacementSitters = await findReplacementSitters(
+        booking.sitter_id, service.type, originalSitter.lat, originalSitter.lng
+      );
     }
 
     const hasAlternatives = replacementSitters.length > 0;
@@ -136,4 +120,37 @@ export async function triggerReservationProtection(
   } catch (err) {
     logger.error({ err: sanitizeError(err), bookingId: booking.id }, 'Failed to trigger reservation protection');
   }
+}
+
+/**
+ * Find replacement sitters: nearby, approved, same service type, ranked by rating.
+ * Shared between triggerReservationProtection and GET /bookings/:id/protection.
+ */
+export async function findReplacementSitters(
+  excludeSitterId: number,
+  serviceType: string,
+  lat: number,
+  lng: number,
+  limit = 5
+): Promise<{ id: number; name: string; slug: string; avatar_url: string | null; price_cents: number; avg_rating: number | null; review_count: number }[]> {
+  const rows = await sql`
+    SELECT u.id, u.name, u.slug, u.avatar_url,
+           s.price_cents,
+           (SELECT ROUND(AVG(rating)::numeric, 1)::float FROM reviews WHERE reviewee_id = u.id AND published_at IS NOT NULL) as avg_rating,
+           (SELECT count(*)::int FROM reviews WHERE reviewee_id = u.id AND published_at IS NOT NULL) as review_count
+    FROM users u
+    JOIN services s ON s.sitter_id = u.id AND s.type = ${serviceType}
+    WHERE u.id != ${excludeSitterId}
+      AND u.roles @> '{sitter}'::text[]
+      AND u.approval_status = 'approved'
+      AND u.lat IS NOT NULL AND u.lng IS NOT NULL
+      AND ST_DWithin(
+        ST_MakePoint(u.lng, u.lat)::geography,
+        ST_MakePoint(${lng}, ${lat})::geography,
+        ${REPLACEMENT_SEARCH_RADIUS_METERS}
+      )
+    ORDER BY avg_rating DESC NULLS LAST
+    LIMIT ${limit}
+  `.catch(() => [] as any[]);
+  return rows as any[];
 }

@@ -492,7 +492,11 @@ ${sitterRows}
 `;
 
   return {
-    subject: sanitizeSubject(`Your sitter cancelled — we found alternatives`),
+    subject: sanitizeSubject(
+      params.noAlternatives
+        ? 'Your sitter cancelled — we\'re searching for alternatives'
+        : `Your sitter cancelled — we found ${params.replacementSitters.length} alternative${params.replacementSitters.length !== 1 ? 's' : ''}`
+    ),
     html: emailWrapper('Reservation Protection', content),
   };
 }

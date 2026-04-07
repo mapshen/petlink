@@ -10,7 +10,7 @@ import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } f
 import { getAddonBySlug } from '../../shared/addon-catalog.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
 import { recordStrike, evaluateConsequences, getStrikeEventForCancellation } from '../reliability.ts';
-import { shouldTriggerProtection, triggerReservationProtection } from '../reservation-protection.ts';
+import { shouldTriggerProtection, triggerReservationProtection, findReplacementSitters } from '../reservation-protection.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { format as formatDate } from 'date-fns';
 
@@ -506,7 +506,6 @@ export default function bookingRoutes(router: Router, io: Server): void {
       `;
     } else {
       // Cancelled — sitter can cancel pending or confirmed, owner can cancel pending or confirmed
-      const isSitterCancelling = true; // Determined after the update
       [updated] = await sql`
         UPDATE bookings SET status = 'cancelled'::booking_status, responded_at = COALESCE(responded_at, NOW()),
           cancelled_by = CASE WHEN sitter_id = ${req.userId} THEN 'sitter' ELSE 'owner' END,
@@ -643,7 +642,8 @@ export default function bookingRoutes(router: Router, io: Server): void {
     }
 
     // Trigger reservation protection for sitter-cancelled confirmed bookings (async, non-blocking)
-    // A booking with payment_intent_id was confirmed and paid — that's the scenario needing protection
+    // payment_intent_id is set when payment is created for a confirmed booking — safe proxy for
+    // "was confirmed" since pending bookings don't have payment intents in our flow
     if (status === 'cancelled' && updated.sitter_id === req.userId && updated.payment_intent_id) {
       if (shouldTriggerProtection('confirmed', new Date(updated.start_time))) {
         triggerReservationProtection(updated).catch((err: unknown) => {
@@ -685,24 +685,9 @@ export default function bookingRoutes(router: Router, io: Server): void {
         const [originalSitter] = await sql`SELECT lat, lng FROM users WHERE id = ${protection.original_sitter_id}`;
 
         if (service && originalSitter?.lat && originalSitter?.lng) {
-          replacementSitters = await sql`
-            SELECT u.id, u.name, u.slug, u.avatar_url, s.price_cents,
-                   (SELECT ROUND(AVG(rating)::numeric, 1)::float FROM reviews WHERE reviewee_id = u.id AND published_at IS NOT NULL) as avg_rating,
-                   (SELECT count(*)::int FROM reviews WHERE reviewee_id = u.id AND published_at IS NOT NULL) as review_count
-            FROM users u
-            JOIN services s ON s.sitter_id = u.id AND s.type = ${service.type}
-            WHERE u.id != ${protection.original_sitter_id}
-              AND u.roles @> '{sitter}'::text[]
-              AND u.approval_status = 'approved'
-              AND u.lat IS NOT NULL AND u.lng IS NOT NULL
-              AND ST_DWithin(
-                ST_MakePoint(u.lng, u.lat)::geography,
-                ST_MakePoint(${originalSitter.lng}, ${originalSitter.lat})::geography,
-                50000
-              )
-            ORDER BY avg_rating DESC NULLS LAST
-            LIMIT 5
-          `.catch(() => []);
+          replacementSitters = await findReplacementSitters(
+            protection.original_sitter_id, service.type, originalSitter.lat, originalSitter.lng
+          );
         }
       }
 

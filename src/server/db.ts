@@ -949,6 +949,8 @@ export async function initDb() {
 
   // Issue #408: Reservation protection
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_by TEXT`.catch(() => {});
+  await sql`ALTER TABLE bookings DROP CONSTRAINT IF EXISTS chk_cancelled_by`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD CONSTRAINT chk_cancelled_by CHECK (cancelled_by IS NULL OR cancelled_by IN ('sitter', 'owner'))`.catch(() => {});
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ`.catch(() => {});
   await sql`
     CREATE TABLE IF NOT EXISTS reservation_protections (
