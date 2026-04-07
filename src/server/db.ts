@@ -956,6 +956,52 @@ export async function initDb() {
   await sql`ALTER TABLE credit_ledger ADD COLUMN IF NOT EXISTS stripe_event_id TEXT`.catch(() => {});
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_stripe_event ON credit_ledger (stripe_event_id) WHERE stripe_event_id IS NOT NULL`.catch(() => {});
 
+  // Issue #414: Brand partnership coupon codes
+  await sql`
+    CREATE TABLE IF NOT EXISTS partners (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      logo_url TEXT,
+      website_url TEXT,
+      active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS partner_offers (
+      id SERIAL PRIMARY KEY,
+      partner_id INTEGER NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      credit_cost_cents INTEGER NOT NULL CHECK(credit_cost_cents > 0),
+      offer_value_description TEXT NOT NULL,
+      coupon_pool TEXT[] DEFAULT '{}',
+      coupon_auto_generate BOOLEAN DEFAULT false,
+      coupon_prefix TEXT,
+      active BOOLEAN DEFAULT true,
+      max_redemptions_per_user INTEGER DEFAULT 1,
+      total_redemptions INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_partner_offers_partner ON partner_offers (partner_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_partner_offers_active ON partner_offers (active) WHERE active = true`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS coupon_redemptions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      offer_id INTEGER NOT NULL REFERENCES partner_offers(id),
+      coupon_code TEXT NOT NULL,
+      credit_ledger_entry_id INTEGER REFERENCES credit_ledger(id),
+      redeemed_at TIMESTAMPTZ DEFAULT NOW(),
+      emailed_at TIMESTAMPTZ
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_coupon_redemptions_user ON coupon_redemptions (user_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_coupon_redemptions_offer ON coupon_redemptions (offer_id)`.catch(() => {});
+
   // Issue #406: Private pet notes from sitters
   await sql`
     CREATE TABLE IF NOT EXISTS private_pet_notes (

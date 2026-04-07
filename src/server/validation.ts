@@ -495,6 +495,31 @@ export const updatePetNoteSchema = z.object({
   flags: uniqueFlags,
 });
 
+// --- Partner / Coupon Schemas ---
+const httpUrl = z.string().url('Invalid URL').refine(
+  (url) => /^https?:\/\//i.test(url),
+  'URL must use http or https'
+);
+
+export const partnerSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(200),
+  logo_url: httpUrl.optional().nullable(),
+  website_url: httpUrl.optional().nullable(),
+  active: z.boolean().optional(),
+});
+
+export const partnerOfferSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(200),
+  description: z.string().max(1000).optional().nullable(),
+  credit_cost_cents: z.number().int().positive('Credit cost must be positive'),
+  offer_value_description: z.string().trim().min(1, 'Offer value description is required').max(500),
+  max_redemptions_per_user: z.number().int().min(1).max(100).optional().default(1),
+});
+
+export const addCouponCodesSchema = z.object({
+  codes: z.array(z.string().trim().min(1, 'Code cannot be empty').max(100)).min(1, 'At least one code required').max(500, 'Maximum 500 codes per batch'),
+});
+
 // --- Upload Signed URL Schema ---
 const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents', 'disputes'] as const;
 const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;
