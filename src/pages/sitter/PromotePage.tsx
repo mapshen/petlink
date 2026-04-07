@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Megaphone, Plus, Pause, Play, Trash2, X, Save, TrendingUp, Eye, MousePointer, Calendar, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { FeaturedListing } from '../../types';
 import { formatCents } from '../../lib/money';
+import { buildProfileUrl, buildCardData } from '../../lib/qr-business-card';
+import { useSitterPreviewData } from '../../hooks/useSitterPreviewData';
+import QRBusinessCard from '../../components/promote/QRBusinessCard';
 import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -30,6 +33,7 @@ const SERVICE_LABELS: Record<string, string> = {
 
 export default function PromotePage({ embedded = false }: { embedded?: boolean }) {
   const { user, token, loading: authLoading } = useAuth();
+  const { services: sitterServices } = useSitterPreviewData();
   const [listings, setListings] = useState<FeaturedListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +41,16 @@ export default function PromotePage({ embedded = false }: { embedded?: boolean }
   const [serviceType, setServiceType] = useState('walking');
   const [saving, setSaving] = useState(false);
   const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
+
+  const profileUrl = useMemo(
+    () => user ? buildProfileUrl(user.slug, window.location.origin, 'qr', user.id) : '',
+    [user],
+  );
+
+  const cardData = useMemo(
+    () => user ? buildCardData(user, sitterServices) : null,
+    [user, sitterServices],
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -136,6 +150,13 @@ export default function PromotePage({ embedded = false }: { embedded?: boolean }
           <li>No upfront cost — commission is deducted from your payout when a promoted booking completes</li>
         </ul>
       </div>
+
+      {/* QR Business Card */}
+      {cardData && (
+        <div className="bg-white rounded-xl border border-stone-200 p-6 mb-6">
+          <QRBusinessCard cardData={cardData} profileUrl={profileUrl} />
+        </div>
+      )}
 
       {/* Analytics Summary */}
       {listings.length > 0 && (

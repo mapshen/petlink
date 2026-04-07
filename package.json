@@ -43,6 +43,7 @@
     "motion": "^12.23.24",
     "pino": "^10.3.1",
     "postgres": "^3.4.8",
+    "qrcode.react": "^4.2.0",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
