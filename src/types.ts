@@ -721,3 +721,24 @@ export interface CalendarEvent {
   recurring?: boolean;
   availability_id?: number;
 }
+
+export interface InsightFactor {
+  key: string;
+  label: string;
+  status: 'good' | 'warning' | 'critical';
+  value: string;
+  detail: string;
+}
+
+export interface Recommendation {
+  priority: number;
+  action: string;
+  impact: 'high' | 'medium' | 'low';
+}
+
+export interface BookingInsights {
+  profile_completeness_pct: number;
+  factors: InsightFactor[];
+  recommendations: Recommendation[];
+  booking_trend: 'up' | 'down' | 'stable' | 'new';
+}

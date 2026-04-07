@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { BarChart3, Users, DollarSign, Star, TrendingUp, Clock, Eye } from 'lucide-react';
@@ -6,6 +6,8 @@ import { API_BASE } from '../../config';
 import { startOfMonth, addMonths, addDays, subMonths, format } from 'date-fns';
 import type { AnalyticsOverview, ClientSummary, RevenueDataPoint, ProfileViewsData } from '../../types';
 import { formatCents } from '../../lib/money';
+
+const BookingInsights = lazy(() => import('../../components/insights/BookingInsights'));
 
 export type AnalyticsPeriod = 'this_month' | 'last_3_months' | 'last_6_months' | 'this_year' | 'all_time';
 
@@ -328,6 +330,13 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
               />
             </div>
           )}
+
+          {/* Booking Insights */}
+          <div className="mb-8">
+            <Suspense fallback={<div className="bg-white rounded-2xl shadow-sm p-6 flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>}>
+              <BookingInsights />
+            </Suspense>
+          </div>
 
           {/* Revenue Chart */}
           <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">

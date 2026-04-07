@@ -9,6 +9,7 @@ import BookingReviewDetail from '../../components/review/BookingReviewDetail';
 
 const CalendarCommandCenter = lazy(() => import('../../components/calendar/CalendarCommandCenter'));
 const BookingHistory = lazy(() => import('../../components/calendar/BookingHistory'));
+const BookingInsights = lazy(() => import('../../components/insights/BookingInsights'));
 import { format } from 'date-fns';
 import { API_BASE } from '../../config';
 import { Link } from 'react-router-dom';
@@ -323,6 +324,7 @@ export default function HomePage() {
 
           {isSitterMode && user?.approval_status === 'approved' && (
             <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>}>
+              <BookingInsights />
               <CalendarCommandCenter />
               <BookingHistory />
             </Suspense>
