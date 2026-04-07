@@ -311,6 +311,26 @@ export default function paymentRoutes(router: Router): void {
           } catch (err) {
             logger.warn({ err: sanitizeError(err), sitterId: subSitter.sitter_id }, 'Failed to auto-apply credits at renewal');
           }
+
+          // Auto-log subscription expense for tax tracking
+          try {
+            const [subRecord] = await sql`SELECT tier FROM sitter_subscriptions WHERE stripe_subscription_id = ${invoice.subscription}`;
+            const tierName = subRecord?.tier === 'premium' ? 'Premium' : 'Pro';
+            // Use invoice creation date (not webhook execution date) for accurate quarterly tax tracking
+            const invoiceCreated = (invoice as unknown as { created?: number }).created;
+            const expenseDate = invoiceCreated
+              ? new Date(invoiceCreated * 1000).toISOString().split('T')[0]
+              : new Date().toISOString().split('T')[0];
+            await sql`
+              INSERT INTO sitter_expenses (sitter_id, category, amount_cents, description, date, auto_logged, source_reference)
+              VALUES (${subSitter.sitter_id}, 'platform_subscription', ${invoice.amount_paid},
+                      ${'PetLink ' + tierName + ' subscription (auto-logged)'},
+                      ${expenseDate}, true, ${'invoice:' + invoice.id})
+              ON CONFLICT (source_reference) WHERE source_reference IS NOT NULL DO NOTHING
+            `;
+          } catch (err) {
+            logger.warn({ err: sanitizeError(err), sitterId: subSitter.sitter_id }, 'Failed to auto-log subscription expense');
+          }
           break;
         }
         case 'account.updated': {

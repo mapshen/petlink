@@ -302,8 +302,8 @@ export const changePasswordSchema = z.object({
 
 // --- Expense Schemas ---
 export const expenseSchema = z.object({
-  category: z.enum(['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other'], {
-    message: 'Category must be supplies, transportation, insurance, marketing, equipment, training, or other',
+  category: z.enum(['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other', 'platform_subscription', 'platform_fee'], {
+    message: 'Category must be supplies, transportation, insurance, marketing, equipment, training, other, platform_subscription, or platform_fee',
   }),
   amount_cents: z.number().int().positive('Amount must be positive').max(10000000, 'Amount must be under $100,000'),
   description: z.string().max(500, 'Description must be under 500 characters').optional().nullable(),
@@ -521,11 +521,11 @@ export const addCouponCodesSchema = z.object({
 });
 
 // --- Upload Signed URL Schema ---
-const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents', 'disputes'] as const;
+const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents', 'disputes', 'receipts'] as const;
 const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;
 
 export const signedUrlSchema = z.object({
-  folder: z.enum(validFolders, { message: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos, posts, incidents, disputes' }),
+  folder: z.enum(validFolders, { message: 'folder must be one of: pets, avatars, verifications, walks, sitter-photos, videos, posts, incidents, disputes, receipts' }),
   contentType: z.enum(allowedContentTypes, { message: 'contentType must be one of: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/quicktime, video/webm' }),
   fileSize: z.number().int().positive('fileSize must be a positive integer'),
 });

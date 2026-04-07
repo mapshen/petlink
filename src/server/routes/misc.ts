@@ -82,15 +82,10 @@ export default function miscRoutes(router: Router): void {
         res.status(403).json({ error: 'Only sitters can access tax summary' });
         return;
       }
-      const year = Number(req.query.year) || new Date().getFullYear();
-
-      const [incomeRow] = await sql`
-        SELECT COALESCE(SUM(total_price_cents), 0)::int AS total_income
-        FROM bookings
-        WHERE sitter_id = ${req.userId}
-          AND status = 'completed'
-          AND EXTRACT(YEAR FROM start_time) = ${year}
-      `;
+      const rawYear = Number(req.query.year);
+      const year = Number.isInteger(rawYear) && rawYear >= 2000 && rawYear <= 2100
+        ? rawYear
+        : new Date().getFullYear();
 
       const expenseRows = await sql`
         SELECT category, SUM(amount_cents)::int AS total
@@ -106,16 +101,101 @@ export default function miscRoutes(router: Router): void {
         expense_by_category[row.category] = row.total;
       }
 
+      // Quarterly estimates (25% estimated tax rate)
+      const quarterlyRows = await sql`
+        SELECT
+          EXTRACT(QUARTER FROM b.start_time)::int as quarter,
+          COALESCE(SUM(b.total_price_cents), 0)::int as income
+        FROM bookings b
+        WHERE b.sitter_id = ${req.userId} AND b.status = 'completed'
+          AND EXTRACT(YEAR FROM b.start_time) = ${year}
+        GROUP BY quarter
+        ORDER BY quarter
+      `;
+      const quarterlyExpenseRows = await sql`
+        SELECT
+          EXTRACT(QUARTER FROM date)::int as quarter,
+          COALESCE(SUM(amount_cents), 0)::int as expenses
+        FROM sitter_expenses
+        WHERE sitter_id = ${req.userId} AND EXTRACT(YEAR FROM date) = ${year}
+        GROUP BY quarter
+        ORDER BY quarter
+      `;
+
+      const ESTIMATED_TAX_RATE = 0.25;
+      const quarterlyEstimates = [1, 2, 3, 4].map(q => {
+        const income = quarterlyRows.find((r: { quarter: number }) => r.quarter === q)?.income || 0;
+        const expenses = quarterlyExpenseRows.find((r: { quarter: number }) => r.quarter === q)?.expenses || 0;
+        const netIncome = Math.max(0, income - expenses);
+        return {
+          quarter: `Q${q}`,
+          income,
+          expenses,
+          net_income: netIncome,
+          estimated_tax: Math.round(netIncome * ESTIMATED_TAX_RATE),
+        };
+      });
+
+      // Derive annual totals from quarterly data (avoids redundant query)
+      const total_income = quarterlyRows.reduce((sum: number, r: { income: number }) => sum + r.income, 0);
+      const netIncome = total_income - total_expenses;
+      const annual_estimated_tax = quarterlyEstimates.reduce((sum, q) => sum + q.estimated_tax, 0);
+
       res.json({
         year,
-        total_income: incomeRow.total_income,
+        total_income,
         total_expenses,
-        net_income: incomeRow.total_income - total_expenses,
+        net_income: netIncome,
         expense_by_category,
+        quarterly_estimates: quarterlyEstimates,
+        annual_estimated_tax,
       });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to load tax summary');
       res.status(500).json({ error: 'Failed to load tax summary' });
+    }
+  });
+
+  // CSV export for expenses — all fields quoted to prevent formula injection
+  router.get('/expenses/export', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!currentUser.roles.includes('sitter')) {
+        res.status(403).json({ error: 'Only sitters can export expenses' });
+        return;
+      }
+      const rawYear = Number(req.query.year);
+      const year = Number.isInteger(rawYear) && rawYear >= 2000 && rawYear <= 2100
+        ? rawYear
+        : new Date().getFullYear();
+
+      const expenses = await sql`
+        SELECT category, amount_cents, description, date, receipt_url, auto_logged
+        FROM sitter_expenses
+        WHERE sitter_id = ${req.userId} AND EXTRACT(YEAR FROM date) = ${year}
+        ORDER BY date ASC
+      `;
+
+      const csvEscape = (val: string): string => `"${val.replace(/"/g, '""')}"`;
+      const csvHeader = '"Date","Category","Description","Amount (USD)","Receipt URL","Auto-logged"';
+      const csvRows = expenses.map((e: { date: string; category: string; description: string | null; amount_cents: number; receipt_url: string | null; auto_logged: boolean }) =>
+        [
+          csvEscape(String(e.date)),
+          csvEscape(e.category),
+          csvEscape(e.description || ''),
+          csvEscape((e.amount_cents / 100).toFixed(2)),
+          csvEscape(e.receipt_url || ''),
+          csvEscape(e.auto_logged ? 'Yes' : 'No'),
+        ].join(',')
+      );
+      const csv = '\uFEFF' + [csvHeader, ...csvRows].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="expenses-${year}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to export expenses');
+      res.status(500).json({ error: 'Failed to export expenses' });
     }
   });
 
