@@ -118,4 +118,26 @@ describe('buildHeaderTags', () => {
     const tags = buildHeaderTags(baseSitter);
     expect(tags).not.toContain('has own pets');
   });
+
+  it('includes "requires cameras" tag when camera_preference is requires', () => {
+    const tags = buildHeaderTags({ ...baseSitter, camera_preference: 'requires' });
+    expect(tags).toContain('requires cameras');
+  });
+
+  it('includes "prefers cameras" tag when camera_preference is prefers', () => {
+    const tags = buildHeaderTags({ ...baseSitter, camera_preference: 'prefers' });
+    expect(tags).toContain('prefers cameras');
+  });
+
+  it('omits camera tag when camera_preference is no_preference', () => {
+    const tags = buildHeaderTags({ ...baseSitter, camera_preference: 'no_preference' });
+    expect(tags).not.toContain('requires cameras');
+    expect(tags).not.toContain('prefers cameras');
+  });
+
+  it('omits camera tag when camera_preference is undefined', () => {
+    const tags = buildHeaderTags(baseSitter);
+    expect(tags).not.toContain('requires cameras');
+    expect(tags).not.toContain('prefers cameras');
+  });
 });

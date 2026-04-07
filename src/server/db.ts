@@ -1191,6 +1191,13 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS share_phone_for_bookings BOOLEAN DEFAULT true`.catch(() => {});
 
+  // Issue #373: Camera and monitoring recommendations
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_cameras BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS camera_locations TEXT[] DEFAULT '{}'`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS camera_policy_note TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS camera_preference TEXT DEFAULT 'no_preference'`.catch(() => {});
+  await sql`ALTER TABLE users ADD CONSTRAINT chk_camera_preference CHECK (camera_preference IS NULL OR camera_preference IN ('requires', 'prefers', 'no_preference'))`.catch(() => {});
+
   // Issue #359: Ban protections and appeal process
   await sql`
     CREATE TABLE IF NOT EXISTS ban_actions (
