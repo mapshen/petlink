@@ -1,8 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Save, Check, ShieldCheck } from 'lucide-react';
+import { Save, Check, ShieldCheck, Heart, Plus, Trash2 } from 'lucide-react';
 import { API_BASE } from '../../config';
 import type { CancellationPolicy } from '../../types';
+
+interface LoyaltyTier {
+  min_bookings: number;
+  discount_percent: number;
+}
 
 const CANCELLATION_POLICIES: { value: CancellationPolicy; label: string; description: string }[] = [
   { value: 'flexible', label: 'Flexible', description: 'Full refund if cancelled at least 24 hours before the booking.' },
@@ -21,6 +26,12 @@ export default function PoliciesTab() {
   const [hasInsurance, setHasInsurance] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Loyalty discount state
+  const [loyaltyTiers, setLoyaltyTiers] = useState<LoyaltyTier[]>([]);
+  const [loyaltySaving, setLoyaltySaving] = useState(false);
+  const [loyaltySaved, setLoyaltySaved] = useState(false);
+  const [loyaltyError, setLoyaltyError] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -46,6 +57,28 @@ export default function PoliciesTab() {
     fetchPolicy();
   }, [user, token]);
 
+  const fetchLoyaltyTiers = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/loyalty-discounts`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setLoyaltyTiers(
+          data.tiers.map((t: { min_bookings: number; discount_percent: number }) => ({
+            min_bookings: t.min_bookings,
+            discount_percent: t.discount_percent,
+          }))
+        );
+      }
+    } catch {
+      // Non-critical
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (!user?.roles?.includes('sitter')) return;
+    fetchLoyaltyTiers();
+  }, [user, fetchLoyaltyTiers]);
+
   const savePolicy = async (newPolicy: CancellationPolicy) => {
     const previous = policy;
     setPolicy(newPolicy);
@@ -65,6 +98,59 @@ export default function PoliciesTab() {
       setMessage('Failed to save cancellation policy.');
     } finally {
       setPolicySaving(false);
+    }
+  };
+
+  const addLoyaltyTier = () => {
+    if (loyaltyTiers.length >= 5) return;
+    const nextMin = loyaltyTiers.length > 0
+      ? Math.max(...loyaltyTiers.map((t) => t.min_bookings)) + 5
+      : 3;
+    const nextDiscount = loyaltyTiers.length > 0
+      ? Math.min(50, Math.max(...loyaltyTiers.map((t) => t.discount_percent)) + 5)
+      : 5;
+    setLoyaltyTiers([...loyaltyTiers, { min_bookings: nextMin, discount_percent: nextDiscount }]);
+  };
+
+  const removeLoyaltyTier = (index: number) => {
+    setLoyaltyTiers(loyaltyTiers.filter((_, i) => i !== index));
+  };
+
+  const updateLoyaltyTier = (index: number, field: keyof LoyaltyTier, value: number) => {
+    setLoyaltyTiers(
+      loyaltyTiers.map((tier, i) =>
+        i === index ? { ...tier, [field]: value } : tier
+      )
+    );
+  };
+
+  const saveLoyaltyTiers = async () => {
+    setLoyaltySaving(true);
+    setLoyaltySaved(false);
+    setLoyaltyError('');
+    try {
+      const res = await fetch(`${API_BASE}/loyalty-discounts`, {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({ tiers: loyaltyTiers }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to save');
+      }
+      const data = await res.json();
+      setLoyaltyTiers(
+        data.tiers.map((t: { min_bookings: number; discount_percent: number }) => ({
+          min_bookings: t.min_bookings,
+          discount_percent: t.discount_percent,
+        }))
+      );
+      setLoyaltySaved(true);
+      setTimeout(() => setLoyaltySaved(false), 2000);
+    } catch (err) {
+      setLoyaltyError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setLoyaltySaving(false);
     }
   };
 
@@ -140,6 +226,83 @@ export default function PoliciesTab() {
           ))}
         </div>
       </div>
+
+      {/* Loyalty Discounts */}
+      {user.roles?.includes('sitter') && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Heart className="w-5 h-5 text-emerald-600" />
+            <h3 className="text-sm font-bold text-stone-900">Repeat Customer Discounts</h3>
+            {loyaltySaving && <span className="text-xs text-stone-400">Saving...</span>}
+            {loyaltySaved && <span className="text-xs text-emerald-600 flex items-center gap-1"><Check className="w-3 h-3" /> Saved</span>}
+          </div>
+          <p className="text-sm text-stone-500 mb-4">
+            Reward loyal clients with automatic discounts based on completed bookings.
+          </p>
+
+          <div className="space-y-3">
+            {loyaltyTiers.map((tier, index) => (
+              <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-stone-200">
+                <div className="flex-1">
+                  <label className="block text-xs text-stone-500 mb-1">After bookings</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={tier.min_bookings}
+                    onChange={(e) => updateLoyaltyTier(index, 'min_bookings', parseInt(e.target.value, 10) || 1)}
+                    className="w-full p-2 border border-stone-200 rounded-lg text-sm focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs text-stone-500 mb-1">Discount %</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={tier.discount_percent}
+                    onChange={(e) => updateLoyaltyTier(index, 'discount_percent', parseInt(e.target.value, 10) || 1)}
+                    className="w-full p-2 border border-stone-200 rounded-lg text-sm focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeLoyaltyTier(index)}
+                  className="mt-4 p-2 text-stone-400 hover:text-red-500 transition-colors"
+                  aria-label="Remove tier"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {loyaltyTiers.length < 5 && (
+            <button
+              type="button"
+              onClick={addLoyaltyTier}
+              className="mt-3 flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Add discount tier
+            </button>
+          )}
+
+          {loyaltyError && (
+            <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded-lg">{loyaltyError}</div>
+          )}
+
+          <button
+            type="button"
+            onClick={saveLoyaltyTiers}
+            disabled={loyaltySaving}
+            className="mt-4 w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+          >
+            <Save className="w-4 h-4" />
+            {loyaltySaving ? 'Saving...' : 'Save Discount Tiers'}
+          </button>
+        </div>
+      )}
 
       {/* House Rules, Emergency, Insurance */}
       <form onSubmit={handleSubmit} className="space-y-6">

@@ -1140,6 +1140,22 @@ export async function initDb() {
   await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS source_reference TEXT`.catch(() => {});
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sitter_expenses_source_ref ON sitter_expenses (source_reference) WHERE source_reference IS NOT NULL`.catch(() => {});
 
+  // Issue #342: Custom rates per booking and repeat customer discounts
+  await sql`
+    CREATE TABLE IF NOT EXISTS loyalty_discounts (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      min_bookings INTEGER NOT NULL CHECK(min_bookings >= 1 AND min_bookings <= 100),
+      discount_percent INTEGER NOT NULL CHECK(discount_percent >= 1 AND discount_percent <= 50),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(sitter_id, min_bookings)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_loyalty_discounts_sitter ON loyalty_discounts (sitter_id)`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS custom_price_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_pct INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_reason TEXT`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

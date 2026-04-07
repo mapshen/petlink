@@ -27,6 +27,7 @@ import { useFavorites } from '../../hooks/useFavorites';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
 import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing';
+import { findApplicableTier } from '../../shared/loyalty-discount';
 import { formatCents, formatCentsDecimal } from '../../lib/money';
 import { getAddonBySlug } from '../../shared/addon-catalog';
 import { getPolicyDescription } from '../../shared/cancellation';
@@ -78,6 +79,7 @@ export default function SitterProfile() {
   const [selectedAddonIds, setSelectedAddonIds] = useState<Set<number>>(new Set());
   const [showInquiry, setShowInquiry] = useState(false);
   const [depositCredit, setDepositCredit] = useState<{ booking_id: number; amount_cents: number } | null>(null);
+  const [loyaltyInfo, setLoyaltyInfo] = useState<{ tiers: { min_bookings: number; discount_percent: number }[]; completed_bookings: number } | null>(null);
   const bookingRef = useRef<HTMLDivElement>(null);
 
   const scrollToBooking = useCallback(() => {
@@ -198,6 +200,16 @@ export default function SitterProfile() {
       .catch(() => {});
   }, [user, sitter, token]);
 
+  // Fetch loyalty discount tiers for this sitter
+  useEffect(() => {
+    setLoyaltyInfo(null);
+    if (!user || !sitter || !token) return;
+    fetch(`${API_BASE}/loyalty-discounts/sitter/${sitter.id}`, { headers: getAuthHeaders(token) })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setLoyaltyInfo(data); })
+      .catch(() => {});
+  }, [user, sitter, token]);
+
   const isOwnProfile = user != null && user.id === sitter?.id;
   const speciesTabs = speciesProfiles.map((p) => p.species);
   const selectedSpecies = activeTab.startsWith('species-') ? activeTab.replace('species-', '') : null;
@@ -280,6 +292,12 @@ export default function SitterProfile() {
       if (bookingId) {
         const selectedPetsForPrice = pets.filter((p) => selectedPetIds.includes(p.id));
         const selectedAddonList = sitterAddons.filter((a) => selectedAddonIds.has(a.id));
+        const loyaltyTierForPayment = loyaltyInfo
+          ? findApplicableTier(
+              loyaltyInfo.tiers.map((t) => ({ sitter_id: sitter!.id, ...t })),
+              loyaltyInfo.completed_bookings
+            )
+          : null;
         const pricing = calculateAdvancedPrice({
           basePriceCents: selectedSvcObj!.price_cents,
           additionalPetPriceCents: selectedSvcObj!.additional_pet_price_cents || 0,
@@ -293,6 +311,7 @@ export default function SitterProfile() {
           groomingAddon: wantsGrooming,
           groomingAddonFeeCents: selectedSvcObj!.grooming_addon_fee_cents,
           addons: selectedAddonList.map((a) => ({ slug: a.addon_slug, priceCents: a.price_cents })),
+          discountPercent: loyaltyTierForPayment?.discount_percent,
         });
         const totalCents = pricing.totalCents;
         setPaymentAmount(totalCents);
@@ -621,6 +640,14 @@ export default function SitterProfile() {
                     .filter((a) => selectedAddonIds.has(a.id))
                     .map((a) => ({ slug: a.addon_slug, priceCents: a.price_cents }));
 
+                  // Apply loyalty discount if applicable
+                  const loyaltyTier = loyaltyInfo
+                    ? findApplicableTier(
+                        loyaltyInfo.tiers.map((t) => ({ sitter_id: sitter!.id, ...t })),
+                        loyaltyInfo.completed_bookings
+                      )
+                    : null;
+
                   const pricing = calculateAdvancedPrice({
                     basePriceCents: svc.price_cents,
                     additionalPetPriceCents: svc.additional_pet_price_cents || 0,
@@ -634,6 +661,10 @@ export default function SitterProfile() {
                     groomingAddon: wantsGrooming,
                     groomingAddonFeeCents: svc.grooming_addon_fee_cents,
                     addons: addonItems,
+                    discountPercent: loyaltyTier?.discount_percent,
+                    discountReason: loyaltyTier
+                      ? `Loyalty: ${loyaltyTier.discount_percent}% off (${loyaltyInfo!.completed_bookings}+ bookings)`
+                      : undefined,
                   });
 
                   const toggleAddon = (addonId: number) => {
@@ -742,6 +773,12 @@ export default function SitterProfile() {
                             </div>
                           );
                         })}
+                        {pricing.breakdown.discountCents > 0 && (
+                          <div className="flex justify-between text-sm text-emerald-600">
+                            <span>Loyalty discount ({pricing.breakdown.discountPercent}%)</span>
+                            <span>-{formatCents(pricing.breakdown.discountCents)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
                           <span>Total</span>
                           <span>{formatCents(pricing.totalCents)}</span>

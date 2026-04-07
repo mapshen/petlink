@@ -72,6 +72,11 @@ export interface PricingOptions {
   nightlyRateCents?: number;
   halfDayRateCents?: number;
   serviceType?: 'walking' | 'sitting' | 'drop-in' | 'grooming' | 'meet_greet' | 'daycare';
+  // Custom rate override (sitter-set, replaces base price)
+  customPriceCents?: number;
+  // Loyalty discount (auto-applied for repeat customers)
+  discountPercent?: number;
+  discountReason?: string;
 }
 
 /** All amounts in integer cents */
@@ -88,6 +93,10 @@ export interface PriceBreakdown {
   halfDaysCents: number;
   nights: number;
   halfDays: number;
+  customPriceApplied: boolean;
+  discountCents: number;
+  discountPercent: number;
+  discountReason: string | null;
 }
 
 const EXTENDED_SERVICE_TYPES = ['sitting', 'daycare'];
@@ -130,7 +139,7 @@ export interface PricingResult {
   breakdown: PriceBreakdown;
 }
 
-/** Calculate booking price with holiday rates, puppy rates, nightly rates, and add-ons. All amounts in cents. */
+/** Calculate booking price with holiday rates, puppy rates, nightly rates, add-ons, custom price, and loyalty discount. All amounts in cents. */
 export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
   const {
     basePriceCents, additionalPetPriceCents, petCount,
@@ -140,16 +149,18 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
     groomingAddon, groomingAddonFeeCents,
     addons,
     nights = 0, halfDays = 0, nightlyRateCents, halfDayRateCents, serviceType,
+    customPriceCents, discountPercent, discountReason,
   } = options;
 
   const isExtendedService = serviceType != null && EXTENDED_SERVICE_TYPES.includes(serviceType);
   const hasNightlyPricing = isExtendedService && nightlyRateCents != null && (nights > 0 || halfDays > 0);
+  const customPriceApplied = customPriceCents != null && customPriceCents >= 0;
 
   let holidayApplied = false;
   let puppyApplied = false;
 
-  if (hasNightlyPricing) {
-    // Extended stay: nightly rate pricing
+  if (hasNightlyPricing && !customPriceApplied) {
+    // Extended stay: nightly rate pricing (custom price overrides this entire branch)
     let effectiveNightlyRate = nightlyRateCents;
     if (isHoliday && holidayRateCents != null) {
       effectiveNightlyRate = holidayRateCents;
@@ -170,7 +181,9 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
     const addonDetails = addons ?? [];
     const addonsCents = addonDetails.reduce((sum, a) => sum + a.priceCents, 0);
 
-    const totalCents = nightsCents + halfDaysCents + extraPetsCents + pickupCents + groomCents + addonsCents;
+    const subtotal = nightsCents + halfDaysCents + extraPetsCents + pickupCents + groomCents + addonsCents;
+    const { discountCents, effectiveDiscountPercent } = applyDiscount(subtotal, discountPercent);
+    const totalCents = subtotal - discountCents;
 
     return {
       totalCents,
@@ -187,28 +200,38 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
         halfDaysCents,
         nights,
         halfDays,
+        customPriceApplied: false,
+        discountCents,
+        discountPercent: effectiveDiscountPercent,
+        discountReason: discountCents > 0 ? (discountReason ?? null) : null,
       },
     };
   }
 
-  // Flat pricing (non-extended or no nightly rate)
-  let effectiveBaseCents = basePriceCents;
-  if (isHoliday && holidayRateCents != null) {
+  // Custom price replaces the base/holiday/puppy rate entirely
+  let effectiveBaseCents: number;
+  if (customPriceApplied) {
+    effectiveBaseCents = customPriceCents;
+  } else if (isHoliday && holidayRateCents != null) {
     effectiveBaseCents = holidayRateCents;
     holidayApplied = true;
   } else if (hasPuppy && puppyRateCents != null) {
     effectiveBaseCents = puppyRateCents;
     puppyApplied = true;
+  } else {
+    effectiveBaseCents = basePriceCents;
   }
 
-  const extraPetsCents = Math.max(0, petCount - 1) * additionalPetPriceCents;
+  const extraPetsCents = customPriceApplied ? 0 : Math.max(0, petCount - 1) * additionalPetPriceCents;
   const pickupCents = pickupDropoff && pickupDropoffFeeCents ? pickupDropoffFeeCents : 0;
   const groomCents = groomingAddon && groomingAddonFeeCents ? groomingAddonFeeCents : 0;
 
   const addonDetails = addons ?? [];
   const addonsCents = addonDetails.reduce((sum, a) => sum + a.priceCents, 0);
 
-  const totalCents = effectiveBaseCents + extraPetsCents + pickupCents + groomCents + addonsCents;
+  const subtotal = effectiveBaseCents + extraPetsCents + pickupCents + groomCents + addonsCents;
+  const { discountCents, effectiveDiscountPercent } = applyDiscount(subtotal, discountPercent);
+  const totalCents = subtotal - discountCents;
 
   return {
     totalCents,
@@ -225,6 +248,24 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
       halfDaysCents: 0,
       nights: 0,
       halfDays: 0,
+      customPriceApplied,
+      discountCents,
+      discountPercent: effectiveDiscountPercent,
+      discountReason: discountCents > 0 ? (discountReason ?? null) : null,
     },
+  };
+}
+
+/** Apply a percentage discount to a subtotal. Returns discount in cents. */
+function applyDiscount(
+  subtotalCents: number,
+  discountPercent?: number
+): { discountCents: number; effectiveDiscountPercent: number } {
+  if (!discountPercent || discountPercent <= 0 || discountPercent > 50 || subtotalCents <= 0) {
+    return { discountCents: 0, effectiveDiscountPercent: 0 };
+  }
+  return {
+    discountCents: Math.round(subtotalCents * discountPercent / 100),
+    effectiveDiscountPercent: discountPercent,
   };
 }
