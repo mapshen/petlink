@@ -1128,6 +1128,9 @@ export async function initDb() {
     ON CONFLICT (key) DO NOTHING
   `.catch(() => {});
 
+  // Issue #370: Lifestyle badges on sitter profiles
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS lifestyle_badges TEXT[] DEFAULT '{}'`.catch(() => {});
+
   // Issue #392: Tax tools Phase 1
   await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS auto_logged BOOLEAN DEFAULT false`.catch(() => {});
   await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS source_reference TEXT`.catch(() => {});

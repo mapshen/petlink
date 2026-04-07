@@ -1,0 +1,35 @@
+import {
+  Fence,
+  CigaretteOff,
+  Baby,
+  PawPrint,
+  DoorOpen,
+  UserCheck,
+  HeartPulse,
+  Shield,
+  GraduationCap,
+  Cat,
+  Scissors,
+  Pill,
+  Heart,
+  Accessibility,
+  type LucideIcon,
+} from 'lucide-react';
+
+/** Shared icon map for badge components — keyed by BadgeDefinition.icon */
+export const BADGE_ICON_MAP: Record<string, LucideIcon> = {
+  Fence,
+  CigaretteOff,
+  Baby,
+  PawPrint,
+  DoorOpen,
+  UserCheck,
+  HeartPulse,
+  Shield,
+  GraduationCap,
+  Cat,
+  Scissors,
+  Pill,
+  Heart,
+  Accessibility,
+};

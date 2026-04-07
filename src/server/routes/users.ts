@@ -38,6 +38,7 @@ export default function userRoutes(router: Router): void {
         emergency_contact_name,
         emergency_contact_phone,
         emergency_contact_relationship,
+        lifestyle_badges,
       } = req.body;
 
       // Slug is permanent — does not change when name is updated
@@ -62,11 +63,12 @@ export default function userRoutes(router: Router): void {
       ${emergency_contact_name !== undefined ? sql`, emergency_contact_name = ${emergency_contact_name || null}` : sql``}
       ${emergency_contact_phone !== undefined ? sql`, emergency_contact_phone = ${emergency_contact_phone || null}` : sql``}
       ${emergency_contact_relationship !== undefined ? sql`, emergency_contact_relationship = ${emergency_contact_relationship || null}` : sql``}
+      ${lifestyle_badges !== undefined ? sql`, lifestyle_badges = ${lifestyle_badges || []}` : sql``}
       WHERE id = ${req.userId}
     `;
 
       const [user] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, lifestyle_badges, non_smoking_home, one_client_at_a_time FROM users WHERE id = ${req.userId}
     `;
 
       res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles) } });
@@ -106,7 +108,7 @@ export default function userRoutes(router: Router): void {
     `;
 
     const [updated] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason FROM users WHERE id = ${userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, lifestyle_badges, non_smoking_home, one_client_at_a_time FROM users WHERE id = ${userId}
     `;
 
     res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });
@@ -153,7 +155,7 @@ export default function userRoutes(router: Router): void {
     }
 
     const [updated] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason FROM users WHERE id = ${userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, lifestyle_badges, non_smoking_home, one_client_at_a_time FROM users WHERE id = ${userId}
     `;
 
     res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });

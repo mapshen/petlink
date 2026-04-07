@@ -4,6 +4,7 @@ import type { User, SitterSpeciesProfile, ProfileMember } from '../../types';
 import { getDisplayName, buildCombinedName } from '../../shared/display-name';
 import { buildSpeciesBadges } from './SpeciesDetails';
 import { FoundingSitterBadge } from '../badges/FoundingSitterBadge';
+import LifestyleBadges from '../badges/LifestyleBadges';
 
 interface Props {
   readonly sitter: User;
@@ -164,6 +165,13 @@ export default function SitterProfileHeader({
                 </button>
               )}
             </p>
+          )}
+
+          {/* Lifestyle Badges */}
+          {sitter.active_badges && sitter.active_badges.length > 0 && (
+            <div className="mb-3">
+              <LifestyleBadges badges={sitter.active_badges} size="md" maxVisible={6} />
+            </div>
           )}
 
           {/* Tags */}

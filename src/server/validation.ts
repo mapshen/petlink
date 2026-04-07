@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import { ADDON_SLUGS } from '../shared/addon-catalog.ts';
+import { MANUAL_BADGE_SLUGS } from '../shared/badge-catalog.ts';
 
 // --- Validation Middleware ---
 export function validate<T extends z.ZodType>(schema: T) {
@@ -64,6 +65,7 @@ export const updateProfileSchema = z.object({
   emergency_contact_name: z.string().max(200).optional().nullable(),
   emergency_contact_phone: z.string().max(20).optional().nullable(),
   emergency_contact_relationship: z.string().max(100).optional().nullable(),
+  lifestyle_badges: z.array(z.string().refine((s) => MANUAL_BADGE_SLUGS.includes(s), 'Invalid badge')).max(15).optional(),
 });
 
 // --- Pet Schemas ---
@@ -552,6 +554,7 @@ export const sitterSearchSchema = z.object({
   maxPrice: z.coerce.number().min(0).optional(),
   petSize: z.enum(['small', 'medium', 'large', 'giant']).optional(),
   species: z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal']).optional(),
+  badges: z.string().optional(), // comma-separated badge slugs
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
