@@ -15,6 +15,7 @@ export interface SitterWithService extends User {
   avg_rating?: number | null;
   service_radius_miles?: number;
   addon_slugs?: string[];
+  founding_sitter?: boolean;
 }
 
 export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
@@ -26,6 +27,8 @@ export type CreditType = 'referral' | 'dispute_resolution' | 'promo' | 'beta_rew
 export type CreditSourceType = 'dispute' | 'referral_invite' | 'admin_grant' | 'beta_program' | 'booking' | 'subscription' | 'system';
 
 export type BetaCohort = 'founding' | 'early_beta' | 'post_beta';
+export type ProPeriodSource = 'beta' | 'trial' | 'beta_transition';
+export type ProPeriodStatus = 'active' | 'expired' | 'cancelled';
 
 export interface CreditEntry {
   id: number;
@@ -89,6 +92,7 @@ export interface User {
   emergency_contact_relationship?: string | null;
   founding_sitter?: boolean;
   beta_cohort?: BetaCohort;
+  pro_trial_used?: boolean;
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';

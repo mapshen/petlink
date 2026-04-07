@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { MapPin, ShieldCheck, Crown, Heart, MessageSquare, Star } from 'lucide-react';
+import { MapPin, ShieldCheck, Crown, Heart, MessageSquare } from 'lucide-react';
 import type { User, SitterSpeciesProfile, ProfileMember } from '../../types';
 import { getDisplayName, buildCombinedName } from '../../shared/display-name';
 import { buildSpeciesBadges } from './SpeciesDetails';
+import { FoundingSitterBadge } from '../badges/FoundingSitterBadge';
 
 interface Props {
   readonly sitter: User;
@@ -109,12 +110,7 @@ export default function SitterProfileHeader({
                 Pro
               </span>
             ) : null}
-            {sitter.founding_sitter && (
-              <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                <Star className="w-3 h-3" />
-                Founding Sitter
-              </span>
-            )}
+            {sitter.founding_sitter && <FoundingSitterBadge size="md" />}
           </div>
 
           {/* Location */}

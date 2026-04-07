@@ -15,6 +15,7 @@ import { startOnboardingReminderScheduler, stopOnboardingReminderScheduler } fro
 import { startDepositReleaseScheduler, stopDepositReleaseScheduler } from './src/server/deposit-release.ts';
 import { startCreditLowWarningScheduler, stopCreditLowWarningScheduler } from './src/server/credit-low-warning.ts';
 import { startDormancyCheckScheduler, stopDormancyCheckScheduler } from './src/server/dormancy-check.ts';
+import { startProPeriodScheduler, stopProPeriodScheduler } from './src/server/pro-period-scheduler.ts';
 import sql from './src/server/db.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/server/rate-limit.ts';
 import {
@@ -22,7 +23,7 @@ import {
   bookingRoutes, reviewRoutes, verificationRoutes, availabilityRoutes,
   photoRoutes, favoriteRoutes, messageRoutes, notificationRoutes,
   paymentRoutes, subscriptionRoutes, walkRoutes, analyticsRoutes,
-  adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes, speciesProfileRoutes, tipRoutes, profileMemberRoutes, inquiryRoutes, referenceRoutes, addonRoutes, incidentRoutes, disputeRoutes, connectRoutes, creditRoutes, reliabilityRoutes, petNoteRoutes, partnerRoutes,
+  adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes, speciesProfileRoutes, tipRoutes, profileMemberRoutes, inquiryRoutes, referenceRoutes, addonRoutes, incidentRoutes, disputeRoutes, connectRoutes, creditRoutes, reliabilityRoutes, petNoteRoutes, partnerRoutes, proPeriodRoutes,
 } from './src/server/routes/index.ts';
 import type { ErrorRequestHandler } from 'express';
 import logger, { sanitizeError } from './src/server/logger.ts';
@@ -185,6 +186,7 @@ async function startServer() {
   reliabilityRoutes(v1);
   petNoteRoutes(v1);
   partnerRoutes(v1);
+  proPeriodRoutes(v1);
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
   app.use('/api/v1', v1);
@@ -220,6 +222,7 @@ async function startServer() {
     startDepositReleaseScheduler(io);
     startCreditLowWarningScheduler();
     startDormancyCheckScheduler();
+    startProPeriodScheduler();
   });
 
   const shutdown = () => {
@@ -229,6 +232,7 @@ async function startServer() {
     stopDepositReleaseScheduler();
     stopCreditLowWarningScheduler();
     stopDormancyCheckScheduler();
+    stopProPeriodScheduler();
     io.close();
     httpServer.close(() => {
       sql.end({ timeout: 5 }).then(() => process.exit(0)).catch(() => process.exit(1));

@@ -69,7 +69,9 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Connect | `POST /connect/account`, `POST /connect/onboarding-link`, `GET /connect/status`, `POST /connect/refresh-link` |
 | Uploads | `POST /uploads/signed-url` |
 | Webhooks | `POST /webhooks/stripe` (handles `payment_intent.succeeded/canceled`, `checkout.session.completed`, `customer.subscription.deleted`, `customer.subscription.updated`, `invoice.payment_failed`, `invoice.paid` (auto-applies credits + updates period), `account.updated`, `payout.paid`, `payout.failed`), `POST /webhooks/background-check` |
-| Admin | `GET /admin/pending-sitters`, `GET /admin/sitters` (paginated, `?status=&limit=&offset=`), `PUT /admin/sitters/:id/approval` (requires `ADMIN_EMAIL`), `POST /admin/users/:id/beta-credit` (admin, sets cohort + issues credits) |
+| Pro Periods | `GET /pro-period/me` (active period + days remaining), `GET /pro-period/savings` (fee savings during period), admin: `GET /admin/trials`, `POST /admin/trials/:userId/extend`, `PUT /admin/settings/trial-duration` |
+| Beta Program | admin: `GET /admin/beta/dashboard`, `GET /admin/beta/sitters`, `PUT /admin/beta/settings`, `POST /admin/beta/extend/:userId`, `POST /admin/beta/revoke/:userId` |
+| Admin | `GET /admin/pending-sitters`, `GET /admin/sitters` (paginated, `?status=&limit=&offset=`), `PUT /admin/sitters/:id/approval` (auto-enrolls in beta or starts free Pro trial), `POST /admin/users/:id/beta-credit` (admin, sets cohort + issues credits) |
 | Health | `GET /health` (no auth, returns DB connectivity status) |
 
 ### Frontend (`src/`)
@@ -149,6 +151,8 @@ PostgreSQL with PostGIS.
 | `private_pet_notes` | Sitter-only private notes about pets: `sitter_id`, `pet_id`, `booking_id`, `content` (max 2000), `flags` TEXT[] (aggressive/special_needs_undisclosed/medical_condition/other). UNIQUE(sitter_id, booking_id, pet_id). Only visible to admins. `pet_flag_count` included in booking pets for sitters |
 | `dormancy_forfeiture_log` | Compliance log: `user_id`, `amount_cents`, `credit_ledger_entry_id`, `forfeited_at`. Dormancy scheduler warns at 35 months, forfeits at 36 months inactive |
 | `reservation_protections` | Triggered on sitter cancellation of confirmed bookings within 48h. `booking_id` UNIQUE, `original_sitter_id`, `owner_id`, `status` (searching/options_sent/rebooked/owner_cancelled/no_alternatives), `replacement_booking_id`, `credit_issued_cents`. Auto-searches for nearby replacement sitters |
+| `platform_settings` | Key-value store for admin-configurable settings: `key` TEXT PK, `value` JSONB, `updated_by`. Used for beta_active, beta_end_date, pro_trial_days. In-memory cached (5-min TTL) |
+| `pro_periods` | Temporary Pro subscriptions without Stripe: `user_id`, `source` (beta/trial/beta_transition), `starts_at`, `ends_at`, `status` (active/expired/cancelled), warning dedup columns. Partial unique on (user_id, source) WHERE active. Daily scheduler expires periods, sends warnings, transitions founding sitters |
 
 PostgreSQL enums: `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`. User roles use `TEXT[]` (not an enum).
 
@@ -171,7 +175,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com` (owner only), 
 
 ## Testing
 
-1294 tests across 96 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+1724 tests across 117 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 
