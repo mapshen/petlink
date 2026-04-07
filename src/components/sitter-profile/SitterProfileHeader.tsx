@@ -168,9 +168,9 @@ export default function SitterProfileHeader({
           )}
 
           {/* Lifestyle Badges */}
-          {(sitter as any).active_badges?.length > 0 && (
+          {sitter.active_badges && sitter.active_badges.length > 0 && (
             <div className="mb-3">
-              <LifestyleBadges badges={(sitter as any).active_badges} size="md" maxVisible={6} />
+              <LifestyleBadges badges={sitter.active_badges} size="md" maxVisible={6} />
             </div>
           )}
 

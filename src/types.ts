@@ -102,6 +102,7 @@ export interface User {
   children_in_home?: boolean;
   one_client_at_a_time?: boolean;
   lifestyle_badges?: string[];
+  active_badges?: string[];
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';

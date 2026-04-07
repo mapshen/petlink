@@ -1,42 +1,9 @@
 import {
-  Fence,
-  CigaretteOff,
-  Baby,
-  PawPrint,
-  DoorOpen,
-  UserCheck,
-  HeartPulse,
-  Shield,
-  GraduationCap,
-  Cat,
-  Scissors,
-  Pill,
-  Heart,
-  Accessibility,
-  type LucideIcon,
-} from 'lucide-react';
-import {
   getBadgesByCategory,
   AUTO_BADGE_SLUGS,
   type BadgeDefinition,
 } from '../../shared/badge-catalog';
-
-const ICON_MAP: Record<string, LucideIcon> = {
-  Fence,
-  CigaretteOff,
-  Baby,
-  PawPrint,
-  DoorOpen,
-  UserCheck,
-  HeartPulse,
-  Shield,
-  GraduationCap,
-  Cat,
-  Scissors,
-  Pill,
-  Heart,
-  Accessibility,
-};
+import { BADGE_ICON_MAP } from './badge-icons';
 
 interface BadgeEditorProps {
   readonly selectedBadges: string[];
@@ -55,7 +22,7 @@ function BadgeToggle({
   readonly isAuto: boolean;
   readonly onToggle: () => void;
 }) {
-  const Icon = ICON_MAP[badge.icon];
+  const Icon = BADGE_ICON_MAP[badge.icon];
 
   return (
     <button
