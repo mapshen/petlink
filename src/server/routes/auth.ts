@@ -9,12 +9,13 @@ import { getProPeriodWithDaysRemaining } from '../pro-periods.ts';
 import { generateUniqueSlug } from '../slugify.ts';
 import { checkLockout, recordLoginAttempt, shouldSendAlert } from '../login-lockout.ts';
 import logger from '../logger.ts';
+import { verifyTurnstile } from '../turnstile.ts';
 
 // Shared column list for user queries — keep in sync with User type
 const USER_COLUMNS = sql`id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, founding_sitter, beta_cohort, pro_trial_used, lifestyle_badges, non_smoking_home, one_client_at_a_time, phone, share_phone_for_bookings, has_cameras, camera_locations, camera_policy_note, camera_preference`;
 
 export default function authRoutes(router: Router): void {
-  router.post('/auth/signup', validate(signupSchema), async (req, res) => {
+  router.post('/auth/signup', verifyTurnstile, validate(signupSchema), async (req, res) => {
     const { email, password, name } = req.body;
 
     const [existing] = await sql`SELECT id FROM users WHERE email = ${email}`;
