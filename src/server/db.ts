@@ -956,6 +956,11 @@ export async function initDb() {
   await sql`ALTER TABLE credit_ledger ADD COLUMN IF NOT EXISTS stripe_event_id TEXT`.catch(() => {});
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_stripe_event ON credit_ledger (stripe_event_id) WHERE stripe_event_id IS NOT NULL`.catch(() => {});
 
+  // Issue #392: Tax tools Phase 1
+  await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS auto_logged BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS source_reference TEXT`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sitter_expenses_source_ref ON sitter_expenses (source_reference) WHERE source_reference IS NOT NULL`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});
