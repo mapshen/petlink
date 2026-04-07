@@ -3,7 +3,7 @@ import sql from './db.ts';
 export interface Notification {
   id: number;
   user_id: number;
-  type: 'new_booking' | 'booking_status' | 'new_message' | 'walk_started' | 'walk_completed' | 'payment_update' | 'verification_update' | 'account_update' | 'care_task_reminder' | 'new_inquiry' | 'inquiry_offer' | 'incident_report' | 'dispute_update';
+  type: 'new_booking' | 'booking_status' | 'new_message' | 'walk_started' | 'walk_completed' | 'payment_update' | 'verification_update' | 'account_update' | 'care_task_reminder' | 'new_inquiry' | 'inquiry_offer' | 'incident_report' | 'dispute_update' | 'review_reminder';
   title: string;
   body: string;
   data?: string;
