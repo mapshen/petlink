@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle, Gift } from 'lucide-react';
 import { API_BASE } from '../../config';
-import { Booking, SitterPayout, PayoutStatus } from '../../types';
+import { Booking, SitterPayout, PayoutStatus, CreditEntry } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Alert, AlertDescription } from '../../components/ui/alert';
@@ -30,7 +30,7 @@ const EXPENSE_CATEGORIES = [
   { value: 'other', label: 'Other', icon: '📝' },
 ] as const;
 
-type WalletTab = 'earnings' | 'expenses' | 'tax' | 'payouts';
+type WalletTab = 'earnings' | 'expenses' | 'tax' | 'payouts' | 'credits';
 
 interface Expense {
   id: number;
@@ -90,6 +90,10 @@ export default function WalletPage() {
   // Connect status
   const [connectEnabled, setConnectEnabled] = useState<boolean | null>(null);
 
+  // Credits
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [creditHistory, setCreditHistory] = useState<CreditEntry[]>([]);
+
   // Expense form
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -104,7 +108,7 @@ export default function WalletPage() {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchBookings(), fetchExpenses(), fetchSummary(), fetchPayoutsInitial(), fetchConnectStatus()]);
+    await Promise.all([fetchBookings(), fetchExpenses(), fetchSummary(), fetchPayoutsInitial(), fetchConnectStatus(), fetchCredits()]);
     setLoading(false);
   };
 
@@ -115,6 +119,25 @@ export default function WalletPage() {
       if (res.ok) {
         const data = await res.json();
         setConnectEnabled(data.stripe_payouts_enabled ?? false);
+      }
+    } catch {
+      // Non-critical
+    }
+  };
+
+  const fetchCredits = async () => {
+    try {
+      const [balRes, histRes] = await Promise.all([
+        fetch(`${API_BASE}/credits/balance`, { headers: getAuthHeaders(token) }),
+        fetch(`${API_BASE}/credits/history?limit=50`, { headers: getAuthHeaders(token) }),
+      ]);
+      if (balRes.ok) {
+        const data = await balRes.json();
+        setCreditBalance(data.balance_cents);
+      }
+      if (histRes.ok) {
+        const data = await histRes.json();
+        setCreditHistory(data.entries);
       }
     } catch {
       // Non-critical
@@ -319,6 +342,10 @@ export default function WalletPage() {
             <button onClick={() => setTab('tax')}
               className={`px-4 py-2.5 text-sm font-medium transition-colors ${tab === 'tax' ? 'text-emerald-700 border-b-2 border-emerald-600' : 'text-stone-500 hover:text-stone-700'}`}>
               Tax Summary
+            </button>
+            <button onClick={() => setTab('credits')}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors ${tab === 'credits' ? 'text-emerald-700 border-b-2 border-emerald-600' : 'text-stone-500 hover:text-stone-700'}`}>
+              Credits
             </button>
           </>
         )}
@@ -582,6 +609,55 @@ export default function WalletPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Credits Tab */}
+      {tab === 'credits' && (
+        <div className="space-y-4">
+          {/* Balance Card */}
+          <div className="bg-emerald-50 rounded-xl p-6 border border-emerald-100">
+            <div className="flex items-center gap-2 text-emerald-700 text-sm font-medium mb-1">
+              <Gift className="w-4 h-4" /> Credit Balance
+            </div>
+            <div className="text-3xl font-bold text-emerald-700">{formatCents(creditBalance)}</div>
+            <p className="text-xs text-emerald-600 mt-2">Credits auto-apply to your subscription renewals</p>
+          </div>
+
+          {/* Credit History */}
+          {creditHistory.length === 0 ? (
+            <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
+              <Gift className="w-12 h-12 mx-auto mb-4 text-stone-300" />
+              <p className="text-stone-500">No credit history yet.</p>
+              <p className="text-xs text-stone-400 mt-1">Credits from referrals, promotions, and rewards will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {creditHistory.map(entry => (
+                <div key={entry.id} className="bg-white rounded-xl border border-stone-100 p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${entry.amount_cents > 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                      {entry.amount_cents > 0
+                        ? <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        : <TrendingDown className="w-4 h-4 text-red-600" />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-stone-900">{entry.description}</div>
+                      <div className="text-xs text-stone-400">
+                        {new Date(entry.created_at).toLocaleDateString()}
+                        <span className="ml-2 px-1.5 py-0.5 bg-stone-100 text-stone-500 rounded text-[10px]">
+                          {entry.type.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`text-sm font-semibold ${entry.amount_cents > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {entry.amount_cents > 0 ? '+' : ''}{formatCents(entry.amount_cents)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       <AlertDialog open={deleteDialogId !== null} onOpenChange={(open) => { if (!open) setDeleteDialogId(null); }}>

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PetLink — Dispute Mediation Mockups</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        emerald: { 50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0', 500: '#10b981', 600: '#059669', 700: '#047857' },
+        stone: { 50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e3', 300: '#d6d3d1', 400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c', 800: '#292524', 900: '#1c1917' },
+        amber: { 50: '#fffbeb', 100: '#fef3c7', 500: '#f59e0b', 600: '#d97706' },
+        red: { 50: '#fef2f2', 100: '#fee2e2', 500: '#ef4444', 600: '#dc2626', 700: '#b91c1c' },
+        orange: { 50: '#fff7ed', 100: '#ffedd5', 500: '#f97316', 600: '#ea580c' },
+        blue: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb' },
+        purple: { 50: '#faf5ff', 100: '#f3e8ff', 500: '#a855f7', 600: '#9333ea', 700: '#7e22ce' },
+        indigo: { 50: '#eef2ff', 100: '#e0e7ff', 600: '#4f46e5' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .mockup-section { border: 2px dashed #d6d3d1; border-radius: 1rem; padding: 2rem; margin-bottom: 3rem; }
+  .mockup-label { background: #1c1917; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 9999px; display: inline-block; margin-bottom: 1rem; letter-spacing: 0.05em; text-transform: uppercase; }
+</style>
+</head>
+<body class="bg-stone-100 p-6">
+
+<div class="max-w-5xl mx-auto">
+  <h1 class="text-2xl font-bold text-stone-900 mb-1">Dispute Mediation Mockups — #361</h1>
+  <p class="text-stone-500 mb-8">Six views: Initiate, User Detail, Admin Queue, Admin Detail + Resolution, Timeline, NeedsAttention</p>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 1: DISPUTE INITIATION DIALOG -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 1 — Open Dispute Dialog (Owner/Sitter)</span>
+    <p class="text-sm text-stone-500 mb-4">Triggered from a booking card's "Open Dispute" button. Available on confirmed, in_progress, or completed bookings.</p>
+
+    <div class="max-w-md mx-auto">
+      <div class="bg-white rounded-2xl shadow-xl border border-stone-200 overflow-hidden">
+        <div class="bg-purple-50 px-6 py-4 border-b border-purple-100">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+              <h2 class="text-base font-bold text-purple-900">Open a Dispute</h2>
+            </div>
+            <button class="text-stone-400 hover:text-stone-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <p class="text-xs text-purple-700 mt-1">Booking with Sarah M. · House Sitting · Dec 23–26</p>
+        </div>
+
+        <div class="p-6 space-y-4">
+          <!-- Link to incident (optional) -->
+          <div>
+            <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
+              Related Incident <span class="text-stone-400 font-normal normal-case">(optional)</span>
+            </label>
+            <div class="space-y-2">
+              <label class="flex items-center gap-3 p-3 rounded-xl border-2 border-purple-300 bg-purple-50 cursor-pointer">
+                <input type="radio" name="incident" checked class="text-purple-600" />
+                <div>
+                  <span class="text-sm font-medium text-stone-800">Pet Injury — Dec 25</span>
+                  <span class="block text-xs text-stone-500 truncate">Cat Whiskers has a scratch on his left ear...</span>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 p-3 rounded-xl border border-stone-200 cursor-pointer hover:bg-stone-50">
+                <input type="radio" name="incident" class="text-purple-600" />
+                <div>
+                  <span class="text-sm font-medium text-stone-800">Behavioral Issue — Dec 24</span>
+                  <span class="block text-xs text-stone-500 truncate">Buddy was aggressive at feeding time...</span>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 p-3 rounded-xl border border-stone-200 cursor-pointer hover:bg-stone-50">
+                <input type="radio" name="incident" class="text-purple-600" />
+                <span class="text-sm text-stone-500">No specific incident — general dispute</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Reason -->
+          <div>
+            <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
+              Why are you filing this dispute? <span class="text-red-500">*</span>
+            </label>
+            <textarea rows="4" placeholder="Describe the issue and what resolution you're seeking..." class="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-purple-500">I'm concerned about the scratch on my cat's ear. The sitter didn't mention it until I noticed during pickup. I'd like a partial refund for the last day of care.</textarea>
+          </div>
+
+          <!-- Info -->
+          <div class="bg-blue-50 rounded-xl px-4 py-3 flex items-start gap-2">
+            <svg class="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p class="text-xs text-blue-800">A PetLink mediator will review the dispute with both parties. All incident reports and messages for this booking will be included as evidence.</p>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3 pt-2">
+            <button class="flex-1 text-sm font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 px-4 py-2.5 rounded-xl">Cancel</button>
+            <button class="flex-1 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 px-4 py-2.5 rounded-xl">Submit Dispute</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 2: DISPUTE DETAIL — USER VIEW -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 2 — Dispute Detail (User View)</span>
+    <p class="text-sm text-stone-500 mb-4">What the owner/sitter sees when viewing their dispute. Includes status, timeline of messages, and a composer to add info.</p>
+
+    <div class="max-w-lg mx-auto">
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-stone-100">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-lg font-bold text-stone-900">Dispute #42</h2>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase">Under Review</span>
+              </div>
+              <p class="text-xs text-stone-400 mt-1">Filed Dec 26, 2026 · Booking with Sarah M.</p>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-stone-400">Assigned to</span>
+              <span class="block text-xs font-medium text-stone-700">Admin Team</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Linked incident -->
+        <div class="px-6 py-3 bg-red-50/50 border-b border-stone-100">
+          <div class="flex items-center gap-2 text-xs">
+            <svg class="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.999L13.732 4.001c-.77-1.333-2.694-1.333-3.464 0L3.34 16.001C2.57 17.335 3.536 19 5.076 19z"/></svg>
+            <span class="font-medium text-red-800">Linked: Pet Injury — Dec 25</span>
+            <span class="text-stone-400 ml-auto">2 evidence items</span>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="px-6 py-4 space-y-4 max-h-96 overflow-y-auto">
+          <!-- Status change -->
+          <div class="flex items-center gap-2 text-xs text-stone-400">
+            <div class="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+            <span>Dispute opened by You · Dec 26, 10:15 AM</span>
+          </div>
+
+          <!-- User message -->
+          <div class="flex gap-3">
+            <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">👤</div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-stone-800">You</span>
+                <span class="text-[10px] text-stone-400">Dec 26, 10:15 AM</span>
+              </div>
+              <div class="mt-1 bg-blue-50 rounded-xl rounded-tl-none px-3 py-2 text-sm text-stone-700">
+                I'm concerned about the scratch on my cat's ear. The sitter didn't mention it until I noticed during pickup. I'd like a partial refund for the last day of care.
+              </div>
+            </div>
+          </div>
+
+          <!-- Status change -->
+          <div class="flex items-center gap-2 text-xs text-stone-400">
+            <div class="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+            <span>Dispute claimed by Admin · Dec 26, 11:30 AM</span>
+          </div>
+
+          <!-- Admin message -->
+          <div class="flex gap-3">
+            <div class="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+              <svg class="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-purple-700">PetLink Mediator</span>
+                <span class="text-[10px] text-stone-400">Dec 26, 11:45 AM</span>
+              </div>
+              <div class="mt-1 bg-purple-50 rounded-xl rounded-tl-none px-3 py-2 text-sm text-stone-700">
+                Thank you for filing this dispute. I've reviewed the incident report and evidence photos. Could the sitter please provide their account of when the scratch may have occurred?
+              </div>
+            </div>
+          </div>
+
+          <!-- Sitter message -->
+          <div class="flex gap-3">
+            <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">🧑</div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-stone-800">Sarah M.</span>
+                <span class="text-[10px] text-stone-400">Dec 26, 2:10 PM</span>
+              </div>
+              <div class="mt-1 bg-stone-100 rounded-xl rounded-tl-none px-3 py-2 text-sm text-stone-700">
+                Whiskers was playing near a bookshelf on Dec 24 and I noticed a small mark afterward. I cleaned it with antiseptic but I should have reported it sooner. I apologize for not communicating this immediately.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Composer -->
+        <div class="px-6 py-4 border-t border-stone-100 bg-stone-50">
+          <div class="flex gap-2">
+            <input type="text" placeholder="Add a message..." class="flex-1 text-sm border border-stone-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-purple-500" />
+            <button class="text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-xl">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 3: ADMIN DISPUTE QUEUE -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 3 — Admin Dispute Queue</span>
+    <p class="text-sm text-stone-500 mb-4">New "Disputes" tab in the admin page. Filterable by status, shows key info at a glance.</p>
+
+    <div class="max-w-3xl mx-auto">
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+        <!-- Admin nav tabs -->
+        <div class="border-b border-stone-200 px-6">
+          <div class="flex gap-6 text-sm font-medium">
+            <span class="py-3 text-stone-400 cursor-pointer">Sitter Management</span>
+            <span class="py-3 text-purple-600 border-b-2 border-purple-600 flex items-center gap-1.5">
+              Disputes
+              <span class="bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">3</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="px-6 py-3 border-b border-stone-100 flex items-center gap-3">
+          <select class="text-xs border border-stone-200 rounded-lg px-2 py-1.5 text-stone-600 bg-white">
+            <option>All statuses</option>
+            <option selected>Open</option>
+            <option>Under Review</option>
+            <option>Awaiting Response</option>
+            <option>Resolved</option>
+            <option>Closed</option>
+          </select>
+          <span class="text-xs text-stone-400 ml-auto">3 disputes</span>
+        </div>
+
+        <!-- Queue list -->
+        <div class="divide-y divide-stone-100">
+          <!-- Dispute row 1 (open, unassigned) -->
+          <div class="px-6 py-4 hover:bg-stone-50 cursor-pointer">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold text-stone-900">#42 · Pet Injury Dispute</span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">OPEN</span>
+                  </div>
+                  <div class="text-xs text-stone-400 mt-0.5">
+                    Owner: John D. vs Sitter: Sarah M. · Booking #156 · Filed 2h ago
+                  </div>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-stone-400">Unassigned</span>
+                <button class="block text-xs font-medium text-purple-600 hover:text-purple-700 mt-0.5">Claim</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dispute row 2 (under review, assigned) -->
+          <div class="px-6 py-4 hover:bg-stone-50 cursor-pointer bg-amber-50/30">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"></div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold text-stone-900">#41 · Service Quality</span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">UNDER REVIEW</span>
+                  </div>
+                  <div class="text-xs text-stone-400 mt-0.5">
+                    Owner: Maria T. vs Sitter: James K. · Booking #148 · Filed 1d ago
+                  </div>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-stone-500 font-medium">You</span>
+                <span class="block text-xs text-stone-400">3 messages</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dispute row 3 (awaiting response) -->
+          <div class="px-6 py-4 hover:bg-stone-50 cursor-pointer">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold text-stone-900">#39 · Property Damage</span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">AWAITING RESPONSE</span>
+                  </div>
+                  <div class="text-xs text-stone-400 mt-0.5">
+                    Sitter: Alex R. vs Owner: Lisa P. · Booking #132 · Filed 3d ago
+                  </div>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-stone-500 font-medium">You</span>
+                <span class="block text-xs text-amber-600">Waiting on owner</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 4: ADMIN RESOLUTION FORM -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 4 — Admin Resolution Form</span>
+    <p class="text-sm text-stone-500 mb-4">Panel at the bottom of the admin dispute detail view. Shows resolution options with conditional fields.</p>
+
+    <div class="max-w-lg mx-auto">
+      <div class="bg-white rounded-2xl shadow-sm border border-purple-200 overflow-hidden">
+        <div class="bg-purple-50 px-6 py-3 border-b border-purple-100">
+          <h3 class="text-sm font-bold text-purple-900 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Resolve Dispute #42
+          </h3>
+        </div>
+
+        <div class="p-6 space-y-4">
+          <!-- Booking context -->
+          <div class="bg-stone-50 rounded-xl p-3 text-xs space-y-1">
+            <div class="flex justify-between"><span class="text-stone-500">Booking Total</span><span class="font-medium text-stone-800">$135.00</span></div>
+            <div class="flex justify-between"><span class="text-stone-500">Service</span><span class="text-stone-700">House Sitting · 3 nights</span></div>
+            <div class="flex justify-between"><span class="text-stone-500">Payment Status</span><span class="text-emerald-600 font-medium">Captured</span></div>
+          </div>
+
+          <!-- Resolution type -->
+          <div>
+            <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Resolution</label>
+            <select class="w-full text-sm border border-stone-200 rounded-xl px-3 py-2 text-stone-800 bg-white">
+              <option value="">Select resolution...</option>
+              <option value="full_refund">Full Refund ($135.00)</option>
+              <option value="partial_refund" selected>Partial Refund</option>
+              <option value="credit">Issue Credit (manual)</option>
+              <option value="warning_owner">Warning to Owner</option>
+              <option value="warning_sitter">Warning to Sitter</option>
+              <option value="ban_owner">Ban Owner</option>
+              <option value="ban_sitter">Ban Sitter</option>
+              <option value="no_action">No Action</option>
+            </select>
+          </div>
+
+          <!-- Conditional: partial refund amount -->
+          <div class="bg-amber-50 rounded-xl p-4 space-y-2">
+            <label class="block text-xs font-bold text-amber-700 uppercase tracking-wider">Refund Amount</label>
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-stone-500">$</span>
+              <input type="number" value="45.00" class="w-32 text-sm border border-amber-200 rounded-lg px-3 py-2 text-right bg-white" />
+              <span class="text-xs text-stone-400">of $135.00</span>
+            </div>
+            <p class="text-[10px] text-amber-600">Refund will be processed via Stripe to the owner's original payment method.</p>
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Resolution Notes <span class="text-red-500">*</span></label>
+            <textarea rows="3" class="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-purple-500" placeholder="Explain the resolution decision...">Partial refund of $45 (1 night) issued due to unreported pet injury. Sitter should have communicated the scratch immediately. Warning issued to sitter about communication expectations.</textarea>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3 pt-2">
+            <button class="flex-1 text-sm font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 px-4 py-2.5 rounded-xl">Cancel</button>
+            <button class="flex-1 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 px-4 py-2.5 rounded-xl">
+              Resolve & Refund $45.00
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 5: NEEDS ATTENTION — DISPUTE ITEM -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 5 — NeedsAttention Item</span>
+    <p class="text-sm text-stone-500 mb-4">How an active dispute appears in the user's NeedsAttention bar on the home page.</p>
+
+    <div class="max-w-md mx-auto">
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-4">
+        <h3 class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">Needs Your Attention</h3>
+        <div class="space-y-2">
+          <!-- Dispute attention item -->
+          <div class="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100">
+            <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-stone-900">Dispute awaiting your response</p>
+              <p class="text-xs text-stone-500">Mediator requested more info about booking with Sarah M.</p>
+            </div>
+            <button class="text-xs font-medium text-purple-600 hover:text-purple-700 whitespace-nowrap">View</button>
+          </div>
+
+          <!-- Existing attention items for context -->
+          <div class="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
+            <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-stone-900">Pending booking request</p>
+              <p class="text-xs text-stone-500">Maria T. requested a walk · 2h ago</p>
+            </div>
+            <button class="text-xs font-medium text-amber-600 whitespace-nowrap">View</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 6: BOOKING CARD WITH DISPUTE -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 6 — Booking Card with Open Dispute Button</span>
+    <p class="text-sm text-stone-500 mb-4">The "Open Dispute" button on booking cards. Shows as secondary action. Disabled when a dispute already exists.</p>
+
+    <div class="max-w-md mx-auto space-y-4">
+      <!-- Booking with no dispute — shows button -->
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-100 p-4">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-lg">🧑</div>
+            <div>
+              <div class="text-sm font-semibold text-stone-900">Sarah M.</div>
+              <div class="text-xs text-stone-400">House Sitting · Completed</div>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-stone-100 text-stone-600">Completed</span>
+        </div>
+        <div class="flex items-center gap-2 pt-3 border-t border-stone-100">
+          <button class="flex-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">Book Again</button>
+          <button class="flex-1 text-xs font-medium text-stone-600 bg-stone-50 px-3 py-2 rounded-lg">Leave Review</button>
+          <button class="text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 px-3 py-2 rounded-lg flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+            Dispute
+          </button>
+        </div>
+      </div>
+
+      <!-- Booking with active dispute — shows status bar -->
+      <div class="bg-white rounded-2xl shadow-sm border border-purple-200 p-4">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-lg">👩</div>
+            <div>
+              <div class="text-sm font-semibold text-stone-900">Maria T.</div>
+              <div class="text-xs text-stone-400">Dog Walking · Completed</div>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-stone-100 text-stone-600">Completed</span>
+        </div>
+        <!-- Dispute status bar -->
+        <div class="flex items-center gap-2 bg-purple-50 rounded-lg px-3 py-2">
+          <svg class="w-4 h-4 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+          <span class="text-xs text-purple-800 font-medium">Dispute under review</span>
+          <button class="ml-auto text-xs text-purple-600 font-medium hover:underline">View</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- STATUS & RESOLUTION REFERENCE -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">Reference — Status Workflow & Resolution Types</span>
+
+    <div class="grid grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3">Status Flow</h3>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+            <span class="font-medium text-stone-800">open</span>
+            <span class="text-stone-400">— Filed, awaiting admin triage</span>
+          </div>
+          <div class="text-stone-300 pl-3">|</div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span class="font-medium text-stone-800">under_review</span>
+            <span class="text-stone-400">— Admin claimed, reviewing</span>
+          </div>
+          <div class="text-stone-300 pl-3">|</div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span class="font-medium text-stone-800">awaiting_response</span>
+            <span class="text-stone-400">— Admin needs more info</span>
+          </div>
+          <div class="text-stone-300 pl-3">|</div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span class="font-medium text-stone-800">resolved</span>
+            <span class="text-stone-400">— Final resolution issued</span>
+          </div>
+          <div class="text-stone-300 pl-3 -mt-1">or</div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-stone-400"></span>
+            <span class="font-medium text-stone-800">closed</span>
+            <span class="text-stone-400">— Withdrawn/duplicate</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3">Resolution Types</h3>
+        <table class="w-full text-xs">
+          <tbody class="divide-y divide-stone-100">
+            <tr><td class="py-1.5 font-medium text-stone-700">full_refund</td><td class="py-1.5 text-stone-400">Stripe refund of full amount</td></tr>
+            <tr><td class="py-1.5 font-medium text-stone-700">partial_refund</td><td class="py-1.5 text-stone-400">Stripe refund of specified amount</td></tr>
+            <tr><td class="py-1.5 font-medium text-stone-700">credit</td><td class="py-1.5 text-stone-400">Manual credit (see #400)</td></tr>
+            <tr><td class="py-1.5 font-medium text-stone-700">warning_owner</td><td class="py-1.5 text-stone-400">Documented warning</td></tr>
+            <tr><td class="py-1.5 font-medium text-stone-700">warning_sitter</td><td class="py-1.5 text-stone-400">Documented warning</td></tr>
+            <tr><td class="py-1.5 font-medium text-stone-700">ban_owner</td><td class="py-1.5 text-stone-400">Sets approval_status=banned</td></tr>
+            <tr><td class="py-1.5 font-medium text-stone-700">ban_sitter</td><td class="py-1.5 text-stone-400">Sets approval_status=banned</td></tr>
+            <tr><td class="py-1.5 font-medium text-stone-700">no_action</td><td class="py-1.5 text-stone-400">Close without action</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mt-4 bg-stone-50 rounded-xl p-4 text-xs text-stone-600 space-y-1">
+      <p><strong>Design decisions:</strong></p>
+      <ul class="list-disc list-inside space-y-1">
+        <li>Purple accent for disputes (distinct from red incidents, emerald bookings)</li>
+        <li>Disputes build on incidents — incident link is optional, but all booking incidents shown as context</li>
+        <li>One active dispute per booking (partial unique index)</li>
+        <li>Admin claims disputes to prevent duplicate work</li>
+        <li>Admin internal notes (is_admin_note) hidden from parties</li>
+        <li>14-day window for completed bookings, no limit for active bookings</li>
+        <li>Stripe refunds executed at resolution time, not dispute filing</li>
+        <li>Ban cascading deferred — ban only prevents new bookings</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

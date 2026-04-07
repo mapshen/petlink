@@ -500,3 +500,102 @@ ${sitterRows}
     html: emailWrapper('Reservation Protection', content),
   };
 }
+
+export function buildCreditLowWarningEmail(params: {
+  sitterName: string;
+  balanceCents: number;
+  dashboardUrl: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.sitterName);
+  const amount = `$${(params.balanceCents / 100).toFixed(2)}`;
+
+  return {
+    subject: sanitizeSubject(`Your PetLink credit balance is running low (${amount} remaining)`),
+    html: emailWrapper('Credits Running Low', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Your PetLink credit balance is <strong style="color:#d97706">${amount}</strong>. Once your credits are used up, your subscription will be charged at the regular rate.</p>
+<p style="color:#44403c;line-height:1.6">Pro sitters keep 100% of their earnings with zero platform fees — the math speaks for itself.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${escapeHtml(params.dashboardUrl)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">View Your Credits</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">Questions about your subscription? Contact PetLink support.</p>
+`),
+  };
+}
+
+export function buildFoundingSitterWelcomeEmail(params: {
+  sitterName: string;
+  creditAmountCents: number;
+  cohort: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.sitterName);
+  const amount = `$${(params.creditAmountCents / 100).toFixed(2)}`;
+  const cohortLabel = params.cohort === 'founding' ? 'Founding Sitter' : params.cohort === 'early_beta' ? 'Early Beta Sitter' : 'Sitter';
+  const badgeHtml = params.cohort === 'founding'
+    ? '<span style="display:inline-block;background:#d1fae5;color:#065f46;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600">&#127775; Founding Sitter</span>'
+    : '';
+
+  return {
+    subject: sanitizeSubject(`Welcome to PetLink, ${params.sitterName}! You've received ${amount} in credits`),
+    html: emailWrapper(`Welcome, ${cohortLabel}!`, `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Thank you for being one of our earliest sitters. We've added <strong style="color:#059669">${amount} in platform credits</strong> to your account.</p>
+${badgeHtml ? `<div style="text-align:center;margin:16px 0">${badgeHtml}</div>` : ''}
+<p style="color:#44403c;line-height:1.6">These credits will automatically apply to your Pro subscription renewals — so you'll enjoy zero platform fees while your credits last.</p>
+<ul style="color:#44403c;line-height:1.8;padding-left:20px">
+<li><strong>0% platform fee</strong> on every booking</li>
+<li><strong>Priority search placement</strong></li>
+<li><strong>Full analytics dashboard</strong></li>
+${params.cohort === 'founding' ? '<li><strong>Permanent Founding Sitter badge</strong> on your profile</li>' : ''}
+</ul>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/profile" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Set Up Your Profile</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">Your credits never expire. They'll automatically apply at each subscription renewal.</p>
+`),
+  };
+}
+
+export function buildDormancyWarningEmail(params: {
+  userName: string;
+  balanceCents: number;
+  reactivationDeadline: string;
+  loginUrl: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.userName);
+  const amount = `$${(params.balanceCents / 100).toFixed(2)}`;
+
+  return {
+    subject: sanitizeSubject(`Action needed: Your ${amount} PetLink credit balance`),
+    html: emailWrapper('Account Activity Notice', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Your PetLink account has been inactive for an extended period. You have <strong style="color:#059669">${amount}</strong> in platform credits.</p>
+<p style="color:#44403c;line-height:1.6">Per our Terms of Service, credits on accounts inactive for 36+ months may be forfeited. To keep your credits, simply log in before <strong>${escapeHtml(params.reactivationDeadline)}</strong>.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${escapeHtml(params.loginUrl)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Log In Now</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">If you no longer wish to use PetLink, no action is needed. Your credits will be forfeited after the deadline.</p>
+`),
+  };
+}
+
+export function buildDormancyForfeitureEmail(params: {
+  userName: string;
+  forfeitedAmountCents: number;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.userName);
+  const amount = `$${(params.forfeitedAmountCents / 100).toFixed(2)}`;
+
+  return {
+    subject: sanitizeSubject(`Your PetLink credits (${amount}) have been forfeited`),
+    html: emailWrapper('Credits Forfeited', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Your PetLink account has been inactive for over 36 months. As outlined in our Terms of Service, your <strong>${amount}</strong> in platform credits has been forfeited due to account dormancy.</p>
+<p style="color:#44403c;line-height:1.6">If you'd like to return to PetLink, you're always welcome. Your account is still active — just log in anytime.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/login" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Log In to PetLink</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">For questions, contact PetLink support.</p>
+`),
+  };
+}

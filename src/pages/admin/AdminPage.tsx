@@ -42,8 +42,15 @@ interface AdminSitter {
   manual_import_count?: number;
 }
 
-type Tab = 'pending' | 'approved' | 'rejected' | 'banned' | 'all' | 'disputes';
+type Tab = 'pending' | 'approved' | 'rejected' | 'banned' | 'all' | 'disputes' | 'beta_credits';
 type ActionType = 'reject' | 'ban';
+type BetaCohort = 'founding' | 'early_beta' | 'post_beta';
+
+const COHORT_OPTIONS: { value: BetaCohort; label: string; min: number; max: number; default: number }[] = [
+  { value: 'founding', label: 'Founding Sitter ($120-$240)', min: 12000, max: 24000, default: 12000 },
+  { value: 'early_beta', label: 'Early Beta ($60-$120)', min: 6000, max: 12000, default: 6000 },
+  { value: 'post_beta', label: 'Post Beta ($20-$40)', min: 2000, max: 4000, default: 2000 },
+];
 
 export default function AdminPage() {
   const { user, token, loading: authLoading } = useAuth();
@@ -319,6 +326,7 @@ export default function AdminPage() {
           { key: 'banned', label: 'Banned' },
           { key: 'all', label: `All (${allTotal})` },
           { key: 'disputes', label: 'Disputes' },
+          { key: 'beta_credits', label: 'Beta Credits' },
         ] as const).map((t) => (
           <Button
             key={t.key}
@@ -346,7 +354,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {tab !== 'pending' && tab !== 'disputes' && (
+      {tab !== 'pending' && tab !== 'disputes' && tab !== 'beta_credits' && (
         <div className="space-y-3">
           {allSitters.length === 0 ? (
             <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
@@ -363,6 +371,10 @@ export default function AdminPage() {
 
       {tab === 'disputes' && (
         <AdminDisputeQueue token={token} currentUserId={user?.id} />
+      )}
+
+      {tab === 'beta_credits' && (
+        <BetaCreditPanel token={token} sitters={allSitters} onRefresh={fetchAll} />
       )}
 
       {/* Reject / Ban Dialog */}
@@ -400,6 +412,133 @@ export default function AdminPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function BetaCreditPanel({ token, sitters, onRefresh }: { token: string | null; sitters: AdminSitter[]; onRefresh: () => void }) {
+  const [selectedSitter, setSelectedSitter] = useState<number | ''>('');
+  const [cohort, setCohort] = useState<BetaCohort>('founding');
+  const [amount, setAmount] = useState(12000);
+  const [issuing, setIssuing] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [issueError, setIssueError] = useState<string | null>(null);
+
+  const cohortConfig = COHORT_OPTIONS.find(c => c.value === cohort)!;
+
+  const handleCohortChange = (newCohort: BetaCohort) => {
+    setCohort(newCohort);
+    const config = COHORT_OPTIONS.find(c => c.value === newCohort)!;
+    setAmount(config.default);
+  };
+
+  const handleIssue = async () => {
+    if (!selectedSitter) return;
+    setIssuing(true);
+    setIssueError(null);
+    setResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/${selectedSitter}/beta-credit`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount_cents: amount, cohort }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setResult(`Issued $${(amount / 100).toFixed(2)} to sitter #${selectedSitter}${data.founding_sitter ? ' (Founding Sitter badge granted)' : ''}`);
+        setSelectedSitter('');
+        onRefresh();
+      } else {
+        const data = await res.json();
+        setIssueError(data.error || 'Failed to issue credits');
+      }
+    } catch {
+      setIssueError('Network error');
+    } finally {
+      setIssuing(false);
+    }
+  };
+
+  const approvedSitters = sitters.filter(s => s.approval_status === 'approved');
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-stone-900">Issue Beta Credits</h3>
+
+          {result && (
+            <Alert className="border-emerald-200 bg-emerald-50">
+              <AlertDescription className="text-emerald-800">{result}</AlertDescription>
+            </Alert>
+          )}
+          {issueError && (
+            <Alert variant="destructive">
+              <AlertDescription>{issueError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Sitter</label>
+              <select
+                value={selectedSitter}
+                onChange={e => setSelectedSitter(e.target.value ? Number(e.target.value) : '')}
+                className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">Select a sitter...</option>
+                {approvedSitters.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Cohort</label>
+              <select
+                value={cohort}
+                onChange={e => handleCohortChange(e.target.value as BetaCohort)}
+                className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+              >
+                {COHORT_OPTIONS.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">
+                Amount (${(amount / 100).toFixed(2)})
+              </label>
+              <input
+                type="range"
+                min={cohortConfig.min}
+                max={cohortConfig.max}
+                step={100}
+                value={amount}
+                onChange={e => setAmount(Number(e.target.value))}
+                className="w-full"
+                aria-label="Credit amount"
+              />
+              <div className="flex justify-between text-xs text-stone-400 mt-1">
+                <span>${(cohortConfig.min / 100).toFixed(0)}</span>
+                <span>${(cohortConfig.max / 100).toFixed(0)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-end">
+              <Button
+                onClick={handleIssue}
+                disabled={!selectedSitter || issuing}
+                className="w-full"
+              >
+                {issuing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                Issue ${(amount / 100).toFixed(2)} Credits
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

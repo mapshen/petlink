@@ -168,6 +168,8 @@ export const serviceSchema = z.object({
   puppy_rate_cents: z.number().int().min(0).max(999900).optional().nullable(),
   pickup_dropoff_fee_cents: z.number().int().min(0).max(50000).optional().nullable(),
   grooming_addon_fee_cents: z.number().int().min(0).max(50000).optional().nullable(),
+  nightly_rate_cents: z.number().int().min(0, 'Nightly rate cannot be negative').max(999900, 'Nightly rate must be under $10,000').optional().nullable(),
+  half_day_rate_cents: z.number().int().min(0, 'Half-day rate cannot be negative').max(999900, 'Half-day rate must be under $10,000').optional().nullable(),
 });
 
 export const speciesProfileSchema = z.object({
@@ -465,6 +467,32 @@ export const issueCreditSchema = z.object({
   type: z.enum(creditTypes, { message: 'Invalid credit type' }),
   description: z.string().trim().min(1, 'Description is required').max(500, 'Description must be under 500 characters'),
   expires_at: z.string().datetime().optional().nullable(),
+});
+
+const betaCohorts = ['founding', 'early_beta', 'post_beta'] as const;
+
+export const betaCreditSchema = z.object({
+  amount_cents: z.number().int().min(2000, 'Amount must be at least $20').max(24000, 'Amount must be under $240'),
+  cohort: z.enum(betaCohorts, { message: 'Cohort must be founding, early_beta, or post_beta' }),
+});
+
+// --- Private Pet Note Schema ---
+const petNoteFlags = ['aggressive', 'special_needs_undisclosed', 'medical_condition', 'other'] as const;
+
+const uniqueFlags = z.array(z.enum(petNoteFlags, { message: 'Invalid flag' }))
+  .max(4)
+  .refine(arr => new Set(arr).size === arr.length, 'Duplicate flags not allowed')
+  .default([]);
+
+export const privatePetNoteSchema = z.object({
+  content: z.string().trim().min(1, 'Content is required').max(2000, 'Content must be under 2000 characters'),
+  flags: uniqueFlags,
+  booking_id: z.number().int().positive('Invalid booking ID'),
+});
+
+export const updatePetNoteSchema = z.object({
+  content: z.string().trim().min(1, 'Content is required').max(2000, 'Content must be under 2000 characters'),
+  flags: uniqueFlags,
 });
 
 // --- Upload Signed URL Schema ---
