@@ -453,6 +453,7 @@ export const notificationPreferencesSchema = z.object({
   walk_updates: z.boolean().optional(),
   booking_reminders: z.boolean().optional(),
   booking_reminders_email: z.boolean().optional(),
+  lost_pet_alerts: z.boolean().optional(),
 });
 
 // --- Payment Schemas ---
@@ -664,4 +665,28 @@ export const banAppealSchema = z.object({
 export const appealReviewSchema = z.object({
   status: z.enum(['approved', 'denied'], { message: 'Status must be approved or denied' }),
   admin_response: z.string().min(1, 'Admin response is required').max(2000, 'Admin response must be under 2000 characters'),
+});
+
+// --- Lost Pet Alert Schemas ---
+export const createLostPetAlertSchema = z.object({
+  pet_id: z.number().int().positive('Pet ID is required'),
+  description: z.string().min(10, 'Description must be at least 10 characters').max(2000, 'Description must be under 2000 characters'),
+  last_seen_lat: z.number().min(-90).max(90, 'Invalid latitude'),
+  last_seen_lng: z.number().min(-180).max(180, 'Invalid longitude'),
+  last_seen_at: z.string().min(1, 'Last seen time is required'),
+  search_radius_miles: z.number().int().min(1).max(50).optional().default(10),
+  photo_url: z.string().url().optional().nullable(),
+  contact_phone: z.string().max(20).optional().nullable(),
+});
+
+export const resolveLostPetAlertSchema = z.object({
+  status: z.enum(['found', 'cancelled'], { message: 'Status must be found or cancelled' }),
+});
+
+export const nearbyAlertsQuerySchema = z.object({
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+  radius: z.coerce.number().min(1).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
 });

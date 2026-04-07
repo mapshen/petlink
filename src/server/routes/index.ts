@@ -42,3 +42,4 @@ export { default as phoneRelayRoutes } from './phone-relay.ts';
 export { default as banActionRoutes } from './ban-actions.ts';
 export { default as reviewModerationRoutes } from './review-moderation.ts';
 export { default as backupSitterRoutes } from './backup-sitters.ts';
+export { default as lostPetAlertRoutes } from './lost-pet-alerts.ts';

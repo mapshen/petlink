@@ -40,6 +40,7 @@ const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'));
 const ConnectReturn = React.lazy(() => import('./pages/payments/ConnectReturn'));
 const ConnectRefresh = React.lazy(() => import('./pages/payments/ConnectRefresh'));
 const ReferralPage = React.lazy(() => import('./pages/referrals/ReferralPage'));
+const LostPetAlertsPage = React.lazy(() => import('./pages/lost-pets/LostPetAlertsPage'));
 
 function LoadingSpinner() {
   return (
@@ -87,6 +88,7 @@ export default function App() {
                 <Route path="/connect/return" element={<ProtectedRoute><ConnectReturn /></ProtectedRoute>} />
                 <Route path="/connect/refresh" element={<ProtectedRoute><ConnectRefresh /></ProtectedRoute>} />
                 <Route path="/referrals" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
+                <Route path="/lost-pets" element={<ProtectedRoute><LostPetAlertsPage /></ProtectedRoute>} />
                 <Route path="/track/:bookingId" element={<ProtectedRoute><TrackWalk /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

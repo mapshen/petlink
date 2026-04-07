@@ -850,6 +850,33 @@ export interface BookingInsights {
   booking_trend: 'up' | 'down' | 'stable' | 'new';
 }
 
+// --- Lost Pet Alerts ---
+
+export type LostPetAlertStatus = 'active' | 'found' | 'cancelled';
+
+export interface LostPetAlert {
+  id: number;
+  pet_id: number;
+  owner_id: number;
+  status: LostPetAlertStatus;
+  description: string;
+  last_seen_lat: number;
+  last_seen_lng: number;
+  last_seen_at: string;
+  search_radius_miles: number;
+  photo_url?: string | null;
+  contact_phone?: string | null;
+  created_at: string;
+  resolved_at?: string | null;
+  pet_name?: string;
+  pet_species?: string;
+  pet_breed?: string;
+  pet_photo_url?: string | null;
+  owner_name?: string;
+  owner_avatar?: string | null;
+  notified_sitter_count?: number;
+}
+
 // --- Ban Actions & Appeals ---
 
 export type BanActionType = 'warning' | 'suspension' | 'ban';

@@ -1263,6 +1263,43 @@ export async function initDb() {
   `.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_review_reports_status ON review_reports (status)`.catch(() => {});
 
+  // Issue #407: Lost pet community alerts
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'lost_pet_alert'`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS lost_pet_alerts (
+      id SERIAL PRIMARY KEY,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'found', 'cancelled')),
+      description TEXT NOT NULL CHECK(char_length(description) <= 2000),
+      last_seen_lat DOUBLE PRECISION NOT NULL,
+      last_seen_lng DOUBLE PRECISION NOT NULL,
+      last_seen_location GEOGRAPHY(Point, 4326) NOT NULL,
+      last_seen_at TIMESTAMPTZ NOT NULL,
+      search_radius_miles INTEGER NOT NULL DEFAULT 10,
+      photo_url TEXT,
+      contact_phone TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      resolved_at TIMESTAMPTZ
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_lost_pet_alerts_owner ON lost_pet_alerts (owner_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_lost_pet_alerts_pet ON lost_pet_alerts (pet_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_lost_pet_alerts_status ON lost_pet_alerts (status) WHERE status = 'active'`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_lost_pet_alerts_location ON lost_pet_alerts USING GIST (last_seen_location)`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_lost_pet_alerts_active_pet ON lost_pet_alerts (pet_id) WHERE status = 'active'`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS lost_pet_alert_notifications (
+      id SERIAL PRIMARY KEY,
+      alert_id INTEGER NOT NULL REFERENCES lost_pet_alerts(id) ON DELETE CASCADE,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      notified_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(alert_id, sitter_id)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_lost_pet_alert_notifs_alert ON lost_pet_alert_notifications (alert_id)`.catch(() => {});
+  await sql`ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS lost_pet_alerts BOOLEAN DEFAULT TRUE`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});
