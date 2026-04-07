@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, Star, RefreshCw, MapPin } from 'lucide-react';
+import { Shield, Star, RefreshCw } from 'lucide-react';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 import type { BookingBackup } from '../../types';

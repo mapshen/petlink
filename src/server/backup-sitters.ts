@@ -148,25 +148,34 @@ export async function generateBackupsForBooking(
 
 /**
  * Retrieve backup sitter suggestions for a booking, enriched with user info.
+ * Joins the booking's service type to return the correct price.
  */
 export async function getBackupsForBooking(
   bookingId: number
 ): Promise<BookingBackup[]> {
-  const rows = await sql`
-    SELECT bb.id, bb.booking_id, bb.sitter_id, bb.rank, bb.status, bb.created_at,
-           u.name, u.slug, u.avatar_url,
-           (SELECT ROUND(AVG(rating)::numeric, 1)::float
-            FROM reviews
-            WHERE reviewee_id = u.id AND hidden_at IS NULL AND published_at IS NOT NULL) as avg_rating,
-           (SELECT count(*)::int
-            FROM reviews
-            WHERE reviewee_id = u.id AND hidden_at IS NULL AND published_at IS NOT NULL) as review_count,
-           s.price_cents
-    FROM booking_backups bb
-    JOIN users u ON u.id = bb.sitter_id
-    LEFT JOIN services s ON s.sitter_id = u.id
-    WHERE bb.booking_id = ${bookingId}
-    ORDER BY bb.rank ASC
-  `;
-  return rows as unknown as BookingBackup[];
+  try {
+    const rows = await sql`
+      SELECT DISTINCT ON (bb.id)
+             bb.id, bb.booking_id, bb.sitter_id, bb.rank, bb.status, bb.created_at,
+             u.name, u.slug, u.avatar_url,
+             (SELECT ROUND(AVG(rating)::numeric, 1)::float
+              FROM reviews
+              WHERE reviewee_id = u.id AND hidden_at IS NULL AND published_at IS NOT NULL) as avg_rating,
+             (SELECT count(*)::int
+              FROM reviews
+              WHERE reviewee_id = u.id AND hidden_at IS NULL AND published_at IS NOT NULL) as review_count,
+             s.price_cents
+      FROM booking_backups bb
+      JOIN users u ON u.id = bb.sitter_id
+      JOIN bookings b ON b.id = bb.booking_id
+      LEFT JOIN services bsvc ON bsvc.id = b.service_id
+      LEFT JOIN services s ON s.sitter_id = u.id AND s.type = bsvc.type
+      WHERE bb.booking_id = ${bookingId}
+      ORDER BY bb.id, bb.rank ASC
+    `;
+    return rows as unknown as BookingBackup[];
+  } catch (err) {
+    logger.error({ err: sanitizeError(err), bookingId }, 'Failed to fetch backup sitters');
+    return [];
+  }
 }
