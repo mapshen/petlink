@@ -3,7 +3,7 @@ import sql from './db.ts';
 export interface Notification {
   id: number;
   user_id: number;
-  type: 'new_booking' | 'booking_status' | 'new_message' | 'walk_started' | 'walk_completed' | 'payment_update' | 'verification_update' | 'account_update' | 'care_task_reminder' | 'new_inquiry' | 'inquiry_offer' | 'incident_report' | 'dispute_update' | 'review_reminder';
+  type: 'new_booking' | 'booking_status' | 'new_message' | 'walk_started' | 'walk_completed' | 'payment_update' | 'verification_update' | 'account_update' | 'care_task_reminder' | 'new_inquiry' | 'inquiry_offer' | 'incident_report' | 'dispute_update' | 'review_reminder' | 'lost_pet_alert';
   title: string;
   body: string;
   data?: string;
@@ -20,6 +20,7 @@ export interface NotificationPreferences {
   booking_reminders: boolean;
   booking_reminders_email: boolean;
   email_enabled: boolean;
+  lost_pet_alerts: boolean;
 }
 
 export async function createNotification(
@@ -46,6 +47,7 @@ export async function createNotification(
       new_inquiry: 'new_booking',
       inquiry_offer: 'booking_status',
       review_reminder: 'booking_reminders',
+      lost_pet_alert: 'lost_pet_alerts',
     };
     // Safety-critical notifications always delivered regardless of preferences
     const alwaysNotify = new Set(['incident_report', 'dispute_update']);
@@ -93,7 +95,7 @@ export async function markAllAsRead(userId: number): Promise<number> {
 export async function getPreferences(userId: number): Promise<NotificationPreferences> {
   const [prefs] = await sql`SELECT * FROM notification_preferences WHERE user_id = ${userId}`;
   if (prefs) return prefs as unknown as NotificationPreferences;
-  return { user_id: userId, new_booking: true, booking_status: true, new_message: true, walk_updates: true, booking_reminders: true, booking_reminders_email: true, email_enabled: true };
+  return { user_id: userId, new_booking: true, booking_status: true, new_message: true, walk_updates: true, booking_reminders: true, booking_reminders_email: true, email_enabled: true, lost_pet_alerts: true };
 }
 
 export async function updatePreferences(userId: number, prefs: Partial<Omit<NotificationPreferences, 'user_id'>>): Promise<NotificationPreferences> {
@@ -107,13 +109,14 @@ export async function updatePreferences(userId: number, prefs: Partial<Omit<Noti
           walk_updates = COALESCE(${prefs.walk_updates ?? null}, walk_updates),
           booking_reminders = COALESCE(${prefs.booking_reminders ?? null}, booking_reminders),
           booking_reminders_email = COALESCE(${prefs.booking_reminders_email ?? null}, booking_reminders_email),
-          email_enabled = COALESCE(${prefs.email_enabled ?? null}, email_enabled)
+          email_enabled = COALESCE(${prefs.email_enabled ?? null}, email_enabled),
+          lost_pet_alerts = COALESCE(${(prefs as any).lost_pet_alerts ?? null}, lost_pet_alerts)
       WHERE user_id = ${userId}
     `;
   } else {
     await sql`
-      INSERT INTO notification_preferences (user_id, new_booking, booking_status, new_message, walk_updates, booking_reminders, booking_reminders_email, email_enabled)
-      VALUES (${userId}, ${prefs.new_booking ?? true}, ${prefs.booking_status ?? true}, ${prefs.new_message ?? true}, ${prefs.walk_updates ?? true}, ${prefs.booking_reminders ?? true}, ${prefs.booking_reminders_email ?? true}, ${prefs.email_enabled ?? true})
+      INSERT INTO notification_preferences (user_id, new_booking, booking_status, new_message, walk_updates, booking_reminders, booking_reminders_email, email_enabled, lost_pet_alerts)
+      VALUES (${userId}, ${prefs.new_booking ?? true}, ${prefs.booking_status ?? true}, ${prefs.new_message ?? true}, ${prefs.walk_updates ?? true}, ${prefs.booking_reminders ?? true}, ${prefs.booking_reminders_email ?? true}, ${prefs.email_enabled ?? true}, ${(prefs as any).lost_pet_alerts ?? true})
     `;
   }
   return getPreferences(userId);

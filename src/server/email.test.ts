@@ -6,6 +6,8 @@ import {
   buildSitterNewBookingEmail,
   buildOwnerWelcomeEmail,
   buildSitterWelcomeEmail,
+  buildLostPetAlertEmail,
+  buildLostPetResolvedEmail,
   escapeHtml,
 } from './email.ts';
 
@@ -227,6 +229,95 @@ describe('email templates', () => {
       });
       expect(result.subject).not.toContain('\r');
       expect(result.subject).not.toContain('\n');
+    });
+  });
+
+  describe('buildLostPetAlertEmail', () => {
+    it('generates correct subject and HTML', () => {
+      const result = buildLostPetAlertEmail({
+        sitterName: 'Bob',
+        ownerName: 'Alice',
+        petName: 'Buddy',
+        petSpecies: 'dog',
+        description: 'Last seen near Central Park',
+        lastSeenAt: 'April 6, 2026 at 2:00 PM',
+        contactPhone: '555-0123',
+        alertId: 1,
+      });
+      expect(result.subject).toBe('Lost Pet Alert — Buddy is missing');
+      expect(result.html).toContain('Hi Bob');
+      expect(result.html).toContain('Alice');
+      expect(result.html).toContain('Buddy');
+      expect(result.html).toContain('dog');
+      expect(result.html).toContain('Central Park');
+      expect(result.html).toContain('555-0123');
+    });
+
+    it('escapes HTML in user input', () => {
+      const result = buildLostPetAlertEmail({
+        sitterName: '<script>Bob</script>',
+        ownerName: 'Alice',
+        petName: 'Buddy',
+        petSpecies: 'dog',
+        description: '<img onerror=alert(1)>',
+        lastSeenAt: '2026-04-06',
+        alertId: 1,
+      });
+      expect(result.html).not.toContain('<script>');
+      expect(result.html).not.toContain('<img');
+    });
+
+    it('omits contact row when no phone', () => {
+      const result = buildLostPetAlertEmail({
+        sitterName: 'Bob',
+        ownerName: 'Alice',
+        petName: 'Buddy',
+        petSpecies: 'dog',
+        description: 'Lost near the park area east',
+        lastSeenAt: '2026-04-06',
+        alertId: 1,
+      });
+      expect(result.html).not.toContain('Contact');
+    });
+
+    it('truncates long descriptions', () => {
+      const longDesc = 'A'.repeat(600);
+      const result = buildLostPetAlertEmail({
+        sitterName: 'Bob',
+        ownerName: 'Alice',
+        petName: 'Buddy',
+        petSpecies: 'dog',
+        description: longDesc,
+        lastSeenAt: '2026-04-06',
+        alertId: 1,
+      });
+      // The escaped output should contain at most 500 A's
+      const escapedAs = result.html.match(/A{500}/);
+      expect(escapedAs).toBeTruthy();
+      expect(result.html).not.toContain('A'.repeat(501));
+    });
+  });
+
+  describe('buildLostPetResolvedEmail', () => {
+    it('generates found email', () => {
+      const result = buildLostPetResolvedEmail({
+        sitterName: 'Bob',
+        petName: 'Buddy',
+        status: 'found',
+      });
+      expect(result.subject).toContain('Found');
+      expect(result.html).toContain('found safe and sound');
+      expect(result.html).toContain('Hi Bob');
+    });
+
+    it('generates cancelled email', () => {
+      const result = buildLostPetResolvedEmail({
+        sitterName: 'Bob',
+        petName: 'Buddy',
+        status: 'cancelled',
+      });
+      expect(result.subject).toContain('Alert Cancelled');
+      expect(result.html).toContain('cancelled by the owner');
     });
   });
 });

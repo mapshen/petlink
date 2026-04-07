@@ -806,3 +806,67 @@ ${isApproved
 `),
   };
 }
+
+export function buildLostPetAlertEmail(params: {
+  sitterName: string;
+  ownerName: string;
+  petName: string;
+  petSpecies: string;
+  description: string;
+  lastSeenAt: string;
+  contactPhone?: string | null;
+  alertId: number;
+}): { subject: string; html: string } {
+  const sitter = escapeHtml(params.sitterName);
+  const owner = escapeHtml(params.ownerName);
+  const pet = escapeHtml(params.petName);
+  const species = escapeHtml(params.petSpecies);
+  const desc = escapeHtml(params.description.slice(0, 500));
+  const lastSeen = escapeHtml(params.lastSeenAt);
+  const phone = params.contactPhone ? escapeHtml(params.contactPhone) : null;
+
+  return {
+    subject: sanitizeSubject(`Lost Pet Alert — ${params.petName} is missing`),
+    html: emailWrapper('Lost Pet Alert', `
+<p style="color:#44403c;line-height:1.6">Hi ${sitter},</p>
+<p style="color:#44403c;line-height:1.6">A pet owner near you needs help! <strong>${owner}</strong> has reported their ${species} <strong>${pet}</strong> as missing.</p>
+<div style="background:#fef3c7;border-radius:8px;padding:16px;margin:16px 0;border-left:4px solid #f59e0b">
+<p style="margin:0 0 8px;color:#92400e;font-weight:600">Description</p>
+<p style="margin:0;color:#78350f;font-size:14px;line-height:1.5">${desc}</p>
+</div>
+<table style="width:100%;border-collapse:collapse;margin:16px 0">
+<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Last seen</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${lastSeen}</td></tr>
+${phone ? `<tr><td style="padding:8px 0;color:#78716c;font-size:14px">Contact</td><td style="padding:8px 0;color:#1c1917;font-size:14px;text-align:right">${phone}</td></tr>` : ''}
+</table>
+<p style="color:#78716c;font-size:14px">If you spot ${pet}, please reach out to the owner through PetLink or call the number above.</p>
+`),
+  };
+}
+
+export function buildLostPetResolvedEmail(params: {
+  sitterName: string;
+  petName: string;
+  status: 'found' | 'cancelled';
+}): { subject: string; html: string } {
+  const sitter = escapeHtml(params.sitterName);
+  const pet = escapeHtml(params.petName);
+  const isFound = params.status === 'found';
+  const statusLabel = isFound ? 'Found' : 'Alert Cancelled';
+  const statusColor = isFound ? '#059669' : '#78716c';
+  const message = isFound
+    ? `Great news! <strong>${pet}</strong> has been found safe and sound.`
+    : `The lost pet alert for <strong>${pet}</strong> has been cancelled by the owner.`;
+
+  return {
+    subject: sanitizeSubject(`Lost Pet Update — ${params.petName} ${statusLabel}`),
+    html: emailWrapper(`Lost Pet ${statusLabel}`, `
+<p style="color:#44403c;line-height:1.6">Hi ${sitter},</p>
+<p style="color:#44403c;line-height:1.6">${message}</p>
+<div style="background:#fafaf9;border-radius:8px;padding:16px;margin:16px 0">
+<p style="margin:0 0 4px;color:#78716c;font-size:13px">Status</p>
+<p style="margin:0;font-weight:600;color:${statusColor}">${statusLabel}</p>
+</div>
+<p style="color:#78716c;font-size:14px">Thank you for keeping an eye out!</p>
+`),
+  };
+}
