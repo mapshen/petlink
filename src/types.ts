@@ -296,6 +296,21 @@ export interface Booking {
   discount_reason?: string | null;
 }
 
+export interface BookingBackup {
+  id: number;
+  booking_id: number;
+  sitter_id: number;
+  rank: number;
+  status: 'suggested' | 'accepted' | 'declined';
+  created_at: string;
+  name?: string;
+  slug?: string;
+  avatar_url?: string | null;
+  avg_rating?: number | null;
+  review_count?: number;
+  price_cents?: number;
+}
+
 export interface LoyaltyDiscount {
   id: number;
   sitter_id: number;
