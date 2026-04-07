@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PetLink — Add-on Services Mockups</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        emerald: { 50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0', 500: '#10b981', 600: '#059669', 700: '#047857', 800: '#065f46' },
+        stone: { 50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e3', 300: '#d6d3d1', 400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c', 800: '#292524', 900: '#1c1917' },
+        amber: { 50: '#fffbeb', 100: '#fef3c7', 500: '#f59e0b', 600: '#d97706' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .mockup-section { border: 2px dashed #d6d3d1; border-radius: 1rem; padding: 2rem; margin-bottom: 3rem; }
+  .mockup-label { background: #1c1917; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 9999px; display: inline-block; margin-bottom: 1rem; letter-spacing: 0.05em; text-transform: uppercase; }
+  .toggle-switch { position: relative; width: 40px; height: 22px; border-radius: 11px; cursor: pointer; transition: background 0.2s; }
+  .toggle-switch.on { background: #059669; }
+  .toggle-switch.off { background: #d6d3d1; }
+  .toggle-dot { position: absolute; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle-switch.on .toggle-dot { left: 20px; }
+  .toggle-switch.off .toggle-dot { left: 2px; }
+</style>
+</head>
+<body class="bg-stone-100 p-6">
+
+<div class="max-w-5xl mx-auto">
+  <h1 class="text-2xl font-bold text-stone-900 mb-1">Add-on Services Mockups — #363</h1>
+  <p class="text-stone-500 mb-8">Three views: Profile Editor (sitter), Booking Flow (owner), Search Results</p>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 1: SITTER PROFILE EDITOR — ADDONS TAB -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 1 — Sitter Profile Editor → Add-ons Tab</span>
+    <p class="text-sm text-stone-500 mb-4">Sitters toggle add-ons from a catalog and set their own prices. Grouped by category.</p>
+
+    <div class="bg-white rounded-2xl shadow-sm max-w-2xl mx-auto">
+      <!-- Tab header (context) -->
+      <div class="border-b border-stone-200 px-6">
+        <div class="flex gap-6 text-sm font-medium">
+          <span class="py-3 text-stone-400 cursor-pointer">Profile</span>
+          <span class="py-3 text-stone-400 cursor-pointer">Sitter Info</span>
+          <span class="py-3 text-stone-400 cursor-pointer">Services</span>
+          <span class="py-3 text-emerald-600 border-b-2 border-emerald-600">Add-ons</span>
+          <span class="py-3 text-stone-400 cursor-pointer">Availability</span>
+          <span class="py-3 text-stone-400 cursor-pointer">Photos</span>
+        </div>
+      </div>
+
+      <div class="p-6 space-y-6">
+        <!-- Intro -->
+        <div class="bg-emerald-50 rounded-xl p-4">
+          <p class="text-sm text-emerald-800"><strong>Differentiate yourself!</strong> Enable add-on services to offer more value and stand out in search results. Set your own prices for each.</p>
+        </div>
+
+        <!-- Category: Care -->
+        <div>
+          <h3 class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">Care</h3>
+          <div class="space-y-3">
+
+            <!-- Enabled add-on -->
+            <div class="border border-emerald-200 bg-emerald-50/30 rounded-xl p-4">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">💊</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Medication Administration</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Oral, topical, or injectable medication per vet instructions</div>
+                  </div>
+                </div>
+                <div class="toggle-switch on"><div class="toggle-dot"></div></div>
+              </div>
+              <div class="mt-3 ml-8 flex items-center gap-3">
+                <div class="flex items-center gap-1">
+                  <span class="text-xs text-stone-500">$</span>
+                  <input type="text" value="5.00" class="w-20 text-sm border border-stone-200 rounded-lg px-2 py-1 text-right" />
+                  <span class="text-xs text-stone-400">/ visit</span>
+                </div>
+                <input type="text" placeholder="Optional note..." value="Comfortable with insulin injections" class="flex-1 text-xs border border-stone-200 rounded-lg px-2 py-1 text-stone-600" />
+              </div>
+            </div>
+
+            <!-- Enabled add-on -->
+            <div class="border border-emerald-200 bg-emerald-50/30 rounded-xl p-4">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">🐶</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Puppy / Kitten Care</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Extra attention for pets under 1 year — more potty breaks, feeding, supervision</div>
+                  </div>
+                </div>
+                <div class="toggle-switch on"><div class="toggle-dot"></div></div>
+              </div>
+              <div class="mt-3 ml-8 flex items-center gap-3">
+                <div class="flex items-center gap-1">
+                  <span class="text-xs text-stone-500">$</span>
+                  <input type="text" value="10.00" class="w-20 text-sm border border-stone-200 rounded-lg px-2 py-1 text-right" />
+                  <span class="text-xs text-stone-400">/ night</span>
+                </div>
+                <input type="text" placeholder="Optional note..." class="flex-1 text-xs border border-stone-200 rounded-lg px-2 py-1 text-stone-400" />
+              </div>
+            </div>
+
+            <!-- Disabled add-on -->
+            <div class="border border-stone-200 rounded-xl p-4 opacity-70">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">🧓</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Senior Pet Care</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Specialized care for elderly pets — mobility assistance, health monitoring</div>
+                  </div>
+                </div>
+                <div class="toggle-switch off"><div class="toggle-dot"></div></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Category: Grooming -->
+        <div>
+          <h3 class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">Grooming</h3>
+          <div class="space-y-3">
+
+            <div class="border border-emerald-200 bg-emerald-50/30 rounded-xl p-4">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">🛁</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Bathing</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Bath with pet-safe shampoo, towel dry, and brushing</div>
+                  </div>
+                </div>
+                <div class="toggle-switch on"><div class="toggle-dot"></div></div>
+              </div>
+              <div class="mt-3 ml-8 flex items-center gap-3">
+                <div class="flex items-center gap-1">
+                  <span class="text-xs text-stone-500">$</span>
+                  <input type="text" value="15.00" class="w-20 text-sm border border-stone-200 rounded-lg px-2 py-1 text-right" />
+                  <span class="text-xs text-stone-400">/ bath</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" class="rounded text-emerald-600" />
+                  <span class="text-xs text-stone-500">Offer free</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="border border-stone-200 rounded-xl p-4 opacity-70">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">✂️</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Nail Trimming</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Safe nail clipping for dogs, cats, and small animals</div>
+                  </div>
+                </div>
+                <div class="toggle-switch off"><div class="toggle-dot"></div></div>
+              </div>
+            </div>
+
+            <div class="border border-stone-200 rounded-xl p-4 opacity-70">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">🪥</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Teeth Brushing</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Dental hygiene with pet-safe toothpaste</div>
+                  </div>
+                </div>
+                <div class="toggle-switch off"><div class="toggle-dot"></div></div>
+              </div>
+            </div>
+
+            <div class="border border-stone-200 rounded-xl p-4 opacity-70">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">💇</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Full Grooming</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Complete grooming session — bath, brush, nails, ears, and coat trim</div>
+                  </div>
+                </div>
+                <div class="toggle-switch off"><div class="toggle-dot"></div></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Category: Convenience -->
+        <div>
+          <h3 class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">Convenience</h3>
+          <div class="space-y-3">
+
+            <div class="border border-emerald-200 bg-emerald-50/30 rounded-xl p-4">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">🚗</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Pickup & Drop-off</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Transport pets to and from your home</div>
+                  </div>
+                </div>
+                <div class="toggle-switch on"><div class="toggle-dot"></div></div>
+              </div>
+              <div class="mt-3 ml-8 flex items-center gap-1">
+                <span class="text-xs text-stone-500">$</span>
+                <input type="text" value="15.00" class="w-20 text-sm border border-stone-200 rounded-lg px-2 py-1 text-right" />
+                <span class="text-xs text-stone-400">/ trip</span>
+              </div>
+            </div>
+
+            <div class="border border-emerald-200 bg-emerald-50/30 rounded-xl p-4">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">📸</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Daily Photo & Video Updates</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Photos and short video clips of your pet throughout the day</div>
+                  </div>
+                </div>
+                <div class="toggle-switch on"><div class="toggle-dot"></div></div>
+              </div>
+              <div class="mt-3 ml-8 flex items-center gap-2">
+                <span class="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-medium">Free</span>
+                <span class="text-xs text-stone-400">Included with every booking</span>
+              </div>
+            </div>
+
+            <div class="border border-stone-200 rounded-xl p-4 opacity-70">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">📞</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Evening Update Call</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Nightly phone or video check-in for overnight stays</div>
+                  </div>
+                </div>
+                <div class="toggle-switch off"><div class="toggle-dot"></div></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Category: Training -->
+        <div>
+          <h3 class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">Training (Dogs only)</h3>
+          <div class="space-y-3">
+
+            <div class="border border-stone-200 rounded-xl p-4 opacity-70">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">🎓</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Training Reinforcement</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Practice basic commands and manners during walks or stays</div>
+                  </div>
+                </div>
+                <div class="toggle-switch off"><div class="toggle-dot"></div></div>
+              </div>
+            </div>
+
+            <div class="border border-stone-200 rounded-xl p-4 opacity-70">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="text-lg">🚶</span>
+                  <div>
+                    <div class="font-medium text-stone-900 text-sm">Extended Walk (+30 min)</div>
+                    <div class="text-xs text-stone-500 mt-0.5">Double the standard walk time for high-energy dogs</div>
+                  </div>
+                </div>
+                <div class="toggle-switch off"><div class="toggle-dot"></div></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Summary footer -->
+        <div class="bg-stone-50 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <span class="text-sm font-medium text-stone-700">5 add-ons enabled</span>
+            <span class="text-xs text-stone-400 ml-2">Visible on your profile and in search results</span>
+          </div>
+          <button class="bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-emerald-700">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 2: BOOKING FLOW — ADDON SELECTOR (OWNER VIEW) -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 2 — Booking Flow → Add-on Selector (Owner)</span>
+    <p class="text-sm text-stone-500 mb-4">Owner selects add-ons during booking. Only shows add-ons the sitter has enabled and that are applicable to the selected service type.</p>
+
+    <div class="bg-white rounded-2xl shadow-sm max-w-md mx-auto p-5 space-y-4">
+
+      <!-- Context: service selected -->
+      <div>
+        <div class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Booking Summary</div>
+        <div class="flex justify-between text-sm text-stone-700">
+          <span>🏠 House Sitting · 3 nights</span>
+          <span class="font-medium">Dec 23 – 26</span>
+        </div>
+        <div class="flex justify-between text-sm text-stone-500 mt-1">
+          <span>2 pets: Buddy 🐕, Whiskers 🐈</span>
+        </div>
+      </div>
+
+      <hr class="border-stone-200" />
+
+      <!-- Add-ons section -->
+      <div>
+        <div class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">Add-ons</div>
+        <div class="space-y-2">
+
+          <!-- Checked -->
+          <label class="flex items-center justify-between cursor-pointer text-sm p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <span class="flex items-center gap-2.5">
+              <input type="checkbox" checked class="rounded text-emerald-600 w-4 h-4" />
+              <span>
+                <span class="text-stone-800">💊 Medication Administration</span>
+                <span class="block text-xs text-stone-400 mt-0.5">Comfortable with insulin injections</span>
+              </span>
+            </span>
+            <span class="text-emerald-700 font-medium whitespace-nowrap">+$5.00</span>
+          </label>
+
+          <!-- Checked -->
+          <label class="flex items-center justify-between cursor-pointer text-sm p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <span class="flex items-center gap-2.5">
+              <input type="checkbox" checked class="rounded text-emerald-600 w-4 h-4" />
+              <span class="text-stone-800">🛁 Bathing</span>
+            </span>
+            <span class="text-emerald-700 font-medium">+$15.00</span>
+          </label>
+
+          <!-- Unchecked -->
+          <label class="flex items-center justify-between cursor-pointer text-sm p-3 border border-stone-200 rounded-xl hover:bg-stone-50">
+            <span class="flex items-center gap-2.5">
+              <input type="checkbox" class="rounded text-emerald-600 w-4 h-4" />
+              <span class="text-stone-700">🚗 Pickup & Drop-off</span>
+            </span>
+            <span class="text-stone-400">+$15.00</span>
+          </label>
+
+          <!-- Free addon -->
+          <label class="flex items-center justify-between cursor-pointer text-sm p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <span class="flex items-center gap-2.5">
+              <input type="checkbox" checked class="rounded text-emerald-600 w-4 h-4" />
+              <span class="text-stone-800">📸 Daily Photo & Video Updates</span>
+            </span>
+            <span class="text-emerald-600 text-xs font-medium">FREE</span>
+          </label>
+
+          <!-- Unchecked -->
+          <label class="flex items-center justify-between cursor-pointer text-sm p-3 border border-stone-200 rounded-xl hover:bg-stone-50">
+            <span class="flex items-center gap-2.5">
+              <input type="checkbox" class="rounded text-emerald-600 w-4 h-4" />
+              <span class="text-stone-700">📞 Evening Update Call</span>
+            </span>
+            <span class="text-stone-400">+$0.00</span>
+          </label>
+
+        </div>
+      </div>
+
+      <hr class="border-stone-200" />
+
+      <!-- Price breakdown -->
+      <div class="space-y-1.5">
+        <div class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Price Breakdown</div>
+        <div class="flex justify-between text-sm text-stone-600">
+          <span>Holiday rate × 3 nights</span>
+          <span>$165.00</span>
+        </div>
+        <div class="flex justify-between text-sm text-stone-600">
+          <span>1 extra pet × 3 nights</span>
+          <span>$45.00</span>
+        </div>
+        <div class="flex justify-between text-sm text-stone-600">
+          <span>💊 Medication Administration</span>
+          <span>$5.00</span>
+        </div>
+        <div class="flex justify-between text-sm text-stone-600">
+          <span>🛁 Bathing</span>
+          <span>$15.00</span>
+        </div>
+        <div class="flex justify-between text-sm text-stone-600">
+          <span>📸 Daily Photo & Video Updates</span>
+          <span class="text-emerald-600">Free</span>
+        </div>
+        <div class="flex justify-between text-sm font-bold text-stone-900 pt-2 border-t border-stone-200 mt-2">
+          <span>Total</span>
+          <span>$230.00</span>
+        </div>
+      </div>
+
+      <button class="w-full bg-emerald-600 text-white text-sm font-semibold py-3 rounded-xl hover:bg-emerald-700 mt-2">
+        Request Booking · $230.00
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 3: SEARCH RESULTS — ADDON BADGES -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 3 — Search Results → Add-on Badges</span>
+    <p class="text-sm text-stone-500 mb-4">Small add-on pills below the sitter card stats row, showing what extras they offer.</p>
+
+    <div class="max-w-lg mx-auto space-y-4">
+
+      <!-- Sitter card 1 (with add-ons) -->
+      <div class="bg-white rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer">
+        <div class="flex gap-4">
+          <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-2xl flex-shrink-0">🧑</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="font-semibold text-stone-900 text-sm">Sarah M.</div>
+                <div class="text-xs text-stone-400 flex items-center gap-1 mt-0.5">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  1.2 mi away
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-lg font-bold text-emerald-600">$45</span>
+                <span class="text-xs text-stone-400 block">House Sitting</span>
+              </div>
+            </div>
+            <p class="text-stone-600 text-sm mt-2 line-clamp-2">Loving pet parent with 5+ years of experience. Your fur babies are in great hands!</p>
+            <div class="mt-3 flex items-center gap-3 text-xs font-medium text-stone-500">
+              <span class="flex items-center gap-1 text-amber-500">⭐ 4.9 (23)</span>
+              <span class="flex items-center gap-1 text-emerald-600">🛡 Verified</span>
+              <span>3yr exp</span>
+              <span>🐕 🐈</span>
+            </div>
+            <!-- Add-on badges -->
+            <div class="mt-2 flex flex-wrap gap-1">
+              <span class="bg-emerald-50 text-emerald-700 text-[10px] font-medium px-2 py-0.5 rounded-full">💊 Meds</span>
+              <span class="bg-emerald-50 text-emerald-700 text-[10px] font-medium px-2 py-0.5 rounded-full">🛁 Bathing</span>
+              <span class="bg-emerald-50 text-emerald-700 text-[10px] font-medium px-2 py-0.5 rounded-full">🚗 Pickup</span>
+              <span class="bg-emerald-50 text-emerald-700 text-[10px] font-medium px-2 py-0.5 rounded-full">📸 Updates</span>
+              <span class="bg-stone-100 text-stone-500 text-[10px] font-medium px-2 py-0.5 rounded-full">+1 more</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sitter card 2 (fewer add-ons) -->
+      <div class="bg-white rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer">
+        <div class="flex gap-4">
+          <div class="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-2xl flex-shrink-0">👩</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="font-semibold text-stone-900 text-sm">Maria T.</div>
+                <div class="text-xs text-stone-400 flex items-center gap-1 mt-0.5">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  2.8 mi away
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-lg font-bold text-emerald-600">$35</span>
+                <span class="text-xs text-stone-400 block">House Sitting</span>
+              </div>
+            </div>
+            <p class="text-stone-600 text-sm mt-2 line-clamp-2">Retired vet tech — specializing in senior pets and those with medical needs.</p>
+            <div class="mt-3 flex items-center gap-3 text-xs font-medium text-stone-500">
+              <span class="flex items-center gap-1 text-amber-500">⭐ 5.0 (8)</span>
+              <span class="flex items-center gap-1 text-emerald-600">🛡 Verified</span>
+              <span>10yr exp</span>
+              <span>🐕</span>
+            </div>
+            <!-- Fewer add-on badges -->
+            <div class="mt-2 flex flex-wrap gap-1">
+              <span class="bg-emerald-50 text-emerald-700 text-[10px] font-medium px-2 py-0.5 rounded-full">💊 Meds</span>
+              <span class="bg-emerald-50 text-emerald-700 text-[10px] font-medium px-2 py-0.5 rounded-full">🧓 Senior Care</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sitter card 3 (no add-ons) -->
+      <div class="bg-white rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer">
+        <div class="flex gap-4">
+          <div class="w-16 h-16 rounded-full bg-stone-100 flex items-center justify-center text-2xl flex-shrink-0">🧔</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="font-semibold text-stone-900 text-sm">James K.</div>
+                <div class="text-xs text-stone-400 flex items-center gap-1 mt-0.5">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  0.8 mi away
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-lg font-bold text-emerald-600">$30</span>
+                <span class="text-xs text-stone-400 block">House Sitting</span>
+              </div>
+            </div>
+            <p class="text-stone-600 text-sm mt-2 line-clamp-2">Dog dad of 3 who loves meeting new pups. Active lifestyle — lots of walks!</p>
+            <div class="mt-3 flex items-center gap-3 text-xs font-medium text-stone-500">
+              <span class="flex items-center gap-1 text-amber-500">⭐ 4.7 (15)</span>
+              <span class="flex items-center gap-1 text-emerald-600">🛡 Verified</span>
+              <span>2yr exp</span>
+              <span>🐕</span>
+            </div>
+            <!-- No add-ons — nothing shown -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MOCKUP 4: SITTER PROFILE PAGE — ADDON DISPLAY -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">View 4 — Sitter Profile Page → Add-ons Display</span>
+    <p class="text-sm text-stone-500 mb-4">How add-ons appear on the public sitter profile, alongside services. Shown between services and reviews.</p>
+
+    <div class="bg-white rounded-2xl shadow-sm max-w-md mx-auto p-5 space-y-4">
+
+      <div class="text-xs font-bold text-stone-400 uppercase tracking-wider">Available Add-ons</div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div class="flex items-center gap-2 p-2.5 bg-stone-50 rounded-xl">
+          <span class="text-base">💊</span>
+          <div>
+            <div class="text-xs font-medium text-stone-800">Medication Admin</div>
+            <div class="text-[10px] text-emerald-600 font-medium">+$5/visit</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 p-2.5 bg-stone-50 rounded-xl">
+          <span class="text-base">🐶</span>
+          <div>
+            <div class="text-xs font-medium text-stone-800">Puppy / Kitten Care</div>
+            <div class="text-[10px] text-emerald-600 font-medium">+$10/night</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 p-2.5 bg-stone-50 rounded-xl">
+          <span class="text-base">🛁</span>
+          <div>
+            <div class="text-xs font-medium text-stone-800">Bathing</div>
+            <div class="text-[10px] text-emerald-600 font-medium">+$15/bath</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 p-2.5 bg-stone-50 rounded-xl">
+          <span class="text-base">🚗</span>
+          <div>
+            <div class="text-xs font-medium text-stone-800">Pickup & Drop-off</div>
+            <div class="text-[10px] text-emerald-600 font-medium">+$15/trip</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 p-2.5 bg-emerald-50 rounded-xl col-span-2">
+          <span class="text-base">📸</span>
+          <div>
+            <div class="text-xs font-medium text-stone-800">Daily Photo & Video Updates</div>
+            <div class="text-[10px] text-emerald-600 font-medium">Free with every booking</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- CATALOG REFERENCE -->
+  <!-- ============================================================ -->
+  <div class="mockup-section">
+    <span class="mockup-label">Reference — Full Add-on Catalog</span>
+    <p class="text-sm text-stone-500 mb-4">Complete catalog covering Rover's offerings + PetLink additions. Mapped to categories, applicable services, and species.</p>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs text-left">
+        <thead>
+          <tr class="bg-stone-100">
+            <th class="p-2 font-bold text-stone-600">Add-on</th>
+            <th class="p-2 font-bold text-stone-600">Category</th>
+            <th class="p-2 font-bold text-stone-600">Pricing Unit</th>
+            <th class="p-2 font-bold text-stone-600">Applicable Services</th>
+            <th class="p-2 font-bold text-stone-600">Species</th>
+            <th class="p-2 font-bold text-stone-600">Notes</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-stone-100">
+          <tr>
+            <td class="p-2 font-medium">💊 Medication Administration</td>
+            <td class="p-2 text-stone-500">Care</td>
+            <td class="p-2 text-stone-500">per visit</td>
+            <td class="p-2 text-stone-500">All</td>
+            <td class="p-2 text-stone-500">All</td>
+            <td class="p-2 text-stone-400">Oral, topical, injectable</td>
+          </tr>
+          <tr>
+            <td class="p-2 font-medium">🐶 Puppy / Kitten Care</td>
+            <td class="p-2 text-stone-500">Care</td>
+            <td class="p-2 text-stone-500">per night/visit</td>
+            <td class="p-2 text-stone-500">All</td>
+            <td class="p-2 text-stone-500">All</td>
+            <td class="p-2 text-stone-400">Pets under 1 year. <strong>Replaces</strong> existing puppy_rate_cents on services</td>
+          </tr>
+          <tr>
+            <td class="p-2 font-medium">🧓 Senior Pet Care</td>
+            <td class="p-2 text-stone-500">Care</td>
+            <td class="p-2 text-stone-500">per night/visit</td>
+            <td class="p-2 text-stone-500">All</td>
+            <td class="p-2 text-stone-500">All</td>
+            <td class="p-2 text-stone-400">Mobility help, health monitoring</td>
+          </tr>
+          <tr class="bg-stone-50">
+            <td class="p-2 font-medium">🛁 Bathing</td>
+            <td class="p-2 text-stone-500">Grooming</td>
+            <td class="p-2 text-stone-500">per bath</td>
+            <td class="p-2 text-stone-500">Sitting, Daycare, Drop-in</td>
+            <td class="p-2 text-stone-500">Dog, Cat</td>
+            <td class="p-2 text-stone-400">Can be offered free</td>
+          </tr>
+          <tr class="bg-stone-50">
+            <td class="p-2 font-medium">✂️ Nail Trimming</td>
+            <td class="p-2 text-stone-500">Grooming</td>
+            <td class="p-2 text-stone-500">per session</td>
+            <td class="p-2 text-stone-500">Sitting, Daycare, Drop-in</td>
+            <td class="p-2 text-stone-500">Dog, Cat, Small Animal</td>
+            <td class="p-2 text-stone-400">Can be offered free</td>
+          </tr>
+          <tr class="bg-stone-50">
+            <td class="p-2 font-medium">🪥 Teeth Brushing</td>
+            <td class="p-2 text-stone-500">Grooming</td>
+            <td class="p-2 text-stone-500">per session</td>
+            <td class="p-2 text-stone-500">Sitting, Daycare, Drop-in</td>
+            <td class="p-2 text-stone-500">Dog, Cat</td>
+            <td class="p-2 text-stone-400">Can be offered free</td>
+          </tr>
+          <tr class="bg-stone-50">
+            <td class="p-2 font-medium">💇 Full Grooming</td>
+            <td class="p-2 text-stone-500">Grooming</td>
+            <td class="p-2 text-stone-500">per session</td>
+            <td class="p-2 text-stone-500">Sitting, Daycare</td>
+            <td class="p-2 text-stone-500">Dog, Cat, Small Animal</td>
+            <td class="p-2 text-stone-400"><strong>Replaces</strong> existing grooming_addon_fee_cents</td>
+          </tr>
+          <tr>
+            <td class="p-2 font-medium">🚗 Pickup & Drop-off</td>
+            <td class="p-2 text-stone-500">Convenience</td>
+            <td class="p-2 text-stone-500">per trip</td>
+            <td class="p-2 text-stone-500">Sitting, Daycare, Walking</td>
+            <td class="p-2 text-stone-500">All</td>
+            <td class="p-2 text-stone-400"><strong>Replaces</strong> existing pickup_dropoff_fee_cents</td>
+          </tr>
+          <tr>
+            <td class="p-2 font-medium">📸 Daily Photo & Video Updates</td>
+            <td class="p-2 text-stone-500">Convenience</td>
+            <td class="p-2 text-stone-500">per booking</td>
+            <td class="p-2 text-stone-500">Sitting, Daycare, Drop-in</td>
+            <td class="p-2 text-stone-500">All</td>
+            <td class="p-2 text-stone-400">Can be offered free</td>
+          </tr>
+          <tr>
+            <td class="p-2 font-medium">📞 Evening Update Call</td>
+            <td class="p-2 text-stone-500">Convenience</td>
+            <td class="p-2 text-stone-500">per night</td>
+            <td class="p-2 text-stone-500">Sitting</td>
+            <td class="p-2 text-stone-500">All</td>
+            <td class="p-2 text-stone-400">Phone or video check-in</td>
+          </tr>
+          <tr class="bg-stone-50">
+            <td class="p-2 font-medium">🎓 Training Reinforcement</td>
+            <td class="p-2 text-stone-500">Training</td>
+            <td class="p-2 text-stone-500">per session</td>
+            <td class="p-2 text-stone-500">Walking, Daycare</td>
+            <td class="p-2 text-stone-500">Dog</td>
+            <td class="p-2 text-stone-400">Basic commands & manners</td>
+          </tr>
+          <tr class="bg-stone-50">
+            <td class="p-2 font-medium">🚶 Extended Walk (+30 min)</td>
+            <td class="p-2 text-stone-500">Training</td>
+            <td class="p-2 text-stone-500">per walk</td>
+            <td class="p-2 text-stone-500">Walking</td>
+            <td class="p-2 text-stone-500">Dog</td>
+            <td class="p-2 text-stone-400">Doubles standard walk time</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-4 bg-amber-50 rounded-xl p-4 text-sm text-amber-800 space-y-2">
+      <p><strong>Design decisions in this catalog:</strong></p>
+      <ul class="list-disc list-inside space-y-1 text-xs text-amber-700">
+        <li><strong>Puppy/Kitten Care</strong> replaces the existing <code>puppy_rate_cents</code> on services — moved to the add-on system so all extras live in one place</li>
+        <li><strong>Full Grooming</strong> replaces <code>grooming_addon_fee_cents</code> — same rationale</li>
+        <li><strong>Pickup & Drop-off</strong> replaces <code>pickup_dropoff_fee_cents</code></li>
+        <li><strong>Additional pets</strong> stays on the services table (<code>additional_pet_price</code>) — it's per-service pricing, not an add-on</li>
+        <li><strong>Holiday rate</strong> stays on services table — it's a rate override, not an add-on</li>
+        <li><strong>"Offer free" toggle</strong> available on grooming add-ons and photo updates (sets price_cents to 0)</li>
+        <li>12 catalog items total — enough variety without overwhelming</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

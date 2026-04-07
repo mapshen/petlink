@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Species-Aware Sitter Profile Editor — Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background: #fafaf9; font-family: system-ui, -apple-system, sans-serif; }
+  .pill { cursor: pointer; transition: all 0.15s; }
+  .pill:hover { opacity: 0.85; }
+  .pill-active { background: #059669; color: white; }
+  .pill-inactive { background: #f5f5f4; color: #57534e; }
+  .section-fade { animation: fadeIn 0.2s ease-in; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .cascade-arrow { color: #10b981; font-size: 11px; }
+</style>
+</head>
+<body class="text-stone-900 max-w-2xl mx-auto p-6">
+
+<div style="background:#fff;border:1px solid #e7e5e4;border-radius:16px;padding:24px;">
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:20px;">Sitter Info</h2>
+
+  <!-- ============================================ -->
+  <!-- STEP 1: Pet Types (drives everything below) -->
+  <!-- ============================================ -->
+  <div style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+      <label style="font-size:14px;font-weight:600;color:#44403c;">Pet types I accept</label>
+      <span style="font-size:11px;color:#a8a29e;font-style:italic;">← This drives skills, services, and capacity below</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;" id="species-pills">
+      <button class="pill pill-active" onclick="toggleSpecies(this)" data-species="dog" style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;border:none;">🐕 Dog</button>
+      <button class="pill pill-active" onclick="toggleSpecies(this)" data-species="cat" style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;border:none;">🐱 Cat</button>
+      <button class="pill pill-inactive" onclick="toggleSpecies(this)" data-species="bird" style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;border:none;">🐦 Bird</button>
+      <button class="pill pill-inactive" onclick="toggleSpecies(this)" data-species="reptile" style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;border:none;">🦎 Reptile</button>
+      <button class="pill pill-inactive" onclick="toggleSpecies(this)" data-species="small_animal" style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;border:none;">🐹 Small Animal</button>
+    </div>
+  </div>
+
+  <!-- Cascade indicator -->
+  <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px 14px;margin-bottom:20px;display:flex;align-items:center;gap:8px;">
+    <span style="font-size:16px;">💡</span>
+    <span style="font-size:12px;color:#065f46;" id="cascade-hint">Showing skills, services, and capacity options for <strong>Dog</strong> and <strong>Cat</strong></span>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- STEP 2: Pet Sizes (only for dog/cat) -->
+  <!-- ============================================ -->
+  <div style="margin-bottom:24px;" id="sizes-section">
+    <label style="font-size:14px;font-weight:600;color:#44403c;display:block;margin-bottom:10px;">Pet sizes I accept</label>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <span class="pill pill-active" style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;">Small (0-25 lbs)</span>
+      <span class="pill pill-active" style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;">Medium (25-50 lbs)</span>
+      <span class="pill pill-inactive" style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;">Large (50-100 lbs)</span>
+      <span class="pill pill-inactive" style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;">Giant (100+ lbs)</span>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- STEP 3: Skills — filtered by species -->
+  <!-- ============================================ -->
+  <div style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+      <label style="font-size:14px;font-weight:600;color:#44403c;">Skills & certifications</label>
+      <span class="cascade-arrow">← filtered by pet types</span>
+    </div>
+
+    <!-- Universal skills (always shown) -->
+    <div style="margin-bottom:8px;">
+      <span style="font-size:10px;font-weight:600;color:#a8a29e;text-transform:uppercase;letter-spacing:0.5px;">Universal</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="skills-universal">
+      <span class="pill pill-active" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Pet First Aid</span>
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Medication Admin</span>
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Senior Pet Care</span>
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Behavioral Issues</span>
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Grooming Basics</span>
+    </div>
+
+    <!-- Dog skills (shown because Dog is selected) -->
+    <div style="margin-bottom:8px;" id="dog-skills-header">
+      <span style="font-size:10px;font-weight:600;color:#a8a29e;text-transform:uppercase;letter-spacing:0.5px;">🐕 Dog</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="dog-skills">
+      <span class="pill pill-active" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Dog Training</span>
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Puppy Care</span>
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Leash-Reactive Dogs</span>
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Large Breed Experience</span>
+    </div>
+
+    <!-- Cat skills (shown because Cat is selected) -->
+    <div style="margin-bottom:8px;" id="cat-skills-header">
+      <span style="font-size:10px;font-weight:600;color:#a8a29e;text-transform:uppercase;letter-spacing:0.5px;">🐱 Cat</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="cat-skills">
+      <span class="pill pill-active" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Cat Behavior</span>
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Kitten Care</span>
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Feral/Shy Cat Experience</span>
+    </div>
+
+    <!-- Bird/Reptile/Small Animal skills — HIDDEN because not selected -->
+    <div style="display:none;" id="bird-skills-header">
+      <span style="font-size:10px;font-weight:600;color:#a8a29e;text-transform:uppercase;letter-spacing:0.5px;">🐦 Bird</span>
+    </div>
+    <div style="display:none;" id="bird-skills">
+      <span class="pill pill-inactive" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;">Avian Care</span>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- STEP 4: Capacity — labels adapt to species -->
+  <!-- ============================================ -->
+  <div style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+      <label style="font-size:14px;font-weight:600;color:#44403c;">Pet capacity</label>
+      <span class="cascade-arrow">← adapted to pet types</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <label style="font-size:12px;color:#78716c;display:block;margin-bottom:4px;">Max pets at once</label>
+        <input type="number" value="3" min="1" max="20" style="width:100%;padding:10px;border:1px solid #e7e5e4;border-radius:10px;font-size:14px;">
+      </div>
+      <div id="walk-capacity">
+        <label style="font-size:12px;color:#78716c;display:block;margin-bottom:4px;" id="walk-capacity-label">Max pets per walk</label>
+        <input type="number" value="2" min="1" max="10" style="width:100%;padding:10px;border:1px solid #e7e5e4;border-radius:10px;font-size:14px;">
+      </div>
+    </div>
+    <p style="font-size:11px;color:#a8a29e;margin-top:6px;" id="capacity-note">
+      "Max pets per walk" only applies to Dog Walking and Daycare services
+    </p>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- Experience & Home (unchanged) -->
+  <!-- ============================================ -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;">
+    <div>
+      <label style="font-size:14px;font-weight:600;color:#44403c;display:block;margin-bottom:6px;">Years of experience</label>
+      <input type="number" value="5" min="0" max="50" style="width:100%;padding:10px;border:1px solid #e7e5e4;border-radius:10px;font-size:14px;">
+    </div>
+    <div>
+      <label style="font-size:14px;font-weight:600;color:#44403c;display:block;margin-bottom:6px;">Home type</label>
+      <select style="width:100%;padding:10px;border:1px solid #e7e5e4;border-radius:10px;font-size:14px;">
+        <option>House</option>
+        <option>Apartment</option>
+        <option>Condo</option>
+        <option>Other</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Save button -->
+  <button style="width:100%;background:#059669;color:white;border:none;padding:12px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">
+    Save Changes
+  </button>
+</div>
+
+<!-- ============================================ -->
+<!-- SERVICES TAB (separate tab, but cascaded) -->
+<!-- ============================================ -->
+<div style="background:#fff;border:1px solid #e7e5e4;border-radius:16px;padding:24px;margin-top:24px;">
+  <h2 style="font-size:18px;font-weight:800;margin-bottom:4px;">Services</h2>
+  <p style="font-size:12px;color:#a8a29e;margin-bottom:20px;">Available service types based on your accepted pet types</p>
+
+  <!-- Add Service — only shows types available for selected species -->
+  <div style="margin-bottom:20px;">
+    <label style="font-size:14px;font-weight:600;color:#44403c;display:block;margin-bottom:8px;">Add a new service</label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="service-type-select" style="flex:1;padding:10px;border:1px solid #e7e5e4;border-radius:10px;font-size:14px;">
+        <option value="walking">🚶 Dog Walking</option>
+        <option value="daycare">🏠 Dog Daycare</option>
+        <option value="sitting">🏠 House Sitting</option>
+        <option value="drop-in">👋 Drop-in Visit</option>
+        <option value="grooming">✂️ Grooming</option>
+        <option value="meet_greet">🤝 Meet & Greet</option>
+      </select>
+      <button style="background:#059669;color:white;border:none;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">+ Add</button>
+    </div>
+    <p style="font-size:11px;color:#a8a29e;margin-top:4px;" id="service-note">
+      Service labels adapt to your pet types: showing "Dog Walking" because you accept dogs
+    </p>
+  </div>
+
+  <!-- Existing services -->
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <!-- Dog Walking service card -->
+    <div id="svc-walking" style="border:1px solid #e7e5e4;border-radius:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:16px;">🚶</span>
+          <span style="font-size:14px;font-weight:700;" id="svc-walking-label">Dog Walking</span>
+        </div>
+        <span style="font-size:16px;font-weight:800;color:#059669;">$25</span>
+      </div>
+      <p style="font-size:12px;color:#78716c;">30 minute walk around the neighborhood</p>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <span style="background:#f5f5f4;padding:3px 8px;border-radius:6px;font-size:11px;color:#57534e;">30 min session</span>
+        <span style="background:#f5f5f4;padding:3px 8px;border-radius:6px;font-size:11px;color:#57534e;">One-on-one</span>
+      </div>
+    </div>
+
+    <!-- Dog Daycare -->
+    <div id="svc-daycare" style="border:1px solid #e7e5e4;border-radius:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:16px;">🏠</span>
+          <span style="font-size:14px;font-weight:700;" id="svc-daycare-label">Dog Daycare</span>
+        </div>
+        <span style="font-size:16px;font-weight:800;color:#059669;">$40</span>
+      </div>
+      <p style="font-size:12px;color:#78716c;">Full day care at my home while you're at work</p>
+    </div>
+
+    <!-- Cat Sitting -->
+    <div id="svc-sitting" style="border:1px solid #e7e5e4;border-radius:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:16px;">🏠</span>
+          <span style="font-size:14px;font-weight:700;" id="svc-sitting-label">House Sitting</span>
+        </div>
+        <span style="font-size:16px;font-weight:800;color:#059669;">$50</span>
+      </div>
+      <p style="font-size:12px;color:#78716c;">Overnight sitting at your home</p>
+    </div>
+
+    <!-- Meet & Greet -->
+    <div id="svc-meet" style="border:1px solid #e7e5e4;border-radius:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:16px;">🤝</span>
+          <span style="font-size:14px;font-weight:700;">Meet & Greet</span>
+        </div>
+        <span style="font-size:16px;font-weight:800;color:#059669;">Free</span>
+      </div>
+      <p style="font-size:12px;color:#78716c;">Quick intro meeting before first booking</p>
+    </div>
+  </div>
+
+  <!-- Unavailable services notice -->
+  <div style="margin-top:16px;padding:10px 14px;background:#fafaf9;border-radius:10px;display:flex;align-items:center;gap:8px;" id="unavailable-notice">
+    <span style="font-size:14px;">ℹ️</span>
+    <span style="font-size:12px;color:#78716c;" id="unavailable-text">Grooming, Drop-in Visit are also available for your pet types. <a href="#" style="color:#059669;font-weight:600;">Add them?</a></span>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- COMPARISON: Cat-only sitter view -->
+<!-- ============================================ -->
+<div style="margin-top:32px;padding:16px;background:#fef9c3;border:1px solid #fde68a;border-radius:12px;">
+  <h3 style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:8px;">🔄 What changes for a Cat-only sitter:</h3>
+  <ul style="font-size:13px;color:#78350f;line-height:1.8;padding-left:20px;">
+    <li><strong>Skills:</strong> Dog section disappears. Cat section (Cat Behavior, Kitten Care, Feral/Shy Cat) shows. Universal stays.</li>
+    <li><strong>Services:</strong> Walking and Daycare hidden entirely. Only Sitting, Drop-in, Grooming, Meet & Greet available. Labels show "Cat Sitting" etc.</li>
+    <li><strong>Capacity:</strong> "Max pets per walk" field hidden (no walking for cats).</li>
+    <li><strong>Pet sizes:</strong> Still shown (cats vary in size too).</li>
+  </ul>
+</div>
+
+<!-- ============================================ -->
+<!-- COMPARISON: Bird-only sitter view -->
+<!-- ============================================ -->
+<div style="margin-top:16px;padding:16px;background:#ede9fe;border:1px solid #c4b5fd;border-radius:12px;">
+  <h3 style="font-size:14px;font-weight:700;color:#5b21b6;margin-bottom:8px;">🔄 What changes for a Bird-only sitter:</h3>
+  <ul style="font-size:13px;color:#4c1d95;line-height:1.8;padding-left:20px;">
+    <li><strong>Skills:</strong> Only Universal + "Avian Care" shown.</li>
+    <li><strong>Capacity:</strong> "Max pets per walk" hidden. Only "Max pets at once" shown.</li>
+    <li><strong>Pet sizes:</strong> Section hidden entirely (not applicable to birds).</li>
+    <li><strong>Services tab:</strong> Only Sitting, Drop-in, and Meet & Greet available.</li>
+  </ul>
+</div>
+
+<script>
+function toggleSpecies(btn) {
+  btn.classList.toggle('pill-active');
+  btn.classList.toggle('pill-inactive');
+  updateCascade();
+}
+
+function updateCascade() {
+  const selected = [...document.querySelectorAll('#species-pills .pill-active')].map(b => b.dataset.species);
+
+  // Update hint
+  const names = { dog: 'Dog', cat: 'Cat', bird: 'Bird', reptile: 'Reptile', small_animal: 'Small Animal' };
+  const hint = document.getElementById('cascade-hint');
+  if (selected.length === 0) {
+    hint.innerHTML = 'Select at least one pet type to see relevant options';
+  } else {
+    hint.innerHTML = 'Showing skills, services, and capacity options for <strong>' + selected.map(s => names[s]).join('</strong> and <strong>') + '</strong>';
+  }
+
+  // Toggle skill sections
+  const hasDog = selected.includes('dog');
+  const hasCat = selected.includes('cat');
+  const hasBird = selected.includes('bird');
+
+  document.getElementById('dog-skills-header').style.display = hasDog ? 'block' : 'none';
+  document.getElementById('dog-skills').style.display = hasDog ? 'flex' : 'none';
+  document.getElementById('cat-skills-header').style.display = hasCat ? 'block' : 'none';
+  document.getElementById('cat-skills').style.display = hasCat ? 'flex' : 'none';
+  document.getElementById('bird-skills-header').style.display = hasBird ? 'block' : 'none';
+  document.getElementById('bird-skills').style.display = hasBird ? 'flex' : 'none';
+
+  // Toggle walk capacity (only for dogs)
+  document.getElementById('walk-capacity').style.display = hasDog ? 'block' : 'none';
+  document.getElementById('capacity-note').style.display = hasDog ? 'block' : 'none';
+
+  // Toggle sizes section (hide for bird/reptile only)
+  const sizesRelevant = hasDog || hasCat || selected.includes('small_animal');
+  document.getElementById('sizes-section').style.display = sizesRelevant ? 'block' : 'none';
+
+  // Update service type dropdown — only show available services
+  const serviceMap = {
+    dog: ['walking', 'daycare', 'sitting', 'drop-in', 'grooming', 'meet_greet'],
+    cat: ['sitting', 'drop-in', 'grooming', 'meet_greet'],
+    bird: ['sitting', 'drop-in', 'meet_greet'],
+    reptile: ['sitting', 'drop-in', 'meet_greet'],
+    small_animal: ['sitting', 'drop-in', 'grooming', 'meet_greet'],
+  };
+  const available = new Set();
+  selected.forEach(s => (serviceMap[s] || []).forEach(t => available.add(t)));
+
+  const sel = document.getElementById('service-type-select');
+  [...sel.options].forEach(opt => {
+    opt.style.display = available.has(opt.value) ? '' : 'none';
+  });
+
+  // Update service card visibility
+  document.getElementById('svc-walking').style.display = available.has('walking') ? 'block' : 'none';
+  document.getElementById('svc-daycare').style.display = available.has('daycare') ? 'block' : 'none';
+
+  // Update service labels based on species context
+  const singleDog = selected.length === 1 && hasDog;
+  const singleCat = selected.length === 1 && hasCat;
+  document.getElementById('svc-walking-label').textContent = singleDog ? 'Dog Walking' : 'Pet Walking';
+  document.getElementById('svc-daycare-label').textContent = singleDog ? 'Dog Daycare' : 'Daycare';
+  document.getElementById('svc-sitting-label').textContent = singleDog ? 'Dog Sitting' : singleCat ? 'Cat Sitting' : 'House Sitting';
+
+  // Update note
+  const note = document.getElementById('service-note');
+  if (singleDog) note.textContent = 'Service labels adapt to your pet types: showing "Dog Walking" because you only accept dogs';
+  else if (singleCat) note.textContent = 'Walking and Daycare hidden because cats don\'t need those. Labels show "Cat Sitting"';
+  else if (selected.length > 1) note.textContent = 'Showing generic labels because you accept multiple species';
+  else note.textContent = 'Select pet types above to see available services';
+}
+</script>
+
+</body>
+</html>
