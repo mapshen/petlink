@@ -1177,6 +1177,10 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals (referred_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_referrals_status ON referrals (status) WHERE status = 'pending'`.catch(() => {});
 
+  // Issue #402: Anonymized phone relay for owner-sitter communication
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS share_phone_for_bookings BOOLEAN DEFAULT true`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

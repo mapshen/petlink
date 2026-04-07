@@ -103,6 +103,8 @@ export interface User {
   one_client_at_a_time?: boolean;
   lifestyle_badges?: string[];
   active_badges?: string[];
+  phone?: string | null;
+  share_phone_for_bookings?: boolean;
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';
