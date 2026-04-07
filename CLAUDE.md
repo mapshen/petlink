@@ -43,7 +43,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:idOrSlug` (accepts numeric ID or slug) |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
 | Add-ons | `GET /addons/me`, `POST /addons`, `PUT /addons/:id`, `DELETE /addons/:id`, `GET /addons/sitter/:sitterId` |
-| Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
+| Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` (sitters can cancel confirmed), `GET /bookings/:id/protection` (owner views reservation protection) |
 | Incidents | `POST /incidents`, `GET /incidents/booking/:bookingId`, `GET /incidents/:id` |
 | Disputes | `POST /disputes`, `GET /disputes`, `GET /disputes/:id`, `POST /disputes/:id/messages`, `PUT /disputes/:id/status` (admin), `PUT /disputes/:id/resolve` (admin) |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read), `GET /messages/search?q=&userId=&limit=&offset=` |
@@ -141,6 +141,7 @@ PostgreSQL with PostGIS.
 | `sitter_payouts` | Delayed payout scheduling, `amount_cents` INTEGER, `status` CHECK, unique `booking_id` |
 | `sitter_strikes` | Reliability tracking: `event_type` (sitter_no_show/sitter_cancel_24h/sitter_cancel_48h/meet_greet_no_show/dispute_resolution), `strike_weight`, `expires_at` (90-day rolling window). Thresholds: 1=warning, 3=flagged, 5=search demotion (-0.15), 7=suspension |
 | `credit_ledger` | User credit transactions: `amount_cents` (positive=credit, negative=redemption), `type` (referral/dispute_resolution/promo/beta_reward/milestone/redemption/expiration), `source_type`, `source_id`, `expires_at`. Balance = SUM of non-expired entries |
+| `reservation_protections` | Triggered on sitter cancellation of confirmed bookings within 48h. `booking_id` UNIQUE, `original_sitter_id`, `owner_id`, `status` (searching/options_sent/rebooked/owner_cancelled/no_alternatives), `replacement_booking_id`, `credit_issued_cents`. Auto-searches for nearby replacement sitters |
 
 PostgreSQL enums: `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`. User roles use `TEXT[]` (not an enum).
 

@@ -947,6 +947,26 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_payouts_enabled BOOLEAN DEFAULT FALSE`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_charges_enabled BOOLEAN DEFAULT FALSE`.catch(() => {});
 
+  // Issue #408: Reservation protection
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_by TEXT`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS reservation_protections (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id),
+      original_sitter_id INTEGER NOT NULL REFERENCES users(id),
+      owner_id INTEGER NOT NULL REFERENCES users(id),
+      triggered_at TIMESTAMPTZ DEFAULT NOW(),
+      status TEXT NOT NULL DEFAULT 'searching'
+        CHECK(status IN ('searching', 'options_sent', 'rebooked', 'owner_cancelled', 'no_alternatives')),
+      replacement_booking_id INTEGER REFERENCES bookings(id),
+      credit_issued_cents INTEGER DEFAULT 0,
+      resolved_at TIMESTAMPTZ
+    )
+  `.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_reservation_protections_booking ON reservation_protections (booking_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_reservation_protections_owner ON reservation_protections (owner_id)`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

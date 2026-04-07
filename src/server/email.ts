@@ -453,3 +453,46 @@ ${urgency}
 `),
   };
 }
+
+export function buildReservationProtectionEmail(params: {
+  ownerName: string;
+  originalSitterName: string;
+  startTime: string;
+  replacementSitters: { name: string; priceCents: number; profileUrl: string; avgRating: number | null }[];
+  noAlternatives: boolean;
+}): { subject: string; html: string } {
+  const owner = escapeHtml(params.ownerName);
+  const sitter = escapeHtml(params.originalSitterName);
+
+  const sitterRows = params.replacementSitters.map(s => `
+    <div style="background:#f5f5f4;border-radius:12px;padding:16px;margin:8px 0;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <strong style="color:#1c1917">${escapeHtml(s.name)}</strong>
+        ${s.avgRating ? `<span style="color:#78716c;font-size:13px"> — ${s.avgRating} stars</span>` : ''}
+        <div style="color:#78716c;font-size:13px">$${(s.priceCents / 100).toFixed(2)}/session</div>
+      </div>
+      <a href="${escapeHtml(s.profileUrl)}" style="background:#059669;color:#fff;padding:8px 20px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">View Profile</a>
+    </div>
+  `).join('');
+
+  const content = params.noAlternatives
+    ? `
+<p style="color:#44403c;line-height:1.6">Hi ${owner},</p>
+<p style="color:#44403c;line-height:1.6">Unfortunately, <strong>${sitter}</strong> had to cancel your upcoming booking. We've issued a full refund and are looking for alternatives in your area.</p>
+<p style="color:#44403c;line-height:1.6">We'll notify you if we find a match. You can also search for available sitters yourself.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/search" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Search Sitters</a>
+</div>
+`
+    : `
+<p style="color:#44403c;line-height:1.6">Hi ${owner},</p>
+<p style="color:#44403c;line-height:1.6">Unfortunately, <strong>${sitter}</strong> had to cancel your upcoming booking. We've issued a full refund and found ${params.replacementSitters.length} alternative sitter${params.replacementSitters.length !== 1 ? 's' : ''} for you:</p>
+${sitterRows}
+<p style="color:#78716c;font-size:13px;margin-top:16px">If the replacement costs more, we'll credit the difference to your account.</p>
+`;
+
+  return {
+    subject: sanitizeSubject(`Your sitter cancelled — we found alternatives`),
+    html: emailWrapper('Reservation Protection', content),
+  };
+}
