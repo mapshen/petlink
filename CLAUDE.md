@@ -112,8 +112,8 @@ PostgreSQL with PostGIS.
 | `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `slug` (unique, SEO-friendly URL), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `accepted_pet_sizes`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10), `max_pets_at_once`, `max_pets_per_walk`, `house_rules`, `emergency_procedures`, `has_insurance`, onboarding: `onboarding_started_at`, `onboarding_reminder_sent_at`, `onboarding_reminder_count` (default 0) |
 | `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
 | `pet_vaccinations` | Vaccine records with expiration tracking |
-| `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB |
-| `bookings` | Links owner, sitter, service with status/payment tracking, `payment_method` (card/ach_debit), `payment_failure_reason` |
+| `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB, `nightly_rate_cents` (for sitting/daycare extended stays), `half_day_rate_cents` |
+| `bookings` | Links owner, sitter, service with status/payment tracking, `payment_method` (card/ach_debit), `payment_failure_reason`, `nights` (for extended stays), `half_days`, `is_extended_stay` |
 | `booking_pets` | Junction table for multi-pet bookings |
 | `booking_care_tasks` | Checklist items auto-populated from pet care instructions, `scheduled_time` TIMESTAMPTZ for timeline/notifications, `reminder_sent_at` for dedup |
 | `messages` | sender_id, receiver_id, content |

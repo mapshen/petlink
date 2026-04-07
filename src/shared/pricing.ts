@@ -66,6 +66,12 @@ export interface PricingOptions {
   groomingAddon?: boolean;
   groomingAddonFeeCents?: number;
   addons?: { slug: string; priceCents: number }[];
+  // Extended stay fields
+  nights?: number;
+  halfDays?: number;
+  nightlyRateCents?: number;
+  halfDayRateCents?: number;
+  serviceType?: 'walking' | 'sitting' | 'drop-in' | 'grooming' | 'meet_greet' | 'daycare';
 }
 
 /** All amounts in integer cents */
@@ -78,6 +84,48 @@ export interface PriceBreakdown {
   addonDetails: { slug: string; priceCents: number }[];
   holidayApplied: boolean;
   puppyApplied: boolean;
+  nightsCents: number;
+  halfDaysCents: number;
+  nights: number;
+  halfDays: number;
+}
+
+const EXTENDED_SERVICE_TYPES = ['sitting', 'daycare'];
+
+/**
+ * Calculate nights and half-days for an extended stay.
+ * Nights = number of calendar-day boundaries crossed (each overnight = 1 night).
+ * Half-day charges:
+ * - Check-in after noon (>12:00): first partial day charged as half-day
+ * - Check-out before noon (<12:00): last partial morning charged as half-day
+ * Late check-in doesn't reduce nights — it's still an overnight.
+ */
+export function calculateStayDuration(
+  checkIn: Date,
+  checkOut: Date
+): { nights: number; halfDays: number } {
+  const checkInHour = checkIn.getUTCHours();
+  const checkOutHour = checkOut.getUTCHours();
+
+  const checkInMidnight = new Date(Date.UTC(checkIn.getUTCFullYear(), checkIn.getUTCMonth(), checkIn.getUTCDate()));
+  const checkOutMidnight = new Date(Date.UTC(checkOut.getUTCFullYear(), checkOut.getUTCMonth(), checkOut.getUTCDate()));
+  const calendarDays = Math.round((checkOutMidnight.getTime() - checkInMidnight.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (calendarDays <= 0) {
+    // Same-day booking (e.g., daycare): 0 nights, 1 half-day
+    return { nights: 0, halfDays: 1 };
+  }
+
+  // Each calendar-day crossing = 1 night (overnight)
+  const nights = calendarDays;
+  let halfDays = 0;
+
+  // Check-out before noon: morning pickup is a half-day charge
+  if (checkOutHour > 0 && checkOutHour < 12) {
+    halfDays += 1;
+  }
+
+  return { nights, halfDays };
 }
 
 export interface PricingResult {
@@ -85,7 +133,7 @@ export interface PricingResult {
   breakdown: PriceBreakdown;
 }
 
-/** Calculate booking price with holiday rates, puppy rates, and add-ons. All amounts in cents. */
+/** Calculate booking price with holiday rates, puppy rates, nightly rates, and add-ons. All amounts in cents. */
 export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
   const {
     basePriceCents, additionalPetPriceCents, petCount,
@@ -94,14 +142,60 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
     pickupDropoff, pickupDropoffFeeCents,
     groomingAddon, groomingAddonFeeCents,
     addons,
+    nights = 0, halfDays = 0, nightlyRateCents, halfDayRateCents, serviceType,
   } = options;
 
-  // Rate precedence: holiday > puppy > base.
-  // Holiday and puppy rates are standalone overrides, not stackable.
-  let effectiveBaseCents = basePriceCents;
+  const isExtendedService = serviceType != null && EXTENDED_SERVICE_TYPES.includes(serviceType);
+  const hasNightlyPricing = isExtendedService && nightlyRateCents != null && (nights > 0 || halfDays > 0);
+
   let holidayApplied = false;
   let puppyApplied = false;
 
+  if (hasNightlyPricing) {
+    // Extended stay: nightly rate pricing
+    let effectiveNightlyRate = nightlyRateCents;
+    if (isHoliday && holidayRateCents != null) {
+      effectiveNightlyRate = holidayRateCents;
+      holidayApplied = true;
+    } else if (hasPuppy && puppyRateCents != null) {
+      effectiveNightlyRate = puppyRateCents;
+      puppyApplied = true;
+    }
+
+    const effectiveHalfDayRate = halfDayRateCents ?? Math.floor(effectiveNightlyRate / 2);
+    const nightsCents = effectiveNightlyRate * nights;
+    const halfDaysCents = effectiveHalfDayRate * halfDays;
+    const extraPets = Math.max(0, petCount - 1);
+    const extraPetsCents = extraPets * additionalPetPriceCents * Math.max(1, nights);
+
+    const pickupCents = pickupDropoff && pickupDropoffFeeCents ? pickupDropoffFeeCents : 0;
+    const groomCents = groomingAddon && groomingAddonFeeCents ? groomingAddonFeeCents : 0;
+    const addonDetails = addons ?? [];
+    const addonsCents = addonDetails.reduce((sum, a) => sum + a.priceCents, 0);
+
+    const totalCents = nightsCents + halfDaysCents + extraPetsCents + pickupCents + groomCents + addonsCents;
+
+    return {
+      totalCents,
+      breakdown: {
+        baseCents: nightsCents + halfDaysCents,
+        extraPetsCents,
+        pickupDropoffCents: pickupCents,
+        groomingCents: groomCents,
+        addonsCents,
+        addonDetails,
+        holidayApplied,
+        puppyApplied,
+        nightsCents,
+        halfDaysCents,
+        nights,
+        halfDays,
+      },
+    };
+  }
+
+  // Flat pricing (non-extended or no nightly rate)
+  let effectiveBaseCents = basePriceCents;
   if (isHoliday && holidayRateCents != null) {
     effectiveBaseCents = holidayRateCents;
     holidayApplied = true;
@@ -130,6 +224,10 @@ export function calculateAdvancedPrice(options: PricingOptions): PricingResult {
       addonDetails,
       holidayApplied,
       puppyApplied,
+      nightsCents: 0,
+      halfDaysCents: 0,
+      nights: 0,
+      halfDays: 0,
     },
   };
 }

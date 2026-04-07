@@ -168,6 +168,8 @@ export const serviceSchema = z.object({
   puppy_rate_cents: z.number().int().min(0).max(999900).optional().nullable(),
   pickup_dropoff_fee_cents: z.number().int().min(0).max(50000).optional().nullable(),
   grooming_addon_fee_cents: z.number().int().min(0).max(50000).optional().nullable(),
+  nightly_rate_cents: z.number().int().min(0, 'Nightly rate cannot be negative').max(999900, 'Nightly rate must be under $10,000').optional().nullable(),
+  half_day_rate_cents: z.number().int().min(0, 'Half-day rate cannot be negative').max(999900, 'Half-day rate must be under $10,000').optional().nullable(),
 });
 
 export const speciesProfileSchema = z.object({
