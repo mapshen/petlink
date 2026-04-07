@@ -45,6 +45,7 @@ export async function createNotification(
       care_task_reminder: 'booking_status',
       new_inquiry: 'new_booking',
       inquiry_offer: 'booking_status',
+      review_reminder: 'booking_reminders',
     };
     // Safety-critical notifications always delivered regardless of preferences
     const alwaysNotify = new Set(['incident_report', 'dispute_update']);

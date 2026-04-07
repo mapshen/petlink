@@ -55,7 +55,7 @@ describe('review reminders scheduler', () => {
     expect(mockCreateNotification).toHaveBeenCalledTimes(1);
     expect(mockCreateNotification).toHaveBeenCalledWith(
       1,
-      'booking_status',
+      'review_reminder',
       'How was your booking?',
       expect.stringContaining('Bob'),
       { booking_id: 10 }

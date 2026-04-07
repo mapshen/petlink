@@ -48,7 +48,7 @@ export async function checkReviewReminders(): Promise<number> {
         // In-app notification
         const notif = await createNotification(
           booking.owner_id,
-          'booking_status',
+          'review_reminder',
           'How was your booking?',
           `Leave a review for ${booking.sitter_name} and earn a credit reward!`,
           { booking_id: booking.id }
