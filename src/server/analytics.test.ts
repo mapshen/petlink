@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { validateYear, validateRevenuePeriod } from './analytics.ts';
-import { analyticsDateRangeSchema } from './validation.ts';
+import { validateYear, validateRevenuePeriod, validateTrendsPeriod, validateTrendsRange } from './analytics.ts';
+import { analyticsDateRangeSchema, analyticsTrendsSchema } from './validation.ts';
 
 describe('validateYear', () => {
   it('returns current year when input is undefined', () => {
@@ -176,5 +176,130 @@ describe('getOverview date range support', () => {
     if (result.valid) {
       expect(result.year).toBe(2025);
     }
+  });
+});
+
+describe('validateTrendsPeriod', () => {
+  it('returns daily when input is "daily"', () => {
+    expect(validateTrendsPeriod('daily')).toBe('daily');
+  });
+
+  it('returns weekly when input is "weekly"', () => {
+    expect(validateTrendsPeriod('weekly')).toBe('weekly');
+  });
+
+  it('returns monthly when input is "monthly"', () => {
+    expect(validateTrendsPeriod('monthly')).toBe('monthly');
+  });
+
+  it('defaults to weekly for undefined', () => {
+    expect(validateTrendsPeriod(undefined)).toBe('weekly');
+  });
+
+  it('defaults to weekly for invalid string', () => {
+    expect(validateTrendsPeriod('yearly')).toBe('weekly');
+  });
+
+  it('defaults to weekly for null', () => {
+    expect(validateTrendsPeriod(null)).toBe('weekly');
+  });
+
+  it('defaults to weekly for empty string', () => {
+    expect(validateTrendsPeriod('')).toBe('weekly');
+  });
+});
+
+describe('validateTrendsRange', () => {
+  it('accepts 30', () => {
+    expect(validateTrendsRange(30)).toBe(30);
+  });
+
+  it('accepts 90', () => {
+    expect(validateTrendsRange(90)).toBe(90);
+  });
+
+  it('accepts 365', () => {
+    expect(validateTrendsRange(365)).toBe(365);
+  });
+
+  it('accepts string "30"', () => {
+    expect(validateTrendsRange('30')).toBe(30);
+  });
+
+  it('accepts string "90"', () => {
+    expect(validateTrendsRange('90')).toBe(90);
+  });
+
+  it('accepts string "365"', () => {
+    expect(validateTrendsRange('365')).toBe(365);
+  });
+
+  it('defaults to 90 for undefined', () => {
+    expect(validateTrendsRange(undefined)).toBe(90);
+  });
+
+  it('defaults to 90 for invalid number', () => {
+    expect(validateTrendsRange(60)).toBe(90);
+  });
+
+  it('defaults to 90 for NaN string', () => {
+    expect(validateTrendsRange('abc')).toBe(90);
+  });
+
+  it('defaults to 90 for null', () => {
+    expect(validateTrendsRange(null)).toBe(90);
+  });
+});
+
+describe('analyticsTrendsSchema', () => {
+  it('accepts empty object with defaults', () => {
+    const result = analyticsTrendsSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.period).toBe('weekly');
+      expect(result.data.range).toBe(90);
+    }
+  });
+
+  it('accepts period=daily and range=30', () => {
+    const result = analyticsTrendsSchema.safeParse({ period: 'daily', range: '30' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.period).toBe('daily');
+      expect(result.data.range).toBe(30);
+    }
+  });
+
+  it('accepts period=monthly and range=365', () => {
+    const result = analyticsTrendsSchema.safeParse({ period: 'monthly', range: '365' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.period).toBe('monthly');
+      expect(result.data.range).toBe(365);
+    }
+  });
+
+  it('accepts period=weekly and range=90', () => {
+    const result = analyticsTrendsSchema.safeParse({ period: 'weekly', range: '90' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.period).toBe('weekly');
+      expect(result.data.range).toBe(90);
+    }
+  });
+
+  it('rejects invalid period', () => {
+    const result = analyticsTrendsSchema.safeParse({ period: 'yearly' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid range', () => {
+    const result = analyticsTrendsSchema.safeParse({ range: '60' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-numeric range', () => {
+    const result = analyticsTrendsSchema.safeParse({ range: 'abc' });
+    expect(result.success).toBe(false);
   });
 });
