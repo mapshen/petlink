@@ -20,6 +20,7 @@ export default function QRBusinessCard({ cardData, profileUrl }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const handleCopyLink = useCallback(async () => {
     try {
@@ -46,6 +47,7 @@ export default function QRBusinessCard({ cardData, profileUrl }: Props) {
     if (!card) return;
 
     setDownloading(true);
+    setDownloadError(null);
     try {
       // Use canvas to render the card as PNG
       const canvas = document.createElement('canvas');
@@ -73,17 +75,19 @@ export default function QRBusinessCard({ cardData, profileUrl }: Props) {
       ctx.fillText(cardData.name, 24, 40);
 
       // Tagline
+      let taglineLineCount = 0;
       if (cardData.tagline) {
         ctx.fillStyle = '#78716c'; // stone-500
         ctx.font = '13px system-ui, -apple-system, sans-serif';
         const taglineLines = wrapText(ctx, cardData.tagline, 210);
+        taglineLineCount = taglineLines.length;
         taglineLines.forEach((line, i) => {
           ctx.fillText(line, 24, 62 + i * 18);
         });
       }
 
       // Rating
-      const ratingY = cardData.tagline ? 62 + wrapText(ctx, cardData.tagline, 210).length * 18 + 10 : 62;
+      const ratingY = 62 + taglineLineCount * 18 + (taglineLineCount > 0 ? 10 : 0);
       if (cardData.rating !== null) {
         ctx.fillStyle = '#d97706'; // amber-600
         ctx.font = 'bold 14px system-ui, -apple-system, sans-serif';
@@ -98,7 +102,8 @@ export default function QRBusinessCard({ cardData, profileUrl }: Props) {
       if (cardData.serviceLabels.length > 0) {
         ctx.fillStyle = '#059669';
         ctx.font = '11px system-ui, -apple-system, sans-serif';
-        const servicesText = cardData.serviceLabels.join(' | ');
+        const servicesText = cardData.serviceLabels.slice(0, 3).join(' | ') +
+          (cardData.serviceLabels.length > 3 ? ` +${cardData.serviceLabels.length - 3}` : '');
         ctx.fillText(servicesText, 24, servicesY);
       }
 
@@ -123,12 +128,12 @@ export default function QRBusinessCard({ cardData, profileUrl }: Props) {
 
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.download = `petlink-card-${cardData.name.toLowerCase().replace(/\s+/g, '-')}.png`;
+      const safeName = cardData.name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 50);
+      link.download = `petlink-card-${safeName || 'sitter'}.png`;
       link.href = dataUrl;
       link.click();
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to download card:', error);
+    } catch {
+      setDownloadError('Download failed. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -224,6 +229,7 @@ export default function QRBusinessCard({ cardData, profileUrl }: Props) {
       </div>
 
       {/* Actions */}
+      {downloadError && <p className="text-xs text-red-600">{downloadError}</p>}
       <div className="flex gap-2">
         <Button
           onClick={handleDownload}

@@ -24,7 +24,7 @@ export function buildProfileUrl(
 ): string {
   const cleanOrigin = origin.replace(/\/+$/, '');
   const identifier = slug ?? String(userId ?? '');
-  return `${cleanOrigin}/sitters/${identifier}?ref=${refSource}`;
+  return `${cleanOrigin}/sitters/${encodeURIComponent(identifier)}?ref=${encodeURIComponent(refSource)}`;
 }
 
 /**

@@ -44,7 +44,7 @@ export default function PromotePage({ embedded = false }: { embedded?: boolean }
 
   const profileUrl = useMemo(
     () => user ? buildProfileUrl(user.slug, window.location.origin, 'qr', user.id) : '',
-    [user],
+    [user?.slug, user?.id],
   );
 
   const cardData = useMemo(
