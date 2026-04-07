@@ -16,6 +16,11 @@ export interface SitterWithService extends User {
   service_radius_miles?: number;
   addon_slugs?: string[];
   founding_sitter?: boolean;
+  lifestyle_badges?: string[];
+  non_smoking_home?: boolean;
+  has_insurance?: boolean;
+  one_client_at_a_time?: boolean;
+  has_fenced_yard?: boolean;
 }
 
 export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
@@ -93,6 +98,10 @@ export interface User {
   founding_sitter?: boolean;
   beta_cohort?: BetaCohort;
   pro_trial_used?: boolean;
+  non_smoking_home?: boolean;
+  children_in_home?: boolean;
+  one_client_at_a_time?: boolean;
+  lifestyle_badges?: string[];
 }
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';

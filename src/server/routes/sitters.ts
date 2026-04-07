@@ -6,6 +6,7 @@ import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
 import { calculateRankingScore, isNewSitter, type SitterStats } from '../sitter-ranking.ts';
 import { recordProfileView } from '../profile-views.ts';
 import { dollarsToCents } from '../../lib/money.ts';
+import { resolveActiveBadges, BADGE_CATALOG } from '../../shared/badge-catalog.ts';
 
 export default function sitterRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
   router.get('/sitters', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
@@ -14,18 +15,20 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
-    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species, limit: limitParam, offset: offsetParam } = parsed.data;
+    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species, badges: badgesParam, limit: limitParam, offset: offsetParam } = parsed.data;
     const limit = Math.min(limitParam || 50, 100);
     const offset = offsetParam || 0;
 
     const hasGeo = lat != null && lng != null && radius != null;
     const geoPoint = hasGeo ? sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography` : sql``;
+    const badgeFilters = badgesParam ? badgesParam.split(',').filter((b: string) => BADGE_CATALOG.some((d) => d.slug === b)) : [];
 
     const sitters = await sql`
       SELECT DISTINCT ON (u.id)
              u.id, u.name, u.roles, u.bio, u.avatar_url, u.slug,
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
              u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at, u.approved_at, u.subscription_tier, u.founding_sitter,
+             u.has_fenced_yard, u.non_smoking_home, u.has_insurance, u.one_client_at_a_time, u.has_own_pets, u.lifestyle_badges,
              s.price_cents, s.type as service_type, s.max_pets
              ${species ? sql`, sp.years_experience as species_years_experience, sp.accepted_pet_sizes as species_pet_sizes, sp.skills as species_skills` : sql``}
              ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}
@@ -138,7 +141,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     ranked.sort((a: any, b: any) => b.ranking_score - a.ranking_score);
 
     // When species filter is active, prefer species-specific data over global user fields
-    const results = species
+    const withSpecies = species
       ? ranked.map(({ species_years_experience, species_pet_sizes, species_skills, ...rest }: any) => ({
           ...rest,
           years_experience: species_years_experience ?? rest.years_experience,
@@ -146,6 +149,16 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
           skills: species_skills?.length > 0 ? species_skills : rest.skills,
         }))
       : ranked;
+
+    // Resolve active badges for each sitter and apply badge filters
+    const withBadges = withSpecies.map((s: any) => ({
+      ...s,
+      active_badges: resolveActiveBadges(s),
+    }));
+
+    const results = badgeFilters.length > 0
+      ? withBadges.filter((s: any) => badgeFilters.every((b: string) => s.active_badges.includes(b)))
+      : withBadges;
 
     const total = results.length;
     const paginated = results.slice(offset, offset + limit);
@@ -161,7 +174,11 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         addonMap.set(r.sitter_id, slugs);
       }
     }
-    const withAddons = paginated.map((s: any) => ({ ...s, addon_slugs: addonMap.get(s.id) ?? [] }));
+    const withAddons = paginated.map((s: any) => ({
+      ...s,
+      addon_slugs: addonMap.get(s.id) ?? [],
+      lifestyle_badges: s.active_badges,
+    }));
 
     res.json({ sitters: withAddons, total, limit, offset });
   });
@@ -170,7 +187,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     const param = req.params.idOrSlug;
     const isNumeric = /^\d+$/.test(param);
     const [sitter] = await sql`
-      SELECT id, name, roles, bio, avatar_url, slug, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance, subscription_tier, founding_sitter FROM users
+      SELECT id, name, roles, bio, avatar_url, slug, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance, subscription_tier, founding_sitter, non_smoking_home, one_client_at_a_time, lifestyle_badges FROM users
       WHERE ${isNumeric ? sql`id = ${Number(param)}` : sql`slug = ${param}`}
         AND roles @> '{sitter}'::text[] AND approval_status = 'approved'
     `;
@@ -222,6 +239,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       ...sitter,
       avg_rating: reviewStats.avg_rating ? Number(reviewStats.avg_rating.toFixed(1)) : null,
       review_count: reviewStats.review_count,
+      active_badges: resolveActiveBadges(sitter),
     };
 
     const profileMembers = await sql`

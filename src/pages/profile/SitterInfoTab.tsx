@@ -4,6 +4,8 @@ import { Save } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { getSkillGroups, areSizesRelevant, isWalkCapacityRelevant } from '../../shared/service-labels';
 import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
+import { resolveActiveBadges, AUTO_BADGE_SLUGS } from '../../shared/badge-catalog';
+import BadgeEditor from '../../components/badges/BadgeEditor';
 
 const SPECIES_OPTIONS = ['dog', 'cat', 'bird', 'reptile', 'small_animal'] as const;
 const HOME_TYPES = [
@@ -28,6 +30,7 @@ export default function SitterInfoTab() {
   const [skills, setSkills] = useState<string[]>([]);
   const [maxPetsAtOnce, setMaxPetsAtOnce] = useState('3');
   const [maxPetsPerWalk, setMaxPetsPerWalk] = useState('2');
+  const [lifestyleBadges, setLifestyleBadges] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -48,6 +51,7 @@ export default function SitterInfoTab() {
     setSkills(user.skills || []);
     setMaxPetsAtOnce(user.max_pets_at_once?.toString() || '3');
     setMaxPetsPerWalk(user.max_pets_per_walk?.toString() || '2');
+    setLifestyleBadges(user.lifestyle_badges || []);
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,6 +77,7 @@ export default function SitterInfoTab() {
           skills,
           max_pets_at_once: maxPetsAtOnce ? Number(maxPetsAtOnce) : null,
           max_pets_per_walk: maxPetsPerWalk ? Number(maxPetsPerWalk) : null,
+          lifestyle_badges: lifestyleBadges,
         }),
       });
       if (!res.ok) {
@@ -100,6 +105,17 @@ export default function SitterInfoTab() {
       prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill],
     );
   };
+
+  const toggleBadge = (slug: string) => {
+    setLifestyleBadges((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
+    );
+  };
+
+  const autoBadges = useMemo(() => {
+    if (!user) return [];
+    return resolveActiveBadges(user).filter((slug) => AUTO_BADGE_SLUGS.includes(slug));
+  }, [user]);
 
   if (!user) return null;
 
@@ -204,6 +220,19 @@ export default function SitterInfoTab() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Lifestyle Badges */}
+      <div>
+        <label className="block text-sm font-medium text-stone-700 mb-2">Lifestyle badges</label>
+        <p className="text-xs text-stone-400 mb-3">
+          Highlight your home environment, certifications, and experience. Auto-detected badges update automatically from your profile.
+        </p>
+        <BadgeEditor
+          selectedBadges={lifestyleBadges}
+          autoBadges={autoBadges}
+          onToggle={toggleBadge}
+        />
       </div>
 
       <div>

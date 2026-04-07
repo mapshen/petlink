@@ -9,7 +9,9 @@ import { useFavorites } from '../../hooks/useFavorites';
 import { useMapViewPreference } from '../../hooks/useMapViewPreference';
 import FavoriteButton from '../../components/profile/FavoriteButton';
 import { FoundingSitterBadge } from '../../components/badges/FoundingSitterBadge';
+import LifestyleBadges from '../../components/badges/LifestyleBadges';
 import MapViewToggle from '../../components/map/MapViewToggle';
+import { BADGE_CATALOG, type BadgeDefinition } from '../../shared/badge-catalog';
 import { metersToMiles } from '../../lib/geo';
 import { getServiceLabel } from '../../shared/service-labels';
 import { getDisplayName } from '../../shared/display-name';
@@ -109,6 +111,10 @@ export default function Search() {
   const [debouncedMaxPrice, setDebouncedMaxPrice] = useState(maxPrice);
   const [petSize, setPetSize] = useState(searchParams.get('petSize') || '');
   const [species, setSpecies] = useState(searchParams.get('species') || '');
+  const [selectedBadges, setSelectedBadges] = useState<string[]>(() => {
+    const param = searchParams.get('badges');
+    return param ? param.split(',').filter(Boolean) : [];
+  });
 
   const [highlightedSitterId, setHighlightedSitterId] = useState<number | null>(null);
 
@@ -123,7 +129,7 @@ export default function Search() {
     return () => clearTimeout(timer);
   }, [maxPrice]);
 
-  const hasActiveFilters = minPrice || maxPrice || petSize || species;
+  const hasActiveFilters = minPrice || maxPrice || petSize || species || selectedBadges.length > 0;
   const { view, setView } = useMapViewPreference();
   const isDesktop = useIsDesktop();
 
@@ -181,14 +187,16 @@ export default function Search() {
     if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice); else params.delete('maxPrice');
     if (petSize) params.set('petSize', petSize); else params.delete('petSize');
     if (species) params.set('species', species); else params.delete('species');
+    if (selectedBadges.length > 0) params.set('badges', selectedBadges.join(',')); else params.delete('badges');
     setSearchParams(params, { replace: true });
-  }, [debouncedMinPrice, debouncedMaxPrice, petSize, species]);
+  }, [debouncedMinPrice, debouncedMaxPrice, petSize, species, selectedBadges]);
 
   const clearFilters = () => {
     setMinPrice('');
     setMaxPrice('');
     setPetSize('');
     setSpecies('');
+    setSelectedBadges([]);
   };
 
   useEffect(() => {
@@ -206,6 +214,7 @@ export default function Search() {
         if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice);
         if (petSize) params.set('petSize', petSize);
         if (species) params.set('species', species);
+        if (selectedBadges.length > 0) params.set('badges', selectedBadges.join(','));
         const res = await fetch(`${API_BASE}/sitters?${params}`);
         if (!res.ok) throw new Error('Failed to load sitters');
         const data = await res.json();
@@ -218,7 +227,7 @@ export default function Search() {
     };
 
     fetchSitters();
-  }, [serviceType, coords, radius, retryCount, debouncedMinPrice, debouncedMaxPrice, petSize, species]);
+  }, [serviceType, coords, radius, retryCount, debouncedMinPrice, debouncedMaxPrice, petSize, species, selectedBadges]);
 
   const { user: authUser } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
@@ -380,6 +389,31 @@ export default function Search() {
                 </div>
               </div>
 
+              <div className="sm:col-span-2 lg:col-span-3">
+                <label className="block text-xs font-medium text-stone-600 mb-2">Sitter Badges</label>
+                <div className="flex flex-wrap gap-2">
+                  {BADGE_CATALOG.map((badge: BadgeDefinition) => (
+                    <button
+                      key={badge.slug}
+                      type="button"
+                      onClick={() => setSelectedBadges((prev) =>
+                        prev.includes(badge.slug)
+                          ? prev.filter((b) => b !== badge.slug)
+                          : [...prev, badge.slug]
+                      )}
+                      aria-pressed={selectedBadges.includes(badge.slug)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        selectedBadges.includes(badge.slug)
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {badge.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex items-end">
                 {hasActiveFilters && (
                   <button
@@ -520,6 +554,11 @@ export default function Search() {
                                   +{sitter.addon_slugs.length - 4} more
                                 </span>
                               )}
+                            </div>
+                          )}
+                          {sitter.lifestyle_badges && sitter.lifestyle_badges.length > 0 && (
+                            <div className="mt-2">
+                              <LifestyleBadges badges={sitter.lifestyle_badges} size="sm" maxVisible={4} />
                             </div>
                           )}
                         </div>
