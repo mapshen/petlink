@@ -64,6 +64,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Inquiries | `POST /inquiries`, `GET /inquiries`, `GET /inquiries/:id`, `PUT /inquiries/:id/offer`, `PUT /inquiries/:id/accept`, `PUT /inquiries/:id/decline` |
 | References | `POST /references/invite`, `GET /references/me`, `GET /references/vouch/:token`, `POST /references/vouch/:token` |
 | Credits | `GET /credits/balance`, `GET /credits/history` (paginated), `POST /credits/issue` (admin) |
+| Referrals | `GET /referrals/code` (get/create referral code), `GET /referrals/stats` (dashboard), `POST /referrals/apply` (apply code), `GET /referrals/history` (paginated) |
 | Partners | `GET /partners/offers`, `POST /partners/offers/:id/redeem`, admin: `GET/POST/PUT /admin/partners`, `POST /admin/partners/:id/offers`, `POST /admin/partners/offers/:id/add-codes`, `GET /admin/partners/offers/:id/redemptions` |
 | Reliability | `GET /reliability/score`, `GET /reliability/history` (paginated), `GET /admin/sitters/:id/strikes` (admin) |
 | Connect | `POST /connect/account`, `POST /connect/onboarding-link`, `GET /connect/status`, `POST /connect/refresh-link` |
@@ -113,7 +114,7 @@ PostgreSQL with PostGIS.
 
 | Table | Key Columns / Notes |
 |-------|-------------------|
-| `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `slug` (unique, SEO-friendly URL), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `accepted_pet_sizes`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10), `max_pets_at_once`, `max_pets_per_walk`, `house_rules`, `emergency_procedures`, `has_insurance`, onboarding: `onboarding_started_at`, `onboarding_reminder_sent_at`, `onboarding_reminder_count` (default 0), beta: `founding_sitter` (boolean), `beta_cohort` (founding/early_beta/post_beta), `credit_low_warning_sent_at`, dormancy: `last_active_at` (throttled daily update in auth middleware), `dormancy_warning_sent_at` |
+| `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `slug` (unique, SEO-friendly URL), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `accepted_pet_sizes`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10), `max_pets_at_once`, `max_pets_per_walk`, `house_rules`, `emergency_procedures`, `has_insurance`, onboarding: `onboarding_started_at`, `onboarding_reminder_sent_at`, `onboarding_reminder_count` (default 0), beta: `founding_sitter` (boolean), `beta_cohort` (founding/early_beta/post_beta), `credit_low_warning_sent_at`, dormancy: `last_active_at` (throttled daily update in auth middleware), `dormancy_warning_sent_at`, referral: `referral_code` (unique, auto-generated 8-char alphanumeric) |
 | `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
 | `pet_vaccinations` | Vaccine records with expiration tracking |
 | `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB, `nightly_rate_cents` (for sitting/daycare extended stays), `half_day_rate_cents` |
@@ -150,6 +151,7 @@ PostgreSQL with PostGIS.
 | `credit_ledger` | User credit transactions: `amount_cents` (positive=credit, negative=redemption), `type` (referral/dispute_resolution/promo/beta_reward/milestone/redemption/expiration/dormancy_forfeiture), `source_type`, `source_id`, `expires_at`, `stripe_event_id` (unique, webhook idempotency). Balance = SUM of non-expired entries. Credits auto-apply to subscription renewals via `invoice.paid` webhook |
 | `private_pet_notes` | Sitter-only private notes about pets: `sitter_id`, `pet_id`, `booking_id`, `content` (max 2000), `flags` TEXT[] (aggressive/special_needs_undisclosed/medical_condition/other). UNIQUE(sitter_id, booking_id, pet_id). Only visible to admins. `pet_flag_count` included in booking pets for sitters |
 | `dormancy_forfeiture_log` | Compliance log: `user_id`, `amount_cents`, `credit_ledger_entry_id`, `forfeited_at`. Dormancy scheduler warns at 35 months, forfeits at 36 months inactive |
+| `referrals` | Referral tracking: `referrer_id`, `referred_id`, `referral_code`, `status` (pending/completed/expired), `expires_at` (90-day). UNIQUE(referred_id). On first completed booking: $10 referrer + $5 referred credits via credit_ledger. Anti-abuse: self-referral blocked, 20/month cap, one referral per user |
 | `reservation_protections` | Triggered on sitter cancellation of confirmed bookings within 48h. `booking_id` UNIQUE, `original_sitter_id`, `owner_id`, `status` (searching/options_sent/rebooked/owner_cancelled/no_alternatives), `replacement_booking_id`, `credit_issued_cents`. Auto-searches for nearby replacement sitters |
 | `platform_settings` | Key-value store for admin-configurable settings: `key` TEXT PK, `value` JSONB, `updated_by`. Used for beta_active, beta_end_date, pro_trial_days. In-memory cached (5-min TTL) |
 | `pro_periods` | Temporary Pro subscriptions without Stripe: `user_id`, `source` (beta/trial/beta_transition), `starts_at`, `ends_at`, `status` (active/expired/cancelled), warning dedup columns. Partial unique on (user_id, source) WHERE active. Daily scheduler expires periods, sends warnings, transitions founding sitters |
@@ -175,7 +177,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com` (owner only), 
 
 ## Testing
 
-1724 tests across 117 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+1957 tests across 131 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 

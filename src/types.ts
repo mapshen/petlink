@@ -502,6 +502,22 @@ export interface Strike {
   expires_at: string;
 }
 
+export type ReferralStatus = 'pending' | 'completed' | 'expired';
+
+export interface Referral {
+  id: number;
+  referrer_id: number;
+  referred_id: number;
+  referral_code: string;
+  status: ReferralStatus;
+  created_at: string;
+  completed_at: string | null;
+  credited_at: string | null;
+  expires_at: string;
+  referred_name?: string;
+  referred_avatar?: string | null;
+}
+
 export type ExpenseCategory = 'supplies' | 'transportation' | 'insurance' | 'marketing' | 'equipment' | 'training' | 'other';
 
 export interface SitterExpense {

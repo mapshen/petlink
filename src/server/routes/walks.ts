@@ -8,6 +8,7 @@ import { recordPayoutForBooking } from '../payouts.ts';
 import { calculateApplicationFee } from '../stripe-connect.ts';
 import { capturePayment } from '../payments.ts';
 import { MAX_POSTS_PER_SITTER } from './posts.ts';
+import { completeReferral } from '../referrals.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function walkRoutes(router: Router, io: Server): void {
@@ -105,6 +106,11 @@ export default function walkRoutes(router: Router, io: Server): void {
         const [sitterUser] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
         const endNotif = await createNotification(booking.owner_id, 'walk_completed', 'Walk Completed', `${sitterUser.name} has completed the walk.`, { booking_id: Number(req.params.bookingId) });
         if (endNotif) io.to(String(booking.owner_id)).emit('notification', endNotif);
+
+        // Complete referral if this is the referred user's first booking
+        completeReferral(booking.owner_id).catch((err: unknown) => {
+          logger.error({ err: sanitizeError(err), ownerId: booking.owner_id }, 'Referral completion failed');
+        });
 
         // Record payout tracking entry — actual payout delivery is handled by Stripe Connect
         if (booking.total_price_cents && booking.total_price_cents > 0) {
