@@ -2,7 +2,7 @@ import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { adminMiddleware } from '../admin.ts';
-import { validate, privatePetNoteSchema } from '../validation.ts';
+import { validate, privatePetNoteSchema, updatePetNoteSchema } from '../validation.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function petNoteRoutes(router: Router): void {
@@ -36,17 +36,10 @@ export default function petNoteRoutes(router: Router): void {
         return;
       }
 
-      // Verify pet exists
-      const [pet] = await sql`SELECT id FROM pets WHERE id = ${petId}`;
-      if (!pet) {
-        res.status(404).json({ error: 'Pet not found' });
-        return;
-      }
-
       const [note] = await sql`
         INSERT INTO private_pet_notes (sitter_id, pet_id, booking_id, content, flags)
         VALUES (${req.userId}, ${petId}, ${booking_id}, ${content}, ${flags})
-        ON CONFLICT (sitter_id, booking_id) DO UPDATE
+        ON CONFLICT (sitter_id, booking_id, pet_id) DO UPDATE
         SET content = ${content}, flags = ${flags}, updated_at = NOW()
         RETURNING id, created_at, updated_at
       `;
@@ -59,7 +52,7 @@ export default function petNoteRoutes(router: Router): void {
   });
 
   // Sitter updates their own note
-  router.put('/pets/:petId/notes/:noteId', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  router.put('/pets/:petId/notes/:noteId', authMiddleware, validate(updatePetNoteSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const noteId = Number(req.params.noteId);
       const petId = Number(req.params.petId);
@@ -69,14 +62,10 @@ export default function petNoteRoutes(router: Router): void {
       }
 
       const { content, flags } = req.body;
-      if (!content || typeof content !== 'string' || content.trim().length === 0 || content.length > 2000) {
-        res.status(400).json({ error: 'Content is required (max 2000 characters)' });
-        return;
-      }
 
       const [updated] = await sql`
         UPDATE private_pet_notes
-        SET content = ${content.trim()}, flags = ${flags || []}, updated_at = NOW()
+        SET content = ${content}, flags = ${flags}, updated_at = NOW()
         WHERE id = ${noteId} AND sitter_id = ${req.userId} AND pet_id = ${petId}
         RETURNING id, updated_at
       `;
@@ -92,7 +81,7 @@ export default function petNoteRoutes(router: Router): void {
     }
   });
 
-  // Admin: view all private notes for a pet
+  // Admin: view all private notes for a pet (paginated)
   router.get('/admin/pets/:petId/notes', adminMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const petId = Number(req.params.petId);
@@ -100,6 +89,8 @@ export default function petNoteRoutes(router: Router): void {
         res.status(400).json({ error: 'Invalid pet ID' });
         return;
       }
+      const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
 
       const notes = await sql`
         SELECT ppn.id, ppn.sitter_id, ppn.booking_id, ppn.content, ppn.flags, ppn.created_at, ppn.updated_at,
@@ -108,6 +99,7 @@ export default function petNoteRoutes(router: Router): void {
         JOIN users u ON u.id = ppn.sitter_id
         WHERE ppn.pet_id = ${petId}
         ORDER BY ppn.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
       `;
 
       res.json({ notes });

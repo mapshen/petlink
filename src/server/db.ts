@@ -958,7 +958,7 @@ export async function initDb() {
       flags TEXT[] DEFAULT '{}',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(sitter_id, booking_id)
+      UNIQUE(sitter_id, booking_id, pet_id)
     )
   `.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_private_pet_notes_pet ON private_pet_notes (pet_id)`.catch(() => {});

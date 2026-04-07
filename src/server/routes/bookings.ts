@@ -477,20 +477,18 @@ export default function bookingRoutes(router: Router, io: Server): void {
       addonsByBooking.set(row.booking_id, existing);
     }
 
-    // Batch-fetch pet flag counts for sitters (private pet notes with non-empty flags)
+    // Batch-fetch pet flag counts for sitters (aggregate across all sitters for safety signal)
     const allPetIds = [...new Set(bookingPets.map((p: { id: number }) => p.id))];
-    const petFlagCounts = new Map<number, number>();
-    if (isSitter && allPetIds.length > 0) {
-      const flagRows = await sql`
-        SELECT pet_id, COUNT(*)::int as flag_count
-        FROM private_pet_notes
-        WHERE pet_id = ANY(${allPetIds}) AND flags != '{}'
-        GROUP BY pet_id
-      `.catch(() => [] as any[]);
-      for (const row of flagRows) {
-        petFlagCounts.set(row.pet_id, row.flag_count);
-      }
-    }
+    const petFlagCounts = isSitter && allPetIds.length > 0
+      ? new Map(
+          (await sql`
+            SELECT pet_id, COUNT(*)::int as flag_count
+            FROM private_pet_notes
+            WHERE pet_id = ANY(${allPetIds}) AND flags != '{}'
+            GROUP BY pet_id
+          `.catch(() => [] as any[])).map((row: { pet_id: number; flag_count: number }) => [row.pet_id, row.flag_count] as const)
+        )
+      : new Map<number, number>();
 
     const enriched = bookings.map((b: { id: number; sitter_id: number; payment_intent_id?: string }) => {
       const { payment_intent_id: _pid, ...safe } = b;

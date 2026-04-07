@@ -470,10 +470,20 @@ export const issueCreditSchema = z.object({
 // --- Private Pet Note Schema ---
 const petNoteFlags = ['aggressive', 'special_needs_undisclosed', 'medical_condition', 'other'] as const;
 
+const uniqueFlags = z.array(z.enum(petNoteFlags, { message: 'Invalid flag' }))
+  .max(4)
+  .refine(arr => new Set(arr).size === arr.length, 'Duplicate flags not allowed')
+  .default([]);
+
 export const privatePetNoteSchema = z.object({
   content: z.string().trim().min(1, 'Content is required').max(2000, 'Content must be under 2000 characters'),
-  flags: z.array(z.enum(petNoteFlags, { message: 'Invalid flag' })).max(4).default([]),
+  flags: uniqueFlags,
   booking_id: z.number().int().positive('Invalid booking ID'),
+});
+
+export const updatePetNoteSchema = z.object({
+  content: z.string().trim().min(1, 'Content is required').max(2000, 'Content must be under 2000 characters'),
+  flags: uniqueFlags,
 });
 
 // --- Upload Signed URL Schema ---
