@@ -61,6 +61,13 @@ export async function verifyTurnstile(req: Request, res: Response, next: NextFun
     return;
   }
 
+  // Skip for authenticated users — they proved human at login
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+
   const token = extractToken(req);
   if (!token) {
     res.status(403).json({

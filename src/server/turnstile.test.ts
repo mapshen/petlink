@@ -65,6 +65,32 @@ describe('verifyTurnstile middleware', () => {
     });
   });
 
+  describe('authenticated user bypass', () => {
+    beforeEach(() => {
+      process.env.TURNSTILE_SITE_KEY = 'test-site-key';
+      process.env.TURNSTILE_SECRET_KEY = 'test-secret-key';
+    });
+
+    it('skips verification for requests with Bearer auth token', async () => {
+      mockReq.headers = { authorization: 'Bearer some-jwt-token' };
+
+      await verifyTurnstile(mockReq as Request, mockRes as Response, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+      expect(mockRes.status).not.toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('does not skip for non-Bearer auth headers', async () => {
+      mockReq.headers = { authorization: 'Basic dXNlcjpwYXNz' };
+
+      await verifyTurnstile(mockReq as Request, mockRes as Response, mockNext);
+
+      expect(mockRes.status).toHaveBeenCalledWith(403);
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+  });
+
   describe('token extraction', () => {
     beforeEach(() => {
       process.env.TURNSTILE_SITE_KEY = 'test-site-key';

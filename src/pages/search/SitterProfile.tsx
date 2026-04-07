@@ -26,6 +26,8 @@ import FirstBookingNudge from '../../components/booking/FirstBookingNudge';
 import InquiryForm from '../../components/booking/InquiryForm';
 import CameraInfoCard from '../../components/booking/CameraInfoCard';
 import { useFavorites } from '../../hooks/useFavorites';
+import { useTurnstile } from '../../hooks/useTurnstile';
+import TurnstileWidget from '../../components/auth/TurnstileWidget';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
 import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing';
@@ -50,6 +52,9 @@ export default function SitterProfile() {
   const [searchParams] = useSearchParams();
   const serviceIdParam = searchParams.get('serviceId');
   const { user, token } = useAuth();
+  const { token: turnstileToken, containerRef: turnstileRef } = useTurnstile({
+    siteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+  });
   const { isFavorited, toggleFavorite } = useFavorites();
   const [sitter, setSitter] = useState<User | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -127,7 +132,14 @@ export default function SitterProfile() {
   useEffect(() => {
     const fetchSitter = async () => {
       try {
-        const res = await fetch(`${API_BASE}/sitters/${id}`);
+        const fetchHeaders: Record<string, string> = {};
+        if (turnstileToken) {
+          fetchHeaders['cf-turnstile-response'] = turnstileToken;
+        }
+        if (token) {
+          fetchHeaders['Authorization'] = `Bearer ${token}`;
+        }
+        const res = await fetch(`${API_BASE}/sitters/${id}`, { headers: fetchHeaders });
         if (!res.ok) throw new Error('Sitter not found');
         const data = await res.json();
         setSitter(data.sitter);
@@ -161,7 +173,7 @@ export default function SitterProfile() {
       }
     };
     fetchSitter();
-  }, [id, serviceIdParam]);
+  }, [id, serviceIdParam, turnstileToken, token]);
 
   const sitterId = sitter?.id;
   const sitterLat = sitter?.lat;
@@ -351,6 +363,7 @@ export default function SitterProfile() {
 
   return (
     <div>
+      <TurnstileWidget containerRef={turnstileRef} />
       <SitterProfileHeader
         sitter={sitter}
         postCount={postCount}
