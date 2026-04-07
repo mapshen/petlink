@@ -36,3 +36,4 @@ export { default as petNoteRoutes } from './pet-notes.ts';
 export { default as partnerRoutes } from './partners.ts';
 export { default as proPeriodRoutes } from './pro-periods.ts';
 export { default as loyaltyDiscountRoutes } from './loyalty-discounts.ts';
+export { default as insightRoutes } from './insights.ts';
