@@ -1156,6 +1156,27 @@ export async function initDb() {
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_pct INTEGER`.catch(() => {});
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_reason TEXT`.catch(() => {});
 
+  // Issue #341: Referral program
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT UNIQUE`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users (referral_code) WHERE referral_code IS NOT NULL`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS referrals (
+      id SERIAL PRIMARY KEY,
+      referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      referred_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      referral_code TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'completed', 'expired')),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      completed_at TIMESTAMPTZ,
+      credited_at TIMESTAMPTZ,
+      expires_at TIMESTAMPTZ NOT NULL,
+      UNIQUE(referred_id)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals (referrer_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals (referred_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_referrals_status ON referrals (status) WHERE status = 'pending'`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

@@ -545,6 +545,12 @@ export const addCouponCodesSchema = z.object({
   codes: z.array(z.string().trim().min(1, 'Code cannot be empty').max(100)).min(1, 'At least one code required').max(500, 'Maximum 500 codes per batch'),
 });
 
+// --- Referral Schemas ---
+export const applyReferralCodeSchema = z.object({
+  code: z.string().trim().min(1, 'Referral code is required').max(20, 'Invalid referral code')
+    .transform((v) => v.toUpperCase()),
+});
+
 // --- Upload Signed URL Schema ---
 const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents', 'disputes', 'receipts'] as const;
 const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;
