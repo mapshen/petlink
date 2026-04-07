@@ -3,7 +3,7 @@ import { type AuthenticatedRequest, authMiddleware } from '../auth.ts';
 import { adminMiddleware } from '../admin.ts';
 import { getProPeriodWithDaysRemaining } from '../pro-periods.ts';
 import { getProPeriodSavings } from '../pro-period-savings.ts';
-import { getSetting, setSetting } from '../platform-settings.ts';
+import { setSetting } from '../platform-settings.ts';
 import sql from '../db.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
@@ -58,8 +58,8 @@ export default function proPeriodRoutes(router: Router): void {
       }
 
       const { additional_days } = req.body;
-      if (!additional_days || typeof additional_days !== 'number' || additional_days <= 0) {
-        res.status(400).json({ error: 'additional_days must be a positive number' });
+      if (!additional_days || typeof additional_days !== 'number' || !Number.isInteger(additional_days) || additional_days <= 0 || additional_days > 365) {
+        res.status(400).json({ error: 'additional_days must be a positive integer (max 365)' });
         return;
       }
 

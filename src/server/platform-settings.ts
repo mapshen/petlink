@@ -7,6 +7,7 @@ interface CacheEntry {
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+// In-process cache — not shared across instances. Acceptable for single-instance deployment.
 const cache = new Map<string, CacheEntry>();
 
 export async function getSetting<T = unknown>(key: string): Promise<T | null> {

@@ -1,8 +1,8 @@
 import sql from './db.ts';
 import logger from './logger.ts';
+import type { ProPeriodSource, ProPeriodStatus } from '../types.ts';
 
-export type ProPeriodSource = 'beta' | 'trial' | 'beta_transition';
-export type ProPeriodStatus = 'active' | 'expired' | 'cancelled';
+export type { ProPeriodSource, ProPeriodStatus };
 
 export interface ProPeriod {
   id: number;
@@ -20,6 +20,11 @@ export interface ProPeriod {
 /**
  * Create a new pro period for a user. Sets their subscription_tier to 'pro'.
  * Optionally accepts a transaction handle for atomic operations.
+ *
+ * Design: users.subscription_tier is the source of truth for fee calculation
+ * (calculateApplicationFee in stripe-connect.ts reads it directly).
+ * This function and expireProPeriod keep it in sync with pro_periods state.
+ * The scheduler also reconciles on expiration to prevent drift.
  */
 export async function createProPeriod(
   userId: number,
@@ -137,26 +142,6 @@ export async function hasUsedTrial(userId: number): Promise<boolean> {
 export async function markTrialUsed(userId: number, tx?: typeof sql): Promise<void> {
   const db = tx ?? sql;
   await db`UPDATE users SET pro_trial_used = true WHERE id = ${userId}`;
-}
-
-/**
- * Get effective subscription tier for a user.
- * Priority: paid subscription > active pro period > free.
- */
-export async function getEffectiveSubscriptionTier(userId: number): Promise<string> {
-  // Check paid Stripe subscription first
-  const [paidSub] = await sql`
-    SELECT tier FROM sitter_subscriptions
-    WHERE sitter_id = ${userId} AND status = 'active' AND tier IN ('pro', 'premium')
-    LIMIT 1
-  `;
-  if (paidSub) return paidSub.tier;
-
-  // Check active pro period
-  const period = await getActiveProPeriod(userId);
-  if (period) return 'pro';
-
-  return 'free';
 }
 
 /**

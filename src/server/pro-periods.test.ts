@@ -20,7 +20,6 @@ import {
   cancelProPeriod,
   hasUsedTrial,
   markTrialUsed,
-  getEffectiveSubscriptionTier,
   getProPeriodWithDaysRemaining,
 } from './pro-periods.ts';
 
@@ -145,27 +144,6 @@ describe('pro-periods', () => {
       mockSqlFn.mockResolvedValueOnce([]);
       await markTrialUsed(42);
       expect(mockSqlFn).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('getEffectiveSubscriptionTier', () => {
-    it('returns paid subscription tier when exists', async () => {
-      mockSqlFn.mockResolvedValueOnce([{ tier: 'premium' }]);
-      expect(await getEffectiveSubscriptionTier(42)).toBe('premium');
-    });
-
-    it('returns pro when active pro period exists (no paid sub)', async () => {
-      mockSqlFn.mockResolvedValueOnce([]); // no paid sub
-      mockSqlFn.mockResolvedValueOnce([{ id: 1, source: 'trial', status: 'active' }]); // active pro period
-
-      expect(await getEffectiveSubscriptionTier(42)).toBe('pro');
-    });
-
-    it('returns free when no subscription or pro period', async () => {
-      mockSqlFn.mockResolvedValueOnce([]); // no paid sub
-      mockSqlFn.mockResolvedValueOnce([]); // no pro period
-
-      expect(await getEffectiveSubscriptionTier(42)).toBe('free');
     });
   });
 

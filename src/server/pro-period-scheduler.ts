@@ -1,6 +1,5 @@
 import sql from './db.ts';
 import { expireProPeriod, createProPeriod } from './pro-periods.ts';
-import { getBetaEndDate } from './platform-settings.ts';
 import { sendEmail, buildProTrialWarningEmail, buildBetaExpirationWarningEmail, buildProPeriodExpiredEmail } from './email.ts';
 import { createNotification } from './notifications.ts';
 import logger, { sanitizeError } from './logger.ts';
@@ -69,7 +68,7 @@ export async function processProPeriods(): Promise<{
       }
     }
 
-    // 2. Send 14-day warnings (beta periods only)
+    // 2. Send 14-day warnings (beta periods only, window: 7-14 days)
     const warn14d = await sql`
       SELECT pp.id, pp.user_id, pp.source, pp.ends_at, u.email, u.name, u.founding_sitter
       FROM pro_periods pp
@@ -77,7 +76,7 @@ export async function processProPeriods(): Promise<{
       WHERE pp.status = 'active'
         AND pp.source IN ('beta', 'beta_transition')
         AND pp.ends_at <= NOW() + INTERVAL '14 days'
-        AND pp.ends_at > NOW()
+        AND pp.ends_at > NOW() + INTERVAL '7 days'
         AND pp.warning_14d_sent_at IS NULL
     `.catch(() => [] as any[]);
 
@@ -108,14 +107,14 @@ export async function processProPeriods(): Promise<{
       }
     }
 
-    // 3. Send 7-day warnings (all period types)
+    // 3. Send 7-day warnings (all period types, window: 1-7 days)
     const warn7d = await sql`
       SELECT pp.id, pp.user_id, pp.source, pp.ends_at, u.email, u.name
       FROM pro_periods pp
       JOIN users u ON u.id = pp.user_id
       WHERE pp.status = 'active'
         AND pp.ends_at <= NOW() + INTERVAL '7 days'
-        AND pp.ends_at > NOW()
+        AND pp.ends_at > NOW() + INTERVAL '1 day'
         AND pp.warning_7d_sent_at IS NULL
     `.catch(() => [] as any[]);
 
@@ -176,6 +175,17 @@ export async function processProPeriods(): Promise<{
         logger.warn({ err: sanitizeError(err), periodId: period.id }, 'Failed to send 1d warning');
       }
     }
+    // 5. Reconciliation: fix any users whose subscription_tier drifted from pro_periods state
+    await sql`
+      UPDATE users SET subscription_tier = 'free'
+      WHERE subscription_tier = 'pro'
+        AND NOT EXISTS (
+          SELECT 1 FROM pro_periods WHERE user_id = users.id AND status = 'active' AND ends_at > NOW()
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM sitter_subscriptions WHERE sitter_id = users.id AND status = 'active' AND tier IN ('pro', 'premium')
+        )
+    `.catch((err: unknown) => logger.warn({ err: sanitizeError(err) }, 'Tier reconciliation failed'));
   } catch (err) {
     logger.error({ err: sanitizeError(err) }, 'Pro period scheduler failed');
   }

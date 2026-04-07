@@ -24,6 +24,7 @@ export async function getProPeriodSavings(userId: number): Promise<ProPeriodSavi
     WHERE b.sitter_id = ${userId}
       AND b.status IN ('completed', 'confirmed', 'in_progress')
       AND b.created_at >= ${period.starts_at}
+      AND b.created_at <= LEAST(${period.ends_at}, NOW())
   `;
 
   return {

@@ -653,7 +653,7 @@ export function buildBetaExpirationWarningEmail(params: {
 <p style="color:#44403c;line-height:1.6">Hi ${name},</p>
 <p style="color:#44403c;line-height:1.6">The PetLink beta program ends on <strong>${escapeHtml(params.betaEndDate)}</strong> (${params.daysRemaining} days from now).</p>
 ${foundingNote}
-<p style="color:#44403c;line-height:1.6">Thank you for being part of our early community — your feedback has shaped PetLink into what it is today. 🙏</p>
+<p style="color:#44403c;line-height:1.6">Thank you for being part of our early community — your feedback has shaped PetLink into what it is today.</p>
 <div style="text-align:center;margin:24px 0">
 <a href="${process.env.APP_URL || 'https://petlink.app'}/profile/subscription" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">View Your Subscription</a>
 </div>

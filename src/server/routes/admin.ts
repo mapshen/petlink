@@ -7,7 +7,7 @@ import { sendEmail, buildApprovalStatusEmail, buildFoundingSitterWelcomeEmail } 
 import { createNotification } from '../notifications.ts';
 import { issueCredit } from '../credits.ts';
 import { clearLockout } from '../login-lockout.ts';
-import { isBetaActive, getBetaEndDate, setSetting, getSetting, getProTrialDays } from '../platform-settings.ts';
+import { isBetaActive, getBetaEndDate, setSetting, getProTrialDays } from '../platform-settings.ts';
 import { createProPeriod, cancelProPeriod, getActiveProPeriod, hasUsedTrial, markTrialUsed } from '../pro-periods.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import type { BetaCohort } from '../../types.ts';
@@ -102,28 +102,27 @@ export default function adminRoutes(router: Router): void {
         `;
       }
 
-      // Auto-enroll in beta or start free trial
+      // Auto-enroll in beta or start free trial (transactional to prevent TOCTOU race)
       if (status === 'approved') {
         try {
-          const betaIsActive = await isBetaActive();
-          if (betaIsActive) {
-            const betaEnd = await getBetaEndDate();
-            if (betaEnd && betaEnd > new Date()) {
-              await createProPeriod(sitterId, 'beta', betaEnd);
-              logger.info({ sitterId }, 'Sitter auto-enrolled in beta program on approval');
-            }
-          } else {
-            // Post-beta: start free Pro trial if not already used
-            const trialUsed = await hasUsedTrial(sitterId);
-            if (!trialUsed) {
+          await sql.begin(async (tx: any) => {
+            const [lockedUser] = await tx`SELECT pro_trial_used FROM users WHERE id = ${sitterId} FOR UPDATE`;
+            const betaIsActive = await isBetaActive();
+            if (betaIsActive) {
+              const betaEnd = await getBetaEndDate();
+              if (betaEnd && betaEnd > new Date()) {
+                await createProPeriod(sitterId, 'beta', betaEnd, tx);
+                logger.info({ sitterId }, 'Sitter auto-enrolled in beta program on approval');
+              }
+            } else if (!lockedUser.pro_trial_used) {
               const trialDays = await getProTrialDays();
               const trialEnd = new Date();
               trialEnd.setDate(trialEnd.getDate() + trialDays);
-              await createProPeriod(sitterId, 'trial', trialEnd);
-              await markTrialUsed(sitterId);
+              await createProPeriod(sitterId, 'trial', trialEnd, tx);
+              await markTrialUsed(sitterId, tx);
               logger.info({ sitterId, trialDays }, 'Free Pro trial started on sitter approval');
             }
-          }
+          });
         } catch (err) {
           logger.warn({ err: sanitizeError(err), sitterId }, 'Failed to auto-enroll sitter in beta/trial');
         }
@@ -293,7 +292,7 @@ export default function adminRoutes(router: Router): void {
           res.status(400).json({ error: 'Invalid date format' });
           return;
         }
-        await setSetting('beta_end_date', { date: beta_end_date }, req.userId!);
+        await setSetting('beta_end_date', { date: parsed.toISOString() }, req.userId!);
       }
 
       const betaActive = await isBetaActive();
