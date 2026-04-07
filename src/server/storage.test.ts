@@ -65,4 +65,12 @@ describe('storage', () => {
     await deleteObject('pets/1/test.jpg');
     // Should not throw — mock resolves
   });
+
+  it('generateUploadUrl supports receipts folder', async () => {
+    const { generateUploadUrl } = await import('./storage.ts');
+    const result = await generateUploadUrl('receipts', 'image/jpeg', 5);
+    expect(result.key).toMatch(/^receipts\/5\/.+\.jpg$/);
+    expect(result.publicUrl).toContain('test-bucket');
+    expect(result.uploadUrl).toContain('signed-url');
+  });
 });

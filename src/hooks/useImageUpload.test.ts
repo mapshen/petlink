@@ -156,4 +156,39 @@ describe('useImageUpload upload flow', () => {
       }),
     );
   });
+
+  it('supports receipts folder for expense receipt uploads', async () => {
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ uploadUrl: 'https://s3.example.com/signed', publicUrl: 'https://cdn.example.com/receipts/5/receipt.jpg' }),
+      })
+      .mockResolvedValueOnce({ ok: true });
+
+    const token = 'test-token';
+    const file = new File(['receipt-data'], 'receipt.jpg', { type: 'image/jpeg' });
+
+    const signedRes = await fetch('http://localhost:3000/api/v1/uploads/signed-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ folder: 'receipts', contentType: file.type }),
+    });
+    const { uploadUrl, publicUrl } = await signedRes.json();
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+
+    expect(uploadRes.ok).toBe(true);
+    expect(publicUrl).toContain('receipts');
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/uploads/signed-url',
+      expect.objectContaining({
+        body: JSON.stringify({ folder: 'receipts', contentType: 'image/jpeg' }),
+      }),
+    );
+  });
 });

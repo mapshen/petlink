@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle, Gift } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle, Gift, ImageIcon } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { Booking, SitterPayout, PayoutStatus, CreditEntry } from '../../types';
 import { Button } from '../../components/ui/button';
@@ -18,7 +18,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
-import { formatCents } from '../../lib/money';
+import { formatCents, dollarsToCents } from '../../lib/money';
+import { useImageUpload } from '../../hooks/useImageUpload';
+import ReceiptUpload from '../../components/payment/ReceiptUpload';
+import ReceiptPreviewModal from '../../components/payment/ReceiptPreviewModal';
 
 const EXPENSE_CATEGORIES = [
   { value: 'supplies', label: 'Supplies', icon: '🛒' },
@@ -38,6 +41,7 @@ interface Expense {
   amount_cents: number;
   description?: string;
   date: string;
+  receipt_url?: string;
 }
 
 interface TaxSummary {
@@ -53,9 +57,26 @@ interface ExpenseForm {
   amount: string;
   description: string;
   date: string;
+  receipt_url: string;
 }
 
-const EMPTY_FORM: ExpenseForm = { category: 'supplies', amount: '', description: '', date: new Date().toISOString().split('T')[0] };
+const EMPTY_FORM: ExpenseForm = { category: 'supplies', amount: '', description: '', date: new Date().toISOString().split('T')[0], receipt_url: '' };
+
+export function buildExpensePayload(form: ExpenseForm) {
+  return {
+    category: form.category,
+    amount_cents: dollarsToCents(Number(form.amount)),
+    description: form.description || null,
+    date: form.date,
+    receipt_url: form.receipt_url || null,
+  };
+}
+
+export function isReceiptImage(url: string | undefined | null): boolean {
+  if (!url) return false;
+  const pathname = url.split('?')[0];
+  return /\.(jpe?g|png|webp|gif)$/i.test(pathname);
+}
 
 
 const PAYOUT_STATUS_STYLES: Record<PayoutStatus, { bg: string; text: string; label: string }> = {
@@ -100,6 +121,10 @@ export default function WalletPage() {
   const [form, setForm] = useState<ExpenseForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
+
+  // Receipt upload
+  const { uploading: receiptUploading, upload: uploadReceipt, error: receiptError, clearError: clearReceiptError } = useImageUpload(token);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -218,6 +243,22 @@ export default function WalletPage() {
     }
   };
 
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    clearReceiptError();
+    const publicUrl = await uploadReceipt(file, 'receipts');
+    if (publicUrl) {
+      setForm((prev) => ({ ...prev, receipt_url: publicUrl }));
+    }
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleRemoveReceipt = () => {
+    setForm((prev) => ({ ...prev, receipt_url: '' }));
+  };
+
   const handleExpenseSubmit = async () => {
     if (!form.amount || !form.date) return;
     setSaving(true);
@@ -225,10 +266,11 @@ export default function WalletPage() {
     try {
       const url = editingId ? `${API_BASE}/expenses/${editingId}` : `${API_BASE}/expenses`;
       const method = editingId ? 'PUT' : 'POST';
+      const payload = buildExpensePayload(form);
       const res = await fetch(url, {
         method,
         headers: getAuthHeaders(token),
-        body: JSON.stringify({ category: form.category, amount_cents: Math.round(Number(form.amount) * 100), description: form.description || null, date: form.date }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -515,8 +557,18 @@ export default function WalletPage() {
                     <Input placeholder="Description (optional)" value={form.description}
                       onChange={e => setForm({ ...form, description: e.target.value })} />
                   </div>
+
+                  <ReceiptUpload
+                    receiptUrl={form.receipt_url}
+                    uploading={receiptUploading}
+                    error={receiptError}
+                    onUpload={handleReceiptUpload}
+                    onRemove={handleRemoveReceipt}
+                    onPreview={setReceiptPreviewUrl}
+                  />
+
                   <div className="flex gap-2">
-                    <Button onClick={handleExpenseSubmit} disabled={saving || !form.amount}>
+                    <Button onClick={handleExpenseSubmit} disabled={saving || receiptUploading || !form.amount}>
                       <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}
                     </Button>
                     <Button variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }}>
@@ -545,10 +597,27 @@ export default function WalletPage() {
                             {expense.description && <div className="text-xs text-stone-500">{expense.description}</div>}
                             <div className="text-xs text-stone-400">{new Date(expense.date).toLocaleDateString()}</div>
                           </div>
+                          {isReceiptImage(expense.receipt_url) && (
+                            <button
+                              type="button"
+                              onClick={() => setReceiptPreviewUrl(expense.receipt_url!)}
+                              className="relative group flex-shrink-0"
+                              aria-label="View receipt"
+                            >
+                              <img
+                                src={expense.receipt_url}
+                                alt="Receipt"
+                                className="w-10 h-10 rounded-lg object-cover border border-stone-200 group-hover:opacity-75 transition-opacity"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <ImageIcon className="w-4 h-4 text-stone-700" />
+                              </div>
+                            </button>
+                          )}
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-bold text-red-600">-{formatCents(expense.amount_cents)}</span>
-                          <button onClick={() => { setForm({ category: expense.category, amount: (expense.amount_cents / 100).toString(), description: expense.description || '', date: expense.date.split('T')[0] }); setEditingId(expense.id); setShowForm(true); }}
+                          <button onClick={() => { setForm({ category: expense.category, amount: (expense.amount_cents / 100).toString(), description: expense.description || '', date: expense.date.split('T')[0], receipt_url: expense.receipt_url || '' }); setEditingId(expense.id); setShowForm(true); }}
                             className="p-1.5 text-stone-400 hover:text-emerald-600"><Pencil className="w-3.5 h-3.5" /></button>
                           <button onClick={() => setDeleteDialogId(expense.id)}
                             className="p-1.5 text-stone-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -659,6 +728,8 @@ export default function WalletPage() {
           )}
         </div>
       )}
+
+      <ReceiptPreviewModal url={receiptPreviewUrl} onClose={() => setReceiptPreviewUrl(null)} />
 
       <AlertDialog open={deleteDialogId !== null} onOpenChange={(open) => { if (!open) setDeleteDialogId(null); }}>
         <AlertDialogContent>

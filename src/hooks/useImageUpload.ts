@@ -22,7 +22,7 @@ export function useImageUpload(token: string | null) {
   });
 
   const upload = useCallback(
-    async (file: File, folder: 'pets' | 'avatars' | 'verifications' | 'walks' | 'sitter-photos' | 'posts' | 'incidents'): Promise<string | null> => {
+    async (file: File, folder: 'pets' | 'avatars' | 'verifications' | 'walks' | 'sitter-photos' | 'posts' | 'incidents' | 'receipts'): Promise<string | null> => {
       const allowsVideo = VIDEO_FOLDERS.has(folder);
       const allowedTypes = allowsVideo ? ALLOWED_TYPES_WITH_VIDEO : ALLOWED_TYPES;
       const maxSize = allowsVideo ? MAX_FILE_SIZE_WITH_VIDEO : MAX_FILE_SIZE;
