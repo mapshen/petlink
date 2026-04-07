@@ -10,6 +10,7 @@ import { calculateBookingPrice, calculateAdvancedPrice, calculateStayDuration, i
 import { getAddonBySlug } from '../../shared/addon-catalog.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
 import { recordStrike, evaluateConsequences, getStrikeEventForCancellation } from '../reliability.ts';
+import { shouldTriggerProtection, triggerReservationProtection, findReplacementSitters } from '../reservation-protection.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { format as formatDate } from 'date-fns';
 
@@ -543,12 +544,14 @@ export default function bookingRoutes(router: Router, io: Server): void {
         RETURNING *
       `;
     } else {
-      // Cancelled — sitter can cancel pending, owner can cancel pending or confirmed
+      // Cancelled — sitter can cancel pending or confirmed, owner can cancel pending or confirmed
       [updated] = await sql`
-        UPDATE bookings SET status = 'cancelled'::booking_status, responded_at = COALESCE(responded_at, NOW())
+        UPDATE bookings SET status = 'cancelled'::booking_status, responded_at = COALESCE(responded_at, NOW()),
+          cancelled_by = CASE WHEN sitter_id = ${req.userId} THEN 'sitter' ELSE 'owner' END,
+          cancelled_at = NOW()
         WHERE id = ${bookingId}
           AND (
-            (sitter_id = ${req.userId} AND status = 'pending')
+            (sitter_id = ${req.userId} AND status IN ('pending', 'confirmed'))
             OR (owner_id = ${req.userId} AND status IN ('pending', 'confirmed'))
           )
         RETURNING *
@@ -677,9 +680,61 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
     }
 
+    // Trigger reservation protection for sitter-cancelled confirmed bookings (async, non-blocking)
+    // payment_intent_id is set when payment is created for a confirmed booking — safe proxy for
+    // "was confirmed" since pending bookings don't have payment intents in our flow
+    if (status === 'cancelled' && updated.sitter_id === req.userId && updated.payment_intent_id) {
+      if (shouldTriggerProtection('confirmed', new Date(updated.start_time))) {
+        triggerReservationProtection(updated).catch((err: unknown) => {
+          logger.error({ err: sanitizeError(err), bookingId }, 'Failed to trigger reservation protection');
+        });
+      }
+    }
+
     // Strip payment_intent_id from response
     const { payment_intent_id: _pid, ...safeBooking } = updated;
     res.json({ booking: safeBooking, refund });
+  });
+
+  // --- Reservation Protection ---
+  router.get('/bookings/:id/protection', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const bookingId = Number(req.params.id);
+      if (!Number.isInteger(bookingId) || bookingId <= 0) {
+        res.status(400).json({ error: 'Invalid booking ID' });
+        return;
+      }
+
+      const [protection] = await sql`
+        SELECT rp.*, u.name as original_sitter_name
+        FROM reservation_protections rp
+        JOIN users u ON u.id = rp.original_sitter_id
+        WHERE rp.booking_id = ${bookingId} AND rp.owner_id = ${req.userId}
+      `;
+      if (!protection) {
+        res.status(404).json({ error: 'No reservation protection found for this booking' });
+        return;
+      }
+
+      // Fetch replacement sitter options if status is options_sent
+      let replacementSitters: any[] = [];
+      if (protection.status === 'options_sent') {
+        const [booking] = await sql`SELECT service_id FROM bookings WHERE id = ${bookingId}`;
+        const [service] = await sql`SELECT type FROM services WHERE id = ${booking?.service_id}`;
+        const [originalSitter] = await sql`SELECT lat, lng FROM users WHERE id = ${protection.original_sitter_id}`;
+
+        if (service && originalSitter?.lat && originalSitter?.lng) {
+          replacementSitters = await findReplacementSitters(
+            protection.original_sitter_id, service.type, originalSitter.lat, originalSitter.lng
+          );
+        }
+      }
+
+      res.json({ protection, replacement_sitters: replacementSitters });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch reservation protection');
+      res.status(500).json({ error: 'Failed to fetch reservation protection' });
+    }
   });
 
   // --- Meet & Greet Deposit Credit ---

@@ -44,7 +44,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:idOrSlug` (accepts numeric ID or slug) |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
 | Add-ons | `GET /addons/me`, `POST /addons`, `PUT /addons/:id`, `DELETE /addons/:id`, `GET /addons/sitter/:sitterId` |
-| Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
+| Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` (sitters can cancel confirmed), `GET /bookings/:id/protection` (owner views reservation protection) |
 | Incidents | `POST /incidents`, `GET /incidents/booking/:bookingId`, `GET /incidents/:id` |
 | Disputes | `POST /disputes`, `GET /disputes`, `GET /disputes/:id`, `POST /disputes/:id/messages`, `PUT /disputes/:id/status` (admin), `PUT /disputes/:id/resolve` (admin) |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read), `GET /messages/search?q=&userId=&limit=&offset=` |
@@ -144,6 +144,7 @@ PostgreSQL with PostGIS.
 | `credit_ledger` | User credit transactions: `amount_cents` (positive=credit, negative=redemption), `type` (referral/dispute_resolution/promo/beta_reward/milestone/redemption/expiration/dormancy_forfeiture), `source_type`, `source_id`, `expires_at`, `stripe_event_id` (unique, webhook idempotency). Balance = SUM of non-expired entries. Credits auto-apply to subscription renewals via `invoice.paid` webhook |
 | `private_pet_notes` | Sitter-only private notes about pets: `sitter_id`, `pet_id`, `booking_id`, `content` (max 2000), `flags` TEXT[] (aggressive/special_needs_undisclosed/medical_condition/other). UNIQUE(sitter_id, booking_id, pet_id). Only visible to admins. `pet_flag_count` included in booking pets for sitters |
 | `dormancy_forfeiture_log` | Compliance log: `user_id`, `amount_cents`, `credit_ledger_entry_id`, `forfeited_at`. Dormancy scheduler warns at 35 months, forfeits at 36 months inactive |
+| `reservation_protections` | Triggered on sitter cancellation of confirmed bookings within 48h. `booking_id` UNIQUE, `original_sitter_id`, `owner_id`, `status` (searching/options_sent/rebooked/owner_cancelled/no_alternatives), `replacement_booking_id`, `credit_issued_cents`. Auto-searches for nearby replacement sitters |
 
 PostgreSQL enums: `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`. User roles use `TEXT[]` (not an enum).
 
