@@ -39,11 +39,12 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Users | `PUT /users/me`, `POST /users/me/onboarding-started`, `POST /users/me/submit-application`, `GET /owners/:id/trust-profile` |
 | Pets | `GET/POST /pets`, `PUT/DELETE /pets/:id`, `GET/PUT /pets/:id/care-instructions` |
 | Pet Vaccinations | `GET /pets/:petId/vaccinations`, `POST /pets/:petId/vaccinations`, `DELETE /pets/:petId/vaccinations/:id` |
+| Pet Notes | `POST /pets/:petId/notes` (sitter, completed booking), `PUT /pets/:petId/notes/:noteId` (sitter), `GET /admin/pets/:petId/notes` (admin), `GET /admin/pets/:petId/flag-summary` (admin) |
 | Booking Care Tasks | `GET /bookings/:bookingId/care-tasks`, `PUT /bookings/:bookingId/care-tasks/:taskId/complete`, `PUT /bookings/:bookingId/care-tasks/:taskId/uncomplete`, `GET /care-tasks/today?tzOffset=` |
 | Sitters | `GET /sitters` (with optional `?serviceType=&lat=&lng=&radius=&minPrice=&maxPrice=&petSize=&species=`), `GET /sitters/:idOrSlug` (accepts numeric ID or slug) |
 | Services | `GET /services/me`, `POST /services`, `PUT /services/:id`, `DELETE /services/:id` |
 | Add-ons | `GET /addons/me`, `POST /addons`, `PUT /addons/:id`, `DELETE /addons/:id`, `GET /addons/sitter/:sitterId` |
-| Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` |
+| Bookings | `POST /bookings` (with `pet_ids` array), `GET /bookings` (includes `pets` array), `PUT /bookings/:id/status` (sitters can cancel confirmed), `GET /bookings/:id/protection` (owner views reservation protection) |
 | Incidents | `POST /incidents`, `GET /incidents/booking/:bookingId`, `GET /incidents/:id` |
 | Disputes | `POST /disputes`, `GET /disputes`, `GET /disputes/:id`, `POST /disputes/:id/messages`, `PUT /disputes/:id/status` (admin), `PUT /disputes/:id/resolve` (admin) |
 | Messages | `GET /conversations`, `GET /messages/:userId` (marks messages read), `GET /messages/search?q=&userId=&limit=&offset=` |
@@ -63,6 +64,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Inquiries | `POST /inquiries`, `GET /inquiries`, `GET /inquiries/:id`, `PUT /inquiries/:id/offer`, `PUT /inquiries/:id/accept`, `PUT /inquiries/:id/decline` |
 | References | `POST /references/invite`, `GET /references/me`, `GET /references/vouch/:token`, `POST /references/vouch/:token` |
 | Credits | `GET /credits/balance`, `GET /credits/history` (paginated), `POST /credits/issue` (admin) |
+| Partners | `GET /partners/offers`, `POST /partners/offers/:id/redeem`, admin: `GET/POST/PUT /admin/partners`, `POST /admin/partners/:id/offers`, `POST /admin/partners/offers/:id/add-codes`, `GET /admin/partners/offers/:id/redemptions` |
 | Reliability | `GET /reliability/score`, `GET /reliability/history` (paginated), `GET /admin/sitters/:id/strikes` (admin) |
 | Connect | `POST /connect/account`, `POST /connect/onboarding-link`, `GET /connect/status`, `POST /connect/refresh-link` |
 | Uploads | `POST /uploads/signed-url` |
@@ -109,11 +111,11 @@ PostgreSQL with PostGIS.
 
 | Table | Key Columns / Notes |
 |-------|-------------------|
-| `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `slug` (unique, SEO-friendly URL), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `accepted_pet_sizes`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10), `max_pets_at_once`, `max_pets_per_walk`, `house_rules`, `emergency_procedures`, `has_insurance`, onboarding: `onboarding_started_at`, `onboarding_reminder_sent_at`, `onboarding_reminder_count` (default 0), beta: `founding_sitter` (boolean), `beta_cohort` (founding/early_beta/post_beta), `credit_low_warning_sent_at` |
+| `users` | `roles TEXT[]` (default `{owner}`, constrained to owner/sitter/admin), `slug` (unique, SEO-friendly URL), `location` geography, nullable `password_hash` (OAuth-only), `email_verified`, `is_pro` (admin-only), `approval_status` (approved/pending_approval/rejected/banned), `approval_rejected_reason`, `approved_by`, `approved_at`, `stripe_customer_id`, sitter fields: `accepted_species`, `accepted_pet_sizes`, `years_experience`, `home_type`, `has_yard`, `has_fenced_yard`, `has_own_pets`, `own_pets_description`, `skills`, `service_radius_miles` (default 10), `max_pets_at_once`, `max_pets_per_walk`, `house_rules`, `emergency_procedures`, `has_insurance`, onboarding: `onboarding_started_at`, `onboarding_reminder_sent_at`, `onboarding_reminder_count` (default 0), beta: `founding_sitter` (boolean), `beta_cohort` (founding/early_beta/post_beta), `credit_low_warning_sent_at`, dormancy: `last_active_at` (throttled daily update in auth middleware), `dormancy_warning_sent_at` |
 | `pets` | `species`, `gender`, `spayed_neutered`, `energy_level`, `house_trained`, `temperament` text[], `special_needs`, `microchip_number`, vet/emergency contacts, `care_instructions` JSONB |
 | `pet_vaccinations` | Vaccine records with expiration tracking |
-| `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB |
-| `bookings` | Links owner, sitter, service with status/payment tracking, `payment_method` (card/ach_debit), `payment_failure_reason` |
+| `services` | `additional_pet_price`, `max_pets`, `service_details` JSONB, `nightly_rate_cents` (for sitting/daycare extended stays), `half_day_rate_cents` |
+| `bookings` | Links owner, sitter, service with status/payment tracking, `payment_method` (card/ach_debit), `payment_failure_reason`, `nights` (for extended stays), `half_days`, `is_extended_stay` |
 | `booking_pets` | Junction table for multi-pet bookings |
 | `booking_care_tasks` | Checklist items auto-populated from pet care instructions, `scheduled_time` TIMESTAMPTZ for timeline/notifications, `reminder_sent_at` for dedup |
 | `messages` | sender_id, receiver_id, content |
@@ -140,7 +142,13 @@ PostgreSQL with PostGIS.
 | `booking_addons` | Junction table snapshotting selected add-ons at booking time. `addon_slug`, `price_cents` (immutable snapshot), PK (booking_id, addon_slug) |
 | `sitter_payouts` | Delayed payout scheduling, `amount_cents` INTEGER, `status` CHECK, unique `booking_id` |
 | `sitter_strikes` | Reliability tracking: `event_type` (sitter_no_show/sitter_cancel_24h/sitter_cancel_48h/meet_greet_no_show/dispute_resolution), `strike_weight`, `expires_at` (90-day rolling window). Thresholds: 1=warning, 3=flagged, 5=search demotion (-0.15), 7=suspension |
+| `partners` | Brand partners: `name`, `logo_url`, `website_url`, `active`. Referenced by `partner_offers` |
+| `partner_offers` | Partner coupon offers: `partner_id`, `title`, `credit_cost_cents`, `offer_value_description`, `coupon_pool TEXT[]` (pre-loaded codes), `coupon_auto_generate` + `coupon_prefix` (for auto-generated codes), `max_redemptions_per_user`, `total_redemptions` |
+| `coupon_redemptions` | Tracks which users redeemed which offers: `user_id`, `offer_id`, `coupon_code`, `credit_ledger_entry_id`, `redeemed_at` |
 | `credit_ledger` | User credit transactions: `amount_cents` (positive=credit, negative=redemption), `type` (referral/dispute_resolution/promo/beta_reward/milestone/redemption/expiration/dormancy_forfeiture), `source_type`, `source_id`, `expires_at`, `stripe_event_id` (unique, webhook idempotency). Balance = SUM of non-expired entries. Credits auto-apply to subscription renewals via `invoice.paid` webhook |
+| `private_pet_notes` | Sitter-only private notes about pets: `sitter_id`, `pet_id`, `booking_id`, `content` (max 2000), `flags` TEXT[] (aggressive/special_needs_undisclosed/medical_condition/other). UNIQUE(sitter_id, booking_id, pet_id). Only visible to admins. `pet_flag_count` included in booking pets for sitters |
+| `dormancy_forfeiture_log` | Compliance log: `user_id`, `amount_cents`, `credit_ledger_entry_id`, `forfeited_at`. Dormancy scheduler warns at 35 months, forfeits at 36 months inactive |
+| `reservation_protections` | Triggered on sitter cancellation of confirmed bookings within 48h. `booking_id` UNIQUE, `original_sitter_id`, `owner_id`, `status` (searching/options_sent/rebooked/owner_cancelled/no_alternatives), `replacement_booking_id`, `credit_issued_cents`. Auto-searches for nearby replacement sitters |
 
 PostgreSQL enums: `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`. User roles use `TEXT[]` (not an enum).
 

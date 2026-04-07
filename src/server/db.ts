@@ -956,6 +956,116 @@ export async function initDb() {
   await sql`ALTER TABLE credit_ledger ADD COLUMN IF NOT EXISTS stripe_event_id TEXT`.catch(() => {});
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_stripe_event ON credit_ledger (stripe_event_id) WHERE stripe_event_id IS NOT NULL`.catch(() => {});
 
+  // Issue #414: Brand partnership coupon codes
+  await sql`
+    CREATE TABLE IF NOT EXISTS partners (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      logo_url TEXT,
+      website_url TEXT,
+      active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS partner_offers (
+      id SERIAL PRIMARY KEY,
+      partner_id INTEGER NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      credit_cost_cents INTEGER NOT NULL CHECK(credit_cost_cents > 0),
+      offer_value_description TEXT NOT NULL,
+      coupon_pool TEXT[] DEFAULT '{}',
+      coupon_auto_generate BOOLEAN DEFAULT false,
+      coupon_prefix TEXT,
+      active BOOLEAN DEFAULT true,
+      max_redemptions_per_user INTEGER DEFAULT 1,
+      total_redemptions INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_partner_offers_partner ON partner_offers (partner_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_partner_offers_active ON partner_offers (active) WHERE active = true`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS coupon_redemptions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      offer_id INTEGER NOT NULL REFERENCES partner_offers(id),
+      coupon_code TEXT NOT NULL,
+      credit_ledger_entry_id INTEGER REFERENCES credit_ledger(id),
+      redeemed_at TIMESTAMPTZ DEFAULT NOW(),
+      emailed_at TIMESTAMPTZ
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_coupon_redemptions_user ON coupon_redemptions (user_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_coupon_redemptions_offer ON coupon_redemptions (offer_id)`.catch(() => {});
+
+  // Issue #406: Private pet notes from sitters
+  await sql`
+    CREATE TABLE IF NOT EXISTS private_pet_notes (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+      content TEXT NOT NULL CHECK(char_length(content) <= 2000),
+      flags TEXT[] DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(sitter_id, booking_id, pet_id)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_private_pet_notes_pet ON private_pet_notes (pet_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_private_pet_notes_sitter ON private_pet_notes (sitter_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_private_pet_notes_booking ON private_pet_notes (booking_id)`.catch(() => {});
+
+  // Issue #409: Extended stay billing
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS nightly_rate_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS half_day_rate_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS nights INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS half_days INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_extended_stay BOOLEAN DEFAULT false`.catch(() => {});
+
+  // Issue #415: Credit dormancy policy
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS dormancy_warning_sent_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE credit_ledger DROP CONSTRAINT IF EXISTS credit_ledger_type_check`.catch(() => {});
+  await sql`ALTER TABLE credit_ledger ADD CONSTRAINT credit_ledger_type_check CHECK(type IN ('referral', 'dispute_resolution', 'promo', 'beta_reward', 'milestone', 'redemption', 'expiration', 'dormancy_forfeiture'))`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS dormancy_forfeiture_log (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount_cents INTEGER NOT NULL,
+      credit_ledger_entry_id INTEGER REFERENCES credit_ledger(id),
+      forfeited_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_dormancy_forfeiture_user ON dormancy_forfeiture_log (user_id)`.catch(() => {});
+
+  // Issue #408: Reservation protection
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_by TEXT`.catch(() => {});
+  await sql`ALTER TABLE bookings DROP CONSTRAINT IF EXISTS chk_cancelled_by`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD CONSTRAINT chk_cancelled_by CHECK (cancelled_by IS NULL OR cancelled_by IN ('sitter', 'owner'))`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS reservation_protections (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id),
+      original_sitter_id INTEGER NOT NULL REFERENCES users(id),
+      owner_id INTEGER NOT NULL REFERENCES users(id),
+      triggered_at TIMESTAMPTZ DEFAULT NOW(),
+      status TEXT NOT NULL DEFAULT 'searching'
+        CHECK(status IN ('searching', 'options_sent', 'rebooked', 'owner_cancelled', 'no_alternatives')),
+      replacement_booking_id INTEGER REFERENCES bookings(id),
+      credit_issued_cents INTEGER DEFAULT 0,
+      resolved_at TIMESTAMPTZ
+    )
+  `.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_reservation_protections_booking ON reservation_protections (booking_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_reservation_protections_owner ON reservation_protections (owner_id)`.catch(() => {});
+
   // Issue #392: Tax tools Phase 1
   await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS auto_logged BOOLEAN DEFAULT false`.catch(() => {});
   await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS source_reference TEXT`.catch(() => {});

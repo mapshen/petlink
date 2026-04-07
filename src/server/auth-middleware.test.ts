@@ -80,13 +80,13 @@ describe('authMiddleware', () => {
     const next = vi.fn();
 
     mockedSql.mockResolvedValueOnce([{ id: 42 }] as any);
+    mockedSql.mockResolvedValueOnce([] as any); // last_active_at update (fire-and-forget)
 
     await authMiddleware(req, res, next);
 
     expect(next).toHaveBeenCalled();
     expect(req.userId).toBe(42);
     expect(res.status).not.toHaveBeenCalled();
-    expect(mockedSql).toHaveBeenCalledTimes(1);
   });
 });
 
