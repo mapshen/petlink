@@ -251,6 +251,8 @@ export const createSitterPostSchema = z.object({
 // --- Review Schemas ---
 const subRating = z.number().int().min(1, 'Sub-rating must be 1-5').max(5, 'Sub-rating must be 1-5').optional().nullable();
 
+export const PRIVATE_FLAG_VALUES = ['safety_concern', 'pet_behavior', 'communication_issue', 'accuracy_issue', 'cleanliness', 'no_show_concern'] as const;
+
 export const createReviewSchema = z.object({
   booking_id: z.number().int().positive('Invalid booking ID'),
   rating: z.number().int().min(1, 'Rating must be 1-5').max(5, 'Rating must be 1-5'),
@@ -260,6 +262,8 @@ export const createReviewSchema = z.object({
   reliability_rating: subRating,
   pet_accuracy_rating: subRating,
   preparedness_rating: subRating,
+  private_flags: z.array(z.enum(PRIVATE_FLAG_VALUES)).max(6).optional().default([]),
+  private_note: z.string().trim().max(1000, 'Private note must be under 1000 characters').optional().nullable(),
 });
 
 export const reviewResponseSchema = z.object({

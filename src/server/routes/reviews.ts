@@ -14,6 +14,7 @@ export default function reviewRoutes(router: Router): void {
         booking_id, rating, comment,
         pet_care_rating, communication_rating, reliability_rating,
         pet_accuracy_rating, preparedness_rating,
+        private_flags, private_note,
       } = req.body;
 
       const [booking] = await sql`SELECT id, owner_id, sitter_id, status, end_time FROM bookings WHERE id = ${booking_id}`;
@@ -68,16 +69,20 @@ export default function reviewRoutes(router: Router): void {
         ? { accuracy: pet_accuracy_rating ?? null, comm: communication_rating ?? null, prep: preparedness_rating ?? null }
         : { accuracy: null, comm: null, prep: null };
 
+      const flagsArray = Array.isArray(private_flags) && private_flags.length > 0 ? private_flags : [];
+
       const [review] = await sql`
         INSERT INTO reviews (
           booking_id, reviewer_id, reviewee_id, rating, comment,
           pet_care_rating, communication_rating, reliability_rating,
-          pet_accuracy_rating, preparedness_rating
+          pet_accuracy_rating, preparedness_rating,
+          private_flags, private_note
         )
         VALUES (
           ${booking_id}, ${req.userId}, ${revieweeId}, ${rating}, ${comment || null},
           ${ownerSubRatings.pet_care}, ${isOwner ? ownerSubRatings.comm : sitterSubRatings.comm},
-          ${ownerSubRatings.reliability}, ${sitterSubRatings.accuracy}, ${sitterSubRatings.prep}
+          ${ownerSubRatings.reliability}, ${sitterSubRatings.accuracy}, ${sitterSubRatings.prep},
+          ${flagsArray}, ${private_note || null}
         )
         RETURNING id
       `;
@@ -172,9 +177,11 @@ export default function reviewRoutes(router: Router): void {
 
       // Mark own unpublished reviews with a pending flag for the frontend
       // Redact hidden reviews to show placeholder
-      const reviews = visibleReviews.map((r: { reviewer_id: number; published_at: string | null; created_at: string; hidden_at: string | null }) => {
+      // Strip private_flags and private_note from public responses
+      const reviews = visibleReviews.map((r: { reviewer_id: number; published_at: string | null; created_at: string; hidden_at: string | null; private_flags?: string[]; private_note?: string | null }) => {
+        const { private_flags: _pf, private_note: _pn, ...rest } = r;
         const base = {
-          ...r,
+          ...rest,
           is_pending: r.reviewer_id === req.userId && r.published_at === null && (Date.now() - new Date(r.created_at).getTime()) <= THREE_DAYS_MS,
         };
         if (r.hidden_at) {
@@ -200,7 +207,7 @@ export default function reviewRoutes(router: Router): void {
         return;
       }
 
-      const reviews = await sql`
+      const rawReviews = await sql`
         SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
         FROM reviews r
         JOIN users u ON r.reviewer_id = u.id
@@ -211,6 +218,12 @@ export default function reviewRoutes(router: Router): void {
           ${roleFilter === 'sitter' ? sql`AND r.pet_care_rating IS NOT NULL` : sql``}
         ORDER BY r.created_at DESC
       `;
+
+      // Strip private_flags and private_note from public responses
+      const reviews = rawReviews.map((r: { private_flags?: string[]; private_note?: string | null }) => {
+        const { private_flags: _pf, private_note: _pn, ...rest } = r;
+        return rest;
+      });
 
       res.json({ reviews });
     } catch (error) {

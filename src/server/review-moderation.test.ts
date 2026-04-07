@@ -54,6 +54,8 @@ function createTestDb() {
       published_at DATETIME,
       hidden_at DATETIME,
       hidden_by INTEGER REFERENCES users(id),
+      private_flags TEXT DEFAULT '',
+      private_note TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(booking_id, reviewer_id)
     );

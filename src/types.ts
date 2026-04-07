@@ -405,6 +405,8 @@ export interface Conversation {
   unread_count: number;
 }
 
+export type PrivateReviewFlag = 'safety_concern' | 'pet_behavior' | 'communication_issue' | 'accuracy_issue' | 'cleanliness' | 'no_show_concern';
+
 export interface Review {
   id: number;
   booking_id: number;
@@ -423,6 +425,8 @@ export interface Review {
   published_at?: string | null;
   hidden_at?: string | null;
   hidden_by?: number | null;
+  private_flags?: PrivateReviewFlag[];
+  private_note?: string | null;
   reviewer_name?: string;
   reviewer_avatar?: string;
   reviewee_name?: string;

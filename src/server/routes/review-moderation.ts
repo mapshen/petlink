@@ -19,6 +19,7 @@ export default function reviewModerationRoutes(router: Router): void {
         SELECT rr.*,
           r.rating as review_rating, r.comment as review_comment,
           r.reviewer_id, r.reviewee_id, r.hidden_at as review_hidden_at,
+          r.private_flags as review_private_flags, r.private_note as review_private_note,
           reporter.name as reporter_name, reporter.email as reporter_email,
           reviewer.name as reviewer_name, reviewer.email as reviewer_email,
           reviewee.name as reviewee_name
@@ -179,6 +180,39 @@ export default function reviewModerationRoutes(router: Router): void {
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to hide review');
       res.status(500).json({ error: 'Failed to hide review' });
+    }
+  });
+
+  // Admin: get reviews with private flags (staff-flagged reviews queue)
+  router.get('/admin/reviews/flagged', adminMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 20, 100);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+
+      const reviews = await sql`
+        SELECT r.*,
+          reviewer.name as reviewer_name, reviewer.email as reviewer_email,
+          reviewee.name as reviewee_name, reviewee.email as reviewee_email,
+          s.type as service_type
+        FROM reviews r
+        JOIN users reviewer ON r.reviewer_id = reviewer.id
+        JOIN users reviewee ON r.reviewee_id = reviewee.id
+        JOIN bookings b ON r.booking_id = b.id
+        LEFT JOIN services s ON b.service_id = s.id
+        WHERE array_length(r.private_flags, 1) > 0
+        ORDER BY r.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+
+      const [{ total }] = await sql`
+        SELECT count(*)::int as total FROM reviews
+        WHERE array_length(private_flags, 1) > 0
+      `;
+
+      res.json({ reviews, total });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch flagged reviews');
+      res.status(500).json({ error: 'Failed to fetch flagged reviews' });
     }
   });
 }

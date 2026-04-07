@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { Booking, Inquiry } from '../../types';
-import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2, Heart, AlertTriangle, Scale } from 'lucide-react';
+import { Booking, Inquiry, PrivateReviewFlag } from '../../types';
+import { Calendar, MapPin, XCircle, RefreshCw, Star, Loader2, Heart, AlertTriangle, Scale, ShieldAlert } from 'lucide-react';
 import TipDialog from '../../components/booking/TipDialog';
 import BookingGuidance from '../../components/booking/BookingGuidance';
 import BookingReviewDetail from '../../components/review/BookingReviewDetail';
@@ -591,6 +591,55 @@ export default function HomePage() {
                 maxLength={1000}
                 className="w-full px-3 py-2 border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
+            </div>
+
+            {/* Private flags for staff */}
+            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-xs font-semibold text-stone-500 mb-0 w-full text-left"
+                onClick={() => {
+                  const el = document.getElementById('private-flags-section');
+                  if (el) el.classList.toggle('hidden');
+                }}
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                Flag for PetLink staff? (optional)
+              </button>
+              <div id="private-flags-section" className="hidden mt-2.5 space-y-2.5">
+                <p className="text-[10px] text-stone-400">These tags are private and only visible to PetLink staff.</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    { value: 'safety_concern' as PrivateReviewFlag, label: 'Safety Concern' },
+                    { value: 'pet_behavior' as PrivateReviewFlag, label: 'Pet Behavior' },
+                    { value: 'communication_issue' as PrivateReviewFlag, label: 'Communication Issue' },
+                    { value: 'accuracy_issue' as PrivateReviewFlag, label: 'Accuracy Issue' },
+                    { value: 'cleanliness' as PrivateReviewFlag, label: 'Cleanliness' },
+                    { value: 'no_show_concern' as PrivateReviewFlag, label: 'No-Show Concern' },
+                  ]).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => review.togglePrivateFlag(value)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                        review.privateFlags.includes(value)
+                          ? 'bg-amber-100 border-amber-300 text-amber-800'
+                          : 'bg-white border-stone-200 text-stone-500 hover:border-stone-300'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={review.privateNote}
+                  onChange={(e) => review.setPrivateNote(e.target.value)}
+                  placeholder="Private note for staff (optional)..."
+                  rows={2}
+                  maxLength={1000}
+                  className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
