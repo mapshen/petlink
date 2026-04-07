@@ -2,45 +2,44 @@ import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { requireSitterRole } from '../analytics.ts';
-import { computeBookingInsights, type InsightInput } from '../booking-insights.ts';
+import { computeBookingInsights, computeProfileCompleteness, type InsightInput } from '../booking-insights.ts';
 import { isNewSitter } from '../sitter-ranking.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
+interface ProfileRow {
+  has_avatar: boolean;
+  has_bio: boolean;
+  has_location: boolean;
+  accepted_species: string[] | null;
+  approved_at: string | null;
+}
+
 async function fetchProfileData(sitterId: number) {
-  const [user] = await sql`
-    SELECT
-      avatar_url IS NOT NULL AND avatar_url != '' AS has_avatar,
-      bio IS NOT NULL AND bio != '' AS has_bio,
-      location IS NOT NULL AS has_location,
-      accepted_species,
-      approved_at
-    FROM users WHERE id = ${sitterId}
-  `;
+  const [userRows, [serviceStat], [availStat], [photoStat], [verification]] = await Promise.all([
+    sql`
+      SELECT
+        avatar_url IS NOT NULL AND avatar_url != '' AS has_avatar,
+        bio IS NOT NULL AND bio != '' AS has_bio,
+        location IS NOT NULL AS has_location,
+        accepted_species,
+        approved_at
+      FROM users WHERE id = ${sitterId}
+    `,
+    sql`SELECT COUNT(*)::int AS count FROM services WHERE user_id = ${sitterId}`,
+    sql`SELECT COUNT(*)::int AS count FROM availability WHERE sitter_id = ${sitterId} AND end_time > NOW()`,
+    sql`SELECT COUNT(*)::int AS count FROM sitter_photos WHERE sitter_id = ${sitterId}`,
+    sql`SELECT background_check_status FROM verifications WHERE sitter_id = ${sitterId}`,
+  ]);
 
-  const [serviceStat] = await sql`
-    SELECT COUNT(*)::int AS count FROM services WHERE user_id = ${sitterId}
-  `;
-
-  const [availStat] = await sql`
-    SELECT COUNT(*)::int AS count FROM availability
-    WHERE sitter_id = ${sitterId} AND end_time > NOW()
-  `;
-
-  const [photoStat] = await sql`
-    SELECT COUNT(*)::int AS count FROM sitter_photos WHERE sitter_id = ${sitterId}
-  `;
-
-  const [verification] = await sql`
-    SELECT background_check_status FROM verifications WHERE sitter_id = ${sitterId}
-  `;
+  const user = userRows[0] as ProfileRow | undefined;
 
   return {
     has_avatar: user?.has_avatar ?? false,
     has_bio: user?.has_bio ?? false,
-    service_count: serviceStat?.count ?? 0,
-    has_availability: (availStat?.count ?? 0) > 0,
+    service_count: (serviceStat?.count as number) ?? 0,
+    has_availability: ((availStat?.count as number) ?? 0) > 0,
     has_background_check: verification?.background_check_status === 'passed',
-    photo_count: photoStat?.count ?? 0,
+    photo_count: (photoStat?.count as number) ?? 0,
     has_location: user?.has_location ?? false,
     accepted_species: user?.accepted_species ?? null,
     approved_at: user?.approved_at ?? null,
@@ -201,19 +200,8 @@ export default function insightRoutes(router: Router): void {
 
       const { approved_at, ...profile } = profileData;
 
-      // We need profile completeness to pass to visibility, but we also compute it inside.
-      // Use a quick inline calc to avoid circular dependency.
-      const roughCompleteness = [
-        profile.has_avatar ? 20 : 0,
-        profile.has_bio ? 15 : 0,
-        profile.has_background_check ? 20 : 0,
-        profile.has_availability ? 15 : 0,
-        profile.has_location ? 10 : 0,
-        profile.service_count > 0 ? 10 : 0,
-        profile.photo_count >= 3 ? 10 : profile.photo_count > 0 ? 5 : 0,
-      ].reduce((a, b) => a + b, 0);
-
-      const visibilityData = await fetchVisibilityData(sitterId, Math.min(roughCompleteness, 100), approved_at);
+      const profilePct = computeProfileCompleteness(profile);
+      const visibilityData = await fetchVisibilityData(sitterId, profilePct, approved_at);
 
       const input: InsightInput = {
         profile,
