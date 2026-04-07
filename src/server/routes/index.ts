@@ -39,3 +39,4 @@ export { default as loyaltyDiscountRoutes } from './loyalty-discounts.ts';
 export { default as insightRoutes } from './insights.ts';
 export { default as referralRoutes } from './referrals.ts';
 export { default as phoneRelayRoutes } from './phone-relay.ts';
+export { default as banActionRoutes } from './ban-actions.ts';

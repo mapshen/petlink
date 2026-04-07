@@ -617,3 +617,24 @@ export const messageSearchSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   offset: z.coerce.number().int().min(0).optional().default(0),
 });
+
+// --- Ban Action Schemas ---
+const banReasons = ['safety_violation', 'fraud', 'policy_violation', 'abuse', 'inactivity', 'other'] as const;
+const banActionTypes = ['warning', 'suspension', 'ban'] as const;
+
+export const banActionSchema = z.object({
+  action_type: z.enum(banActionTypes, { message: 'Action type must be warning, suspension, or ban' }),
+  reason: z.enum(banReasons, { message: 'Invalid ban reason' }),
+  description: z.string().min(1, 'Description is required').max(1000, 'Description must be under 1000 characters'),
+  expires_at: z.string().datetime().optional().nullable(),
+});
+
+export const banAppealSchema = z.object({
+  ban_action_id: z.number().int().positive('Ban action ID is required'),
+  reason: z.string().min(10, 'Appeal reason must be at least 10 characters').max(2000, 'Appeal reason must be under 2000 characters'),
+});
+
+export const appealReviewSchema = z.object({
+  status: z.enum(['approved', 'denied'], { message: 'Status must be approved or denied' }),
+  admin_response: z.string().min(1, 'Admin response is required').max(2000, 'Admin response must be under 2000 characters'),
+});

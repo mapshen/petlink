@@ -98,8 +98,13 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
       return;
     }
     if (user.approval_status === 'banned') {
-      res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
-      return;
+      // Check if suspension has expired before blocking
+      const { checkSuspensionExpiry } = await import('./ban-actions.ts');
+      const restored = await checkSuspensionExpiry(decoded.userId);
+      if (!restored) {
+        res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
+        return;
+      }
     }
     req.userId = decoded.userId;
 
