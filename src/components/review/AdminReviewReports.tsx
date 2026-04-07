@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Flag, Loader2, Star, Eye, EyeOff, Ban, CheckCircle2 } from 'lucide-react';
+import { Flag, Loader2, Star, Eye, EyeOff, Ban, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 import type { ReviewReportStatus } from '../../types';
@@ -33,6 +33,8 @@ interface AdminReport {
   reviewer_id: number;
   reviewee_id: number;
   review_hidden_at: string | null;
+  review_private_flags: string[];
+  review_private_note: string | null;
   reporter_name: string;
   reporter_email: string;
   reviewer_name: string;
@@ -58,6 +60,15 @@ const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
   dismissed: 'bg-stone-100 text-stone-600',
   actioned: 'bg-red-100 text-red-700',
+};
+
+const PRIVATE_FLAG_LABELS: Record<string, { label: string; style: string }> = {
+  safety_concern: { label: 'Safety Concern', style: 'bg-red-100 text-red-700 border-red-200' },
+  pet_behavior: { label: 'Pet Behavior', style: 'bg-orange-100 text-orange-700 border-orange-200' },
+  communication_issue: { label: 'Communication', style: 'bg-blue-100 text-blue-700 border-blue-200' },
+  accuracy_issue: { label: 'Accuracy Issue', style: 'bg-purple-100 text-purple-700 border-purple-200' },
+  cleanliness: { label: 'Cleanliness', style: 'bg-teal-100 text-teal-700 border-teal-200' },
+  no_show_concern: { label: 'No-Show Concern', style: 'bg-rose-100 text-rose-700 border-rose-200' },
 };
 
 export default function AdminReviewReports({ token }: AdminReviewReportsProps) {
@@ -198,6 +209,29 @@ export default function AdminReviewReports({ token }: AdminReviewReportsProps) {
                       <Badge className="mt-2 bg-red-100 text-red-700 text-[10px]">Already hidden</Badge>
                     )}
                   </div>
+
+                  {/* Private flags (staff-only tags from reviewer) */}
+                  {report.review_private_flags && report.review_private_flags.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide block mb-1">Staff Flags</span>
+                        <div className="flex flex-wrap gap-1">
+                          {report.review_private_flags.map((flag) => {
+                            const meta = PRIVATE_FLAG_LABELS[flag] || { label: flag, style: 'bg-stone-100 text-stone-600 border-stone-200' };
+                            return (
+                              <span key={flag} className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${meta.style}`}>
+                                {meta.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        {report.review_private_note && (
+                          <p className="text-xs text-stone-600 mt-1 italic">"{report.review_private_note}"</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Reporter info */}
                   <div className="text-xs text-stone-500">

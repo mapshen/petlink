@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getAuthHeaders } from '../context/AuthContext';
 import { API_BASE } from '../config';
+import type { PrivateReviewFlag } from '../types';
 
 interface SubRatings {
   pet_care_rating: number | null;
@@ -30,6 +31,8 @@ export function useReviewDialog({ token, onError, reviewerRole = 'owner', onSucc
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [subRatings, setSubRatings] = useState<SubRatings>({ ...EMPTY_SUB_RATINGS });
+  const [privateFlags, setPrivateFlags] = useState<PrivateReviewFlag[]>([]);
+  const [privateNote, setPrivateNote] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<number>>(new Set());
 
@@ -37,11 +40,19 @@ export function useReviewDialog({ token, onError, reviewerRole = 'owner', onSucc
     setSubRatings((prev) => ({ ...prev, [key]: value }));
   };
 
+  const togglePrivateFlag = (flag: PrivateReviewFlag) => {
+    setPrivateFlags((prev) =>
+      prev.includes(flag) ? prev.filter((f) => f !== flag) : [...prev, flag]
+    );
+  };
+
   const openReview = (bookingId: number) => {
     setReviewBookingId(bookingId);
     setReviewRating(5);
     setReviewComment('');
     setSubRatings({ ...EMPTY_SUB_RATINGS });
+    setPrivateFlags([]);
+    setPrivateNote('');
   };
 
   const closeReview = () => {
@@ -49,6 +60,8 @@ export function useReviewDialog({ token, onError, reviewerRole = 'owner', onSucc
     setReviewRating(5);
     setReviewComment('');
     setSubRatings({ ...EMPTY_SUB_RATINGS });
+    setPrivateFlags([]);
+    setPrivateNote('');
   };
 
   const submitReview = async () => {
@@ -63,6 +76,8 @@ export function useReviewDialog({ token, onError, reviewerRole = 'owner', onSucc
           rating: reviewRating,
           comment: reviewComment || null,
           ...subRatings,
+          private_flags: privateFlags.length > 0 ? privateFlags : [],
+          private_note: privateNote.trim() || null,
         }),
       });
       if (!res.ok) {
@@ -74,6 +89,8 @@ export function useReviewDialog({ token, onError, reviewerRole = 'owner', onSucc
       setReviewRating(5);
       setReviewComment('');
       setSubRatings({ ...EMPTY_SUB_RATINGS });
+      setPrivateFlags([]);
+      setPrivateNote('');
       onSuccess?.();
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Failed to submit review');
@@ -106,6 +123,10 @@ export function useReviewDialog({ token, onError, reviewerRole = 'owner', onSucc
     subRatings,
     setSubRating,
     subRatingCategories,
+    privateFlags,
+    togglePrivateFlag,
+    privateNote,
+    setPrivateNote,
     reviewSubmitting,
     isReviewed,
     openReview,

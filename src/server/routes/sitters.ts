@@ -220,7 +220,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     const authHeader = req.headers.authorization;
     let reviews: any[] = [];
     if (authHeader?.startsWith('Bearer ')) {
-      reviews = await sql`
+      const rawReviews = await sql`
         SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
         FROM reviews r
         JOIN users u ON r.reviewer_id = u.id
@@ -229,6 +229,11 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
           AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
         ORDER BY r.created_at DESC
       `;
+      // Strip private_flags and private_note from public responses
+      reviews = rawReviews.map((r: { private_flags?: string[]; private_note?: string | null }) => {
+        const { private_flags: _pf, private_note: _pn, ...rest } = r;
+        return rest;
+      });
     }
 
     const imported_reviews = await sql`

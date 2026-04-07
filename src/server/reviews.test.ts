@@ -51,6 +51,8 @@ function createTestDb() {
       response_text TEXT,
       response_at DATETIME,
       published_at DATETIME,
+      private_flags TEXT DEFAULT '',
+      private_note TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(booking_id, reviewer_id)
     );

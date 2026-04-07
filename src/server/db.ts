@@ -327,6 +327,8 @@ export async function initDb() {
       published_at TIMESTAMPTZ,
       hidden_at TIMESTAMPTZ,
       hidden_by INTEGER REFERENCES users(id),
+      private_flags TEXT[] DEFAULT '{}',
+      private_note TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(booking_id, reviewer_id)
     )
@@ -334,6 +336,9 @@ export async function initDb() {
   // Migration: add hidden columns to existing reviews table
   await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ`.catch(() => {});
   await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS hidden_by INTEGER REFERENCES users(id)`.catch(() => {});
+  // Migration: add private flags columns to existing reviews table
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS private_flags TEXT[] DEFAULT '{}'`.catch(() => {});
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS private_note TEXT`.catch(() => {});
 
   await sql`
     CREATE TABLE IF NOT EXISTS availability (
