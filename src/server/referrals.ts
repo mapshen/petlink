@@ -9,9 +9,12 @@ export const REFERRED_CREDIT_CENTS = dollarsToCents(5);
 export const MAX_REFERRALS_PER_MONTH = 20;
 export const REFERRAL_EXPIRY_DAYS = 90;
 
+const ALPHANUMERIC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid confusion
+
 /** Generate an 8-character alphanumeric referral code. */
 export function generateReferralCode(): string {
-  return crypto.randomBytes(5).toString('hex').slice(0, 8).toUpperCase();
+  const bytes = crypto.randomBytes(8);
+  return Array.from(bytes, (b) => ALPHANUMERIC[b % ALPHANUMERIC.length]).join('');
 }
 
 /** Get or create a referral code for a user. */
@@ -25,6 +28,13 @@ export async function getOrCreateReferralCode(userId: number): Promise<string> {
     WHERE id = ${userId} AND referral_code IS NULL
     RETURNING referral_code
   `;
+
+  // Race condition: another request may have set the code first
+  if (!updated) {
+    const [existing] = await sql`SELECT referral_code FROM users WHERE id = ${userId}`;
+    return existing.referral_code;
+  }
+
   return updated.referral_code;
 }
 

@@ -33,9 +33,9 @@ describe('referrals', () => {
   beforeEach(() => vi.clearAllMocks());
 
   describe('generateReferralCode', () => {
-    it('returns an 8-character alphanumeric string', () => {
+    it('returns an 8-character alphanumeric string (no ambiguous chars)', () => {
       const code = generateReferralCode();
-      expect(code).toMatch(/^[A-Z0-9]{8}$/);
+      expect(code).toMatch(/^[A-HJ-NP-Z2-9]{8}$/);
       expect(code).toHaveLength(8);
     });
 
