@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildExpensePayload, isReceiptImage } from './WalletPage';
+import { buildExpensePayload, buildRecurringExpensePayload, isReceiptImage } from './WalletPage';
 
 describe('buildExpensePayload', () => {
   it('includes receipt_url when provided', () => {
@@ -96,5 +96,47 @@ describe('isReceiptImage', () => {
   it('is case-insensitive', () => {
     expect(isReceiptImage('https://cdn.example.com/receipt.JPG')).toBe(true);
     expect(isReceiptImage('https://cdn.example.com/receipt.PNG')).toBe(true);
+  });
+});
+
+describe('buildRecurringExpensePayload', () => {
+  it('converts dollars to cents and includes day_of_month', () => {
+    const payload = buildRecurringExpensePayload({
+      category: 'insurance',
+      amount: '45.00',
+      description: 'Pet insurance',
+      day_of_month: 1,
+    });
+    expect(payload).toEqual({
+      category: 'insurance',
+      amount_cents: 4500,
+      description: 'Pet insurance',
+      day_of_month: 1,
+    });
+  });
+
+  it('sends null description when empty', () => {
+    const payload = buildRecurringExpensePayload({
+      category: 'supplies',
+      amount: '25.50',
+      description: '',
+      day_of_month: 15,
+    });
+    expect(payload).toEqual({
+      category: 'supplies',
+      amount_cents: 2550,
+      description: null,
+      day_of_month: 15,
+    });
+  });
+
+  it('handles floating point amounts correctly', () => {
+    const payload = buildRecurringExpensePayload({
+      category: 'equipment',
+      amount: '9.99',
+      description: 'Software',
+      day_of_month: 28,
+    });
+    expect(payload.amount_cents).toBe(999);
   });
 });
