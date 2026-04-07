@@ -279,6 +279,11 @@ export default function reviewRoutes(router: Router): void {
         return;
       }
 
+      if (review.hidden_at) {
+        res.status(400).json({ error: 'Cannot respond to a removed review' });
+        return;
+      }
+
       if (review.reviewee_id !== req.userId) {
         res.status(403).json({ error: 'Only the person being reviewed can respond' });
         return;
