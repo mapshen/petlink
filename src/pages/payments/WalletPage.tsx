@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle, Gift, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle, Gift, ImageIcon } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { Booking, SitterPayout, PayoutStatus, CreditEntry } from '../../types';
 import { Button } from '../../components/ui/button';
@@ -20,6 +20,8 @@ import {
 } from '../../components/ui/alert-dialog';
 import { formatCents, dollarsToCents } from '../../lib/money';
 import { useImageUpload } from '../../hooks/useImageUpload';
+import ReceiptUpload from '../../components/payment/ReceiptUpload';
+import ReceiptPreviewModal from '../../components/payment/ReceiptPreviewModal';
 
 const EXPENSE_CATEGORIES = [
   { value: 'supplies', label: 'Supplies', icon: '🛒' },
@@ -122,7 +124,6 @@ export default function WalletPage() {
 
   // Receipt upload
   const { uploading: receiptUploading, upload: uploadReceipt, error: receiptError, clearError: clearReceiptError } = useImageUpload(token);
-  const receiptInputRef = useRef<HTMLInputElement>(null);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -251,9 +252,7 @@ export default function WalletPage() {
       setForm((prev) => ({ ...prev, receipt_url: publicUrl }));
     }
     // Reset input so same file can be re-selected
-    if (receiptInputRef.current) {
-      receiptInputRef.current.value = '';
-    }
+    e.target.value = '';
   };
 
   const handleRemoveReceipt = () => {
@@ -559,69 +558,14 @@ export default function WalletPage() {
                       onChange={e => setForm({ ...form, description: e.target.value })} />
                   </div>
 
-                  {/* Receipt Upload */}
-                  <div>
-                    <label className="text-xs font-medium text-stone-600 mb-2 block">Receipt (optional)</label>
-                    <input
-                      ref={receiptInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      onChange={handleReceiptUpload}
-                      className="hidden"
-                    />
-                    {form.receipt_url && isReceiptImage(form.receipt_url) ? (
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setReceiptPreviewUrl(form.receipt_url)}
-                          className="relative group"
-                        >
-                          <img
-                            src={form.receipt_url}
-                            alt="Receipt"
-                            className="w-16 h-16 rounded-lg object-cover border border-stone-200 group-hover:opacity-75 transition-opacity"
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <ImageIcon className="w-5 h-5 text-stone-700" />
-                          </div>
-                        </button>
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            onClick={() => receiptInputRef.current?.click()}
-                            disabled={receiptUploading}
-                            className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
-                          >
-                            Replace
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleRemoveReceipt}
-                            className="text-xs text-red-500 hover:text-red-600 font-medium"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => receiptInputRef.current?.click()}
-                        disabled={receiptUploading}
-                      >
-                        {receiptUploading ? (
-                          <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
-                        ) : (
-                          <><Camera className="w-4 h-4" /> Add Receipt Photo</>
-                        )}
-                      </Button>
-                    )}
-                    {receiptError && (
-                      <p className="text-xs text-red-500 mt-1">{receiptError}</p>
-                    )}
-                  </div>
+                  <ReceiptUpload
+                    receiptUrl={form.receipt_url}
+                    uploading={receiptUploading}
+                    error={receiptError}
+                    onUpload={handleReceiptUpload}
+                    onRemove={handleRemoveReceipt}
+                    onPreview={setReceiptPreviewUrl}
+                  />
 
                   <div className="flex gap-2">
                     <Button onClick={handleExpenseSubmit} disabled={saving || receiptUploading || !form.amount}>
@@ -785,25 +729,7 @@ export default function WalletPage() {
         </div>
       )}
 
-      {/* Receipt Preview Modal */}
-      <AlertDialog open={receiptPreviewUrl !== null} onOpenChange={(open) => { if (!open) setReceiptPreviewUrl(null); }}>
-        <AlertDialogContent className="max-w-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Receipt</AlertDialogTitle>
-            <AlertDialogDescription className="sr-only">Full-size receipt image preview</AlertDialogDescription>
-          </AlertDialogHeader>
-          {receiptPreviewUrl && (
-            <img
-              src={receiptPreviewUrl}
-              alt="Receipt"
-              className="w-full max-h-[70vh] object-contain rounded-lg"
-            />
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Close</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ReceiptPreviewModal url={receiptPreviewUrl} onClose={() => setReceiptPreviewUrl(null)} />
 
       <AlertDialog open={deleteDialogId !== null} onOpenChange={(open) => { if (!open) setDeleteDialogId(null); }}>
         <AlertDialogContent>
