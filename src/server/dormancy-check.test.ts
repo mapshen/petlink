@@ -75,6 +75,7 @@ describe('dormancy check scheduler', () => {
         { user_id: 43, email: 'old@example.com', name: 'Bob', balance_cents: 3000 },
       ]);
       // Transaction calls for forfeiture
+      mockTxFn.mockResolvedValueOnce([{ balance: 3000 }]); // SELECT balance inside tx
       mockTxFn.mockResolvedValueOnce([{ id: 1 }]); // INSERT credit_ledger
       mockTxFn.mockResolvedValueOnce([]); // INSERT dormancy_forfeiture_log
       // Email after forfeiture

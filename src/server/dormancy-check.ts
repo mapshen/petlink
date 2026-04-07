@@ -73,25 +73,38 @@ export async function checkDormancy(): Promise<{ warned: number; forfeited: numb
 
     for (const user of forfeitureUsers) {
       try {
+        // Recalculate balance inside transaction to prevent TOCTOU race
+        let actualBalance = 0;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await sql.begin(async (tx: any) => {
+          const [{ balance }] = await tx`
+            SELECT COALESCE(SUM(amount_cents), 0)::int as balance
+            FROM credit_ledger
+            WHERE user_id = ${user.user_id}
+              AND (expires_at IS NULL OR expires_at > NOW())
+          `;
+          if (balance <= 0) return; // User redeemed credits since the outer query
+          actualBalance = balance;
+
           const [entry] = await tx`
             INSERT INTO credit_ledger (user_id, amount_cents, type, source_type, description)
-            VALUES (${user.user_id}, ${-user.balance_cents}, 'dormancy_forfeiture', 'system',
+            VALUES (${user.user_id}, ${-balance}, 'dormancy_forfeiture', 'system',
                     ${'Dormancy forfeiture — account inactive for ' + FORFEITURE_MONTHS + '+ months'})
             RETURNING id
           `;
 
           await tx`
             INSERT INTO dormancy_forfeiture_log (user_id, amount_cents, credit_ledger_entry_id)
-            VALUES (${user.user_id}, ${user.balance_cents}, ${entry.id})
+            VALUES (${user.user_id}, ${balance}, ${entry.id})
           `;
         });
+
+        if (actualBalance <= 0) continue; // Skip email if nothing was forfeited
 
         // Send confirmation email (best-effort, outside transaction)
         const emailContent = buildDormancyForfeitureEmail({
           userName: user.name,
-          forfeitedAmountCents: user.balance_cents,
+          forfeitedAmountCents: actualBalance,
         });
         sendEmail({ to: user.email, ...emailContent }).catch(() => {});
 

@@ -104,8 +104,9 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     req.userId = decoded.userId;
 
     // Track last activity for dormancy detection (throttled: once per day)
+    // Also resets dormancy_warning_sent_at so reactivated users get fresh warnings if they go dormant again
     sql`
-      UPDATE users SET last_active_at = NOW()
+      UPDATE users SET last_active_at = NOW(), dormancy_warning_sent_at = NULL
       WHERE id = ${decoded.userId}
         AND (last_active_at IS NULL OR last_active_at < NOW() - INTERVAL '1 day')
     `.catch(() => {});
