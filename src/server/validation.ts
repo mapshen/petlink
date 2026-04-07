@@ -412,6 +412,15 @@ export const analyticsDateRangeSchema = z.object({
   { message: 'start date must be before or equal to end date', path: ['start'] }
 );
 
+// --- Analytics Trends Schema ---
+export const analyticsTrendsSchema = z.object({
+  period: z.enum(['daily', 'weekly', 'monthly']).default('weekly'),
+  range: z.coerce.number().int().refine(
+    (v) => [30, 90, 365].includes(v),
+    { message: 'range must be 30, 90, or 365' },
+  ).default(90),
+});
+
 // --- Availability Schema ---
 const timePattern = /^\d{2}:\d{2}(:\d{2})?$/;
 

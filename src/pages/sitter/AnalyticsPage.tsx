@@ -8,6 +8,7 @@ import type { AnalyticsOverview, ClientSummary, RevenueDataPoint, ProfileViewsDa
 import { formatCents } from '../../lib/money';
 
 const BookingInsights = lazy(() => import('../../components/insights/BookingInsights'));
+const TrendsChart = lazy(() => import('../../components/analytics/TrendsChart'));
 
 export type AnalyticsPeriod = 'this_month' | 'last_3_months' | 'last_6_months' | 'this_year' | 'all_time';
 
@@ -335,6 +336,13 @@ export default function AnalyticsPage({ embedded = false }: { embedded?: boolean
           <div className="mb-8">
             <Suspense fallback={<div className="bg-white rounded-2xl shadow-sm p-6 flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>}>
               <BookingInsights />
+            </Suspense>
+          </div>
+
+          {/* Trends */}
+          <div className="mb-8">
+            <Suspense fallback={<div className="bg-white rounded-2xl shadow-sm p-6 flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>}>
+              <TrendsChart />
             </Suspense>
           </div>
 

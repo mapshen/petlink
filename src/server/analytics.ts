@@ -31,6 +31,20 @@ export function validateRevenuePeriod(raw: unknown): 'weekly' | 'monthly' {
   return raw === 'weekly' ? 'weekly' : 'monthly';
 }
 
+export type TrendsPeriod = 'daily' | 'weekly' | 'monthly';
+
+export function validateTrendsPeriod(raw: unknown): TrendsPeriod {
+  if (raw === 'daily') return 'daily';
+  if (raw === 'monthly') return 'monthly';
+  return 'weekly';
+}
+
+export function validateTrendsRange(raw: unknown): 30 | 90 | 365 {
+  const num = Number(raw);
+  if (num === 30 || num === 90 || num === 365) return num;
+  return 90;
+}
+
 // --- Date Range Resolution ---
 
 type DateRangeOption =
@@ -270,4 +284,168 @@ export async function getRevenue(sitterId: number, period: 'weekly' | 'monthly',
     `;
 
   return { period, data };
+}
+
+// --- Trends ---
+
+function dateTruncFormat(period: TrendsPeriod): string {
+  switch (period) {
+    case 'daily': return 'day';
+    case 'weekly': return 'week';
+    case 'monthly': return 'month';
+  }
+}
+
+function periodFormat(period: TrendsPeriod): string {
+  switch (period) {
+    case 'daily': return 'YYYY-MM-DD';
+    case 'weekly': return 'YYYY-"W"IW';
+    case 'monthly': return 'YYYY-MM';
+  }
+}
+
+function computeRate(numerator: number, denominator: number): number {
+  if (denominator === 0) return 0;
+  return Math.round((numerator / denominator) * 1000) / 10;
+}
+
+export async function getTrends(sitterId: number, period: TrendsPeriod, rangeDays: number) {
+  const trunc = dateTruncFormat(period);
+  const fmt = periodFormat(period);
+
+  // Profile views by period
+  const viewsData = await sql`
+    SELECT
+      TO_CHAR(DATE_TRUNC(${trunc}, viewed_at), ${fmt}) AS period,
+      COUNT(*)::int AS count
+    FROM profile_views
+    WHERE sitter_id = ${sitterId}
+      AND viewed_at >= NOW() - ${`${rangeDays} days`}::interval
+    GROUP BY DATE_TRUNC(${trunc}, viewed_at)
+    ORDER BY period
+  `;
+
+  // Inquiries by period
+  const inquiriesData = await sql`
+    SELECT
+      TO_CHAR(DATE_TRUNC(${trunc}, created_at), ${fmt}) AS period,
+      COUNT(*)::int AS count
+    FROM inquiries
+    WHERE sitter_id = ${sitterId}
+      AND created_at >= NOW() - ${`${rangeDays} days`}::interval
+    GROUP BY DATE_TRUNC(${trunc}, created_at)
+    ORDER BY period
+  `;
+
+  // Bookings by period and status
+  const bookingsData = await sql`
+    SELECT
+      TO_CHAR(DATE_TRUNC(${trunc}, b.created_at), ${fmt}) AS period,
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE b.status IN ('confirmed', 'completed'))::int AS confirmed,
+      COUNT(*) FILTER (WHERE b.status = 'completed')::int AS completed,
+      COUNT(*) FILTER (WHERE b.status = 'cancelled')::int AS cancelled,
+      COALESCE(SUM(b.total_price_cents) FILTER (WHERE b.status = 'completed'), 0)::int AS revenue_cents
+    FROM bookings b
+    WHERE b.sitter_id = ${sitterId}
+      AND b.created_at >= NOW() - ${`${rangeDays} days`}::interval
+    GROUP BY DATE_TRUNC(${trunc}, b.created_at)
+    ORDER BY period
+  `;
+
+  // Merge all periods into a unified timeline
+  const allPeriods = new Set<string>();
+  for (const row of viewsData) allPeriods.add(row.period);
+  for (const row of inquiriesData) allPeriods.add(row.period);
+  for (const row of bookingsData) allPeriods.add(row.period);
+
+  const viewsMap = new Map(viewsData.map((r: { period: string; count: number }) => [r.period, r.count]));
+  const inquiriesMap = new Map(inquiriesData.map((r: { period: string; count: number }) => [r.period, r.count]));
+  const bookingsMap = new Map(
+    bookingsData.map((r: { period: string; total: number; confirmed: number; completed: number; cancelled: number; revenue_cents: number }) =>
+      [r.period, r]
+    )
+  );
+
+  const sortedPeriods = [...allPeriods].sort();
+  const data = sortedPeriods.map((p) => {
+    const booking = bookingsMap.get(p);
+    return {
+      period: p,
+      profile_views: viewsMap.get(p) ?? 0,
+      inquiries: inquiriesMap.get(p) ?? 0,
+      bookings_requested: booking?.total ?? 0,
+      bookings_confirmed: booking?.confirmed ?? 0,
+      bookings_completed: booking?.completed ?? 0,
+      bookings_cancelled: booking?.cancelled ?? 0,
+      revenue_cents: booking?.revenue_cents ?? 0,
+    };
+  });
+
+  // Funnel totals for current period
+  const totalViews = data.reduce((s, d) => s + d.profile_views, 0);
+  const totalInquiries = data.reduce((s, d) => s + d.inquiries, 0);
+  const totalRequested = data.reduce((s, d) => s + d.bookings_requested, 0);
+  const totalConfirmed = data.reduce((s, d) => s + d.bookings_confirmed, 0);
+  const totalCompleted = data.reduce((s, d) => s + d.bookings_completed, 0);
+  const totalRevenue = data.reduce((s, d) => s + d.revenue_cents, 0);
+
+  const funnel = {
+    profile_views: totalViews,
+    inquiries: totalInquiries,
+    bookings_requested: totalRequested,
+    bookings_confirmed: totalConfirmed,
+    bookings_completed: totalCompleted,
+  };
+
+  const conversionRates = {
+    views_to_inquiries: computeRate(totalInquiries, totalViews),
+    inquiries_to_bookings: computeRate(totalRequested, totalInquiries),
+    bookings_to_confirmed: computeRate(totalConfirmed, totalRequested),
+    confirmed_to_completed: computeRate(totalCompleted, totalConfirmed),
+  };
+
+  // Previous period totals for comparison
+  const [prevViews] = await sql`
+    SELECT COUNT(*)::int AS count
+    FROM profile_views
+    WHERE sitter_id = ${sitterId}
+      AND viewed_at >= NOW() - ${`${rangeDays * 2} days`}::interval
+      AND viewed_at < NOW() - ${`${rangeDays} days`}::interval
+  `;
+
+  const [prevInquiries] = await sql`
+    SELECT COUNT(*)::int AS count
+    FROM inquiries
+    WHERE sitter_id = ${sitterId}
+      AND created_at >= NOW() - ${`${rangeDays * 2} days`}::interval
+      AND created_at < NOW() - ${`${rangeDays} days`}::interval
+  `;
+
+  const [prevBookings] = await sql`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+      COALESCE(SUM(total_price_cents) FILTER (WHERE status = 'completed'), 0)::int AS revenue_cents
+    FROM bookings
+    WHERE sitter_id = ${sitterId}
+      AND created_at >= NOW() - ${`${rangeDays * 2} days`}::interval
+      AND created_at < NOW() - ${`${rangeDays} days`}::interval
+  `;
+
+  const previousPeriodTotals = {
+    profile_views: prevViews.count,
+    inquiries: prevInquiries.count,
+    bookings_requested: prevBookings.total,
+    bookings_completed: prevBookings.completed,
+    revenue_cents: prevBookings.revenue_cents,
+  };
+
+  return {
+    period,
+    data,
+    funnel,
+    conversion_rates: conversionRates,
+    previous_period_totals: previousPeriodTotals,
+  };
 }

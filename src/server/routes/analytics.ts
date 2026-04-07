@@ -1,8 +1,8 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
-import { analyticsDateRangeSchema } from '../validation.ts';
-import { requireSitterRole, validateYear, validateRevenuePeriod, getOverview, getClients, getClientDetail, getRevenue } from '../analytics.ts';
+import { analyticsDateRangeSchema, analyticsTrendsSchema } from '../validation.ts';
+import { requireSitterRole, validateYear, validateRevenuePeriod, getOverview, getClients, getClientDetail, getRevenue, getTrends } from '../analytics.ts';
 import { getProfileViewsAnalytics } from '../profile-views.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
@@ -136,6 +136,22 @@ export default function analyticsRoutes(router: Router): void {
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to fetch profile views analytics');
       res.status(500).json({ error: 'Failed to fetch profile views analytics' });
+    }
+  });
+
+  router.get('/analytics/trends', authMiddleware, requireSitterRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const parsed = analyticsTrendsSchema.safeParse(req.query);
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.issues[0].message });
+        return;
+      }
+      const { period, range } = parsed.data;
+      const result = await getTrends(req.userId!, period, range);
+      res.json(result);
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch analytics trends');
+      res.status(500).json({ error: 'Failed to fetch analytics trends' });
     }
   });
 }

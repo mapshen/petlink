@@ -640,6 +640,46 @@ export interface ProfileViewsData {
   views_by_source: { source: string; count: number }[];
 }
 
+export type TrendsPeriod = 'daily' | 'weekly' | 'monthly';
+
+export interface TrendDataPoint {
+  readonly period: string;
+  readonly profile_views: number;
+  readonly inquiries: number;
+  readonly bookings_requested: number;
+  readonly bookings_confirmed: number;
+  readonly bookings_completed: number;
+  readonly bookings_cancelled: number;
+  readonly revenue_cents: number;
+}
+
+export interface ConversionFunnel {
+  readonly profile_views: number;
+  readonly inquiries: number;
+  readonly bookings_requested: number;
+  readonly bookings_confirmed: number;
+  readonly bookings_completed: number;
+}
+
+export interface AnalyticsTrends {
+  readonly period: TrendsPeriod;
+  readonly data: ReadonlyArray<TrendDataPoint>;
+  readonly funnel: ConversionFunnel;
+  readonly conversion_rates: {
+    readonly views_to_inquiries: number;
+    readonly inquiries_to_bookings: number;
+    readonly bookings_to_confirmed: number;
+    readonly confirmed_to_completed: number;
+  };
+  readonly previous_period_totals: {
+    readonly profile_views: number;
+    readonly inquiries: number;
+    readonly bookings_requested: number;
+    readonly bookings_completed: number;
+    readonly revenue_cents: number;
+  };
+}
+
 export interface ClientSummary {
   client_id: number;
   client_name: string;
