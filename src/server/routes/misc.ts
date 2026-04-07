@@ -82,15 +82,10 @@ export default function miscRoutes(router: Router): void {
         res.status(403).json({ error: 'Only sitters can access tax summary' });
         return;
       }
-      const year = Number(req.query.year) || new Date().getFullYear();
-
-      const [incomeRow] = await sql`
-        SELECT COALESCE(SUM(total_price_cents), 0)::int AS total_income
-        FROM bookings
-        WHERE sitter_id = ${req.userId}
-          AND status = 'completed'
-          AND EXTRACT(YEAR FROM start_time) = ${year}
-      `;
+      const rawYear = Number(req.query.year);
+      const year = Number.isInteger(rawYear) && rawYear >= 2000 && rawYear <= 2100
+        ? rawYear
+        : new Date().getFullYear();
 
       const expenseRows = await sql`
         SELECT category, SUM(amount_cents)::int AS total
@@ -141,16 +136,19 @@ export default function miscRoutes(router: Router): void {
         };
       });
 
-      const netIncome = incomeRow.total_income - total_expenses;
+      // Derive annual totals from quarterly data (avoids redundant query)
+      const total_income = quarterlyRows.reduce((sum: number, r: { income: number }) => sum + r.income, 0);
+      const netIncome = total_income - total_expenses;
+      const annual_estimated_tax = quarterlyEstimates.reduce((sum, q) => sum + q.estimated_tax, 0);
 
       res.json({
         year,
-        total_income: incomeRow.total_income,
+        total_income,
         total_expenses,
         net_income: netIncome,
         expense_by_category,
         quarterly_estimates: quarterlyEstimates,
-        annual_estimated_tax: Math.round(Math.max(0, netIncome) * ESTIMATED_TAX_RATE),
+        annual_estimated_tax,
       });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to load tax summary');
@@ -158,7 +156,7 @@ export default function miscRoutes(router: Router): void {
     }
   });
 
-  // CSV export for expenses
+  // CSV export for expenses — all fields quoted to prevent formula injection
   router.get('/expenses/export', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
@@ -166,7 +164,10 @@ export default function miscRoutes(router: Router): void {
         res.status(403).json({ error: 'Only sitters can export expenses' });
         return;
       }
-      const year = Number(req.query.year) || new Date().getFullYear();
+      const rawYear = Number(req.query.year);
+      const year = Number.isInteger(rawYear) && rawYear >= 2000 && rawYear <= 2100
+        ? rawYear
+        : new Date().getFullYear();
 
       const expenses = await sql`
         SELECT category, amount_cents, description, date, receipt_url, auto_logged
@@ -175,14 +176,21 @@ export default function miscRoutes(router: Router): void {
         ORDER BY date ASC
       `;
 
-      const csvHeader = 'Date,Category,Description,Amount (USD),Receipt URL,Auto-logged';
-      const csvRows = expenses.map((e: { date: string; category: string; description: string | null; amount_cents: number; receipt_url: string | null; auto_logged: boolean }) => {
-        const desc = (e.description || '').replace(/"/g, '""');
-        return `${e.date},${e.category},"${desc}",${(e.amount_cents / 100).toFixed(2)},${e.receipt_url || ''},${e.auto_logged ? 'Yes' : 'No'}`;
-      });
-      const csv = [csvHeader, ...csvRows].join('\n');
+      const csvEscape = (val: string): string => `"${val.replace(/"/g, '""')}"`;
+      const csvHeader = '"Date","Category","Description","Amount (USD)","Receipt URL","Auto-logged"';
+      const csvRows = expenses.map((e: { date: string; category: string; description: string | null; amount_cents: number; receipt_url: string | null; auto_logged: boolean }) =>
+        [
+          csvEscape(String(e.date)),
+          csvEscape(e.category),
+          csvEscape(e.description || ''),
+          csvEscape((e.amount_cents / 100).toFixed(2)),
+          csvEscape(e.receipt_url || ''),
+          csvEscape(e.auto_logged ? 'Yes' : 'No'),
+        ].join(',')
+      );
+      const csv = '\uFEFF' + [csvHeader, ...csvRows].join('\n');
 
-      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="expenses-${year}.csv"`);
       res.send(csv);
     } catch (error) {
