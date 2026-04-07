@@ -7,7 +7,7 @@ import { calculateApplicationFee } from '../stripe-connect.ts';
 import { getPayoutsForSitter, getPendingPayoutsForSitter } from '../payouts.ts';
 import { createNotification } from '../notifications.ts';
 import { handleAccountUpdated } from '../stripe-connect.ts';
-import { getBalance, applyCredits } from '../credits.ts';
+import { getBalance } from '../credits.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function paymentRoutes(router: Router): void {
@@ -287,15 +287,16 @@ export default function paymentRoutes(router: Router): void {
               const applyAmount = Math.min(balance, invoice.amount_paid);
 
               // Atomic: deduct credits with stripe_event_id for idempotency
-              await sql`
+              const [inserted] = await sql`
                 INSERT INTO credit_ledger (user_id, amount_cents, type, source_type, description, stripe_event_id)
                 VALUES (${subSitter.sitter_id}, ${-applyAmount}, 'redemption', 'subscription',
                         ${'Applied to subscription renewal (invoice ' + invoice.id + ')'}, ${event.id})
                 ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL DO NOTHING
+                RETURNING id
               `;
 
-              // Apply Stripe customer balance for next invoice
-              if (subSitter.stripe_customer_id) {
+              // Only apply Stripe balance if the INSERT actually happened (not a duplicate)
+              if (inserted && subSitter.stripe_customer_id) {
                 await createStripeCustomerBalanceTransaction(
                   subSitter.stripe_customer_id,
                   -applyAmount,
