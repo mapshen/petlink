@@ -134,6 +134,17 @@ export const createBookingSchema = z.object({
 
 export const updateBookingStatusSchema = z.object({
   status: z.enum(['confirmed', 'cancelled'], { message: 'Status must be "confirmed" or "cancelled"' }),
+  custom_price_cents: z.number().int().min(0, 'Custom price cannot be negative').max(100000, 'Custom price cannot exceed $1,000').optional(),
+});
+
+// --- Loyalty Discount Schemas ---
+export const loyaltyDiscountSchema = z.object({
+  min_bookings: z.number().int().min(1, 'Minimum bookings must be at least 1').max(100, 'Minimum bookings cannot exceed 100'),
+  discount_percent: z.number().int().min(1, 'Discount must be at least 1%').max(50, 'Discount cannot exceed 50%'),
+});
+
+export const loyaltyDiscountListSchema = z.object({
+  tiers: z.array(loyaltyDiscountSchema).max(5, 'Maximum 5 loyalty tiers'),
 });
 
 // --- Inquiry Schemas ---

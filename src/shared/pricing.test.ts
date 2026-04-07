@@ -210,3 +210,130 @@ describe('calculateAdvancedPrice addons (cents)', () => {
     ]);
   });
 });
+
+describe('calculateAdvancedPrice custom price (cents)', () => {
+  it('overrides base price with custom price', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 1,
+      customPriceCents: 4000,
+    });
+    expect(result.totalCents).toBe(4000);
+    expect(result.breakdown.baseCents).toBe(4000);
+    expect(result.breakdown.customPriceApplied).toBe(true);
+  });
+
+  it('custom price skips extra pet charges', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 3,
+      customPriceCents: 5000,
+    });
+    // Custom price is all-inclusive — no extra pet fee
+    expect(result.totalCents).toBe(5000);
+    expect(result.breakdown.extraPetsCents).toBe(0);
+  });
+
+  it('custom price overrides holiday rate', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 1,
+      isHoliday: true, holidayRateCents: 3500,
+      customPriceCents: 6000,
+    });
+    expect(result.totalCents).toBe(6000);
+    expect(result.breakdown.holidayApplied).toBe(false);
+    expect(result.breakdown.customPriceApplied).toBe(true);
+  });
+
+  it('custom price still adds addons', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 0, petCount: 1,
+      customPriceCents: 3000,
+      addons: [{ slug: 'nail-trim', priceCents: 800 }],
+    });
+    expect(result.totalCents).toBe(3800); // 3000 custom + 800 addon
+    expect(result.breakdown.addonsCents).toBe(800);
+  });
+
+  it('custom price of 0 results in free service', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 2,
+      customPriceCents: 0,
+    });
+    expect(result.totalCents).toBe(0);
+    expect(result.breakdown.customPriceApplied).toBe(true);
+  });
+
+  it('without custom price, customPriceApplied is false', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 1,
+    });
+    expect(result.breakdown.customPriceApplied).toBe(false);
+  });
+});
+
+describe('calculateAdvancedPrice loyalty discount (cents)', () => {
+  it('applies percentage discount to total', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 5000, additionalPetPriceCents: 0, petCount: 1,
+      discountPercent: 10,
+      discountReason: 'Loyalty: 5+ bookings',
+    });
+    // 5000 - 10% = 4500
+    expect(result.totalCents).toBe(4500);
+    expect(result.breakdown.discountCents).toBe(500);
+    expect(result.breakdown.discountPercent).toBe(10);
+    expect(result.breakdown.discountReason).toBe('Loyalty: 5+ bookings');
+  });
+
+  it('applies discount after addons and extra pets', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 2,
+      addons: [{ slug: 'nail-trim', priceCents: 800 }],
+      discountPercent: 10,
+      discountReason: 'Repeat customer',
+    });
+    // Subtotal: 2500 + 550 + 800 = 3850, discount: 385, total: 3465
+    expect(result.totalCents).toBe(3465);
+    expect(result.breakdown.discountCents).toBe(385);
+  });
+
+  it('no discount when percent is 0', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 5000, additionalPetPriceCents: 0, petCount: 1,
+      discountPercent: 0,
+    });
+    expect(result.totalCents).toBe(5000);
+    expect(result.breakdown.discountCents).toBe(0);
+    expect(result.breakdown.discountReason).toBeNull();
+  });
+
+  it('caps discount at 50%', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 5000, additionalPetPriceCents: 0, petCount: 1,
+      discountPercent: 60,
+    });
+    expect(result.totalCents).toBe(5000);
+    expect(result.breakdown.discountCents).toBe(0);
+  });
+
+  it('combines custom price with discount', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 550, petCount: 2,
+      customPriceCents: 4000,
+      discountPercent: 10,
+      discountReason: 'VIP client',
+    });
+    // Custom: 4000 (no extra pet), discount 10%: 400, total: 3600
+    expect(result.totalCents).toBe(3600);
+    expect(result.breakdown.discountCents).toBe(400);
+    expect(result.breakdown.customPriceApplied).toBe(true);
+  });
+
+  it('defaults discount fields when not provided', () => {
+    const result = calculateAdvancedPrice({
+      basePriceCents: 2500, additionalPetPriceCents: 0, petCount: 1,
+    });
+    expect(result.breakdown.discountCents).toBe(0);
+    expect(result.breakdown.discountPercent).toBe(0);
+    expect(result.breakdown.discountReason).toBeNull();
+  });
+});

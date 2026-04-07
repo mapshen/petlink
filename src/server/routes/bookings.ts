@@ -7,6 +7,7 @@ import { createNotification, getPreferences } from '../notifications.ts';
 import { capturePayment, cancelPayment, refundPayment } from '../payments.ts';
 import { calculateRefund } from '../cancellation.ts';
 import { calculateBookingPrice, calculateAdvancedPrice, calculateStayDuration, isUSHoliday, isPuppy } from '../../shared/pricing.ts';
+import { findApplicableTier, calculateLoyaltyDiscount } from '../../shared/loyalty-discount.ts';
 import { getAddonBySlug } from '../../shared/addon-catalog.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
 import { recordStrike, evaluateConsequences, getStrikeEventForCancellation } from '../reliability.ts';
@@ -250,6 +251,30 @@ export default function bookingRoutes(router: Router, io: Server): void {
       ? calculateStayDuration(new Date(start_time), new Date(end_time))
       : { nights: 0, halfDays: 0 };
 
+    // Loyalty discount: count completed bookings between owner and sitter
+    const loyaltyTiers = await sql`
+      SELECT min_bookings, discount_percent
+      FROM loyalty_discounts
+      WHERE sitter_id = ${sitter_id}
+      ORDER BY min_bookings ASC
+    `;
+    const [{ count: completedCount }] = await sql`
+      SELECT COUNT(*)::int as count FROM bookings
+      WHERE owner_id = ${req.userId} AND sitter_id = ${sitter_id} AND status = 'completed'
+    `;
+    const applicableTier = findApplicableTier(
+      loyaltyTiers.map((t: { min_bookings: number; discount_percent: number }) => ({
+        sitter_id: Number(sitter_id),
+        min_bookings: t.min_bookings,
+        discount_percent: t.discount_percent,
+      })),
+      completedCount
+    );
+    const discountPercent = applicableTier?.discount_percent;
+    const discountReason = applicableTier
+      ? `Loyalty discount: ${applicableTier.discount_percent}% off (${completedCount}+ bookings)`
+      : undefined;
+
     const pricing = calculateAdvancedPrice({
       basePriceCents: service.price_cents,
       additionalPetPriceCents: service.additional_pet_price_cents || 0,
@@ -268,11 +293,15 @@ export default function bookingRoutes(router: Router, io: Server): void {
       nightlyRateCents: service.nightly_rate_cents ?? undefined,
       halfDayRateCents: service.half_day_rate_cents ?? undefined,
       serviceType: service.type,
+      discountPercent,
+      discountReason,
     });
     const totalPrice = pricing.totalCents;
     const bookingNights = stayDuration.nights;
     const bookingHalfDays = stayDuration.halfDays;
     const isExtendedStay = isExtendedService && (bookingNights > 0 || bookingHalfDays > 0);
+    const bookingDiscountPct = pricing.breakdown.discountPercent || null;
+    const bookingDiscountReason = pricing.breakdown.discountReason || null;
 
     // Use transaction for booking + booking_pets + care tasks
     let booking;
@@ -322,8 +351,8 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
 
       const [b] = await tx`
-        INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status, deposit_status, nights, half_days, is_extended_stay)
-        VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending', ${isMeetGreet ? 'held' : null}, ${isExtendedStay ? bookingNights : null}, ${isExtendedStay ? bookingHalfDays : null}, ${isExtendedStay})
+        INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status, deposit_status, nights, half_days, is_extended_stay, discount_pct, discount_reason)
+        VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending', ${isMeetGreet ? 'held' : null}, ${isExtendedStay ? bookingNights : null}, ${isExtendedStay ? bookingHalfDays : null}, ${isExtendedStay}, ${bookingDiscountPct}, ${bookingDiscountReason})
         RETURNING id, status, deposit_status
       `;
 
@@ -527,7 +556,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
 
   // --- Booking Status Update ---
   router.put('/bookings/:id/status', authMiddleware, validate(updateBookingStatusSchema), async (req: AuthenticatedRequest, res) => {
-    const { status } = req.body;
+    const { status, custom_price_cents } = req.body;
     const bookingId = Number(req.params.id);
 
     if (!Number.isInteger(bookingId) || bookingId <= 0) {
@@ -538,11 +567,22 @@ export default function bookingRoutes(router: Router, io: Server): void {
     // Atomic update with preconditions in WHERE clause to prevent race conditions
     let updated;
     if (status === 'confirmed') {
-      [updated] = await sql`
-        UPDATE bookings SET status = 'confirmed'::booking_status, responded_at = COALESCE(responded_at, NOW())
-        WHERE id = ${bookingId} AND sitter_id = ${req.userId} AND status = 'pending'
-        RETURNING *
-      `;
+      // Sitter can optionally set a custom price when confirming
+      if (custom_price_cents != null) {
+        [updated] = await sql`
+          UPDATE bookings SET status = 'confirmed'::booking_status, responded_at = COALESCE(responded_at, NOW()),
+            custom_price_cents = ${custom_price_cents},
+            total_price_cents = ${custom_price_cents}
+          WHERE id = ${bookingId} AND sitter_id = ${req.userId} AND status = 'pending'
+          RETURNING *
+        `;
+      } else {
+        [updated] = await sql`
+          UPDATE bookings SET status = 'confirmed'::booking_status, responded_at = COALESCE(responded_at, NOW())
+          WHERE id = ${bookingId} AND sitter_id = ${req.userId} AND status = 'pending'
+          RETURNING *
+        `;
+      }
     } else {
       // Cancelled — sitter can cancel pending or confirmed, owner can cancel pending or confirmed
       [updated] = await sql`

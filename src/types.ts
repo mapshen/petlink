@@ -282,6 +282,17 @@ export interface Booking {
   nights?: number | null;
   half_days?: number | null;
   is_extended_stay?: boolean;
+  custom_price_cents?: number | null;
+  discount_pct?: number | null;
+  discount_reason?: string | null;
+}
+
+export interface LoyaltyDiscount {
+  id: number;
+  sitter_id: number;
+  min_bookings: number;
+  discount_percent: number;
+  created_at: string;
 }
 
 export type IncidentCategory = 'pet_injury' | 'property_damage' | 'safety_concern' | 'behavioral_issue' | 'service_issue' | 'other';
