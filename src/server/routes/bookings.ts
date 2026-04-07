@@ -322,7 +322,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
 
       const [b] = await tx`
         INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status, deposit_status, nights, half_days, is_extended_stay)
-        VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending', ${isMeetGreet ? 'held' : null}, ${bookingNights || null}, ${bookingHalfDays || null}, ${isExtendedStay})
+        VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending', ${isMeetGreet ? 'held' : null}, ${isExtendedStay ? bookingNights : null}, ${isExtendedStay ? bookingHalfDays : null}, ${isExtendedStay})
         RETURNING id, status, deposit_status
       `;
 

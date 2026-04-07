@@ -95,16 +95,13 @@ const EXTENDED_SERVICE_TYPES = ['sitting', 'daycare'];
 /**
  * Calculate nights and half-days for an extended stay.
  * Nights = number of calendar-day boundaries crossed (each overnight = 1 night).
- * Half-day charges:
- * - Check-in after noon (>12:00): first partial day charged as half-day
- * - Check-out before noon (<12:00): last partial morning charged as half-day
- * Late check-in doesn't reduce nights — it's still an overnight.
+ * Half-day: check-out before noon (<12:00) adds a morning pickup charge.
+ * Late check-in is part of the first overnight — not a separate half-day.
  */
 export function calculateStayDuration(
   checkIn: Date,
   checkOut: Date
 ): { nights: number; halfDays: number } {
-  const checkInHour = checkIn.getUTCHours();
   const checkOutHour = checkOut.getUTCHours();
 
   const checkInMidnight = new Date(Date.UTC(checkIn.getUTCFullYear(), checkIn.getUTCMonth(), checkIn.getUTCDate()));
