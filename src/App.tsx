@@ -93,8 +93,8 @@ export default function App() {
                 <Route path="/referrals" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
                 <Route path="/lost-pets" element={<ProtectedRoute><LostPetAlertsPage /></ProtectedRoute>} />
                 <Route path="/forum" element={<ProtectedRoute><ForumPage /></ProtectedRoute>} />
-                <Route path="/forum/:slug" element={<ProtectedRoute><ForumCategoryPage /></ProtectedRoute>} />
                 <Route path="/forum/threads/:id" element={<ProtectedRoute><ForumThreadPage /></ProtectedRoute>} />
+                <Route path="/forum/:slug" element={<ProtectedRoute><ForumCategoryPage /></ProtectedRoute>} />
                 <Route path="/track/:bookingId" element={<ProtectedRoute><TrackWalk /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

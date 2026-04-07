@@ -1,7 +1,7 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
-import { adminMiddleware } from '../admin.ts';
+import { adminMiddleware, isAdminUser } from '../admin.ts';
 import { validate, createForumThreadSchema, createForumReplySchema, adminUpdateThreadSchema } from '../validation.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
@@ -229,10 +229,8 @@ export default function forumRoutes(router: Router): void {
       }
 
       const [user] = await sql`SELECT email, roles FROM users WHERE id = ${req.userId}`;
-      const isAdmin = user.roles.includes('admin') && process.env.ADMIN_EMAIL &&
-        user.email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
 
-      if (thread.author_id !== req.userId && !isAdmin) {
+      if (thread.author_id !== req.userId && !isAdminUser(user.email, user.roles)) {
         res.status(403).json({ error: 'You can only delete your own threads' });
         return;
       }
@@ -261,10 +259,8 @@ export default function forumRoutes(router: Router): void {
       }
 
       const [user] = await sql`SELECT email, roles FROM users WHERE id = ${req.userId}`;
-      const isAdmin = user.roles.includes('admin') && process.env.ADMIN_EMAIL &&
-        user.email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
 
-      if (reply.author_id !== req.userId && !isAdmin) {
+      if (reply.author_id !== req.userId && !isAdminUser(user.email, user.roles)) {
         res.status(403).json({ error: 'You can only delete your own replies' });
         return;
       }
@@ -293,11 +289,8 @@ export default function forumRoutes(router: Router): void {
       }
 
       const { pinned, locked } = req.body;
-      const updates: Record<string, boolean> = {};
-      if (pinned !== undefined) updates.pinned = pinned;
-      if (locked !== undefined) updates.locked = locked;
 
-      if (Object.keys(updates).length === 0) {
+      if (pinned === undefined && locked === undefined) {
         res.status(400).json({ error: 'No valid fields to update' });
         return;
       }
