@@ -24,6 +24,7 @@ import TimeSlotPicker from '../../components/booking/TimeSlotPicker';
 import PetSelector from '../../components/booking/PetSelector';
 import FirstBookingNudge from '../../components/booking/FirstBookingNudge';
 import InquiryForm from '../../components/booking/InquiryForm';
+import CameraInfoCard from '../../components/booking/CameraInfoCard';
 import { useFavorites } from '../../hooks/useFavorites';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
@@ -798,6 +799,14 @@ export default function SitterProfile() {
                     </div>
                   );
                 })()}
+
+                {/* Camera & Monitoring info — shown during booking flow */}
+                {sitter && (sitter.camera_preference === 'requires' || sitter.camera_preference === 'prefers') && (
+                  <CameraInfoCard
+                    sitterCameraPreference={sitter.camera_preference}
+                    viewAs="owner"
+                  />
+                )}
 
                 {bookingError && (
                   <div role="alert" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs mb-4">

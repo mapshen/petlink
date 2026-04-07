@@ -475,8 +475,8 @@ export default function bookingRoutes(router: Router, io: Server): void {
 
     const bookings = await sql`
       SELECT b.*,
-             s.name as sitter_name, s.avatar_url as sitter_avatar,
-             o.name as owner_name, o.avatar_url as owner_avatar,
+             s.name as sitter_name, s.avatar_url as sitter_avatar, s.camera_preference as sitter_camera_preference,
+             o.name as owner_name, o.avatar_url as owner_avatar, o.has_cameras as owner_has_cameras, o.camera_locations as owner_camera_locations, o.camera_policy_note as owner_camera_policy_note,
              svc.type as service_type
       FROM bookings b
       JOIN users s ON b.sitter_id = s.id

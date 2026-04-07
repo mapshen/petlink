@@ -68,6 +68,11 @@ export const updateProfileSchema = z.object({
   lifestyle_badges: z.array(z.string().refine((s) => MANUAL_BADGE_SLUGS.includes(s), 'Invalid badge')).max(15).optional(),
   phone: z.string().max(20).optional().nullable(),
   share_phone_for_bookings: z.boolean().optional().nullable(),
+  // Camera policy fields (Issue #373)
+  has_cameras: z.boolean().optional().nullable(),
+  camera_locations: z.array(z.enum(['living_room', 'backyard', 'kitchen', 'front_door', 'garage', 'bedroom', 'hallway', 'patio'])).optional(),
+  camera_policy_note: z.string().max(500, 'Camera policy note must be under 500 characters').optional().nullable(),
+  camera_preference: z.enum(['requires', 'prefers', 'no_preference']).optional().nullable(),
 });
 
 // --- Pet Schemas ---

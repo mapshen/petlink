@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Save } from 'lucide-react';
+import { Save, Camera } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { getSkillGroups, areSizesRelevant, isWalkCapacityRelevant } from '../../shared/service-labels';
 import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
 import { resolveActiveBadges, AUTO_BADGE_SLUGS } from '../../shared/badge-catalog';
 import BadgeEditor from '../../components/badges/BadgeEditor';
+import { CAMERA_PREFERENCE_LABELS } from '../../shared/camera-guidelines';
 
 const SPECIES_OPTIONS = ['dog', 'cat', 'bird', 'reptile', 'small_animal'] as const;
 const HOME_TYPES = [
@@ -31,6 +32,7 @@ export default function SitterInfoTab() {
   const [maxPetsAtOnce, setMaxPetsAtOnce] = useState('3');
   const [maxPetsPerWalk, setMaxPetsPerWalk] = useState('2');
   const [lifestyleBadges, setLifestyleBadges] = useState<string[]>([]);
+  const [cameraPreference, setCameraPreference] = useState('no_preference');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -52,6 +54,7 @@ export default function SitterInfoTab() {
     setMaxPetsAtOnce(user.max_pets_at_once?.toString() || '3');
     setMaxPetsPerWalk(user.max_pets_per_walk?.toString() || '2');
     setLifestyleBadges(user.lifestyle_badges || []);
+    setCameraPreference(user.camera_preference || 'no_preference');
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,6 +81,7 @@ export default function SitterInfoTab() {
           max_pets_at_once: maxPetsAtOnce ? Number(maxPetsAtOnce) : null,
           max_pets_per_walk: maxPetsPerWalk ? Number(maxPetsPerWalk) : null,
           lifestyle_badges: lifestyleBadges,
+          camera_preference: cameraPreference,
         }),
       });
       if (!res.ok) {
@@ -306,6 +310,31 @@ export default function SitterInfoTab() {
               />
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Camera Preference */}
+      <div className="border-t border-stone-100 pt-6">
+        <h3 className="text-sm font-semibold text-stone-900 mb-1 flex items-center gap-1.5">
+          <Camera className="w-4 h-4 text-emerald-600" />
+          Camera Preference
+        </h3>
+        <p className="text-xs text-stone-500 mb-3">Let owners know your preference for in-home cameras during bookings.</p>
+        <div className="flex flex-wrap gap-2">
+          {(['requires', 'prefers', 'no_preference'] as const).map((pref) => (
+            <button
+              key={pref}
+              type="button"
+              onClick={() => setCameraPreference(pref)}
+              className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                cameraPreference === pref
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-white text-stone-600 border-stone-200 hover:border-emerald-300'
+              }`}
+            >
+              {CAMERA_PREFERENCE_LABELS[pref]}
+            </button>
+          ))}
         </div>
       </div>
 

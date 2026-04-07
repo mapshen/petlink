@@ -105,7 +105,14 @@ export interface User {
   active_badges?: string[];
   phone?: string | null;
   share_phone_for_bookings?: boolean;
+  // Camera policy fields (Issue #373)
+  has_cameras?: boolean;
+  camera_locations?: string[];
+  camera_policy_note?: string | null;
+  camera_preference?: CameraPreference;
 }
+
+export type CameraPreference = 'requires' | 'prefers' | 'no_preference';
 
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';
 export type PetGender = 'male' | 'female';

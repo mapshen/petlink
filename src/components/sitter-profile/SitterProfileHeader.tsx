@@ -41,6 +41,8 @@ export function buildHeaderTags(sitter: User): string[] {
   if (sitter.skills) {
     tags.push(...sitter.skills.map(formatSkill));
   }
+  if (sitter.camera_preference === 'requires') tags.push('requires cameras');
+  else if (sitter.camera_preference === 'prefers') tags.push('prefers cameras');
   return tags;
 }
 
