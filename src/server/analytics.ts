@@ -82,6 +82,7 @@ export async function getOverview(sitterId: number, option: DateRangeOption) {
     FROM reviews r
     JOIN bookings b ON b.id = r.booking_id
     WHERE r.reviewee_id = ${sitterId}
+      AND r.hidden_at IS NULL
       AND b.start_time >= ${rangeStart}::timestamptz
       AND b.start_time < ${rangeEnd}::timestamptz
   `;

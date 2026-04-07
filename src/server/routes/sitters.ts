@@ -89,6 +89,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
           JOIN bookings rb ON r.booking_id = rb.id
           LEFT JOIN services rsvc ON rb.service_id = rsvc.id
           WHERE r.reviewee_id = u.id
+            AND r.hidden_at IS NULL
             AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
             AND (rsvc.type IS NULL OR rsvc.type != 'meet_greet')
         ) rv ON true
@@ -201,7 +202,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     const addons = await sql`SELECT id, addon_slug, price_cents, notes FROM sitter_addons WHERE sitter_id = ${sitterId} ORDER BY created_at`;
     const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${sitterId} ORDER BY sort_order, created_at`;
 
-    // Public review stats (not gated behind auth)
+    // Public review stats (not gated behind auth) — excludes hidden reviews
     const [reviewStats] = await sql`
       SELECT
         AVG(r.rating)::float as avg_rating,
@@ -210,11 +211,12 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       JOIN bookings rb ON r.booking_id = rb.id
       LEFT JOIN services rsvc ON rb.service_id = rsvc.id
       WHERE r.reviewee_id = ${sitterId}
+        AND r.hidden_at IS NULL
         AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
         AND (rsvc.type IS NULL OR rsvc.type != 'meet_greet')
     `;
 
-    // Reviews only returned for authenticated users
+    // Reviews only returned for authenticated users — excludes hidden reviews
     const authHeader = req.headers.authorization;
     let reviews: any[] = [];
     if (authHeader?.startsWith('Bearer ')) {
@@ -222,7 +224,9 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         SELECT r.*, u.name as reviewer_name, u.avatar_url as reviewer_avatar
         FROM reviews r
         JOIN users u ON r.reviewer_id = u.id
-        WHERE r.reviewee_id = ${sitterId} AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
+        WHERE r.reviewee_id = ${sitterId}
+          AND r.hidden_at IS NULL
+          AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
         ORDER BY r.created_at DESC
       `;
     }

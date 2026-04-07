@@ -1,7 +1,7 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
-import { validate, createReviewSchema, reviewResponseSchema } from '../validation.ts';
+import { validate, createReviewSchema, reviewResponseSchema, reportReviewSchema } from '../validation.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { issueReviewCredit } from '../review-incentives.ts';
 
@@ -138,15 +138,17 @@ export default function reviewRoutes(router: Router): void {
       `;
 
       // Filter visibility: show own reviews always, show other's only if published
+      // Hidden reviews still appear but with redacted content
       const visibleReviews = allReviews.filter((r: { reviewer_id: number; published_at: string | null; created_at: string }) => {
         if (r.reviewer_id === req.userId) return true;
         const isPublished = r.published_at !== null || (Date.now() - new Date(r.created_at).getTime()) > THREE_DAYS_MS;
         return isPublished;
       });
 
-      // Determine can_review
-      const userReview = allReviews.find((r: { reviewer_id: number }) => r.reviewer_id === req.userId);
-      const otherReview = allReviews.find((r: { reviewer_id: number }) => r.reviewer_id !== req.userId);
+      // Determine can_review (ignore hidden reviews for this calculation)
+      const nonHiddenReviews = allReviews.filter((r: { hidden_at: string | null }) => !r.hidden_at);
+      const userReview = nonHiddenReviews.find((r: { reviewer_id: number }) => r.reviewer_id === req.userId);
+      const otherReview = nonHiddenReviews.find((r: { reviewer_id: number }) => r.reviewer_id !== req.userId);
       let canReview = false;
       const REVIEW_DEADLINE_MS = 30 * 24 * 60 * 60 * 1000;
       const bookingExpired = booking.end_time ? Date.now() - new Date(booking.end_time).getTime() > REVIEW_DEADLINE_MS : false;
@@ -159,20 +161,27 @@ export default function reviewRoutes(router: Router): void {
         }
       }
 
-      // Determine can_respond per review (only for reviews where current user is the reviewee)
+      // Determine can_respond per review (only for non-hidden reviews where current user is the reviewee)
       const canRespond: Record<number, boolean> = {};
       for (const r of visibleReviews) {
-        if (r.reviewee_id === req.userId && r.response_text === null) {
+        if (r.reviewee_id === req.userId && r.response_text === null && !r.hidden_at) {
           const isPublished = r.published_at !== null || (Date.now() - new Date(r.created_at).getTime()) > THREE_DAYS_MS;
           canRespond[r.id] = isPublished;
         }
       }
 
       // Mark own unpublished reviews with a pending flag for the frontend
-      const reviews = visibleReviews.map((r: { reviewer_id: number; published_at: string | null; created_at: string }) => ({
-        ...r,
-        is_pending: r.reviewer_id === req.userId && r.published_at === null && (Date.now() - new Date(r.created_at).getTime()) <= THREE_DAYS_MS,
-      }));
+      // Redact hidden reviews to show placeholder
+      const reviews = visibleReviews.map((r: { reviewer_id: number; published_at: string | null; created_at: string; hidden_at: string | null }) => {
+        const base = {
+          ...r,
+          is_pending: r.reviewer_id === req.userId && r.published_at === null && (Date.now() - new Date(r.created_at).getTime()) <= THREE_DAYS_MS,
+        };
+        if (r.hidden_at) {
+          return { ...base, comment: null, is_hidden: true };
+        }
+        return base;
+      });
 
       res.json({ reviews, can_review: canReview, can_respond: canRespond });
     } catch (error) {
@@ -196,6 +205,7 @@ export default function reviewRoutes(router: Router): void {
         FROM reviews r
         JOIN users u ON r.reviewer_id = u.id
         WHERE r.reviewee_id = ${req.params.userId}
+          AND r.hidden_at IS NULL
           AND (r.published_at IS NOT NULL OR r.created_at < NOW() - INTERVAL '3 days')
           ${roleFilter === 'owner' ? sql`AND r.pet_accuracy_rating IS NOT NULL` : sql``}
           ${roleFilter === 'sitter' ? sql`AND r.pet_care_rating IS NOT NULL` : sql``}
@@ -206,6 +216,51 @@ export default function reviewRoutes(router: Router): void {
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to fetch user reviews');
       res.status(500).json({ error: 'Failed to fetch user reviews' });
+    }
+  });
+
+  // Report a review (any authenticated user, not the reviewer)
+  router.post('/reviews/:id/report', authMiddleware, validate(reportReviewSchema), async (req: AuthenticatedRequest, res) => {
+    try {
+      const reviewId = parseInt(req.params.id, 10);
+      if (isNaN(reviewId)) {
+        res.status(400).json({ error: 'Invalid review ID' });
+        return;
+      }
+
+      const [review] = await sql`SELECT id, reviewer_id, hidden_at FROM reviews WHERE id = ${reviewId}`;
+      if (!review) {
+        res.status(404).json({ error: 'Review not found' });
+        return;
+      }
+
+      if (review.reviewer_id === req.userId) {
+        res.status(403).json({ error: 'You cannot report your own review' });
+        return;
+      }
+
+      if (review.hidden_at) {
+        res.status(400).json({ error: 'This review has already been removed' });
+        return;
+      }
+
+      const [existing] = await sql`SELECT id FROM review_reports WHERE review_id = ${reviewId} AND reporter_id = ${req.userId}`;
+      if (existing) {
+        res.status(409).json({ error: 'You have already reported this review' });
+        return;
+      }
+
+      const { reason, description } = req.body;
+      const [report] = await sql`
+        INSERT INTO review_reports (review_id, reporter_id, reason, description)
+        VALUES (${reviewId}, ${req.userId}, ${reason}, ${description || null})
+        RETURNING id, review_id, reason, status, created_at
+      `;
+
+      res.status(201).json({ report });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to report review');
+      res.status(500).json({ error: 'Failed to report review' });
     }
   });
 
@@ -221,6 +276,11 @@ export default function reviewRoutes(router: Router): void {
       const [review] = await sql`SELECT * FROM reviews WHERE id = ${reviewId}`;
       if (!review) {
         res.status(404).json({ error: 'Review not found' });
+        return;
+      }
+
+      if (review.hidden_at) {
+        res.status(400).json({ error: 'Cannot respond to a removed review' });
         return;
       }
 

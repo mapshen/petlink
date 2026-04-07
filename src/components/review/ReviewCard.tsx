@@ -1,14 +1,18 @@
-import { Star, Reply } from 'lucide-react';
+import { useState } from 'react';
+import { Star, Reply, Flag, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Review } from '../../types';
 import SubRatingPills from './SubRatingPills';
 import ReviewResponse from './ReviewResponse';
+import ReportReviewDialog from './ReportReviewDialog';
 import { Badge } from '../ui/badge';
 
 interface ReviewCardProps {
-  review: Review & { is_pending?: boolean };
+  review: Review & { is_pending?: boolean; is_hidden?: boolean };
   onRespond?: (reviewId: number) => void;
   respondentName?: string;
+  currentUserId?: number;
+  token?: string | null;
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -24,8 +28,24 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-export default function ReviewCard({ review, onRespond, respondentName }: ReviewCardProps) {
+export default function ReviewCard({ review, onRespond, respondentName, currentUserId, token }: ReviewCardProps) {
   const isPending = (review as { is_pending?: boolean }).is_pending;
+  const isHidden = (review as { is_hidden?: boolean }).is_hidden;
+  const [reportOpen, setReportOpen] = useState(false);
+
+  // Hidden reviews show a placeholder
+  if (isHidden) {
+    return (
+      <div className="flex items-center gap-2 py-3 px-4 bg-stone-50 rounded-xl border border-stone-200">
+        <ShieldAlert className="w-4 h-4 text-stone-400 flex-shrink-0" />
+        <p className="text-sm text-stone-500 italic">
+          [Review removed for policy violation]
+        </p>
+      </div>
+    );
+  }
+
+  const canReport = currentUserId && currentUserId !== review.reviewer_id && !isPending;
 
   return (
     <div className={isPending ? 'opacity-70' : ''}>
@@ -43,7 +63,7 @@ export default function ReviewCard({ review, onRespond, respondentName }: Review
             </span>
             {isPending && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 border-amber-200">
-                ⏳ Pending
+                Pending
               </Badge>
             )}
           </div>
@@ -77,17 +97,38 @@ export default function ReviewCard({ review, onRespond, respondentName }: Review
             />
           )}
 
-          {onRespond && !review.response_text && !isPending && (
-            <button
-              onClick={() => onRespond(review.id)}
-              className="mt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
-            >
-              <Reply className="w-3 h-3" />
-              Respond to this review
-            </button>
-          )}
+          <div className="flex items-center gap-3 mt-2">
+            {onRespond && !review.response_text && !isPending && (
+              <button
+                onClick={() => onRespond(review.id)}
+                className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+              >
+                <Reply className="w-3 h-3" />
+                Respond to this review
+              </button>
+            )}
+
+            {canReport && (
+              <button
+                onClick={() => setReportOpen(true)}
+                className="text-xs font-medium text-stone-400 hover:text-red-500 flex items-center gap-1 transition-colors"
+              >
+                <Flag className="w-3 h-3" />
+                Report
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {canReport && (
+        <ReportReviewDialog
+          reviewId={review.id}
+          open={reportOpen}
+          onOpenChange={setReportOpen}
+          token={token ?? null}
+        />
+      )}
     </div>
   );
 }

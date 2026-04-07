@@ -13,7 +13,8 @@ import SpeciesDetails from '../../components/sitter-profile/SpeciesDetails';
 import PostsGrid from '../../components/sitter-profile/PostsGrid';
 import CreatePostDialog from '../../components/sitter-profile/CreatePostDialog';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Star, AlertCircle, CreditCard, ShieldCheck, ImagePlus } from 'lucide-react';
+import { Star, AlertCircle, CreditCard, ShieldCheck, ImagePlus, Flag } from 'lucide-react';
+import ReportReviewDialog from '../../components/review/ReportReviewDialog';
 import { API_BASE } from '../../config';
 import { reverseGeocode } from '../../lib/geo';
 
@@ -72,6 +73,7 @@ export default function SitterProfile() {
   const [postCount, setPostCount] = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>('posts');
   const [showCreatePost, setShowCreatePost] = useState(false);
+  const [reportingReviewId, setReportingReviewId] = useState<number | null>(null);
   const [postsKey, setPostsKey] = useState(0);
   const [wantsPickup, setWantsPickup] = useState(false);
   const [wantsGrooming, setWantsGrooming] = useState(false);
@@ -469,6 +471,15 @@ export default function SitterProfile() {
                         responseAt={review.response_at}
                         respondentName={sitter.name}
                       />
+                    )}
+                    {user && user.id !== review.reviewer_id && (
+                      <button
+                        onClick={() => setReportingReviewId(review.id)}
+                        className="mt-2 text-xs font-medium text-stone-400 hover:text-red-500 flex items-center gap-1 transition-colors"
+                      >
+                        <Flag className="w-3 h-3" />
+                        Report
+                      </button>
                     )}
                   </div>
                 ))}
@@ -898,6 +909,15 @@ export default function SitterProfile() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {reportingReviewId !== null && (
+        <ReportReviewDialog
+          reviewId={reportingReviewId}
+          open={true}
+          onOpenChange={(open) => { if (!open) setReportingReviewId(null); }}
+          token={token}
+        />
+      )}
     </div>
   );
 }
