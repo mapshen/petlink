@@ -1,7 +1,6 @@
 import sql from './db.ts';
 import { createNotification } from './notifications.ts';
 import { sendEmail, buildBanActionEmail, buildAppealResponseEmail } from './email.ts';
-import logger from './logger.ts';
 import type { BanAction, BanAppeal, BanActionType, BanReason } from '../types.ts';
 
 /**
@@ -22,14 +21,8 @@ export async function issueBanAction(
     RETURNING *
   `;
 
-  // Update user approval_status for suspension/ban
-  if (actionType === 'suspension') {
-    await sql`
-      UPDATE users SET approval_status = 'banned',
-        approval_rejected_reason = ${description}
-      WHERE id = ${userId}
-    `;
-  } else if (actionType === 'ban') {
+  // Update user approval_status for suspension/ban (both set to 'banned' in DB)
+  if (actionType === 'suspension' || actionType === 'ban') {
     await sql`
       UPDATE users SET approval_status = 'banned',
         approval_rejected_reason = ${description}
