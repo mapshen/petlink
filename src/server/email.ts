@@ -736,3 +736,73 @@ export function buildReviewReminderEmail(params: {
 `),
   };
 }
+
+export function buildBanActionEmail(params: {
+  userName: string;
+  actionType: 'warning' | 'suspension' | 'ban';
+  reason: string;
+  description: string;
+  expiresAt?: Date;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.userName);
+  const desc = escapeHtml(params.description);
+  const reason = escapeHtml(params.reason.replace(/_/g, ' '));
+  const titleMap: Record<string, string> = {
+    warning: 'Account Warning Notice',
+    suspension: 'Account Suspension Notice',
+    ban: 'Account Ban Notice',
+  };
+  const subjectMap: Record<string, string> = {
+    warning: 'Important: Account Warning',
+    suspension: 'Your account has been suspended',
+    ban: 'Your account has been banned',
+  };
+  const expiryLine = params.expiresAt
+    ? `<p style="color:#44403c;line-height:1.6"><strong>Suspension expires:</strong> ${escapeHtml(params.expiresAt.toISOString().split('T')[0])}</p>`
+    : '';
+  const appealLine = params.actionType !== 'warning'
+    ? '<p style="color:#44403c;line-height:1.6">You may submit an appeal through the PetLink app or by contacting support.</p>'
+    : '<p style="color:#44403c;line-height:1.6">Please review our community guidelines to avoid further action.</p>';
+
+  return {
+    subject: sanitizeSubject(subjectMap[params.actionType]),
+    html: emailWrapper(titleMap[params.actionType], `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">We are writing to inform you about an action taken on your PetLink account.</p>
+<div style="background:#fef2f2;border-radius:8px;padding:16px;margin:16px 0">
+<p style="color:#991b1b;margin:0 0 8px;font-weight:600">Reason: ${reason}</p>
+<p style="color:#991b1b;margin:0">${desc}</p>
+</div>
+${expiryLine}
+${appealLine}
+<p style="color:#a8a29e;font-size:12px">If you believe this was made in error, please contact support.</p>
+`),
+  };
+}
+
+export function buildAppealResponseEmail(params: {
+  userName: string;
+  status: 'approved' | 'denied';
+  adminResponse: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.userName);
+  const response = escapeHtml(params.adminResponse);
+  const isApproved = params.status === 'approved';
+
+  return {
+    subject: sanitizeSubject(isApproved ? 'Your appeal has been approved' : 'Update on your appeal'),
+    html: emailWrapper(isApproved ? 'Appeal Approved' : 'Appeal Decision', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">We have reviewed your appeal and made a decision.</p>
+<div style="background:${isApproved ? '#f0fdf4' : '#fef2f2'};border-radius:8px;padding:16px;margin:16px 0">
+<p style="color:${isApproved ? '#166534' : '#991b1b'};margin:0 0 8px;font-weight:600">
+Status: ${isApproved ? 'Approved' : 'Denied'}
+</p>
+<p style="color:#44403c;margin:0">${response}</p>
+</div>
+${isApproved
+    ? '<p style="color:#44403c;line-height:1.6">Your account has been restored. Welcome back!</p>'
+    : '<p style="color:#44403c;line-height:1.6">If you have questions, please contact support.</p>'}
+`),
+  };
+}

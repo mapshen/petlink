@@ -760,3 +760,38 @@ export interface BookingInsights {
   recommendations: Recommendation[];
   booking_trend: 'up' | 'down' | 'stable' | 'new';
 }
+
+// --- Ban Actions & Appeals ---
+
+export type BanActionType = 'warning' | 'suspension' | 'ban';
+export type BanReason = 'safety_violation' | 'fraud' | 'policy_violation' | 'abuse' | 'inactivity' | 'other';
+export type BanAppealStatus = 'pending' | 'approved' | 'denied';
+
+export interface BanAction {
+  id: number;
+  user_id: number;
+  action_type: BanActionType;
+  reason: BanReason;
+  description: string;
+  issued_by: number;
+  issued_at: string;
+  expires_at: string | null;
+  issued_by_name?: string;
+}
+
+export interface BanAppeal {
+  id: number;
+  user_id: number;
+  ban_action_id: number;
+  reason: string;
+  status: BanAppealStatus;
+  admin_response: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: number | null;
+  user_name?: string;
+  user_email?: string;
+  action_type?: BanActionType;
+  ban_reason?: BanReason;
+  ban_description?: string;
+}

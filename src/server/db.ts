@@ -1181,6 +1181,39 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS share_phone_for_bookings BOOLEAN DEFAULT true`.catch(() => {});
 
+  // Issue #359: Ban protections and appeal process
+  await sql`
+    CREATE TABLE IF NOT EXISTS ban_actions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      action_type TEXT NOT NULL CHECK(action_type IN ('warning', 'suspension', 'ban')),
+      reason TEXT NOT NULL CHECK(reason IN ('safety_violation', 'fraud', 'policy_violation', 'abuse', 'inactivity', 'other')),
+      description TEXT NOT NULL CHECK(char_length(description) <= 1000),
+      issued_by INTEGER NOT NULL REFERENCES users(id),
+      issued_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at TIMESTAMPTZ
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_ban_actions_user_id ON ban_actions (user_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_ban_actions_type ON ban_actions (user_id, action_type)`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ban_appeals (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      ban_action_id INTEGER NOT NULL REFERENCES ban_actions(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL CHECK(char_length(reason) <= 2000),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'denied')),
+      admin_response TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      reviewed_at TIMESTAMPTZ,
+      reviewed_by INTEGER REFERENCES users(id),
+      UNIQUE(ban_action_id)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_ban_appeals_user_id ON ban_appeals (user_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_ban_appeals_status ON ban_appeals (status) WHERE status = 'pending'`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});
