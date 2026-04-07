@@ -265,6 +265,9 @@ export interface Booking {
   deposit_applied_to_booking_id?: number | null;
   meet_greet_notes?: string | null;
   addons?: BookingAddon[];
+  nights?: number | null;
+  half_days?: number | null;
+  is_extended_stay?: boolean;
 }
 
 export type IncidentCategory = 'pet_injury' | 'property_damage' | 'safety_concern' | 'behavioral_issue' | 'service_issue' | 'other';

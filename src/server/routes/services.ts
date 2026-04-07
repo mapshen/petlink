@@ -27,7 +27,8 @@ export default function serviceRoutes(router: Router): void {
         return;
       }
       const { type, price_cents, description, additional_pet_price_cents, max_pets, service_details, species,
-        holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents } = req.body;
+        holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents,
+        nightly_rate_cents, half_day_rate_cents } = req.body;
       const [existing] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type} AND (species = ${species ?? null} OR (species IS NULL AND ${species ?? null} IS NULL))`;
       if (existing) {
         res.status(409).json({ error: `You already have a ${type} service${species ? ` for ${species}` : ''}. Edit it instead.` });
@@ -35,10 +36,12 @@ export default function serviceRoutes(router: Router): void {
       }
       const [service] = await sql`
         INSERT INTO services (sitter_id, type, price_cents, description, additional_pet_price_cents, max_pets, service_details, species,
-          holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents)
+          holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents,
+          nightly_rate_cents, half_day_rate_cents)
         VALUES (${req.userId}, ${type}, ${price_cents}, ${description || null}, ${additional_pet_price_cents || 0}, ${max_pets || 1},
           ${service_details ? sql.json(service_details) : null}, ${species ?? null},
-          ${holiday_rate_cents ?? null}, ${puppy_rate_cents ?? null}, ${pickup_dropoff_fee_cents ?? null}, ${grooming_addon_fee_cents ?? null})
+          ${holiday_rate_cents ?? null}, ${puppy_rate_cents ?? null}, ${pickup_dropoff_fee_cents ?? null}, ${grooming_addon_fee_cents ?? null},
+          ${nightly_rate_cents ?? null}, ${half_day_rate_cents ?? null})
         RETURNING *
       `;
       res.status(201).json({ service });
@@ -65,7 +68,8 @@ export default function serviceRoutes(router: Router): void {
         return;
       }
       const { type, price_cents, description, additional_pet_price_cents, max_pets, service_details, species,
-        holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents } = req.body;
+        holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents,
+        nightly_rate_cents, half_day_rate_cents } = req.body;
       // Prevent type/species change from creating duplicates
       if (type !== service.type || (species ?? null) !== (service.species ?? null)) {
         const [dup] = await sql`SELECT id FROM services WHERE sitter_id = ${req.userId} AND type = ${type} AND (species = ${species ?? null} OR (species IS NULL AND ${species ?? null} IS NULL)) AND id != ${req.params.id}`;
@@ -78,7 +82,8 @@ export default function serviceRoutes(router: Router): void {
         UPDATE services SET type = ${type}, price_cents = ${price_cents}, description = ${description || null}, additional_pet_price_cents = ${additional_pet_price_cents || 0},
         max_pets = ${max_pets || 1}, service_details = ${service_details ? sql.json(service_details) : null}, species = ${species ?? null},
         holiday_rate_cents = ${holiday_rate_cents ?? null}, puppy_rate_cents = ${puppy_rate_cents ?? null},
-        pickup_dropoff_fee_cents = ${pickup_dropoff_fee_cents ?? null}, grooming_addon_fee_cents = ${grooming_addon_fee_cents ?? null}
+        pickup_dropoff_fee_cents = ${pickup_dropoff_fee_cents ?? null}, grooming_addon_fee_cents = ${grooming_addon_fee_cents ?? null},
+        nightly_rate_cents = ${nightly_rate_cents ?? null}, half_day_rate_cents = ${half_day_rate_cents ?? null}
         WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
         RETURNING *
       `;

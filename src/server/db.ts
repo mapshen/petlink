@@ -974,6 +974,13 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_private_pet_notes_sitter ON private_pet_notes (sitter_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_private_pet_notes_booking ON private_pet_notes (booking_id)`.catch(() => {});
 
+  // Issue #409: Extended stay billing
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS nightly_rate_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE services ADD COLUMN IF NOT EXISTS half_day_rate_cents INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS nights INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS half_days INTEGER`.catch(() => {});
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_extended_stay BOOLEAN DEFAULT false`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});
