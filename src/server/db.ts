@@ -981,6 +981,23 @@ export async function initDb() {
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS half_days INTEGER`.catch(() => {});
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_extended_stay BOOLEAN DEFAULT false`.catch(() => {});
 
+  // Issue #415: Credit dormancy policy
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS dormancy_warning_sent_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE credit_ledger DROP CONSTRAINT IF EXISTS credit_ledger_type_check`.catch(() => {});
+  await sql`ALTER TABLE credit_ledger ADD CONSTRAINT credit_ledger_type_check CHECK(type IN ('referral', 'dispute_resolution', 'promo', 'beta_reward', 'milestone', 'redemption', 'expiration', 'dormancy_forfeiture'))`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS dormancy_forfeiture_log (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount_cents INTEGER NOT NULL,
+      credit_ledger_entry_id INTEGER REFERENCES credit_ledger(id),
+      forfeited_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_dormancy_forfeiture_user ON dormancy_forfeiture_log (user_id)`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

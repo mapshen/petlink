@@ -508,3 +508,47 @@ ${params.cohort === 'founding' ? '<li><strong>Permanent Founding Sitter badge</s
 `),
   };
 }
+
+export function buildDormancyWarningEmail(params: {
+  userName: string;
+  balanceCents: number;
+  reactivationDeadline: string;
+  loginUrl: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.userName);
+  const amount = `$${(params.balanceCents / 100).toFixed(2)}`;
+
+  return {
+    subject: sanitizeSubject(`Action needed: Your ${amount} PetLink credit balance`),
+    html: emailWrapper('Account Activity Notice', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Your PetLink account has been inactive for an extended period. You have <strong style="color:#059669">${amount}</strong> in platform credits.</p>
+<p style="color:#44403c;line-height:1.6">Per our Terms of Service, credits on accounts inactive for 36+ months may be forfeited. To keep your credits, simply log in before <strong>${escapeHtml(params.reactivationDeadline)}</strong>.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${escapeHtml(params.loginUrl)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Log In Now</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">If you no longer wish to use PetLink, no action is needed. Your credits will be forfeited after the deadline.</p>
+`),
+  };
+}
+
+export function buildDormancyForfeitureEmail(params: {
+  userName: string;
+  forfeitedAmountCents: number;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.userName);
+  const amount = `$${(params.forfeitedAmountCents / 100).toFixed(2)}`;
+
+  return {
+    subject: sanitizeSubject(`Your PetLink credits (${amount}) have been forfeited`),
+    html: emailWrapper('Credits Forfeited', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Your PetLink account has been inactive for over 36 months. As outlined in our Terms of Service, your <strong>${amount}</strong> in platform credits has been forfeited due to account dormancy.</p>
+<p style="color:#44403c;line-height:1.6">If you'd like to return to PetLink, you're always welcome. Your account is still active — just log in anytime.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/login" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Log In to PetLink</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">For questions, contact PetLink support.</p>
+`),
+  };
+}
