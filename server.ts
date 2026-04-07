@@ -16,6 +16,7 @@ import { startDepositReleaseScheduler, stopDepositReleaseScheduler } from './src
 import { startCreditLowWarningScheduler, stopCreditLowWarningScheduler } from './src/server/credit-low-warning.ts';
 import { startDormancyCheckScheduler, stopDormancyCheckScheduler } from './src/server/dormancy-check.ts';
 import { startProPeriodScheduler, stopProPeriodScheduler } from './src/server/pro-period-scheduler.ts';
+import { startRecurringExpenseScheduler, stopRecurringExpenseScheduler } from './src/server/recurring-expenses.ts';
 import sql from './src/server/db.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/server/rate-limit.ts';
 import {
@@ -223,6 +224,7 @@ async function startServer() {
     startCreditLowWarningScheduler();
     startDormancyCheckScheduler();
     startProPeriodScheduler();
+    startRecurringExpenseScheduler();
   });
 
   const shutdown = () => {
@@ -233,6 +235,7 @@ async function startServer() {
     stopCreditLowWarningScheduler();
     stopDormancyCheckScheduler();
     stopProPeriodScheduler();
+    stopRecurringExpenseScheduler();
     io.close();
     httpServer.close(() => {
       sql.end({ timeout: 5 }).then(() => process.exit(0)).catch(() => process.exit(1));

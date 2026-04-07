@@ -1,7 +1,7 @@
 import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
-import { validate, cancellationPolicySchema, expenseSchema, featuredListingSchema } from '../validation.ts';
+import { validate, cancellationPolicySchema, expenseSchema, recurringExpenseSchema, featuredListingSchema } from '../validation.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function miscRoutes(router: Router): void {
@@ -256,6 +256,115 @@ export default function miscRoutes(router: Router): void {
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to delete expense');
       res.status(500).json({ error: 'Failed to delete expense' });
+    }
+  });
+
+  // --- Recurring Expenses ---
+  router.get('/recurring-expenses', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!currentUser.roles.includes('sitter')) {
+        res.status(403).json({ error: 'Only sitters can access recurring expenses' });
+        return;
+      }
+      const recurring = await sql`
+        SELECT * FROM recurring_expenses
+        WHERE sitter_id = ${req.userId}
+        ORDER BY active DESC, created_at DESC
+      `;
+      res.json({ recurring_expenses: recurring });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to load recurring expenses');
+      res.status(500).json({ error: 'Failed to load recurring expenses' });
+    }
+  });
+
+  router.get('/recurring-expenses/templates', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { COMMON_RECURRING_TEMPLATES } = await import('../recurring-expenses.ts');
+      res.json({ templates: COMMON_RECURRING_TEMPLATES });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to load recurring expense templates');
+      res.status(500).json({ error: 'Failed to load templates' });
+    }
+  });
+
+  router.post('/recurring-expenses', authMiddleware, validate(recurringExpenseSchema), async (req: AuthenticatedRequest, res) => {
+    try {
+      const [currentUser] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      if (!currentUser.roles.includes('sitter')) {
+        res.status(403).json({ error: 'Only sitters can create recurring expenses' });
+        return;
+      }
+      const { category, amount_cents, description, day_of_month } = req.body;
+      const [recurring] = await sql`
+        INSERT INTO recurring_expenses (sitter_id, category, amount_cents, description, day_of_month)
+        VALUES (${req.userId}, ${category}, ${amount_cents}, ${description ?? null}, ${day_of_month})
+        RETURNING *
+      `;
+      res.status(201).json({ recurring_expense: recurring });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to create recurring expense');
+      res.status(500).json({ error: 'Failed to create recurring expense' });
+    }
+  });
+
+  router.put('/recurring-expenses/:id', authMiddleware, validate(recurringExpenseSchema), async (req: AuthenticatedRequest, res) => {
+    try {
+      const [existing] = await sql`SELECT id FROM recurring_expenses WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+      if (!existing) {
+        res.status(404).json({ error: 'Recurring expense not found' });
+        return;
+      }
+      const { category, amount_cents, description, day_of_month } = req.body;
+      const [recurring] = await sql`
+        UPDATE recurring_expenses SET
+          category = ${category},
+          amount_cents = ${amount_cents},
+          description = ${description ?? null},
+          day_of_month = ${day_of_month}
+        WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
+        RETURNING *
+      `;
+      res.json({ recurring_expense: recurring });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to update recurring expense');
+      res.status(500).json({ error: 'Failed to update recurring expense' });
+    }
+  });
+
+  router.put('/recurring-expenses/:id/toggle', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [existing] = await sql`SELECT id, active FROM recurring_expenses WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+      if (!existing) {
+        res.status(404).json({ error: 'Recurring expense not found' });
+        return;
+      }
+      const newActive = !existing.active;
+      const [recurring] = await sql`
+        UPDATE recurring_expenses SET active = ${newActive}
+        WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
+        RETURNING *
+      `;
+      res.json({ recurring_expense: recurring });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to toggle recurring expense');
+      res.status(500).json({ error: 'Failed to toggle recurring expense' });
+    }
+  });
+
+  router.delete('/recurring-expenses/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [existing] = await sql`SELECT id FROM recurring_expenses WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+      if (!existing) {
+        res.status(404).json({ error: 'Recurring expense not found' });
+        return;
+      }
+      await sql`DELETE FROM recurring_expenses WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to delete recurring expense');
+      res.status(500).json({ error: 'Failed to delete recurring expense' });
     }
   });
 

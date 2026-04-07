@@ -494,6 +494,17 @@ export interface SitterExpense {
   created_at: string;
 }
 
+export interface RecurringExpense {
+  id: number;
+  sitter_id: number;
+  category: ExpenseCategory;
+  amount_cents: number;
+  description?: string;
+  day_of_month: number;
+  active: boolean;
+  created_at: string;
+}
+
 export type PayoutStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 export interface SitterPayout {

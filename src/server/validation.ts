@@ -311,6 +311,18 @@ export const expenseSchema = z.object({
   receipt_url: z.string().url('Receipt URL must be a valid URL').optional().nullable().or(z.literal('')),
 });
 
+// --- Recurring Expense Schemas ---
+const expenseCategories = ['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other', 'platform_subscription', 'platform_fee'] as const;
+
+export const recurringExpenseSchema = z.object({
+  category: z.enum(expenseCategories, {
+    message: 'Category must be supplies, transportation, insurance, marketing, equipment, training, other, platform_subscription, or platform_fee',
+  }),
+  amount_cents: z.number().int().positive('Amount must be positive').max(10000000, 'Amount must be under $100,000'),
+  description: z.string().max(500, 'Description must be under 500 characters').optional().nullable(),
+  day_of_month: z.number().int().min(1, 'Day must be between 1 and 28').max(28, 'Day must be between 1 and 28 (to work for all months)'),
+});
+
 // --- Subscription Schemas ---
 export const emptyBodySchema = z.object({});
 

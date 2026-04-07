@@ -4,7 +4,8 @@ import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle, Gift, ImageIcon } from 'lucide-react';
 import { API_BASE } from '../../config';
-import { Booking, SitterPayout, PayoutStatus, CreditEntry } from '../../types';
+import { Booking, SitterPayout, PayoutStatus, CreditEntry, RecurringExpense } from '../../types';
+import RecurringExpensesComponent from '../../components/payment/RecurringExpenses';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Alert, AlertDescription } from '../../components/ui/alert';
@@ -122,6 +123,9 @@ export default function WalletPage() {
   const [saving, setSaving] = useState(false);
   const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
 
+  // Recurring expenses
+  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
+
   // Receipt upload
   const { uploading: receiptUploading, upload: uploadReceipt, error: receiptError, clearError: clearReceiptError } = useImageUpload(token);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
@@ -133,7 +137,7 @@ export default function WalletPage() {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchBookings(), fetchExpenses(), fetchSummary(), fetchPayoutsInitial(), fetchConnectStatus(), fetchCredits()]);
+    await Promise.all([fetchBookings(), fetchExpenses(), fetchSummary(), fetchPayoutsInitial(), fetchConnectStatus(), fetchCredits(), fetchRecurringExpenses()]);
     setLoading(false);
   };
 
@@ -295,6 +299,20 @@ export default function WalletPage() {
       fetchSummary();
     } catch {
       setError('Failed to delete expense.');
+    }
+  };
+
+  // --- Recurring Expenses ---
+  const fetchRecurringExpenses = async () => {
+    if (!isSitter) return;
+    try {
+      const res = await fetch(`${API_BASE}/recurring-expenses`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setRecurringExpenses(data.recurring_expenses);
+      }
+    } catch {
+      // Non-critical
     }
   };
 
@@ -627,6 +645,14 @@ export default function WalletPage() {
                   })}
                 </div>
               )}
+
+              {/* Recurring Expenses Section */}
+              <RecurringExpensesComponent
+                token={token}
+                recurringExpenses={recurringExpenses}
+                onRefresh={fetchRecurringExpenses}
+                onError={setError}
+              />
             </div>
           )}
 
@@ -743,6 +769,7 @@ export default function WalletPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }

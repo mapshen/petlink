@@ -462,6 +462,19 @@ export async function initDb() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS recurring_expenses (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      category TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      description TEXT,
+      day_of_month INTEGER NOT NULL CHECK(day_of_month >= 1 AND day_of_month <= 28),
+      active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS sitter_payouts (
       id SERIAL PRIMARY KEY,
       booking_id INTEGER NOT NULL UNIQUE REFERENCES bookings(id),
@@ -533,6 +546,8 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_pets_booking_id ON booking_pets (booking_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user_id ON oauth_accounts (user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_expenses_sitter_id ON sitter_expenses (sitter_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_recurring_expenses_sitter_id ON recurring_expenses (sitter_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_recurring_expenses_active_day ON recurring_expenses (active, day_of_month) WHERE active = true`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_payouts_sitter_id ON sitter_payouts (sitter_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_payouts_status ON sitter_payouts (status)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_payouts_pending_scheduled ON sitter_payouts (status, scheduled_at) WHERE status = 'pending'`;
