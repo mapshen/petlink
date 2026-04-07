@@ -6,10 +6,11 @@ import { validate, createBookingSchema, updateBookingStatusSchema, bookingFilter
 import { createNotification, getPreferences } from '../notifications.ts';
 import { capturePayment, cancelPayment, refundPayment } from '../payments.ts';
 import { calculateRefund } from '../cancellation.ts';
-import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing.ts';
+import { calculateBookingPrice, calculateAdvancedPrice, calculateStayDuration, isUSHoliday, isPuppy } from '../../shared/pricing.ts';
 import { getAddonBySlug } from '../../shared/addon-catalog.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
 import { recordStrike, evaluateConsequences, getStrikeEventForCancellation } from '../reliability.ts';
+import { shouldTriggerProtection, triggerReservationProtection, findReplacementSitters } from '../reservation-protection.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { format as formatDate } from 'date-fns';
 
@@ -181,11 +182,7 @@ export default function bookingRoutes(router: Router, io: Server): void {
       return;
     }
     const durationMs = endMs - startMs;
-    const MAX_DURATION_MS = 24 * 60 * 60 * 1000;
-    if (durationMs > MAX_DURATION_MS) {
-      res.status(400).json({ error: 'Booking duration cannot exceed 24 hours' });
-      return;
-    }
+    // Duration cap is checked after service lookup (extended services get 30-day cap)
     if (Number(sitter_id) === req.userId) {
       res.status(400).json({ error: 'Cannot book yourself' });
       return;
@@ -199,11 +196,24 @@ export default function bookingRoutes(router: Router, io: Server): void {
       res.status(400).json({ error: 'This sitter has not completed payout setup and cannot accept bookings yet' });
       return;
     }
-    const [service] = await sql`SELECT id, price_cents, type, additional_pet_price_cents, max_pets, holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
+    const [service] = await sql`SELECT id, price_cents, type, additional_pet_price_cents, max_pets, holiday_rate_cents, puppy_rate_cents, pickup_dropoff_fee_cents, grooming_addon_fee_cents, nightly_rate_cents, half_day_rate_cents FROM services WHERE id = ${service_id} AND sitter_id = ${sitter_id}`;
     if (!service) {
       res.status(400).json({ error: 'Invalid service for this sitter' });
       return;
     }
+
+    // Duration cap: extended services (sitting/daycare) get 30-day cap, others get 24h
+    const isExtendedService = service.type === 'sitting' || service.type === 'daycare';
+    const MAX_DURATION_MS = isExtendedService ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    if (durationMs > MAX_DURATION_MS) {
+      res.status(400).json({
+        error: isExtendedService
+          ? 'Sitting/daycare bookings cannot exceed 30 days'
+          : 'Booking duration cannot exceed 24 hours',
+      });
+      return;
+    }
+
     if (pet_ids.length > (service.max_pets || 1)) {
       res.status(400).json({ error: `This service accepts a maximum of ${service.max_pets || 1} pets` });
       return;
@@ -235,6 +245,11 @@ export default function bookingRoutes(router: Router, io: Server): void {
     const bookedPets = await sql`SELECT age FROM pets WHERE id = ANY(${pet_ids})`;
     const hasPuppyPet = bookedPets.some((p: { age: number | null }) => isPuppy(p.age ?? undefined));
 
+    // Calculate stay duration for extended services
+    const stayDuration = isExtendedService
+      ? calculateStayDuration(new Date(start_time), new Date(end_time))
+      : { nights: 0, halfDays: 0 };
+
     const pricing = calculateAdvancedPrice({
       basePriceCents: service.price_cents,
       additionalPetPriceCents: service.additional_pet_price_cents || 0,
@@ -248,8 +263,16 @@ export default function bookingRoutes(router: Router, io: Server): void {
       groomingAddon: grooming_addon,
       groomingAddonFeeCents: service.grooming_addon_fee_cents,
       addons: selectedAddons.map((a) => ({ slug: a.addon_slug, priceCents: a.price_cents })),
+      nights: stayDuration.nights,
+      halfDays: stayDuration.halfDays,
+      nightlyRateCents: service.nightly_rate_cents ?? undefined,
+      halfDayRateCents: service.half_day_rate_cents ?? undefined,
+      serviceType: service.type,
     });
     const totalPrice = pricing.totalCents;
+    const bookingNights = stayDuration.nights;
+    const bookingHalfDays = stayDuration.halfDays;
+    const isExtendedStay = isExtendedService && (bookingNights > 0 || bookingHalfDays > 0);
 
     // Use transaction for booking + booking_pets + care tasks
     let booking;
@@ -299,8 +322,8 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
 
       const [b] = await tx`
-        INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status, deposit_status)
-        VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending', ${isMeetGreet ? 'held' : null})
+        INSERT INTO bookings (sitter_id, owner_id, service_id, start_time, end_time, total_price_cents, status, deposit_status, nights, half_days, is_extended_stay)
+        VALUES (${sitter_id}, ${req.userId}, ${service_id}, ${start_time}, ${end_time}, ${totalPrice}, 'pending', ${isMeetGreet ? 'held' : null}, ${isExtendedStay ? bookingNights : null}, ${isExtendedStay ? bookingHalfDays : null}, ${isExtendedStay})
         RETURNING id, status, deposit_status
       `;
 
@@ -477,9 +500,26 @@ export default function bookingRoutes(router: Router, io: Server): void {
       addonsByBooking.set(row.booking_id, existing);
     }
 
-    const enriched = bookings.map((b: { id: number; payment_intent_id?: string }) => {
+    // Batch-fetch pet flag counts for sitters (aggregate across all sitters for safety signal)
+    const allPetIds = [...new Set(bookingPets.map((p: { id: number }) => p.id))];
+    const petFlagCounts = isSitter && allPetIds.length > 0
+      ? new Map(
+          (await sql`
+            SELECT pet_id, COUNT(*)::int as flag_count
+            FROM private_pet_notes
+            WHERE pet_id = ANY(${allPetIds}) AND flags != '{}'
+            GROUP BY pet_id
+          `.catch(() => [] as any[])).map((row: { pet_id: number; flag_count: number }) => [row.pet_id, row.flag_count] as const)
+        )
+      : new Map<number, number>();
+
+    const enriched = bookings.map((b: { id: number; sitter_id: number; payment_intent_id?: string }) => {
       const { payment_intent_id: _pid, ...safe } = b;
-      return { ...safe, pets: petsByBooking.get(b.id) || [], addons: addonsByBooking.get(b.id) || [] };
+      const pets = (petsByBooking.get(b.id) || []).map((p: { id: number; name: string; photo_url: string | null; breed: string | null }) => ({
+        ...p,
+        ...(isSitter && b.sitter_id === req.userId ? { pet_flag_count: petFlagCounts.get(p.id) || 0 } : {}),
+      }));
+      return { ...safe, pets, addons: addonsByBooking.get(b.id) || [] };
     });
 
     res.json({ bookings: enriched, total: totalCount });
@@ -504,12 +544,14 @@ export default function bookingRoutes(router: Router, io: Server): void {
         RETURNING *
       `;
     } else {
-      // Cancelled — sitter can cancel pending, owner can cancel pending or confirmed
+      // Cancelled — sitter can cancel pending or confirmed, owner can cancel pending or confirmed
       [updated] = await sql`
-        UPDATE bookings SET status = 'cancelled'::booking_status, responded_at = COALESCE(responded_at, NOW())
+        UPDATE bookings SET status = 'cancelled'::booking_status, responded_at = COALESCE(responded_at, NOW()),
+          cancelled_by = CASE WHEN sitter_id = ${req.userId} THEN 'sitter' ELSE 'owner' END,
+          cancelled_at = NOW()
         WHERE id = ${bookingId}
           AND (
-            (sitter_id = ${req.userId} AND status = 'pending')
+            (sitter_id = ${req.userId} AND status IN ('pending', 'confirmed'))
             OR (owner_id = ${req.userId} AND status IN ('pending', 'confirmed'))
           )
         RETURNING *
@@ -638,9 +680,61 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
     }
 
+    // Trigger reservation protection for sitter-cancelled confirmed bookings (async, non-blocking)
+    // payment_intent_id is set when payment is created for a confirmed booking — safe proxy for
+    // "was confirmed" since pending bookings don't have payment intents in our flow
+    if (status === 'cancelled' && updated.sitter_id === req.userId && updated.payment_intent_id) {
+      if (shouldTriggerProtection('confirmed', new Date(updated.start_time))) {
+        triggerReservationProtection(updated).catch((err: unknown) => {
+          logger.error({ err: sanitizeError(err), bookingId }, 'Failed to trigger reservation protection');
+        });
+      }
+    }
+
     // Strip payment_intent_id from response
     const { payment_intent_id: _pid, ...safeBooking } = updated;
     res.json({ booking: safeBooking, refund });
+  });
+
+  // --- Reservation Protection ---
+  router.get('/bookings/:id/protection', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const bookingId = Number(req.params.id);
+      if (!Number.isInteger(bookingId) || bookingId <= 0) {
+        res.status(400).json({ error: 'Invalid booking ID' });
+        return;
+      }
+
+      const [protection] = await sql`
+        SELECT rp.*, u.name as original_sitter_name
+        FROM reservation_protections rp
+        JOIN users u ON u.id = rp.original_sitter_id
+        WHERE rp.booking_id = ${bookingId} AND rp.owner_id = ${req.userId}
+      `;
+      if (!protection) {
+        res.status(404).json({ error: 'No reservation protection found for this booking' });
+        return;
+      }
+
+      // Fetch replacement sitter options if status is options_sent
+      let replacementSitters: any[] = [];
+      if (protection.status === 'options_sent') {
+        const [booking] = await sql`SELECT service_id FROM bookings WHERE id = ${bookingId}`;
+        const [service] = await sql`SELECT type FROM services WHERE id = ${booking?.service_id}`;
+        const [originalSitter] = await sql`SELECT lat, lng FROM users WHERE id = ${protection.original_sitter_id}`;
+
+        if (service && originalSitter?.lat && originalSitter?.lng) {
+          replacementSitters = await findReplacementSitters(
+            protection.original_sitter_id, service.type, originalSitter.lat, originalSitter.lng
+          );
+        }
+      }
+
+      res.json({ protection, replacement_sitters: replacementSitters });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch reservation protection');
+      res.status(500).json({ error: 'Failed to fetch reservation protection' });
+    }
   });
 
   // --- Meet & Greet Deposit Credit ---
