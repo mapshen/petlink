@@ -5,12 +5,13 @@ import { validate, signupSchema, loginSchema, oauthSchema, setPasswordSchema, ch
 import { verifyOAuthToken } from '../oauth.ts';
 import { isAdminUser } from '../admin.ts';
 import { sendEmail, buildOwnerWelcomeEmail } from '../email.ts';
+import { getProPeriodWithDaysRemaining } from '../pro-periods.ts';
 import { generateUniqueSlug } from '../slugify.ts';
 import { checkLockout, recordLoginAttempt, shouldSendAlert } from '../login-lockout.ts';
 import logger from '../logger.ts';
 
 // Shared column list for user queries — keep in sync with User type
-const USER_COLUMNS = sql`id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, founding_sitter, beta_cohort`;
+const USER_COLUMNS = sql`id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, founding_sitter, beta_cohort, pro_trial_used`;
 
 export default function authRoutes(router: Router): void {
   router.post('/auth/signup', validate(signupSchema), async (req, res) => {
@@ -275,7 +276,10 @@ export default function authRoutes(router: Router): void {
       SELECT ${USER_COLUMNS} FROM users WHERE id = ${req.userId}
     `;
     if (user) {
-      res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles) } });
+      const proPeriod = user.roles?.includes('sitter')
+        ? await getProPeriodWithDaysRemaining(req.userId!).catch(() => null)
+        : null;
+      res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles), pro_period: proPeriod } });
     } else {
       res.status(401).json({ error: 'User not found' });
     }

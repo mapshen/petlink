@@ -1066,6 +1066,53 @@ export async function initDb() {
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_reservation_protections_booking ON reservation_protections (booking_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_reservation_protections_owner ON reservation_protections (owner_id)`.catch(() => {});
 
+  // Issue #384/#385: Beta program + Pro trials
+  await sql`
+    CREATE TABLE IF NOT EXISTS platform_settings (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_by INTEGER REFERENCES users(id)
+    )
+  `.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS pro_periods (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      source TEXT NOT NULL CHECK(source IN ('beta', 'trial', 'beta_transition')),
+      starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ends_at TIMESTAMPTZ NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'expired', 'cancelled')),
+      warning_14d_sent_at TIMESTAMPTZ,
+      warning_7d_sent_at TIMESTAMPTZ,
+      warning_1d_sent_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_pro_periods_active_source ON pro_periods (user_id, source) WHERE status = 'active'`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_pro_periods_status_ends ON pro_periods (status, ends_at) WHERE status = 'active'`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_pro_periods_user ON pro_periods (user_id)`.catch(() => {});
+
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_trial_used BOOLEAN DEFAULT false`.catch(() => {});
+
+  // Seed default platform settings
+  await sql`
+    INSERT INTO platform_settings (key, value)
+    VALUES ('beta_active', '{"active": true}'::jsonb)
+    ON CONFLICT (key) DO NOTHING
+  `.catch(() => {});
+  await sql`
+    INSERT INTO platform_settings (key, value)
+    VALUES ('beta_end_date', '{"date": "2026-12-31"}'::jsonb)
+    ON CONFLICT (key) DO NOTHING
+  `.catch(() => {});
+  await sql`
+    INSERT INTO platform_settings (key, value)
+    VALUES ('pro_trial_days', '{"days": 90}'::jsonb)
+    ON CONFLICT (key) DO NOTHING
+  `.catch(() => {});
+
   // Issue #392: Tax tools Phase 1
   await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS auto_logged BOOLEAN DEFAULT false`.catch(() => {});
   await sql`ALTER TABLE sitter_expenses ADD COLUMN IF NOT EXISTS source_reference TEXT`.catch(() => {});

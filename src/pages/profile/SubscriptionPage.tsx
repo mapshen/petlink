@@ -3,6 +3,7 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Crown, Check, Zap, Shield, Clock, AlertCircle, CreditCard, Star, TrendingUp, Eye, Gift } from 'lucide-react';
 import SubscriptionPaymentForm from '../../components/payment/SubscriptionPaymentForm';
+import { FoundingSitterBadge } from '../../components/badges/FoundingSitterBadge';
 import { API_BASE } from '../../config';
 import type { SitterSubscription, SubscriptionTier } from '../../types';
 import { formatCents } from '../../lib/money';
@@ -268,10 +269,9 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
 
           {/* Founding Sitter Badge */}
           {user?.founding_sitter && (
-            <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100 flex items-center gap-2">
-              <Star className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-semibold text-emerald-800">Founding Sitter</span>
-              <span className="text-xs text-emerald-600 ml-1">Permanent badge for early supporters</span>
+            <div className="bg-gradient-to-r from-emerald-50 to-amber-50 rounded-xl p-3 border border-emerald-200/50 flex items-center gap-3">
+              <FoundingSitterBadge size="md" />
+              <span className="text-xs text-emerald-600">Permanent badge — yours forever as an original PetLink sitter</span>
             </div>
           )}
 

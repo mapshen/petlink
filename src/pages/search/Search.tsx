@@ -8,6 +8,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useMapViewPreference } from '../../hooks/useMapViewPreference';
 import FavoriteButton from '../../components/profile/FavoriteButton';
+import { FoundingSitterBadge } from '../../components/badges/FoundingSitterBadge';
 import MapViewToggle from '../../components/map/MapViewToggle';
 import { metersToMiles } from '../../lib/geo';
 import { getServiceLabel } from '../../shared/service-labels';
@@ -493,6 +494,7 @@ export default function Search() {
                                 New Sitter
                               </span>
                             )}
+                            {sitter.founding_sitter && <FoundingSitterBadge />}
                             {sitter.accepted_species && sitter.accepted_species.length > 0 && (
                               <div className="flex gap-1">
                                 {sitter.accepted_species.map((s: string) => (

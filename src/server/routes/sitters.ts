@@ -25,7 +25,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       SELECT DISTINCT ON (u.id)
              u.id, u.name, u.roles, u.bio, u.avatar_url, u.slug,
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
-             u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at, u.approved_at, u.subscription_tier,
+             u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at, u.approved_at, u.subscription_tier, u.founding_sitter,
              s.price_cents, s.type as service_type, s.max_pets
              ${species ? sql`, sp.years_experience as species_years_experience, sp.accepted_pet_sizes as species_pet_sizes, sp.skills as species_skills` : sql``}
              ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}

@@ -608,6 +608,80 @@ export function buildDormancyWarningEmail(params: {
   };
 }
 
+export function buildProTrialWarningEmail(params: {
+  sitterName: string;
+  daysRemaining: number;
+  trialEndDate: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.sitterName);
+  const daysText = params.daysRemaining === 1 ? 'Tomorrow' : `in ${params.daysRemaining} days`;
+
+  return {
+    subject: sanitizeSubject(`Your free Pro trial ends ${daysText}`),
+    html: emailWrapper('Pro Trial Ending Soon', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Your free Pro trial ends <strong>${daysText}</strong> (${escapeHtml(params.trialEndDate)}).</p>
+<p style="color:#44403c;line-height:1.6">After your trial, you'll move to the free tier with a <strong>15% platform fee</strong> on each booking. Subscribe to Pro ($19.99/mo) to keep:</p>
+<ul style="color:#44403c;line-height:1.8;padding-left:20px">
+<li><strong>0% platform fees</strong> — keep every dollar you earn</li>
+<li><strong>Priority search placement</strong> — get seen first</li>
+<li><strong>Full analytics dashboard</strong> — track your business</li>
+<li><strong>Verified badge</strong> — build trust with owners</li>
+</ul>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/profile/subscription" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Subscribe to Pro — $19.99/mo</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">No commitment — cancel anytime.</p>
+`),
+  };
+}
+
+export function buildBetaExpirationWarningEmail(params: {
+  sitterName: string;
+  daysRemaining: number;
+  betaEndDate: string;
+  isFounding: boolean;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.sitterName);
+  const foundingNote = params.isFounding
+    ? `<p style="color:#44403c;line-height:1.6">As a <strong style="color:#059669">Founding Sitter</strong>, you'll automatically receive <strong>6 months of free Pro</strong> when the beta ends. Your Founding Sitter badge is yours forever.</p>`
+    : `<p style="color:#44403c;line-height:1.6">After the beta, you can continue with a <strong>Pro subscription ($19.99/mo)</strong> to keep 0% platform fees, or switch to the free tier.</p>`;
+
+  return {
+    subject: sanitizeSubject(`Beta program ends in ${params.daysRemaining} days`),
+    html: emailWrapper('Beta Program Update', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">The PetLink beta program ends on <strong>${escapeHtml(params.betaEndDate)}</strong> (${params.daysRemaining} days from now).</p>
+${foundingNote}
+<p style="color:#44403c;line-height:1.6">Thank you for being part of our early community — your feedback has shaped PetLink into what it is today. 🙏</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/profile/subscription" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">View Your Subscription</a>
+</div>
+`),
+  };
+}
+
+export function buildProPeriodExpiredEmail(params: {
+  userName: string;
+  source: string;
+}): { subject: string; html: string } {
+  const name = escapeHtml(params.userName);
+  const sourceLabel = params.source === 'beta' ? 'beta' : params.source === 'beta_transition' ? 'free Pro' : 'Pro trial';
+
+  return {
+    subject: sanitizeSubject(`Your ${sourceLabel} period has ended`),
+    html: emailWrapper('Pro Access Ended', `
+<p style="color:#44403c;line-height:1.6">Hi ${name},</p>
+<p style="color:#44403c;line-height:1.6">Your ${sourceLabel} period has ended. You're now on the <strong>free tier</strong> with a 15% platform fee on each booking.</p>
+<p style="color:#44403c;line-height:1.6">Upgrade to Pro ($19.99/mo) to get back to <strong>0% platform fees</strong>, priority search placement, and full analytics.</p>
+<div style="text-align:center;margin:24px 0">
+<a href="${process.env.APP_URL || 'https://petlink.app'}/profile/subscription" style="display:inline-block;background:#059669;color:#fff;padding:12px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px">Upgrade to Pro — $19.99/mo</a>
+</div>
+<p style="color:#a8a29e;font-size:12px">No commitment — cancel anytime.</p>
+`),
+  };
+}
+
 export function buildDormancyForfeitureEmail(params: {
   userName: string;
   forfeitedAmountCents: number;

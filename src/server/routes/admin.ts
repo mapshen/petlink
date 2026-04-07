@@ -7,6 +7,8 @@ import { sendEmail, buildApprovalStatusEmail, buildFoundingSitterWelcomeEmail } 
 import { createNotification } from '../notifications.ts';
 import { issueCredit } from '../credits.ts';
 import { clearLockout } from '../login-lockout.ts';
+import { isBetaActive, getBetaEndDate, setSetting, getSetting, getProTrialDays } from '../platform-settings.ts';
+import { createProPeriod, cancelProPeriod, getActiveProPeriod, hasUsedTrial, markTrialUsed } from '../pro-periods.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import type { BetaCohort } from '../../types.ts';
 
@@ -98,6 +100,33 @@ export default function adminRoutes(router: Router): void {
           UPDATE users SET approval_status = 'rejected', approval_rejected_reason = ${reason || null}, approved_by = ${req.userId}, approved_at = NOW()
           WHERE id = ${sitterId}
         `;
+      }
+
+      // Auto-enroll in beta or start free trial
+      if (status === 'approved') {
+        try {
+          const betaIsActive = await isBetaActive();
+          if (betaIsActive) {
+            const betaEnd = await getBetaEndDate();
+            if (betaEnd && betaEnd > new Date()) {
+              await createProPeriod(sitterId, 'beta', betaEnd);
+              logger.info({ sitterId }, 'Sitter auto-enrolled in beta program on approval');
+            }
+          } else {
+            // Post-beta: start free Pro trial if not already used
+            const trialUsed = await hasUsedTrial(sitterId);
+            if (!trialUsed) {
+              const trialDays = await getProTrialDays();
+              const trialEnd = new Date();
+              trialEnd.setDate(trialEnd.getDate() + trialDays);
+              await createProPeriod(sitterId, 'trial', trialEnd);
+              await markTrialUsed(sitterId);
+              logger.info({ sitterId, trialDays }, 'Free Pro trial started on sitter approval');
+            }
+          }
+        } catch (err) {
+          logger.warn({ err: sanitizeError(err), sitterId }, 'Failed to auto-enroll sitter in beta/trial');
+        }
       }
 
       // Send in-app notification
@@ -200,6 +229,138 @@ export default function adminRoutes(router: Router): void {
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to issue beta credits');
       res.status(500).json({ error: 'Failed to issue beta credits' });
+    }
+  });
+
+  // Admin: beta program dashboard
+  router.get('/admin/beta/dashboard', adminMiddleware, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const [stats] = await sql`
+        SELECT
+          (SELECT count(*)::int FROM pro_periods WHERE source = 'beta' AND status = 'active') as active_beta_sitters,
+          (SELECT count(*)::int FROM pro_periods WHERE source = 'beta') as total_beta_sitters,
+          (SELECT count(*)::int FROM bookings b
+           JOIN pro_periods pp ON pp.user_id = b.sitter_id AND pp.source = 'beta'
+           WHERE b.status IN ('completed', 'confirmed', 'in_progress')) as beta_bookings,
+          (SELECT count(*)::int FROM reviews r
+           JOIN pro_periods pp ON pp.user_id = r.reviewee_id AND pp.source = 'beta') as beta_reviews
+      `;
+
+      const betaActive = await isBetaActive();
+      const betaEndDate = await getBetaEndDate();
+
+      res.json({
+        ...stats,
+        beta_active: betaActive,
+        beta_end_date: betaEndDate?.toISOString() ?? null,
+      });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch beta dashboard');
+      res.status(500).json({ error: 'Failed to fetch beta dashboard' });
+    }
+  });
+
+  // Admin: list beta sitters
+  router.get('/admin/beta/sitters', adminMiddleware, async (_req: AuthenticatedRequest, res) => {
+    try {
+      const sitters = await sql`
+        SELECT u.id, u.name, u.email, u.avatar_url, u.beta_cohort, u.founding_sitter,
+               pp.id as period_id, pp.source, pp.starts_at, pp.ends_at, pp.status as period_status,
+               (SELECT count(*)::int FROM bookings WHERE sitter_id = u.id AND status IN ('completed', 'confirmed', 'in_progress')) as booking_count,
+               (SELECT count(*)::int FROM reviews WHERE reviewee_id = u.id) as review_count,
+               (SELECT COALESCE(avg(rating), 0)::real FROM reviews WHERE reviewee_id = u.id) as avg_rating
+        FROM users u
+        JOIN pro_periods pp ON pp.user_id = u.id AND pp.source IN ('beta', 'beta_transition')
+        ORDER BY pp.created_at DESC
+      `;
+      res.json({ sitters });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch beta sitters');
+      res.status(500).json({ error: 'Failed to fetch beta sitters' });
+    }
+  });
+
+  // Admin: update beta settings
+  router.put('/admin/beta/settings', adminMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { beta_active, beta_end_date } = req.body;
+      if (typeof beta_active === 'boolean') {
+        await setSetting('beta_active', { active: beta_active }, req.userId!);
+      }
+      if (beta_end_date && typeof beta_end_date === 'string') {
+        const parsed = new Date(beta_end_date);
+        if (isNaN(parsed.getTime())) {
+          res.status(400).json({ error: 'Invalid date format' });
+          return;
+        }
+        await setSetting('beta_end_date', { date: beta_end_date }, req.userId!);
+      }
+
+      const betaActive = await isBetaActive();
+      const endDate = await getBetaEndDate();
+      res.json({ beta_active: betaActive, beta_end_date: endDate?.toISOString() ?? null });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to update beta settings');
+      res.status(500).json({ error: 'Failed to update beta settings' });
+    }
+  });
+
+  // Admin: extend a beta sitter's period
+  router.post('/admin/beta/extend/:userId', adminMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const targetUserId = Number(req.params.userId);
+      if (!targetUserId || isNaN(targetUserId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      const { new_end_date } = req.body;
+      if (!new_end_date) {
+        res.status(400).json({ error: 'new_end_date is required' });
+        return;
+      }
+      const parsed = new Date(new_end_date);
+      if (isNaN(parsed.getTime()) || parsed <= new Date()) {
+        res.status(400).json({ error: 'new_end_date must be a valid future date' });
+        return;
+      }
+
+      const [updated] = await sql`
+        UPDATE pro_periods SET ends_at = ${parsed.toISOString()}
+        WHERE user_id = ${targetUserId} AND status = 'active' AND source IN ('beta', 'beta_transition')
+        RETURNING *
+      `;
+      if (!updated) {
+        res.status(404).json({ error: 'No active beta period found for this user' });
+        return;
+      }
+      res.json({ period: updated });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to extend beta period');
+      res.status(500).json({ error: 'Failed to extend beta period' });
+    }
+  });
+
+  // Admin: revoke a beta sitter's period
+  router.post('/admin/beta/revoke/:userId', adminMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const targetUserId = Number(req.params.userId);
+      if (!targetUserId || isNaN(targetUserId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      const activePeriod = await getActiveProPeriod(targetUserId);
+      if (!activePeriod || !['beta', 'beta_transition'].includes(activePeriod.source)) {
+        res.status(404).json({ error: 'No active beta period found for this user' });
+        return;
+      }
+
+      await cancelProPeriod(activePeriod.id);
+      res.json({ success: true, message: 'Beta period revoked' });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to revoke beta period');
+      res.status(500).json({ error: 'Failed to revoke beta period' });
     }
   });
 
