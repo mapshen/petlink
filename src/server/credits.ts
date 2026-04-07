@@ -64,21 +64,23 @@ export async function issueCredit(
  * Apply (deduct) credits from a user's balance.
  * Uses FOR UPDATE lock to prevent double-spend race condition.
  * Throws if insufficient balance.
+ * Accepts optional transaction handle — if provided, caller owns the transaction.
  */
 export async function applyCredits(
   userId: number,
   amountCents: number,
   description: string,
   sourceType: CreditSourceType,
-  sourceId?: number | null
+  sourceId?: number | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  txHandle?: any
 ): Promise<CreditEntry> {
   if (amountCents <= 0) {
     throw new Error('Redemption amount must be positive');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [entry] = await sql.begin(async (tx: any) => {
-    // Lock user's credit rows to prevent concurrent balance reads
+  const doApply = async (tx: any): Promise<CreditEntry> => {
     const [{ balance }] = await tx`
       SELECT COALESCE(SUM(amount_cents), 0)::int AS balance
       FROM credit_ledger
@@ -91,11 +93,17 @@ export async function applyCredits(
       throw new Error('Insufficient credit balance');
     }
 
-    return tx`
+    const [entry] = await tx`
       INSERT INTO credit_ledger (user_id, amount_cents, type, source_type, source_id, description)
       VALUES (${userId}, ${-amountCents}, 'redemption', ${sourceType}, ${sourceId ?? null}, ${description})
       RETURNING *
     `;
-  });
-  return entry as unknown as CreditEntry;
+    return entry as unknown as CreditEntry;
+  };
+
+  if (txHandle) {
+    return doApply(txHandle);
+  }
+
+  return sql.begin(doApply);
 }

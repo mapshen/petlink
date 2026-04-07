@@ -1,24 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { z } from 'zod';
-
-// Inline schemas for testing (same as validation.ts will define)
-const partnerSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  logo_url: z.string().url().optional().nullable(),
-  website_url: z.string().url().optional().nullable(),
-});
-
-const partnerOfferSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().max(1000).optional().nullable(),
-  credit_cost_cents: z.number().int().positive(),
-  offer_value_description: z.string().trim().min(1).max(500),
-  max_redemptions_per_user: z.number().int().min(1).max(100).optional().default(1),
-});
-
-const addCouponCodesSchema = z.object({
-  codes: z.array(z.string().trim().min(1).max(100)).min(1).max(500),
-});
+import { partnerSchema, partnerOfferSchema, addCouponCodesSchema } from './validation.ts';
 
 describe('partner schema validation', () => {
   it('accepts valid partner', () => {
@@ -34,6 +15,11 @@ describe('partner schema validation', () => {
   it('accepts partner with no logo/website', () => {
     const result = partnerSchema.safeParse({ name: 'BarkBox' });
     expect(result.success).toBe(true);
+  });
+
+  it('rejects javascript: URL scheme', () => {
+    const result = partnerSchema.safeParse({ name: 'Evil', website_url: 'javascript:alert(1)' });
+    expect(result.success).toBe(false);
   });
 
   it('rejects invalid URL for logo', () => {

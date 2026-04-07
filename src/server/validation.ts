@@ -475,10 +475,16 @@ export const betaCreditSchema = z.object({
 });
 
 // --- Partner / Coupon Schemas ---
+const httpUrl = z.string().url('Invalid URL').refine(
+  (url) => /^https?:\/\//i.test(url),
+  'URL must use http or https'
+);
+
 export const partnerSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(200),
-  logo_url: z.string().url('Invalid URL').optional().nullable(),
-  website_url: z.string().url('Invalid URL').optional().nullable(),
+  logo_url: httpUrl.optional().nullable(),
+  website_url: httpUrl.optional().nullable(),
+  active: z.boolean().optional(),
 });
 
 export const partnerOfferSchema = z.object({

@@ -49,11 +49,17 @@ export default function partnerRoutes(router: Router): void {
         return;
       }
 
-      // Fetch offer with FOR UPDATE to prevent race conditions
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await sql.begin(async (tx: any) => {
+        // Advisory lock to serialize redemption attempts per user+offer (prevents double-redemption race)
+        await tx`SELECT pg_advisory_xact_lock(${req.userId!}, ${offerId})`;
+
         const [offer] = await tx`
-          SELECT po.*, p.name as partner_name, p.website_url as partner_website_url
+          SELECT po.id, po.title, po.credit_cost_cents, po.offer_value_description,
+                 po.coupon_auto_generate, po.coupon_prefix, po.max_redemptions_per_user,
+                 po.coupon_pool[1] as next_code,
+                 array_length(po.coupon_pool, 1) as pool_size,
+                 p.name as partner_name, p.website_url as partner_website_url
           FROM partner_offers po
           JOIN partners p ON p.id = po.partner_id
           WHERE po.id = ${offerId} AND po.active = true AND p.active = true
@@ -77,11 +83,10 @@ export default function partnerRoutes(router: Router): void {
         if (offer.coupon_auto_generate) {
           couponCode = `${offer.coupon_prefix || 'PL'}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
         } else {
-          // Pop from pool
-          if (!offer.coupon_pool || offer.coupon_pool.length === 0) {
+          if (!offer.pool_size || offer.pool_size === 0) {
             return { error: 'No coupon codes available for this offer', status: 409 };
           }
-          couponCode = offer.coupon_pool[0];
+          couponCode = offer.next_code;
           await tx`
             UPDATE partner_offers
             SET coupon_pool = coupon_pool[2:], total_redemptions = total_redemptions + 1
@@ -89,10 +94,10 @@ export default function partnerRoutes(router: Router): void {
           `;
         }
 
-        // Deduct credits
-        const creditEntry = await applyCreditsInTx(
-          tx, req.userId!, offer.credit_cost_cents,
-          `Redeemed: ${offer.title} (${offer.partner_name})`, 'system'
+        // Deduct credits (uses shared applyCredits with tx handle)
+        const creditEntry = await applyCredits(
+          req.userId!, offer.credit_cost_cents,
+          `Redeemed: ${offer.title} (${offer.partner_name})`, 'system', null, tx
         );
 
         // Record redemption
@@ -181,9 +186,13 @@ export default function partnerRoutes(router: Router): void {
   router.put('/admin/partners/:id', adminMiddleware, validate(partnerSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const partnerId = Number(req.params.id);
-      const { name, logo_url, website_url } = req.body;
+      if (!Number.isInteger(partnerId) || partnerId <= 0) {
+        res.status(400).json({ error: 'Invalid partner ID' });
+        return;
+      }
+      const { name, logo_url, website_url, active } = req.body;
       const [partner] = await sql`
-        UPDATE partners SET name = ${name}, logo_url = ${logo_url ?? null}, website_url = ${website_url ?? null}, updated_at = NOW()
+        UPDATE partners SET name = ${name}, logo_url = ${logo_url ?? null}, website_url = ${website_url ?? null}, active = ${active ?? true}, updated_at = NOW()
         WHERE id = ${partnerId}
         RETURNING *
       `;
@@ -260,36 +269,4 @@ export default function partnerRoutes(router: Router): void {
       res.status(500).json({ error: 'Failed to fetch redemptions' });
     }
   });
-}
-
-/**
- * Apply credits within an existing transaction.
- * Similar to applyCredits but uses the provided tx handle.
- */
-async function applyCreditsInTx(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
-  userId: number,
-  amountCents: number,
-  description: string,
-  sourceType: string
-): Promise<{ id: number }> {
-  const [{ balance }] = await tx`
-    SELECT COALESCE(SUM(amount_cents), 0)::int AS balance
-    FROM credit_ledger
-    WHERE user_id = ${userId}
-      AND (expires_at IS NULL OR expires_at > NOW())
-    FOR UPDATE
-  `;
-
-  if (balance < amountCents) {
-    throw new Error('Insufficient credit balance');
-  }
-
-  const [entry] = await tx`
-    INSERT INTO credit_ledger (user_id, amount_cents, type, source_type, description)
-    VALUES (${userId}, ${-amountCents}, 'redemption', ${sourceType}, ${description})
-    RETURNING id
-  `;
-  return entry;
 }
