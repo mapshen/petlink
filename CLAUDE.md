@@ -63,6 +63,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Inquiries | `POST /inquiries`, `GET /inquiries`, `GET /inquiries/:id`, `PUT /inquiries/:id/offer`, `PUT /inquiries/:id/accept`, `PUT /inquiries/:id/decline` |
 | References | `POST /references/invite`, `GET /references/me`, `GET /references/vouch/:token`, `POST /references/vouch/:token` |
 | Credits | `GET /credits/balance`, `GET /credits/history` (paginated), `POST /credits/issue` (admin) |
+| Partners | `GET /partners/offers`, `POST /partners/offers/:id/redeem`, admin: `GET/POST/PUT /admin/partners`, `POST /admin/partners/:id/offers`, `POST /admin/partners/offers/:id/add-codes`, `GET /admin/partners/offers/:id/redemptions` |
 | Reliability | `GET /reliability/score`, `GET /reliability/history` (paginated), `GET /admin/sitters/:id/strikes` (admin) |
 | Connect | `POST /connect/account`, `POST /connect/onboarding-link`, `GET /connect/status`, `POST /connect/refresh-link` |
 | Uploads | `POST /uploads/signed-url` |
@@ -140,6 +141,9 @@ PostgreSQL with PostGIS.
 | `booking_addons` | Junction table snapshotting selected add-ons at booking time. `addon_slug`, `price_cents` (immutable snapshot), PK (booking_id, addon_slug) |
 | `sitter_payouts` | Delayed payout scheduling, `amount_cents` INTEGER, `status` CHECK, unique `booking_id` |
 | `sitter_strikes` | Reliability tracking: `event_type` (sitter_no_show/sitter_cancel_24h/sitter_cancel_48h/meet_greet_no_show/dispute_resolution), `strike_weight`, `expires_at` (90-day rolling window). Thresholds: 1=warning, 3=flagged, 5=search demotion (-0.15), 7=suspension |
+| `partners` | Brand partners: `name`, `logo_url`, `website_url`, `active`. Referenced by `partner_offers` |
+| `partner_offers` | Partner coupon offers: `partner_id`, `title`, `credit_cost_cents`, `offer_value_description`, `coupon_pool TEXT[]` (pre-loaded codes), `coupon_auto_generate` + `coupon_prefix` (for auto-generated codes), `max_redemptions_per_user`, `total_redemptions` |
+| `coupon_redemptions` | Tracks which users redeemed which offers: `user_id`, `offer_id`, `coupon_code`, `credit_ledger_entry_id`, `redeemed_at` |
 | `credit_ledger` | User credit transactions: `amount_cents` (positive=credit, negative=redemption), `type` (referral/dispute_resolution/promo/beta_reward/milestone/redemption/expiration/dormancy_forfeiture), `source_type`, `source_id`, `expires_at`, `stripe_event_id` (unique, webhook idempotency). Balance = SUM of non-expired entries. Credits auto-apply to subscription renewals via `invoice.paid` webhook |
 
 PostgreSQL enums: `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`. User roles use `TEXT[]` (not an enum).
