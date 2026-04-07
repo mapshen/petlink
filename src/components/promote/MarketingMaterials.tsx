@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Download, FileImage, Palette, CheckCircle2 } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -70,22 +70,19 @@ export default function MarketingMaterials({ cardData, profileUrl }: Props) {
   );
 
   // Re-render preview when template or data changes
-  const prevRenderKey = useRef('');
-  const renderKey = `${selectedId}-${cardData.name}-${cardData.rating}`;
-  if (renderKey !== prevRenderKey.current) {
-    prevRenderKey.current = renderKey;
+  useEffect(() => {
     // Schedule render after paint so QR canvas is available
-    requestAnimationFrame(() => renderPreview(selected));
-  }
+    const id = requestAnimationFrame(() => renderPreview(selected));
+    return () => cancelAnimationFrame(id);
+  }, [selected, renderPreview]);
 
   const handleSelectTemplate = useCallback(
     (template: TemplateDefinition) => {
       setSelectedId(template.id);
       setDownloadError(null);
       setDownloadSuccess(false);
-      requestAnimationFrame(() => renderPreview(template));
     },
-    [renderPreview],
+    [],
   );
 
   const handleDownload = useCallback(async () => {

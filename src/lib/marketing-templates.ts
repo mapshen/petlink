@@ -357,11 +357,7 @@ function renderSocialCard(
 
   // Rating
   if (data.rating !== null) {
-    ctx.textAlign = 'left';
-    const ratingBlockWidth = 160;
-    const ratingX = (W - ratingBlockWidth) / 2;
-
-    // Stars display
+    // Large rating number
     ctx.fillStyle = '#d97706';
     ctx.font = 'bold 48px system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
@@ -372,7 +368,6 @@ function renderSocialCard(
     const starSize = 14;
     const starGap = 32;
     const starsStartX = W / 2 - (starGap * 2);
-    ctx.fillStyle = '#d97706';
     for (let i = 0; i < 5; i++) {
       const filled = i < Math.round(data.rating);
       ctx.fillStyle = filled ? '#d97706' : '#d6d3d1';
