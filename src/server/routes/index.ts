@@ -38,3 +38,4 @@ export { default as proPeriodRoutes } from './pro-periods.ts';
 export { default as loyaltyDiscountRoutes } from './loyalty-discounts.ts';
 export { default as insightRoutes } from './insights.ts';
 export { default as referralRoutes } from './referrals.ts';
+export { default as phoneRelayRoutes } from './phone-relay.ts';

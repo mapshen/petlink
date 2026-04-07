@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { API_BASE } from '../../config';
-import { User, KeyRound, Link2, Crown, Bell, Trash2, Phone, Banknote, Coins } from 'lucide-react';
+import { User, KeyRound, Link2, Crown, Bell, Trash2, Phone, Banknote, Coins, Smartphone } from 'lucide-react';
 import LinkedAccounts from '../../components/profile/LinkedAccounts';
 import SubscriptionPage from '../profile/SubscriptionPage';
 import PasswordSection from './PasswordSection';
 import NotificationSection from './NotificationSection';
 import EmergencyContactForm from './EmergencyContactForm';
+import PhonePrivacyForm from './PhonePrivacyForm';
 import ConnectSetup from '../../components/payment/ConnectSetup';
 import CreditBalance from '../../components/payment/CreditBalance';
 import {
@@ -30,6 +31,7 @@ interface SectionDef {
 
 const ALL_SECTIONS: SectionDef[] = [
   { id: 'account', label: 'Account', icon: User },
+  { id: 'phone', label: 'Phone & Privacy', icon: Smartphone },
   { id: 'emergency', label: 'Emergency Contact', icon: Phone },
   { id: 'security', label: 'Security', icon: KeyRound },
   { id: 'linked', label: 'Linked Accounts', icon: Link2 },
@@ -123,6 +125,17 @@ export default function SettingsPage() {
                   <div className="text-sm text-stone-500">{user.email}</div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Phone & Privacy */}
+          <div id="settings-phone" className="bg-white rounded-2xl border border-stone-100 overflow-hidden scroll-mt-24">
+            <div className="px-6 py-4 border-b border-stone-100">
+              <h2 className="font-bold text-sm">Phone & Privacy</h2>
+              <p className="text-xs text-stone-400 mt-0.5">Control how your phone number is shared during bookings</p>
+            </div>
+            <div className="px-6 py-5">
+              <PhonePrivacyForm token={token} user={user} />
             </div>
           </div>
 

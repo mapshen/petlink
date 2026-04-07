@@ -66,6 +66,8 @@ export const updateProfileSchema = z.object({
   emergency_contact_phone: z.string().max(20).optional().nullable(),
   emergency_contact_relationship: z.string().max(100).optional().nullable(),
   lifestyle_badges: z.array(z.string().refine((s) => MANUAL_BADGE_SLUGS.includes(s), 'Invalid badge')).max(15).optional(),
+  phone: z.string().max(20).optional().nullable(),
+  share_phone_for_bookings: z.boolean().optional().nullable(),
 });
 
 // --- Pet Schemas ---

@@ -18,6 +18,7 @@ import { useOnboardingStatus } from '../../hooks/useOnboardingStatus';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useReviewDialog } from '../../hooks/useReviewDialog';
 import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
+import BookingContactCard from '../../components/booking/BookingContactCard';
 import IncidentReportForm from '../../components/incident/IncidentReportForm';
 import IncidentLog from '../../components/incident/IncidentLog';
 import DisputeInitiateDialog from '../../components/dispute/DisputeInitiateDialog';
@@ -457,6 +458,7 @@ export default function HomePage() {
 
                     {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
                       <div className="mt-4 space-y-4">
+                        <BookingContactCard bookingId={booking.id} bookingStatus={booking.status} token={token} />
                         <CareTasksChecklist bookingId={booking.id} token={token} isSitter={false} />
                         <IncidentLog bookingId={booking.id} token={token} currentUserId={user?.id} refreshKey={incidentRefreshKeys[booking.id] ?? 0} />
                       </div>
