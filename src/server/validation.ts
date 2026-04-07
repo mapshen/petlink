@@ -266,6 +266,15 @@ export const reviewResponseSchema = z.object({
   response_text: z.string().trim().min(1, 'Response is required').max(1000, 'Response must be under 1000 characters'),
 });
 
+export const reportReviewSchema = z.object({
+  reason: z.enum(['inappropriate_language', 'spam', 'fake_review', 'harassment', 'other']),
+  description: z.string().trim().max(1000, 'Description must be under 1000 characters').optional().nullable(),
+});
+
+export const reviewReportDecisionSchema = z.object({
+  action: z.enum(['dismiss', 'hide_review', 'ban_reviewer']),
+});
+
 // --- Quick-Tap Care Event Schemas ---
 export const quickTapEventSchema = z.object({
   event_type: z.enum(['start', 'pee', 'poop', 'photo', 'end', 'fed', 'water', 'medication', 'nap_start', 'nap_end', 'play', 'video', 'litter_box', 'habitat_check']),

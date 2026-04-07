@@ -239,6 +239,7 @@ export default function userRoutes(router: Router): void {
             ROUND(avg(preparedness_rating)::numeric, 1)::float as avg_preparedness
           FROM reviews
           WHERE reviewee_id = ${ownerId}
+            AND hidden_at IS NULL
             AND (published_at IS NOT NULL OR created_at < NOW() - INTERVAL '3 days')
             AND pet_accuracy_rating IS NOT NULL
         `.then(r => r[0]),

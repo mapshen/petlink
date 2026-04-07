@@ -136,8 +136,8 @@ export async function findReplacementSitters(
   const rows = await sql`
     SELECT u.id, u.name, u.slug, u.avatar_url,
            s.price_cents,
-           (SELECT ROUND(AVG(rating)::numeric, 1)::float FROM reviews WHERE reviewee_id = u.id AND published_at IS NOT NULL) as avg_rating,
-           (SELECT count(*)::int FROM reviews WHERE reviewee_id = u.id AND published_at IS NOT NULL) as review_count
+           (SELECT ROUND(AVG(rating)::numeric, 1)::float FROM reviews WHERE reviewee_id = u.id AND hidden_at IS NULL AND published_at IS NOT NULL) as avg_rating,
+           (SELECT count(*)::int FROM reviews WHERE reviewee_id = u.id AND hidden_at IS NULL AND published_at IS NOT NULL) as review_count
     FROM users u
     JOIN services s ON s.sitter_id = u.id AND s.type = ${serviceType}
     WHERE u.id != ${excludeSitterId}

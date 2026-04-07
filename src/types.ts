@@ -421,11 +421,34 @@ export interface Review {
   response_at?: string | null;
   created_at: string;
   published_at?: string | null;
+  hidden_at?: string | null;
+  hidden_by?: number | null;
   reviewer_name?: string;
   reviewer_avatar?: string;
   reviewee_name?: string;
   reviewee_avatar?: string;
   service_type?: string;
+}
+
+export type ReviewReportReason = 'inappropriate_language' | 'spam' | 'fake_review' | 'harassment' | 'other';
+export type ReviewReportStatus = 'pending' | 'dismissed' | 'actioned';
+
+export interface ReviewReport {
+  id: number;
+  review_id: number;
+  reporter_id: number;
+  reason: ReviewReportReason;
+  description?: string | null;
+  status: ReviewReportStatus;
+  admin_id?: number | null;
+  created_at: string;
+  reviewed_at?: string | null;
+  reporter_name?: string;
+  reporter_email?: string;
+  reviewer_name?: string;
+  reviewee_name?: string;
+  review_rating?: number;
+  review_comment?: string | null;
 }
 
 export interface BookingReviewState {

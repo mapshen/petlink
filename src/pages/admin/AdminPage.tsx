@@ -4,6 +4,7 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 import { API_BASE } from '../../config';
 import { Shield, Check, X, Ban, Loader2, Users, Home, PawPrint, Award, ChevronDown, ChevronUp, Scale } from 'lucide-react';
 import AdminDisputeQueue from '../../components/dispute/AdminDisputeQueue';
+import AdminReviewReports from '../../components/review/AdminReviewReports';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent } from '../../components/ui/card';
@@ -42,7 +43,7 @@ interface AdminSitter {
   manual_import_count?: number;
 }
 
-type Tab = 'pending' | 'approved' | 'rejected' | 'banned' | 'all' | 'disputes' | 'beta_credits';
+type Tab = 'pending' | 'approved' | 'rejected' | 'banned' | 'all' | 'disputes' | 'flagged_reviews' | 'beta_credits';
 type ActionType = 'reject' | 'ban';
 type BetaCohort = 'founding' | 'early_beta' | 'post_beta';
 
@@ -326,6 +327,7 @@ export default function AdminPage() {
           { key: 'banned', label: 'Banned' },
           { key: 'all', label: `All (${allTotal})` },
           { key: 'disputes', label: 'Disputes' },
+          { key: 'flagged_reviews', label: 'Flagged Reviews' },
           { key: 'beta_credits', label: 'Beta Credits' },
         ] as const).map((t) => (
           <Button
@@ -354,7 +356,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {tab !== 'pending' && tab !== 'disputes' && tab !== 'beta_credits' && (
+      {tab !== 'pending' && tab !== 'disputes' && tab !== 'flagged_reviews' && tab !== 'beta_credits' && (
         <div className="space-y-3">
           {allSitters.length === 0 ? (
             <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
@@ -371,6 +373,10 @@ export default function AdminPage() {
 
       {tab === 'disputes' && (
         <AdminDisputeQueue token={token} currentUserId={user?.id} />
+      )}
+
+      {tab === 'flagged_reviews' && (
+        <AdminReviewReports token={token} />
       )}
 
       {tab === 'beta_credits' && (

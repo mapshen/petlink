@@ -325,10 +325,15 @@ export async function initDb() {
       response_text TEXT,
       response_at TIMESTAMPTZ,
       published_at TIMESTAMPTZ,
+      hidden_at TIMESTAMPTZ,
+      hidden_by INTEGER REFERENCES users(id),
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(booking_id, reviewer_id)
     )
   `;
+  // Migration: add hidden columns to existing reviews table
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS hidden_by INTEGER REFERENCES users(id)`.catch(() => {});
 
   await sql`
     CREATE TABLE IF NOT EXISTS availability (
@@ -1213,6 +1218,23 @@ export async function initDb() {
   `.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_ban_appeals_user_id ON ban_appeals (user_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_ban_appeals_status ON ban_appeals (status) WHERE status = 'pending'`.catch(() => {});
+
+  // Review moderation: reports table
+  await sql`
+    CREATE TABLE IF NOT EXISTS review_reports (
+      id SERIAL PRIMARY KEY,
+      review_id INTEGER NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+      reporter_id INTEGER NOT NULL REFERENCES users(id),
+      reason TEXT NOT NULL CHECK(reason IN ('inappropriate_language', 'spam', 'fake_review', 'harassment', 'other')),
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'dismissed', 'actioned')),
+      admin_id INTEGER REFERENCES users(id),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      reviewed_at TIMESTAMPTZ,
+      UNIQUE(review_id, reporter_id)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_review_reports_status ON review_reports (status)`.catch(() => {});
 
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});

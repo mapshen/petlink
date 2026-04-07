@@ -94,6 +94,8 @@ export default function BookingReviewDetail({ bookingId, userId, token, onLeaveR
               <ReviewCard
                 review={myReview}
                 respondentName={myRevieweeName}
+                currentUserId={userId}
+                token={token}
               />
             </div>
           ) : state.can_review && onLeaveReview ? (
@@ -138,6 +140,8 @@ export default function BookingReviewDetail({ bookingId, userId, token, onLeaveR
                   review={theirReview}
                   onRespond={state.can_respond[theirReview.id] ? setRespondingTo : undefined}
                   respondentName={theirRevieweeName}
+                  currentUserId={userId}
+                  token={token}
                 />
 
                 {/* Inline response form */}
