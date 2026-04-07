@@ -23,7 +23,6 @@ interface TurnstileRenderOptions {
 
 interface UseTurnstileOptions {
   siteKey: string | undefined;
-  action?: string;
 }
 
 interface UseTurnstileResult {
