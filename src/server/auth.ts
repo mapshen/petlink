@@ -102,6 +102,14 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
       return;
     }
     req.userId = decoded.userId;
+
+    // Track last activity for dormancy detection (throttled: once per day)
+    sql`
+      UPDATE users SET last_active_at = NOW()
+      WHERE id = ${decoded.userId}
+        AND (last_active_at IS NULL OR last_active_at < NOW() - INTERVAL '1 day')
+    `.catch(() => {});
+
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });

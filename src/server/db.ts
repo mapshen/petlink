@@ -956,6 +956,21 @@ export async function initDb() {
   await sql`ALTER TABLE credit_ledger ADD COLUMN IF NOT EXISTS stripe_event_id TEXT`.catch(() => {});
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_stripe_event ON credit_ledger (stripe_event_id) WHERE stripe_event_id IS NOT NULL`.catch(() => {});
 
+  // Issue #415: Credit dormancy policy
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS dormancy_warning_sent_at TIMESTAMPTZ`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS dormancy_forfeiture_log (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      amount_cents INTEGER NOT NULL,
+      credit_ledger_entry_id INTEGER REFERENCES credit_ledger(id),
+      forfeited_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_dormancy_forfeiture_user ON dormancy_forfeiture_log (user_id)`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

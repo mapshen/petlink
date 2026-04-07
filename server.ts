@@ -14,6 +14,7 @@ import { startBookingReminderScheduler, stopBookingReminderScheduler } from './s
 import { startOnboardingReminderScheduler, stopOnboardingReminderScheduler } from './src/server/onboarding-reminders.ts';
 import { startDepositReleaseScheduler, stopDepositReleaseScheduler } from './src/server/deposit-release.ts';
 import { startCreditLowWarningScheduler, stopCreditLowWarningScheduler } from './src/server/credit-low-warning.ts';
+import { startDormancyCheckScheduler, stopDormancyCheckScheduler } from './src/server/dormancy-check.ts';
 import sql from './src/server/db.ts';
 import { createPublicLimiter, createApiLimiter, createAuthLimiter } from './src/server/rate-limit.ts';
 import {
@@ -216,6 +217,7 @@ async function startServer() {
     startOnboardingReminderScheduler();
     startDepositReleaseScheduler(io);
     startCreditLowWarningScheduler();
+    startDormancyCheckScheduler();
   });
 
   const shutdown = () => {
@@ -224,6 +226,7 @@ async function startServer() {
     stopOnboardingReminderScheduler();
     stopDepositReleaseScheduler();
     stopCreditLowWarningScheduler();
+    stopDormancyCheckScheduler();
     io.close();
     httpServer.close(() => {
       sql.end({ timeout: 5 }).then(() => process.exit(0)).catch(() => process.exit(1));
