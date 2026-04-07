@@ -3,8 +3,8 @@ import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { API_BASE } from '../../config';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { AlertTriangle, Loader2, MapPin, Plus, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { AlertTriangle, Loader2, MapPin, Plus, Clock } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import type { LostPetAlert, Pet } from '../../types';
 import CreateAlertDialog from '../../components/lost-pets/CreateAlertDialog';
 import AlertDetailCard from '../../components/lost-pets/AlertDetailCard';
@@ -14,7 +14,6 @@ export default function LostPetAlertsPage() {
   const { user, token } = useAuth();
   const { mode } = useMode();
   const [alerts, setAlerts] = useState<LostPetAlert[]>([]);
-  const [myAlerts, setMyAlerts] = useState<LostPetAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [pets, setPets] = useState<Pet[]>([]);
@@ -35,11 +34,6 @@ export default function LostPetAlertsPage() {
       // Non-critical
     }
   }, [token]);
-
-  const fetchMyAlerts = useCallback(async () => {
-    // We'll re-use the nearby endpoint and filter, or show owner's own alerts
-    // For simplicity, we fetch all nearby and filter by owner_id
-  }, []);
 
   const fetchPets = useCallback(async () => {
     try {

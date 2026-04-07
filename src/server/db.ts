@@ -1287,6 +1287,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_lost_pet_alerts_pet ON lost_pet_alerts (pet_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_lost_pet_alerts_status ON lost_pet_alerts (status) WHERE status = 'active'`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_lost_pet_alerts_location ON lost_pet_alerts USING GIST (last_seen_location)`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_lost_pet_alerts_active_pet ON lost_pet_alerts (pet_id) WHERE status = 'active'`.catch(() => {});
   await sql`
     CREATE TABLE IF NOT EXISTS lost_pet_alert_notifications (
       id SERIAL PRIMARY KEY,
