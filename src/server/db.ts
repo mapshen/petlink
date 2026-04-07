@@ -1091,6 +1091,21 @@ export async function initDb() {
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_reservation_protections_booking ON reservation_protections (booking_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_reservation_protections_owner ON reservation_protections (owner_id)`.catch(() => {});
 
+  // Issue #101: Backup sitter matching
+  await sql`
+    CREATE TABLE IF NOT EXISTS booking_backups (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      rank INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'suggested' CHECK(status IN ('suggested', 'accepted', 'declined')),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(booking_id, sitter_id)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_backups_booking ON booking_backups (booking_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_backups_sitter ON booking_backups (sitter_id)`.catch(() => {});
+
   // Issue #384/#385: Beta program + Pro trials
   await sql`
     CREATE TABLE IF NOT EXISTS platform_settings (

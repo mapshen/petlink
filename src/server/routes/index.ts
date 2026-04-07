@@ -41,3 +41,4 @@ export { default as referralRoutes } from './referrals.ts';
 export { default as phoneRelayRoutes } from './phone-relay.ts';
 export { default as banActionRoutes } from './ban-actions.ts';
 export { default as reviewModerationRoutes } from './review-moderation.ts';
+export { default as backupSitterRoutes } from './backup-sitters.ts';

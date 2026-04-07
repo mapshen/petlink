@@ -12,6 +12,7 @@ import { getAddonBySlug } from '../../shared/addon-catalog.ts';
 import { sendEmail, buildBookingConfirmationEmail, buildBookingStatusEmail, buildSitterNewBookingEmail } from '../email.ts';
 import { recordStrike, evaluateConsequences, getStrikeEventForCancellation } from '../reliability.ts';
 import { shouldTriggerProtection, triggerReservationProtection, findReplacementSitters } from '../reservation-protection.ts';
+import { generateBackupsForBooking } from '../backup-sitters.ts';
 import logger, { sanitizeError } from '../logger.ts';
 import { format as formatDate } from 'date-fns';
 
@@ -648,6 +649,13 @@ export default function bookingRoutes(router: Router, io: Server): void {
       }
     } catch {
       // Notification failed — booking status was already updated successfully
+    }
+
+    // Auto-generate backup sitter suggestions on confirmation (async, non-blocking)
+    if (status === 'confirmed') {
+      generateBackupsForBooking(bookingId).catch((err: unknown) => {
+        logger.error({ err: sanitizeError(err), bookingId }, 'Failed to auto-generate backup sitters');
+      });
     }
 
     // Calculate refund for owner-initiated cancellations of confirmed bookings with held payments
