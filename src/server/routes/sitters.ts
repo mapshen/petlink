@@ -3,13 +3,14 @@ import type { RateLimitRequestHandler } from 'express-rate-limit';
 import sql from '../db.ts';
 import { validate, sitterSearchSchema, profileViewSchema } from '../validation.ts';
 import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
+import { verifyTurnstile } from '../turnstile.ts';
 import { calculateRankingScore, isNewSitter, type SitterStats } from '../sitter-ranking.ts';
 import { recordProfileView } from '../profile-views.ts';
 import { dollarsToCents } from '../../lib/money.ts';
 import { resolveActiveBadges, BADGE_CATALOG } from '../../shared/badge-catalog.ts';
 
 export default function sitterRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
-  router.get('/sitters', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
+  router.get('/sitters', requireUserAgent, botBlockMiddleware, publicLimiter, verifyTurnstile, async (req, res) => {
     const parsed = sitterSearchSchema.safeParse(req.query);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.issues[0].message });
@@ -184,7 +185,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     res.json({ sitters: withAddons, total, limit, offset });
   });
 
-  router.get('/sitters/:idOrSlug', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
+  router.get('/sitters/:idOrSlug', requireUserAgent, botBlockMiddleware, publicLimiter, verifyTurnstile, async (req, res) => {
     const param = req.params.idOrSlug;
     const isNumeric = /^\d+$/.test(param);
     const [sitter] = await sql`

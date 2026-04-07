@@ -11,6 +11,7 @@ interface AuthContextType {
     password: string,
     name: string,
     ageConfirmed?: boolean,
+    turnstileToken?: string,
   ) => Promise<void>;
   loginWithOAuth: (provider: OAuthProvider, token: string) => Promise<{ isNewUser: boolean }>;
   logout: () => void;
@@ -212,10 +213,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signup = useCallback(
-    async (email: string, password: string, name: string, ageConfirmed?: boolean) => {
+    async (email: string, password: string, name: string, ageConfirmed?: boolean, turnstileToken?: string) => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (turnstileToken) {
+        headers['cf-turnstile-response'] = turnstileToken;
+      }
       const res = await fetch(`${API_BASE}/auth/signup`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ email, password, name, age_confirmed: ageConfirmed }),
       });
 

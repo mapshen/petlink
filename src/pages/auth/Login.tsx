@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import OAuthButtons from '../../components/onboarding/OAuthButtons';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useTurnstile } from '../../hooks/useTurnstile';
+import TurnstileWidget from '../../components/auth/TurnstileWidget';
 
 export default function Login() {
   useDocumentTitle('Login');
@@ -15,6 +17,9 @@ export default function Login() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { token: turnstileToken, containerRef: turnstileRef, reset: resetTurnstile } = useTurnstile({
+    siteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+  });
 
   const signupNameError = isSignup && name.trim().length === 0 ? 'Name is required' : null;
   const signupPasswordError =
@@ -43,13 +48,14 @@ export default function Login() {
     setSubmitting(true);
     try {
       if (isSignup) {
-        await signup(email, password, name, ageConfirmed);
+        await signup(email, password, name, ageConfirmed, turnstileToken ?? undefined);
       } else {
         await login(email, password);
       }
       navigate('/home');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed');
+      resetTurnstile();
     } finally {
       setSubmitting(false);
     }
@@ -98,6 +104,8 @@ export default function Login() {
             </div>
           </>
         )}
+
+        <TurnstileWidget containerRef={turnstileRef} />
 
         {/* Email/Password Form */}
         <form onSubmit={handleSubmit} className="space-y-4">

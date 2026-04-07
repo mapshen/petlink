@@ -7,7 +7,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useMapViewPreference } from '../../hooks/useMapViewPreference';
+import { useTurnstile } from '../../hooks/useTurnstile';
 import FavoriteButton from '../../components/profile/FavoriteButton';
+import TurnstileWidget from '../../components/auth/TurnstileWidget';
 import { FoundingSitterBadge } from '../../components/badges/FoundingSitterBadge';
 import LifestyleBadges from '../../components/badges/LifestyleBadges';
 import MapViewToggle from '../../components/map/MapViewToggle';
@@ -118,6 +120,10 @@ export default function Search() {
 
   const [highlightedSitterId, setHighlightedSitterId] = useState<number | null>(null);
 
+  const { token: turnstileToken, containerRef: turnstileRef } = useTurnstile({
+    siteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+  });
+
   // Debounce price inputs to avoid excessive API calls
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedMinPrice(minPrice), 300);
@@ -215,7 +221,11 @@ export default function Search() {
         if (petSize) params.set('petSize', petSize);
         if (species) params.set('species', species);
         if (selectedBadges.length > 0) params.set('badges', selectedBadges.join(','));
-        const res = await fetch(`${API_BASE}/sitters?${params}`);
+        const headers: Record<string, string> = {};
+        if (turnstileToken) {
+          headers['cf-turnstile-response'] = turnstileToken;
+        }
+        const res = await fetch(`${API_BASE}/sitters?${params}`, { headers });
         if (!res.ok) throw new Error('Failed to load sitters');
         const data = await res.json();
         setSitters(data.sitters);
@@ -227,7 +237,7 @@ export default function Search() {
     };
 
     fetchSitters();
-  }, [serviceType, coords, radius, retryCount, debouncedMinPrice, debouncedMaxPrice, petSize, species, selectedBadges]);
+  }, [serviceType, coords, radius, retryCount, debouncedMinPrice, debouncedMaxPrice, petSize, species, selectedBadges, turnstileToken]);
 
   const { user: authUser } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
@@ -236,6 +246,7 @@ export default function Search() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <TurnstileWidget containerRef={turnstileRef} />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-stone-900">{serviceLabel}</h1>
         <MapViewToggle view={view} onViewChange={setView} showSplitOption={isDesktop} />
