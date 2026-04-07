@@ -82,19 +82,20 @@ async function fetchPricingData(sitterId: number) {
 }
 
 async function fetchResponseData(sitterId: number) {
-  const [sitterResp] = await sql`
-    SELECT
-      AVG(EXTRACT(EPOCH FROM (responded_at - created_at)) / 3600)::float AS avg_response_hours
-    FROM bookings
-    WHERE sitter_id = ${sitterId} AND responded_at IS NOT NULL
-  `;
-
-  const [platformResp] = await sql`
-    SELECT
-      AVG(EXTRACT(EPOCH FROM (responded_at - created_at)) / 3600)::float AS avg_response_hours
-    FROM bookings
-    WHERE responded_at IS NOT NULL
-  `;
+  const [[sitterResp], [platformResp]] = await Promise.all([
+    sql`
+      SELECT
+        AVG(EXTRACT(EPOCH FROM (responded_at - created_at)) / 3600)::float AS avg_response_hours
+      FROM bookings
+      WHERE sitter_id = ${sitterId} AND responded_at IS NOT NULL
+    `,
+    sql`
+      SELECT
+        AVG(EXTRACT(EPOCH FROM (responded_at - created_at)) / 3600)::float AS avg_response_hours
+      FROM bookings
+      WHERE responded_at IS NOT NULL
+    `,
+  ]);
 
   return {
     avg_response_hours: sitterResp?.avg_response_hours
@@ -118,18 +119,16 @@ async function fetchAvailabilityData(sitterId: number) {
 }
 
 async function fetchReviewData(sitterId: number) {
-  const [sitterReviews] = await sql`
-    SELECT
-      AVG(rating)::float AS avg_rating,
-      COUNT(*)::int AS review_count
-    FROM reviews
-    WHERE reviewee_id = ${sitterId}
-  `;
-
-  const [platformReviews] = await sql`
-    SELECT AVG(rating)::float AS avg_rating
-    FROM reviews
-  `;
+  const [[sitterReviews], [platformReviews]] = await Promise.all([
+    sql`
+      SELECT
+        AVG(rating)::float AS avg_rating,
+        COUNT(*)::int AS review_count
+      FROM reviews
+      WHERE reviewee_id = ${sitterId}
+    `,
+    sql`SELECT AVG(rating)::float AS avg_rating FROM reviews`,
+  ]);
 
   return {
     avg_rating: sitterReviews?.avg_rating
@@ -143,16 +142,15 @@ async function fetchReviewData(sitterId: number) {
 }
 
 async function fetchVisibilityData(sitterId: number, profileCompletenessPct: number, approvedAt: string | null) {
-  const [sub] = await sql`
-    SELECT subscription_tier FROM users WHERE id = ${sitterId}
-  `;
-
-  const [strikes] = await sql`
-    SELECT COALESCE(SUM(strike_weight), 0)::float AS total
-    FROM sitter_strikes
-    WHERE sitter_id = ${sitterId}
-      AND expires_at > NOW()
-  `;
+  const [[sub], [strikes]] = await Promise.all([
+    sql`SELECT subscription_tier FROM users WHERE id = ${sitterId}`,
+    sql`
+      SELECT COALESCE(SUM(strike_weight), 0)::float AS total
+      FROM sitter_strikes
+      WHERE sitter_id = ${sitterId}
+        AND expires_at > NOW()
+    `,
+  ]);
 
   return {
     subscription_tier: sub?.subscription_tier ?? 'free',
@@ -163,20 +161,21 @@ async function fetchVisibilityData(sitterId: number, profileCompletenessPct: num
 }
 
 async function fetchBookingTrend(sitterId: number) {
-  const [thisMonth] = await sql`
-    SELECT COUNT(*)::int AS count
-    FROM bookings
-    WHERE sitter_id = ${sitterId}
-      AND start_time >= DATE_TRUNC('month', NOW())
-  `;
-
-  const [lastMonth] = await sql`
-    SELECT COUNT(*)::int AS count
-    FROM bookings
-    WHERE sitter_id = ${sitterId}
-      AND start_time >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month'
-      AND start_time < DATE_TRUNC('month', NOW())
-  `;
+  const [[thisMonth], [lastMonth]] = await Promise.all([
+    sql`
+      SELECT COUNT(*)::int AS count
+      FROM bookings
+      WHERE sitter_id = ${sitterId}
+        AND start_time >= DATE_TRUNC('month', NOW())
+    `,
+    sql`
+      SELECT COUNT(*)::int AS count
+      FROM bookings
+      WHERE sitter_id = ${sitterId}
+        AND start_time >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month'
+        AND start_time < DATE_TRUNC('month', NOW())
+    `,
+  ]);
 
   return {
     bookings_this_month: thisMonth?.count ?? 0,
