@@ -94,6 +94,25 @@ describe('expenseSchema', () => {
     const result = expenseSchema.safeParse({ ...validExpense, receipt_url: '' });
     expect(result.success).toBe(true);
   });
+
+  it('accepts valid S3 receipt URL', () => {
+    const result = expenseSchema.safeParse({
+      ...validExpense,
+      receipt_url: 'https://mybucket.s3.us-east-1.amazonaws.com/receipts/5/abc123.jpg',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts null receipt URL to clear receipt', () => {
+    const result = expenseSchema.safeParse({ ...validExpense, receipt_url: null });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts undefined receipt URL (omitted)', () => {
+    const { receipt_url: _, ...withoutReceipt } = validExpense;
+    const result = expenseSchema.safeParse(withoutReceipt);
+    expect(result.success).toBe(true);
+  });
 });
 
 // --- Database Integration Tests ---

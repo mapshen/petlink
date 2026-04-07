@@ -18,6 +18,7 @@ export default function uploadRoutes(router: Router): void {
         posts: 5 * 1024 * 1024,
         incidents: 10 * 1024 * 1024,
         disputes: 10 * 1024 * 1024,
+        receipts: 5 * 1024 * 1024,
       };
       const maxBytes = MAX_SIZE[folder];
       if (fileSize > maxBytes) {
