@@ -1300,6 +1300,59 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_lost_pet_alert_notifs_alert ON lost_pet_alert_notifications (alert_id)`.catch(() => {});
   await sql`ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS lost_pet_alerts BOOLEAN DEFAULT TRUE`.catch(() => {});
 
+  // Issue #115: Sitter community forum
+  await sql`
+    CREATE TABLE IF NOT EXISTS forum_categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      description TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS forum_threads (
+      id SERIAL PRIMARY KEY,
+      category_id INTEGER NOT NULL REFERENCES forum_categories(id) ON DELETE CASCADE,
+      author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL CHECK(char_length(title) <= 200),
+      content TEXT NOT NULL CHECK(char_length(content) <= 5000),
+      pinned BOOLEAN DEFAULT FALSE,
+      locked BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_forum_threads_category ON forum_threads (category_id, created_at DESC)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_forum_threads_author ON forum_threads (author_id)`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS forum_replies (
+      id SERIAL PRIMARY KEY,
+      thread_id INTEGER NOT NULL REFERENCES forum_threads(id) ON DELETE CASCADE,
+      author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL CHECK(char_length(content) <= 2000),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_forum_replies_thread ON forum_replies (thread_id, created_at ASC)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_forum_replies_author ON forum_replies (author_id)`.catch(() => {});
+
+  // Seed forum categories (idempotent)
+  await sql`
+    INSERT INTO forum_categories (name, slug, description, sort_order)
+    VALUES
+      ('General', 'general', 'General discussion for the sitter community', 1),
+      ('Tips & Tricks', 'tips-and-tricks', 'Share your best practices and helpful tips', 2),
+      ('Pet Care', 'pet-care', 'Discuss pet health, behavior, and care techniques', 3),
+      ('Business', 'business', 'Tax tips, insurance, pricing strategies, and more', 4),
+      ('Introductions', 'introductions', 'Introduce yourself to the community', 5)
+    ON CONFLICT (slug) DO NOTHING
+  `.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

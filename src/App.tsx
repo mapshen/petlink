@@ -41,6 +41,9 @@ const ConnectReturn = React.lazy(() => import('./pages/payments/ConnectReturn'))
 const ConnectRefresh = React.lazy(() => import('./pages/payments/ConnectRefresh'));
 const ReferralPage = React.lazy(() => import('./pages/referrals/ReferralPage'));
 const LostPetAlertsPage = React.lazy(() => import('./pages/lost-pets/LostPetAlertsPage'));
+const ForumPage = React.lazy(() => import('./pages/forum/ForumPage'));
+const ForumCategoryPage = React.lazy(() => import('./pages/forum/CategoryPage'));
+const ForumThreadPage = React.lazy(() => import('./pages/forum/ThreadPage'));
 
 function LoadingSpinner() {
   return (
@@ -89,6 +92,9 @@ export default function App() {
                 <Route path="/connect/refresh" element={<ProtectedRoute><ConnectRefresh /></ProtectedRoute>} />
                 <Route path="/referrals" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
                 <Route path="/lost-pets" element={<ProtectedRoute><LostPetAlertsPage /></ProtectedRoute>} />
+                <Route path="/forum" element={<ProtectedRoute><ForumPage /></ProtectedRoute>} />
+                <Route path="/forum/:slug" element={<ProtectedRoute><ForumCategoryPage /></ProtectedRoute>} />
+                <Route path="/forum/threads/:id" element={<ProtectedRoute><ForumThreadPage /></ProtectedRoute>} />
                 <Route path="/track/:bookingId" element={<ProtectedRoute><TrackWalk /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

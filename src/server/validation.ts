@@ -690,3 +690,19 @@ export const nearbyAlertsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
+
+// --- Forum Schemas ---
+export const createForumThreadSchema = z.object({
+  category_id: z.number().int().positive('Invalid category'),
+  title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be under 200 characters'),
+  content: z.string().trim().min(1, 'Content is required').max(5000, 'Content must be under 5000 characters'),
+});
+
+export const createForumReplySchema = z.object({
+  content: z.string().trim().min(1, 'Reply is required').max(2000, 'Reply must be under 2000 characters'),
+});
+
+export const adminUpdateThreadSchema = z.object({
+  pinned: z.boolean().optional(),
+  locked: z.boolean().optional(),
+});

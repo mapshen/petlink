@@ -73,6 +73,7 @@ Single Express server serves both the API and Vite-powered frontend in dev mode.
 | Pro Periods | `GET /pro-period/me` (active period + days remaining), `GET /pro-period/savings` (fee savings during period), admin: `GET /admin/trials`, `POST /admin/trials/:userId/extend`, `PUT /admin/settings/trial-duration` |
 | Beta Program | admin: `GET /admin/beta/dashboard`, `GET /admin/beta/sitters`, `PUT /admin/beta/settings`, `POST /admin/beta/extend/:userId`, `POST /admin/beta/revoke/:userId` |
 | Admin | `GET /admin/pending-sitters`, `GET /admin/sitters` (paginated, `?status=&limit=&offset=`), `PUT /admin/sitters/:id/approval` (auto-enrolls in beta or starts free Pro trial), `POST /admin/users/:id/beta-credit` (admin, sets cohort + issues credits) |
+| Forum | `GET /forum/categories` (sitter), `GET /forum/categories/:slug/threads` (sitter, paginated), `POST /forum/threads` (sitter), `GET /forum/threads/:id` (sitter, paginated replies), `POST /forum/threads/:id/replies` (sitter), `DELETE /forum/threads/:id` (own or admin), `DELETE /forum/replies/:id` (own or admin), `PUT /admin/forum/threads/:id` (admin pin/lock) |
 | Health | `GET /health` (no auth, returns DB connectivity status) |
 
 ### Frontend (`src/`)
@@ -91,6 +92,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
   - `messages/` — Messages
   - `payments/` — WalletPage, PaymentHistoryPage
   - `sitter/` — AnalyticsPage, PromotePage, TrackWalk
+  - `forum/` — ForumPage (category list), CategoryPage (threads), ThreadPage (detail + replies)
   - `Home.tsx` — landing page
 - **Role system**: Additive roles stored as `roles TEXT[]` (default `{owner}`). Roles: `owner`, `sitter`, `admin`. Everyone starts as owner; sitter granted by admin approval; admin requires both DB role and `ADMIN_EMAIL` env var. `ModeContext` provides owner/sitter toggle for users with both roles. Persisted in localStorage (`petlink_mode`). Affects Home page filtering, Profile sections, and onboarding visibility. `ModeToggle` component in header.
 - **Components** (organized by domain in `src/components/`):
@@ -102,6 +104,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
   - `onboarding/` — OnboardingChecklist, OnboardingProgress, OAuthButtons
   - `review/` — SubRatingPills, SubRatingBars, ReviewResponse, ReviewCard, BookingReviewDetail
   - `map/` — SitterClusterMap, SitterLocationMap, MapViewToggle
+  - `forum/` — CreateThreadDialog
   - `ui/` — shadcn components
 - **Hooks**: `useFavorites`, `useOnboardingStatus`, `useImageUpload`, `useVideoUpload`, `usePaymentIntent`, `useHomeStats`, `useTodaySchedule`, `useSitterPreviewData`
 - **Server modules** (`src/server/`): auth, admin, analytics, payments, payouts, notifications, email, storage, validation, profile-import, stripe-customers, slugify, care-task-reminders, etc.
@@ -155,6 +158,9 @@ PostgreSQL with PostGIS.
 | `reservation_protections` | Triggered on sitter cancellation of confirmed bookings within 48h. `booking_id` UNIQUE, `original_sitter_id`, `owner_id`, `status` (searching/options_sent/rebooked/owner_cancelled/no_alternatives), `replacement_booking_id`, `credit_issued_cents`. Auto-searches for nearby replacement sitters |
 | `platform_settings` | Key-value store for admin-configurable settings: `key` TEXT PK, `value` JSONB, `updated_by`. Used for beta_active, beta_end_date, pro_trial_days. In-memory cached (5-min TTL) |
 | `pro_periods` | Temporary Pro subscriptions without Stripe: `user_id`, `source` (beta/trial/beta_transition), `starts_at`, `ends_at`, `status` (active/expired/cancelled), warning dedup columns. Partial unique on (user_id, source) WHERE active. Daily scheduler expires periods, sends warnings, transitions founding sitters |
+| `forum_categories` | Forum categories: `name`, `slug` (unique), `description`, `sort_order`. Seeded with 5 defaults (General, Tips & Tricks, Pet Care, Business, Introductions) |
+| `forum_threads` | Forum threads: `category_id` FK, `author_id` FK, `title` (max 200), `content` (max 5000), `pinned`, `locked`, timestamps. Indexed on (category_id, created_at) and author_id |
+| `forum_replies` | Forum replies: `thread_id` FK CASCADE, `author_id` FK CASCADE, `content` (max 2000), timestamps. Indexed on (thread_id, created_at) and author_id |
 
 PostgreSQL enums: `booking_status`, `payment_status`, `service_type`, `walk_event_type`, `id_check_status`, `bg_check_status`, `notification_type`, `push_platform`, `cancellation_policy`. User roles use `TEXT[]` (not an enum).
 
@@ -177,7 +183,7 @@ Auto-seeded with 3 demo accounts on empty DB: `owner@example.com` (owner only), 
 
 ## Testing
 
-1957 tests across 131 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
+2303 tests across 147 suites (Vitest, 96%+ backend source coverage). See `DEVELOPMENT.md` for full testing guide.
 
 ## Guides
 
