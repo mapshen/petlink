@@ -62,16 +62,11 @@ const SERIES_CONFIG: Record<string, { color: string; label: string }> = {
 };
 
 function BarGroupChart({ data, visibleSeries }: BarGroupChartProps) {
-  const maxValue = useMemo(() => {
-    let max = 0;
-    for (const point of data) {
-      for (const key of visibleSeries) {
-        const val = point[key] as number;
-        if (val > max) max = val;
-      }
-    }
-    return max;
-  }, [data, visibleSeries]);
+  const maxValue = useMemo(() =>
+    data.reduce((max, point) =>
+      visibleSeries.reduce((m, key) => Math.max(m, point[key] as number), max),
+    0),
+  [data, visibleSeries]);
 
   if (data.length === 0) {
     return <p className="text-stone-400 text-sm py-8 text-center">No trend data yet.</p>;

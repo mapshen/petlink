@@ -313,9 +313,6 @@ export async function getTrends(sitterId: number, period: TrendsPeriod, rangeDay
   const trunc = dateTruncFormat(period);
   const fmt = periodFormat(period);
 
-  const rangeStart = `NOW() - INTERVAL '${rangeDays} days'`;
-  const prevStart = `NOW() - INTERVAL '${rangeDays * 2} days'`;
-
   // Profile views by period
   const viewsData = await sql`
     SELECT

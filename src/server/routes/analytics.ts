@@ -2,7 +2,7 @@ import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { analyticsDateRangeSchema, analyticsTrendsSchema } from '../validation.ts';
-import { requireSitterRole, validateYear, validateRevenuePeriod, validateTrendsPeriod, validateTrendsRange, getOverview, getClients, getClientDetail, getRevenue, getTrends } from '../analytics.ts';
+import { requireSitterRole, validateYear, validateRevenuePeriod, getOverview, getClients, getClientDetail, getRevenue, getTrends } from '../analytics.ts';
 import { getProfileViewsAnalytics } from '../profile-views.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
