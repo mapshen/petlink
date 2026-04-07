@@ -947,6 +947,15 @@ export async function initDb() {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_payouts_enabled BOOLEAN DEFAULT FALSE`.catch(() => {});
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_charges_enabled BOOLEAN DEFAULT FALSE`.catch(() => {});
 
+  // Issue #413: Beta sitter promotional credits
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS founding_sitter BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS beta_cohort TEXT`.catch(() => {});
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_beta_cohort`.catch(() => {});
+  await sql`ALTER TABLE users ADD CONSTRAINT chk_beta_cohort CHECK (beta_cohort IS NULL OR beta_cohort IN ('founding', 'early_beta', 'post_beta'))`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS credit_low_warning_sent_at TIMESTAMPTZ`.catch(() => {});
+  await sql`ALTER TABLE credit_ledger ADD COLUMN IF NOT EXISTS stripe_event_id TEXT`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_ledger_stripe_event ON credit_ledger (stripe_event_id) WHERE stripe_event_id IS NOT NULL`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

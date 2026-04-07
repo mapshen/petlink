@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Crown, Check, Zap, Shield, Clock, AlertCircle, CreditCard, Star, TrendingUp, Eye } from 'lucide-react';
+import { Crown, Check, Zap, Shield, Clock, AlertCircle, CreditCard, Star, TrendingUp, Eye, Gift } from 'lucide-react';
 import SubscriptionPaymentForm from '../../components/payment/SubscriptionPaymentForm';
 import { API_BASE } from '../../config';
 import type { SitterSubscription, SubscriptionTier } from '../../types';
+import { formatCents } from '../../lib/money';
 import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -94,6 +95,7 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
   const [upgradeTier, setUpgradeTier] = useState<'pro' | 'premium'>('pro');
   const [searchParams, setSearchParams] = useSearchParams();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [creditBalance, setCreditBalance] = useState(0);
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
@@ -108,7 +110,20 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
   useEffect(() => {
     if (!user) return;
     fetchSubscription();
+    fetchCreditBalance();
   }, [user]);
+
+  const fetchCreditBalance = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/credits/balance`, { headers: getAuthHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setCreditBalance(data.balance_cents);
+      }
+    } catch {
+      // Non-critical
+    }
+  };
 
   const fetchSubscription = async () => {
     try {
@@ -235,6 +250,31 @@ export default function SubscriptionPage({ embedded = false }: { embedded?: bool
         <div className="flex justify-center py-12" role="status" aria-live="polite"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" /><span className="sr-only">Loading subscription...</span></div>
       ) : (
         <div className="space-y-6">
+          {/* Credit Balance Widget */}
+          {creditBalance > 0 && (
+            <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <Gift className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-emerald-800">Platform Credits</p>
+                  <p className="text-xs text-emerald-600">Auto-applied to subscription renewals</p>
+                </div>
+              </div>
+              <div className="text-xl font-bold text-emerald-700">{formatCents(creditBalance)}</div>
+            </div>
+          )}
+
+          {/* Founding Sitter Badge */}
+          {user?.founding_sitter && (
+            <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100 flex items-center gap-2">
+              <Star className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-semibold text-emerald-800">Founding Sitter</span>
+              <span className="text-xs text-emerald-600 ml-1">Permanent badge for early supporters</span>
+            </div>
+          )}
+
           {/* 3-tier comparison */}
           <div className="grid md:grid-cols-3 gap-4">
             {(['free', 'pro', 'premium'] as SubscriptionTier[]).map((tier) => {

@@ -2,11 +2,12 @@ import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, paymentIntentSchema, paymentActionSchema } from '../validation.ts';
-import { createPaymentIntent, createACHPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent, listPaymentMethods, detachPaymentMethod, listCharges, createFinancialConnectionsSession, listBankAccounts, detachBankAccount } from '../payments.ts';
+import { createPaymentIntent, createACHPaymentIntent, capturePayment, cancelPayment, constructWebhookEvent, listPaymentMethods, detachPaymentMethod, listCharges, createFinancialConnectionsSession, listBankAccounts, detachBankAccount, createStripeCustomerBalanceTransaction } from '../payments.ts';
 import { calculateApplicationFee } from '../stripe-connect.ts';
 import { getPayoutsForSitter, getPendingPayoutsForSitter } from '../payouts.ts';
 import { createNotification } from '../notifications.ts';
 import { handleAccountUpdated } from '../stripe-connect.ts';
+import { getBalance } from '../credits.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function paymentRoutes(router: Router): void {
@@ -239,6 +240,76 @@ export default function paymentRoutes(router: Router): void {
               UPDATE sitter_subscriptions SET status = 'past_due', updated_at = NOW()
               WHERE stripe_subscription_id = ${invoice.subscription}
             `;
+          }
+          break;
+        }
+        case 'invoice.paid': {
+          const invoice = event.data.object as unknown as {
+            id: string;
+            subscription: string;
+            amount_paid: number;
+            customer: string;
+          };
+          if (!invoice.subscription || invoice.amount_paid <= 0) break;
+
+          // Idempotency: skip if this event was already processed
+          const [alreadyProcessed] = await sql`
+            SELECT 1 FROM credit_ledger WHERE stripe_event_id = ${event.id}
+          `.catch(() => [] as any[]);
+          if (alreadyProcessed) {
+            logger.info({ eventId: event.id }, 'invoice.paid already processed, skipping');
+            break;
+          }
+
+          // Find sitter by subscription
+          const [subSitter] = await sql`
+            SELECT ss.sitter_id, u.email, u.name, u.stripe_customer_id
+            FROM sitter_subscriptions ss
+            JOIN users u ON u.id = ss.sitter_id
+            WHERE ss.stripe_subscription_id = ${invoice.subscription}
+          `.catch(() => [] as any[]);
+          if (!subSitter) break;
+
+          // Update subscription period and clear past_due
+          await sql`
+            UPDATE sitter_subscriptions
+            SET status = 'active',
+                current_period_start = NOW(),
+                current_period_end = NOW() + INTERVAL '30 days',
+                updated_at = NOW()
+            WHERE stripe_subscription_id = ${invoice.subscription}
+          `.catch(() => {});
+
+          // Auto-apply credits to next invoice if balance > 0
+          try {
+            const balance = await getBalance(subSitter.sitter_id);
+            if (balance > 0) {
+              const applyAmount = Math.min(balance, invoice.amount_paid);
+
+              // Atomic: deduct credits with stripe_event_id for idempotency
+              const [inserted] = await sql`
+                INSERT INTO credit_ledger (user_id, amount_cents, type, source_type, description, stripe_event_id)
+                VALUES (${subSitter.sitter_id}, ${-applyAmount}, 'redemption', 'subscription',
+                        ${'Applied to subscription renewal (invoice ' + invoice.id + ')'}, ${event.id})
+                ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL DO NOTHING
+                RETURNING id
+              `;
+
+              // Only apply Stripe balance if the INSERT actually happened (not a duplicate)
+              if (inserted && subSitter.stripe_customer_id) {
+                await createStripeCustomerBalanceTransaction(
+                  subSitter.stripe_customer_id,
+                  -applyAmount,
+                  `PetLink credit applied (invoice ${invoice.id})`
+                ).catch((err: unknown) => {
+                  logger.warn({ err: sanitizeError(err), sitterId: subSitter.sitter_id }, 'Failed to apply Stripe customer balance');
+                });
+              }
+
+              logger.info({ sitterId: subSitter.sitter_id, appliedCents: applyAmount, invoiceId: invoice.id }, 'Credits auto-applied to subscription renewal');
+            }
+          } catch (err) {
+            logger.warn({ err: sanitizeError(err), sitterId: subSitter.sitter_id }, 'Failed to auto-apply credits at renewal');
           }
           break;
         }

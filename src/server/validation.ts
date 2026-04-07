@@ -467,6 +467,13 @@ export const issueCreditSchema = z.object({
   expires_at: z.string().datetime().optional().nullable(),
 });
 
+const betaCohorts = ['founding', 'early_beta', 'post_beta'] as const;
+
+export const betaCreditSchema = z.object({
+  amount_cents: z.number().int().min(2000, 'Amount must be at least $20').max(24000, 'Amount must be under $240'),
+  cohort: z.enum(betaCohorts, { message: 'Cohort must be founding, early_beta, or post_beta' }),
+});
+
 // --- Upload Signed URL Schema ---
 const validFolders = ['pets', 'avatars', 'verifications', 'walks', 'sitter-photos', 'videos', 'posts', 'incidents', 'disputes'] as const;
 const allowedContentTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'] as const;
