@@ -9,6 +9,7 @@ import { calculateApplicationFee } from '../stripe-connect.ts';
 import { capturePayment } from '../payments.ts';
 import { MAX_POSTS_PER_SITTER } from './posts.ts';
 import { completeReferral } from '../referrals.ts';
+import { checkMentorshipCompletion } from '../mentorships.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function walkRoutes(router: Router, io: Server): void {
@@ -110,6 +111,11 @@ export default function walkRoutes(router: Router, io: Server): void {
         // Complete referral if this is the referred user's first booking
         completeReferral(booking.owner_id).catch((err: unknown) => {
           logger.error({ err: sanitizeError(err), ownerId: booking.owner_id }, 'Referral completion failed');
+        });
+
+        // Check if sitter (as mentee) has completed enough bookings to graduate mentorship
+        checkMentorshipCompletion(booking.sitter_id).catch((err: unknown) => {
+          logger.error({ err: sanitizeError(err), sitterId: booking.sitter_id }, 'Mentorship completion check failed');
         });
 
         // Record payout tracking entry — actual payout delivery is handled by Stripe Connect

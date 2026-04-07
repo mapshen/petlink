@@ -1353,6 +1353,24 @@ export async function initDb() {
     ON CONFLICT (slug) DO NOTHING
   `.catch(() => {});
 
+  // Issue #368: Sitter mentor program
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_mentor BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS mentorships (
+      id SERIAL PRIMARY KEY,
+      mentor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mentee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed', 'cancelled')),
+      started_at TIMESTAMPTZ DEFAULT NOW(),
+      completed_at TIMESTAMPTZ,
+      notes TEXT,
+      UNIQUE(mentee_id, mentor_id)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_mentorships_mentor ON mentorships (mentor_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_mentorships_mentee ON mentorships (mentee_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_mentorships_active ON mentorships (status) WHERE status = 'active'`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});

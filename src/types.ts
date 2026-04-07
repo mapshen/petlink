@@ -31,6 +31,22 @@ export type ConnectStatus = 'not_started' | 'onboarding' | 'active' | 'restricte
 export type CreditType = 'referral' | 'dispute_resolution' | 'promo' | 'beta_reward' | 'milestone' | 'redemption' | 'expiration' | 'dormancy_forfeiture';
 export type CreditSourceType = 'dispute' | 'referral_invite' | 'admin_grant' | 'beta_program' | 'booking' | 'subscription' | 'system';
 
+export type MentorshipStatus = 'active' | 'completed' | 'cancelled';
+
+export interface Mentorship {
+  readonly id: number;
+  readonly mentor_id: number;
+  readonly mentee_id: number;
+  readonly status: MentorshipStatus;
+  readonly started_at: string;
+  readonly completed_at: string | null;
+  readonly notes: string | null;
+  readonly mentor_name?: string;
+  readonly mentor_avatar?: string | null;
+  readonly mentee_name?: string;
+  readonly mentee_avatar?: string | null;
+}
+
 export type BetaCohort = 'founding' | 'early_beta' | 'post_beta';
 export type ProPeriodSource = 'beta' | 'trial' | 'beta_transition';
 export type ProPeriodStatus = 'active' | 'expired' | 'cancelled';
@@ -105,6 +121,7 @@ export interface User {
   active_badges?: string[];
   phone?: string | null;
   share_phone_for_bookings?: boolean;
+  is_mentor?: boolean;
   // Camera policy fields (Issue #373)
   has_cameras?: boolean;
   camera_locations?: string[];

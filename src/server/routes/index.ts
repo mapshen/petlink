@@ -44,3 +44,4 @@ export { default as reviewModerationRoutes } from './review-moderation.ts';
 export { default as backupSitterRoutes } from './backup-sitters.ts';
 export { default as lostPetAlertRoutes } from './lost-pet-alerts.ts';
 export { default as forumRoutes } from './forum.ts';
+export { default as mentorshipRoutes } from './mentorships.ts';
