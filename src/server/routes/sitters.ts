@@ -9,6 +9,19 @@ import { recordProfileView } from '../profile-views.ts';
 import { dollarsToCents } from '../../lib/money.ts';
 import { resolveActiveBadges, BADGE_CATALOG } from '../../shared/badge-catalog.ts';
 
+/** Generate unique day-of-week values (0=Sun..6=Sat) covered by a date range. */
+function generateDowArray(from: Date, to: Date): number[] {
+  const dows = new Set<number>();
+  const d = new Date(from);
+  const end = new Date(to);
+  // Cap at 7 iterations since there are only 7 unique DOWs
+  for (let i = 0; i < 7 && d <= end; i++) {
+    dows.add(d.getDay());
+    d.setDate(d.getDate() + 1);
+  }
+  return [...dows];
+}
+
 export default function sitterRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
   router.get('/sitters', requireUserAgent, botBlockMiddleware, publicLimiter, verifyTurnstile, async (req, res) => {
     const parsed = sitterSearchSchema.safeParse(req.query);
@@ -16,7 +29,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
-    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species, badges: badgesParam, cancellationPolicy, responseTime, availableThisWeek, limit: limitParam, offset: offsetParam } = parsed.data;
+    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species, badges: badgesParam, cancellationPolicy, responseTime, dateFrom, dateTo, limit: limitParam, offset: offsetParam } = parsed.data;
     const limit = Math.min(limitParam || 50, 100);
     const offset = offsetParam || 0;
 
@@ -113,16 +126,8 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
             SELECT 1 FROM availability a
             WHERE a.sitter_id = u.id
               AND (
-                (a.recurring = true AND a.day_of_week IN (
-                  EXTRACT(DOW FROM CURRENT_DATE)::int,
-                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '1 day')::int,
-                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '2 days')::int,
-                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '3 days')::int,
-                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '4 days')::int,
-                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '5 days')::int,
-                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '6 days')::int
-                ))
-                OR (a.specific_date IS NOT NULL AND a.specific_date >= CURRENT_DATE AND a.specific_date < CURRENT_DATE + INTERVAL '7 days')
+                a.recurring = true
+                OR (a.specific_date IS NOT NULL AND a.specific_date >= CURRENT_DATE)
               )
           ) as has_avail
         ) av ON true
@@ -178,8 +183,27 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     if (responseTime != null) {
       filtered = filtered.filter((s: any) => s.avg_response_hours != null && s.avg_response_hours <= responseTime);
     }
-    if (availableThisWeek) {
-      filtered = filtered.filter((s: any) => s.has_availability);
+
+    // Date range availability filter
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? new Date(dateFrom) : null;
+      const to = dateTo ? new Date(dateTo) : null;
+      const dateFilteredIds = new Set<number>();
+      const idsToCheck = filtered.map((s: any) => s.id);
+      if (idsToCheck.length > 0) {
+        const availSlots = await sql`
+          SELECT DISTINCT sitter_id FROM availability
+          WHERE sitter_id = ANY(${idsToCheck})
+            AND (
+              (recurring = true ${from && to ? sql`AND day_of_week = ANY(${generateDowArray(from, to)})` : sql``})
+              OR (specific_date IS NOT NULL
+                  ${from ? sql`AND specific_date >= ${dateFrom}` : sql``}
+                  ${to ? sql`AND specific_date <= ${dateTo}` : sql``})
+            )
+        `;
+        for (const row of availSlots) dateFilteredIds.add(row.sitter_id);
+      }
+      filtered = filtered.filter((s: any) => dateFilteredIds.has(s.id));
     }
 
     // When species filter is active, prefer species-specific data over global user fields

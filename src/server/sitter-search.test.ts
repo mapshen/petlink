@@ -182,18 +182,22 @@ describe('GET /api/v1/sitters — new filters', () => {
     expect(res.body.sitters[0].avg_response_hours).toBe(0.5);
   });
 
-  it('filters by availableThisWeek', async () => {
+  it('accepts dateFrom and dateTo params', async () => {
     const app = createApp();
-    queueResult([makeSitter({ id: 1 }), makeSitter({ id: 2 })]);
-    queueResult([
-      makeStats({ sitter_id: 1, has_availability: true }),
-      makeStats({ sitter_id: 2, has_availability: false }),
-    ]);
-    queueResult([]);
+    queueResult([makeSitter({ id: 1 })]);
+    queueResult([makeStats({ sitter_id: 1 })]);
+    queueResult([{ sitter_id: 1 }]); // availability date filter query
+    queueResult([]); // addons
 
-    const res = await request(app).get('/api/v1/sitters?availableThisWeek=true');
+    const res = await request(app).get('/api/v1/sitters?dateFrom=2026-04-10&dateTo=2026-04-15');
     expect(res.status).toBe(200);
     expect(res.body.sitters).toHaveLength(1);
+  });
+
+  it('rejects invalid dateFrom format', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/v1/sitters?dateFrom=not-a-date');
+    expect(res.status).toBe(400);
   });
 
   it('rejects invalid cancellationPolicy value', async () => {

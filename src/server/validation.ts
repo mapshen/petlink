@@ -604,7 +604,8 @@ export const sitterSearchSchema = z.object({
   badges: z.string().optional(), // comma-separated badge slugs
   cancellationPolicy: z.enum(['flexible', 'moderate', 'strict']).optional(),
   responseTime: z.coerce.number().min(1).max(24).optional(),
-  availableThisWeek: z.string().transform(v => v === 'true').optional(),
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
