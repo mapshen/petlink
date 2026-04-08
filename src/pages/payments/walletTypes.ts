@@ -1,5 +1,3 @@
-export type WalletTab = 'earnings' | 'expenses' | 'tax' | 'payouts' | 'credits';
-
 export interface Expense {
   id: number;
   category: string;

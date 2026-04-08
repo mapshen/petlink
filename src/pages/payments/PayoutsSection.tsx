@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock, CreditCard, ChevronDown } from 'lucide-react';
+import { format } from 'date-fns';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 import { formatCents } from '../../lib/money';
@@ -72,8 +73,9 @@ export default function PayoutsSection({ token }: PayoutsSectionProps) {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
+      <div className="flex justify-center py-12" role="status">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+        <span className="sr-only">Loading...</span>
       </div>
     );
   }
@@ -106,7 +108,7 @@ export default function PayoutsSection({ token }: PayoutsSectionProps) {
               {formatCents(pendingPayouts[0].amount_cents)}
             </div>
             <div className="text-xs text-blue-600 mt-1">
-              Scheduled {new Date(pendingPayouts[0].scheduled_at).toLocaleDateString()}
+              Scheduled {format(new Date(pendingPayouts[0].scheduled_at), 'MMM d, yyyy')}
             </div>
           </div>
         </div>
@@ -134,9 +136,9 @@ export default function PayoutsSection({ token }: PayoutsSectionProps) {
                       Booking #{payout.booking_id}
                     </div>
                     <div className="text-xs text-stone-400">
-                      Scheduled {new Date(payout.scheduled_at).toLocaleDateString()}
+                      Scheduled {format(new Date(payout.scheduled_at), 'MMM d, yyyy')}
                       {payout.processed_at && (
-                        <> &middot; Processed {new Date(payout.processed_at).toLocaleDateString()}</>
+                        <> &middot; Processed {format(new Date(payout.processed_at), 'MMM d, yyyy')}</>
                       )}
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DollarSign } from 'lucide-react';
+import { format } from 'date-fns';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 import { formatCents } from '../../lib/money';
@@ -44,8 +45,9 @@ export default function EarningsSection({ year, token, isSitter, userId }: Earni
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
+      <div className="flex justify-center py-12" role="status">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+        <span className="sr-only">Loading...</span>
       </div>
     );
   }
@@ -70,7 +72,7 @@ export default function EarningsSection({ year, token, isSitter, userId }: Earni
             <div>
               <div className="text-sm font-medium text-stone-900 capitalize">{booking.service_type?.replace(/[-_]/g, ' ')}</div>
               <div className="text-xs text-stone-400">
-                {isSitter ? booking.owner_name : booking.sitter_name} &middot; {new Date(booking.start_time).toLocaleDateString()}
+                {isSitter ? booking.owner_name : booking.sitter_name} &middot; {format(new Date(booking.start_time), 'MMM d, yyyy')}
               </div>
             </div>
           </div>

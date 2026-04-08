@@ -3,8 +3,6 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { AlertCircle } from 'lucide-react';
 import WalletOverview from './WalletOverview';
 import EarningsSection from './EarningsSection';
 import ExpensesSection from './ExpensesSection';
@@ -14,9 +12,6 @@ import PaymentHistorySection from './PaymentHistorySection';
 import CreditsSection from './CreditsSection';
 import { ALL_WALLET_SECTIONS } from './walletSections';
 
-// Re-export for backward compatibility
-export { buildExpensePayload, isReceiptImage } from './expenseUtils';
-
 export default function WalletPage() {
   useDocumentTitle('Wallet');
   const { user, token, loading: authLoading } = useAuth();
@@ -24,8 +19,6 @@ export default function WalletPage() {
 
   const [activeSection, setActiveSection] = useState('overview');
   const [year] = useState(new Date().getFullYear());
-  const [error, setError] = useState('');
-
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const hasSitterRole = user?.roles?.includes('sitter') ?? false;
@@ -112,13 +105,6 @@ export default function WalletPage() {
         <h1 className="text-2xl font-extrabold">Wallet</h1>
         <p className="text-sm text-stone-500">Manage your finances and transactions.</p>
       </div>
-
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-6">
         {/* LEFT: Sidebar */}

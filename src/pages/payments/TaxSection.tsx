@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, FileText, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { getAuthHeaders } from '../../context/AuthContext';
@@ -9,8 +9,8 @@ import type { TaxSummary } from './walletTypes';
 import { EXPENSE_CATEGORIES, FILING_STATUS_OPTIONS } from './expenseConstants';
 
 interface TaxSectionProps {
-  year: number;
-  token: string | null;
+  readonly year: number;
+  readonly token: string | null;
 }
 
 export default function TaxSection({ year, token }: TaxSectionProps) {
@@ -39,15 +39,19 @@ export default function TaxSection({ year, token }: TaxSectionProps) {
   }, [year]);
 
   const handleExportCSV = async () => {
-    const csvRes = await fetch(`${API_BASE}/expenses/export?year=${year}`, { headers: getAuthHeaders(token) });
-    if (csvRes.ok) {
-      const blob = await csvRes.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `expenses-${year}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+    try {
+      const csvRes = await fetch(`${API_BASE}/expenses/export?year=${year}`, { headers: getAuthHeaders(token) });
+      if (csvRes.ok) {
+        const blob = await csvRes.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `expenses-${year}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      // CSV export failed silently — user can retry
     }
   };
 
@@ -59,8 +63,9 @@ export default function TaxSection({ year, token }: TaxSectionProps) {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
+      <div className="flex justify-center py-12" role="status">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+        <span className="sr-only">Loading...</span>
       </div>
     );
   }

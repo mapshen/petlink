@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Pencil, X, Save, Receipt, ImageIcon } from 'lucide-react';
+import { format } from 'date-fns';
 import { API_BASE } from '../../config';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { RecurringExpense } from '../../types';
@@ -25,8 +26,8 @@ import { EXPENSE_CATEGORIES, EMPTY_FORM } from './expenseConstants';
 import { buildExpensePayload, isReceiptImage } from './expenseUtils';
 
 interface ExpensesSectionProps {
-  year: number;
-  token: string | null;
+  readonly year: number;
+  readonly token: string | null;
 }
 
 export default function ExpensesSection({ year, token }: ExpensesSectionProps) {
@@ -70,7 +71,7 @@ export default function ExpensesSection({ year, token }: ExpensesSectionProps) {
   useEffect(() => {
     fetchExpenses();
     fetchRecurringExpenses();
-  }, [year]);
+  }, [year, token]);
 
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -229,7 +230,7 @@ export default function ExpensesSection({ year, token }: ExpensesSectionProps) {
                       )}
                     </div>
                     {expense.description && <div className="text-xs text-stone-500">{expense.description}</div>}
-                    <div className="text-xs text-stone-400">{new Date(expense.date).toLocaleDateString()}</div>
+                    <div className="text-xs text-stone-400">{format(new Date(expense.date), 'MMM d, yyyy')}</div>
                   </div>
                   {isReceiptImage(expense.receipt_url) && (
                     <button

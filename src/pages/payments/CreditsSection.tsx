@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Gift, TrendingUp, TrendingDown } from 'lucide-react';
+import { format } from 'date-fns';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 import { formatCents } from '../../lib/money';
@@ -41,8 +42,9 @@ export default function CreditsSection({ token }: CreditsSectionProps) {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
+      <div className="flex justify-center py-12" role="status">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+        <span className="sr-only">Loading...</span>
       </div>
     );
   }
@@ -78,7 +80,7 @@ export default function CreditsSection({ token }: CreditsSectionProps) {
                 <div>
                   <div className="text-sm font-medium text-stone-900">{entry.description}</div>
                   <div className="text-xs text-stone-400">
-                    {new Date(entry.created_at).toLocaleDateString()}
+                    {format(new Date(entry.created_at), 'MMM d, yyyy')}
                     <span className="ml-2 px-1.5 py-0.5 bg-stone-100 text-stone-500 rounded text-[10px]">
                       {entry.type.replace(/_/g, ' ')}
                     </span>
