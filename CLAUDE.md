@@ -90,7 +90,7 @@ React 19 SPA with react-router-dom v7, styled with Tailwind CSS v4.
   - `profile/` — ProfilePage (3-column: nav | edit | preview), ProfileTab, SitterInfoTab, ServicesTab, AvailabilityTab, LocationTab, PhotosTab, PoliciesTab, PetsTab, SubscriptionPage, ImportProfilePage
   - `settings/` — SettingsPage (account, linked accounts, subscription, notifications, delete), PasswordSection, NotificationSection
   - `messages/` — Messages
-  - `payments/` — WalletPage, PaymentHistoryPage
+  - `payments/` — WalletPage
   - `sitter/` — AnalyticsPage, PromotePage, TrackWalk
   - `forum/` — ForumPage (category list), CategoryPage (threads), ThreadPage (detail + replies)
   - `Home.tsx` — landing page

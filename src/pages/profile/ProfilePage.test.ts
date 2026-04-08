@@ -72,18 +72,6 @@ describe('ProfilePage section descriptions', () => {
   });
 });
 
-describe('ProfilePage preview panel logic', () => {
-  it('sitter mode always shows preview', () => {
-    const isSitter = true;
-    expect(isSitter).toBe(true);
-  });
-
-  it('owner mode never shows preview', () => {
-    const isSitter = false;
-    expect(isSitter).toBe(false);
-  });
-});
-
 describe('Home page booking filtering logic', () => {
   interface Booking {
     id: number;

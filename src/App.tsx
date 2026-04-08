@@ -77,7 +77,7 @@ export default function App() {
                 <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
                 <Route path="/disputes" element={<ProtectedRoute><DisputesPage /></ProtectedRoute>} />
                 <Route path="/disputes/:id" element={<ProtectedRoute><DisputesPage /></ProtectedRoute>} />
-                <Route path="/payment-history" element={<Navigate to="/settings#section-payment-methods" replace />} />
+                <Route path="/payment-history" element={<Navigate to={{ pathname: "/settings", hash: "#section-payment-methods" }} replace />} />
                 <Route path="/import-profile" element={<ProtectedRoute><ImportProfilePage /></ProtectedRoute>} />
                 <Route path="/pets" element={<Navigate to="/profile" replace />} />
                 <Route path="/services" element={<Navigate to="/profile" replace />} />

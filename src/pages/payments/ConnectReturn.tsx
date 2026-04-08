@@ -46,7 +46,7 @@ export default function ConnectReturn() {
             onClick={() => navigate('/settings#section-payment-methods')}
             className="mt-4 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
-            Go to Profile
+            Go to Settings
           </button>
         </div>
       )}
@@ -55,12 +55,12 @@ export default function ConnectReturn() {
         <div className="flex flex-col items-center gap-4">
           <AlertCircle className="w-16 h-16 text-amber-500" />
           <h1 className="text-2xl font-bold text-stone-900">Setup Incomplete</h1>
-          <p className="text-stone-600">Your payout setup isn't complete yet. You can finish it from your profile page.</p>
+          <p className="text-stone-600">Your payout setup isn't complete yet. You can finish it from your settings page.</p>
           <button
             onClick={() => navigate('/settings#section-payment-methods')}
             className="mt-4 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
-            Go to Profile
+            Go to Settings
           </button>
         </div>
       )}

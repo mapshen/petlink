@@ -37,7 +37,7 @@ export default function ConnectRefresh() {
           onClick={() => navigate('/settings#section-payment-methods')}
           className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
         >
-          Go to Profile
+          Go to Settings
         </button>
       </div>
     );
