@@ -2,6 +2,7 @@ import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, cancellationPolicySchema, expenseSchema, recurringExpenseSchema, featuredListingSchema } from '../validation.ts';
+import { calculateSETax, calculateIncomeTax, calculateQuarterlyTax, isValidFilingStatus, IRS_DUE_DATES, type FilingStatus } from '../tax-calculator.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function miscRoutes(router: Router): void {
@@ -122,32 +123,44 @@ export default function miscRoutes(router: Router): void {
         ORDER BY quarter
       `;
 
-      const ESTIMATED_TAX_RATE = 0.25;
+      const filingStatus: FilingStatus = isValidFilingStatus(req.query.filing_status as string)
+        ? req.query.filing_status as FilingStatus
+        : 'single';
+
       const quarterlyEstimates = [1, 2, 3, 4].map(q => {
         const income = quarterlyRows.find((r: { quarter: number }) => r.quarter === q)?.income || 0;
         const expenses = quarterlyExpenseRows.find((r: { quarter: number }) => r.quarter === q)?.expenses || 0;
         const netIncome = Math.max(0, income - expenses);
+        const tax = calculateQuarterlyTax(netIncome, filingStatus);
         return {
           quarter: `Q${q}`,
           income,
           expenses,
           net_income: netIncome,
-          estimated_tax: Math.round(netIncome * ESTIMATED_TAX_RATE),
+          se_tax: tax.se_tax,
+          income_tax: tax.income_tax,
+          estimated_tax: tax.total,
+          due_date: IRS_DUE_DATES[`Q${q}`],
         };
       });
 
       // Derive annual totals from quarterly data (avoids redundant query)
       const total_income = quarterlyRows.reduce((sum: number, r: { income: number }) => sum + r.income, 0);
       const netIncome = total_income - total_expenses;
-      const annual_estimated_tax = quarterlyEstimates.reduce((sum, q) => sum + q.estimated_tax, 0);
+      const annual_se_tax = calculateSETax(Math.max(0, netIncome));
+      const annual_income_tax = calculateIncomeTax(Math.max(0, netIncome), filingStatus);
+      const annual_estimated_tax = annual_se_tax + annual_income_tax;
 
       res.json({
         year,
+        filing_status: filingStatus,
         total_income,
         total_expenses,
         net_income: netIncome,
         expense_by_category,
         quarterly_estimates: quarterlyEstimates,
+        annual_se_tax,
+        annual_income_tax,
         annual_estimated_tax,
       });
     } catch (error) {

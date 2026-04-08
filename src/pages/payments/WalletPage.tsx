@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle, Gift, ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Save, DollarSign, TrendingUp, TrendingDown, Receipt, Wallet, Clock, CreditCard, ChevronDown, AlertCircle, Gift, ImageIcon, Download, FileText } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { Booking, SitterPayout, PayoutStatus, CreditEntry, RecurringExpense } from '../../types';
 import RecurringExpensesComponent from '../../components/payment/RecurringExpenses';
@@ -45,12 +45,28 @@ interface Expense {
   receipt_url?: string;
 }
 
+interface QuarterlyEstimate {
+  quarter: string;
+  income: number;
+  expenses: number;
+  net_income: number;
+  se_tax: number;
+  income_tax: number;
+  estimated_tax: number;
+  due_date: string;
+}
+
 interface TaxSummary {
   year: number;
+  filing_status: string;
   total_income: number;
   total_expenses: number;
   net_income: number;
   expense_by_category: Record<string, number>;
+  quarterly_estimates: QuarterlyEstimate[];
+  annual_se_tax: number;
+  annual_income_tax: number;
+  annual_estimated_tax: number;
 }
 
 interface ExpenseForm {
@@ -61,7 +77,67 @@ interface ExpenseForm {
   receipt_url: string;
 }
 
+const FILING_STATUS_OPTIONS = [
+  { value: 'single', label: 'Single' },
+  { value: 'married_joint', label: 'Married Filing Jointly' },
+  { value: 'married_separate', label: 'Married Filing Separately' },
+  { value: 'head_of_household', label: 'Head of Household' },
+] as const;
+
 const EMPTY_FORM: ExpenseForm = { category: 'supplies', amount: '', description: '', date: new Date().toISOString().split('T')[0], receipt_url: '' };
+
+export async function generateTaxPDF(summary: TaxSummary, categories: readonly { value: string; label: string; icon: string }[]) {
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF();
+  const fmt = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  let y = 20;
+
+  doc.setFontSize(18);
+  doc.text(`PetLink Tax Summary — ${summary.year}`, 14, y);
+  y += 10;
+  doc.setFontSize(10);
+  doc.setTextColor(120, 120, 120);
+  doc.text('For informational purposes only. Consult a tax professional.', 14, y);
+  doc.setTextColor(0, 0, 0);
+  y += 12;
+
+  // Annual summary
+  doc.setFontSize(13);
+  doc.text('Annual Summary', 14, y); y += 8;
+  doc.setFontSize(10);
+  doc.text(`Gross Income: ${fmt(summary.total_income)}`, 14, y); y += 6;
+  doc.text(`Total Expenses: ${fmt(summary.total_expenses)}`, 14, y); y += 6;
+  doc.text(`Net Income: ${fmt(summary.net_income)}`, 14, y); y += 6;
+  doc.text(`Self-Employment Tax: ${fmt(summary.annual_se_tax)}`, 14, y); y += 6;
+  doc.text(`Estimated Income Tax: ${fmt(summary.annual_income_tax)}`, 14, y); y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Total Estimated Tax: ${fmt(summary.annual_estimated_tax)}`, 14, y);
+  doc.setFont('helvetica', 'normal');
+  y += 12;
+
+  // Expenses by category
+  if (Object.keys(summary.expense_by_category).length > 0) {
+    doc.setFontSize(13);
+    doc.text('Expenses by Category', 14, y); y += 8;
+    doc.setFontSize(10);
+    for (const [cat, amount] of Object.entries(summary.expense_by_category)) {
+      const label = categories.find(c => c.value === cat)?.label || cat;
+      doc.text(`${label}: ${fmt(amount)}`, 14, y); y += 6;
+    }
+    y += 6;
+  }
+
+  // Quarterly estimates
+  doc.setFontSize(13);
+  doc.text('Quarterly Estimated Tax Payments', 14, y); y += 8;
+  doc.setFontSize(10);
+  for (const q of summary.quarterly_estimates) {
+    doc.text(`${q.quarter} (due ${q.due_date}): ${fmt(q.estimated_tax)}  (SE: ${fmt(q.se_tax)} + Income: ${fmt(q.income_tax)})`, 14, y);
+    y += 6;
+  }
+
+  doc.save(`petlink-tax-summary-${summary.year}.pdf`);
+}
 
 export function buildExpensePayload(form: ExpenseForm) {
   return {
@@ -99,6 +175,7 @@ export default function WalletPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [summary, setSummary] = useState<TaxSummary | null>(null);
+  const [filingStatus, setFilingStatus] = useState('single');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -197,9 +274,10 @@ export default function WalletPage() {
     }
   };
 
-  const fetchSummary = async () => {
+  const fetchSummary = async (fs?: string) => {
     try {
-      const res = await fetch(`${API_BASE}/expenses/tax-summary?year=${year}`, { headers: getAuthHeaders(token) });
+      const status = fs ?? filingStatus;
+      const res = await fetch(`${API_BASE}/expenses/tax-summary?year=${year}&filing_status=${status}`, { headers: getAuthHeaders(token) });
       if (res.ok) {
         const data = await res.json();
         setSummary(data);
@@ -659,6 +737,49 @@ export default function WalletPage() {
           {/* Tax Summary Tab */}
           {tab === 'tax' && isSitter && summary && (
             <div className="space-y-6">
+              {/* Filing status + Export buttons */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-stone-600">Filing status:</label>
+                  <select
+                    value={filingStatus}
+                    onChange={e => { setFilingStatus(e.target.value); fetchSummary(e.target.value); }}
+                    className="p-2 border border-stone-200 rounded-lg text-sm"
+                  >
+                    {FILING_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => {
+                    window.open(`${API_BASE}/expenses/export?year=${year}`, '_blank');
+                  }}>
+                    <Download className="w-4 h-4" /> CSV
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => generateTaxPDF(summary, EXPENSE_CATEGORIES)}>
+                    <FileText className="w-4 h-4" /> PDF
+                  </Button>
+                </div>
+              </div>
+
+              {/* Next quarter callout */}
+              {(() => {
+                const currentMonth = new Date().getMonth();
+                const currentQ = Math.floor(currentMonth / 3);
+                const nextQ = summary.quarterly_estimates[currentQ];
+                return nextQ && nextQ.estimated_tax > 0 ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-sm font-bold text-amber-800">
+                        You may owe ~{formatCents(nextQ.estimated_tax)} for {nextQ.quarter}
+                      </div>
+                      <div className="text-xs text-amber-600 mt-1">Due {nextQ.due_date}. This is a rough estimate — consult a tax professional.</div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Annual summary */}
               <div className="bg-white rounded-xl border border-stone-100 p-6">
                 <h3 className="font-bold text-stone-900 mb-4">Tax Summary — {year}</h3>
                 <div className="space-y-3">
@@ -671,14 +792,48 @@ export default function WalletPage() {
                     <span className="font-bold text-red-600">-{formatCents(summary.total_expenses)}</span>
                   </div>
                   <div className="border-t border-stone-200 pt-3 flex justify-between">
-                    <span className="font-bold text-stone-900">Net Income (Tax Basis)</span>
+                    <span className="font-bold text-stone-900">Net Income</span>
                     <span className={`text-xl font-bold ${summary.net_income >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                       {formatCents(summary.net_income)}
                     </span>
                   </div>
+                  <div className="flex justify-between py-1 text-sm">
+                    <span className="text-stone-500">Self-Employment Tax (15.3%)</span>
+                    <span className="text-stone-700">{formatCents(summary.annual_se_tax)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 text-sm">
+                    <span className="text-stone-500">Estimated Income Tax</span>
+                    <span className="text-stone-700">{formatCents(summary.annual_income_tax)}</span>
+                  </div>
+                  <div className="border-t border-stone-200 pt-3 flex justify-between">
+                    <span className="font-bold text-stone-900">Total Estimated Tax</span>
+                    <span className="text-lg font-bold text-red-700">{formatCents(summary.annual_estimated_tax)}</span>
+                  </div>
                 </div>
               </div>
 
+              {/* Quarterly estimates */}
+              <div className="bg-white rounded-xl border border-stone-100 p-6">
+                <h3 className="font-bold text-stone-900 mb-4">Quarterly Estimated Tax Payments</h3>
+                <div className="space-y-3">
+                  {summary.quarterly_estimates.map(q => (
+                    <div key={q.quarter} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
+                      <div>
+                        <div className="text-sm font-medium text-stone-900">{q.quarter}</div>
+                        <div className="text-xs text-stone-400">Due {q.due_date}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-stone-900">{formatCents(q.estimated_tax)}</div>
+                        <div className="text-[10px] text-stone-400">
+                          SE {formatCents(q.se_tax)} + Income {formatCents(q.income_tax)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Expenses by category */}
               {Object.keys(summary.expense_by_category).length > 0 && (
                 <div className="bg-white rounded-xl border border-stone-100 p-6">
                   <h3 className="font-bold text-stone-900 mb-4">Expenses by Category</h3>
@@ -701,6 +856,13 @@ export default function WalletPage() {
                   </div>
                 </div>
               )}
+
+              {/* Disclaimer */}
+              <div className="text-xs text-stone-400 text-center px-4">
+                For informational purposes only — not tax advice. Tax estimates use simplified 2025 federal brackets
+                and do not account for state taxes, deductions beyond the standard deduction, or other income sources.
+                Consult a qualified tax professional for accurate tax planning.
+              </div>
             </div>
           )}
         </>
