@@ -149,7 +149,6 @@ export default function ExpensesSection({ year, token }: ExpensesSectionProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-stone-900">Expenses</h2>
         {!showForm && (
           <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setEditingId(null); setShowForm(true); }}>
             <Plus className="w-4 h-4" /> Add Expense

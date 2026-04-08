@@ -68,8 +68,9 @@ export default function PaymentHistoryList({ token }: PaymentHistoryListProps) {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-6">
+      <div className="flex justify-center py-6" role="status">
         <Loader2 className="w-5 h-5 animate-spin text-stone-400" />
+        <span className="sr-only">Loading...</span>
       </div>
     );
   }
