@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Import, Trash2 } from 'lucide-react';
+import { Import } from 'lucide-react';
 import BecomeSitterDialog from '../../components/profile/BecomeSitterDialog';
 import type { User } from '../../types';
 import type { SectionDef } from './profileSections';
@@ -10,14 +10,11 @@ interface Props {
   readonly isSitter: boolean;
   readonly hasSitterRole: boolean;
   readonly activeSection: string;
-  readonly profileSections: readonly SectionDef[];
-  readonly accountSections: readonly SectionDef[];
-  readonly onDeleteClick: () => void;
+  readonly sections: readonly SectionDef[];
 }
 
 export default function ProfileSidebar({
-  user, mode, isSitter, hasSitterRole, activeSection,
-  profileSections, accountSections, onDeleteClick,
+  user, mode, isSitter, hasSitterRole, activeSection, sections,
 }: Props) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-3 sticky top-20 flex flex-col">
@@ -37,34 +34,7 @@ export default function ProfileSidebar({
       </div>
 
       <nav aria-label="Profile sections" className="flex md:flex-col gap-0.5 overflow-x-auto md:overflow-x-visible flex-1">
-        <p className="hidden md:block text-[10px] uppercase tracking-widest text-stone-400 font-semibold px-3 pt-2 pb-1">
-          Profile
-        </p>
-        {profileSections.map((s) => {
-          const Icon = s.icon;
-          return (
-            <a
-              key={s.id}
-              href={`#section-${s.id}`}
-              aria-current={activeSection === s.id ? 'true' : undefined}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
-                activeSection === s.id
-                  ? 'bg-emerald-50 text-emerald-700 font-medium'
-                  : 'text-stone-500 hover:bg-stone-50 hover:text-stone-900'
-              }`}
-            >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {s.label}
-            </a>
-          );
-        })}
-
-        <div className="hidden md:block border-t border-stone-100 my-2" />
-
-        <p className="hidden md:block text-[10px] uppercase tracking-widest text-stone-400 font-semibold px-3 pt-2 pb-1">
-          Account
-        </p>
-        {accountSections.map((s) => {
+        {sections.map((s) => {
           const Icon = s.icon;
           return (
             <a
@@ -105,16 +75,6 @@ export default function ProfileSidebar({
             Application pending review
           </div>
         )}
-
-        <div className="border-t border-stone-100 my-2" />
-
-        <button
-          onClick={onDeleteClick}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 whitespace-nowrap transition-colors w-full"
-        >
-          <Trash2 className="w-4 h-4 flex-shrink-0" />
-          Delete Account
-        </button>
       </div>
     </div>
   );

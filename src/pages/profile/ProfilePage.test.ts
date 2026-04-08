@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { ALL_SECTIONS, SECTION_DESCRIPTIONS, type SectionDef } from './profileSections';
 
 /**
- * Test the unified Profile+Settings section visibility logic matching ProfilePage.tsx.
- * Sections have a `group` ('profile' | 'account') and `mode` ('owner' | 'sitter' | 'both').
+ * Test the Profile page section visibility logic matching ProfilePage.tsx.
+ * Profile-only sections (no account group — account sections moved to SettingsPage).
  */
 
 function getVisibleSections(mode: 'owner' | 'sitter', hasSitter: boolean): SectionDef[] {
@@ -20,49 +20,29 @@ function getVisibleSectionIds(mode: 'owner' | 'sitter', hasSitter: boolean): str
 }
 
 describe('ProfilePage section visibility', () => {
-  it('owner mode (non-sitter) sees About, My Pets + all 3 Account sections', () => {
+  it('owner mode (non-sitter) sees About and My Pets (2)', () => {
     const ids = getVisibleSectionIds('owner', false);
-    expect(ids).toEqual([
-      'about', 'pets',
-      'account', 'security', 'notifications',
-    ]);
-    expect(ids).toHaveLength(5);
+    expect(ids).toEqual(['about', 'pets']);
+    expect(ids).toHaveLength(2);
   });
 
-  it('sitter mode with sitter role sees all profile + account sections (10)', () => {
+  it('sitter mode with sitter role sees all 7 profile sections', () => {
     const ids = getVisibleSectionIds('sitter', true);
     expect(ids).toEqual([
       'about', 'services', 'addons', 'availability', 'location', 'photos', 'policies',
-      'account', 'security', 'notifications',
     ]);
-    expect(ids).toHaveLength(10);
+    expect(ids).toHaveLength(7);
   });
 
-  it('sitter mode WITHOUT sitter role sees About + all 3 Account sections (4)', () => {
+  it('sitter mode WITHOUT sitter role sees About only (1)', () => {
     const ids = getVisibleSectionIds('sitter', false);
-    expect(ids).toEqual([
-      'about',
-      'account', 'security', 'notifications',
-    ]);
-    expect(ids).toHaveLength(4);
-  });
-
-  it('Account group sections are always visible regardless of mode', () => {
-    const accountIds = ['account', 'security', 'notifications'];
-    for (const [mode, hasSitter] of [['owner', false], ['owner', true], ['sitter', false], ['sitter', true]] as const) {
-      const ids = getVisibleSectionIds(mode, hasSitter);
-      for (const aid of accountIds) {
-        expect(ids, `${aid} missing for mode=${mode} hasSitter=${hasSitter}`).toContain(aid);
-      }
-    }
+    expect(ids).toEqual(['about']);
+    expect(ids).toHaveLength(1);
   });
 
   it('owner+sitter user sees owner sections in owner mode (no sitter-only sections)', () => {
     const ids = getVisibleSectionIds('owner', true);
-    expect(ids).toEqual([
-      'about', 'pets',
-      'account', 'security', 'notifications',
-    ]);
+    expect(ids).toEqual(['about', 'pets']);
   });
 
   it('pets section is only visible in owner mode', () => {
@@ -71,25 +51,12 @@ describe('ProfilePage section visibility', () => {
     expect(getVisibleSectionIds('sitter', true)).not.toContain('pets');
     expect(getVisibleSectionIds('sitter', false)).not.toContain('pets');
   });
-});
 
-describe('ProfilePage group membership', () => {
-  it('profile group has correct sections', () => {
-    const profileIds = ALL_SECTIONS
-      .filter((s) => s.group === 'profile')
-      .map((s) => s.id);
-    expect(profileIds).toEqual([
-      'about', 'services', 'pets', 'addons', 'availability', 'location', 'photos', 'policies',
-    ]);
-  });
-
-  it('account group has correct sections', () => {
-    const accountIds = ALL_SECTIONS
-      .filter((s) => s.group === 'account')
-      .map((s) => s.id);
-    expect(accountIds).toEqual([
-      'account', 'security', 'notifications',
-    ]);
+  it('no account sections exist in profile sections', () => {
+    const ids = ALL_SECTIONS.map((s) => s.id);
+    expect(ids).not.toContain('account');
+    expect(ids).not.toContain('security');
+    expect(ids).not.toContain('notifications');
   });
 });
 
@@ -102,37 +69,6 @@ describe('ProfilePage section descriptions', () => {
       ).toBeDefined();
       expect(SECTION_DESCRIPTIONS[section.id].length).toBeGreaterThan(0);
     }
-  });
-});
-
-describe('ProfilePage preview panel logic', () => {
-  it('profile group sections should show preview (sitter mode)', () => {
-    const profileSections = ALL_SECTIONS.filter((s) => s.group === 'profile');
-    for (const section of profileSections) {
-      expect(section.group).toBe('profile');
-    }
-    // showPreview = isSitter && activeGroup === 'profile'
-    // When in sitter mode and active section is profile-group, preview shows
-    const isSitter = true;
-    const activeGroup = 'profile';
-    expect(isSitter && activeGroup === 'profile').toBe(true);
-  });
-
-  it('account group sections should NOT show preview', () => {
-    const accountSections = ALL_SECTIONS.filter((s) => s.group === 'account');
-    for (const section of accountSections) {
-      expect(section.group).not.toBe('profile');
-    }
-    // showPreview = isSitter && activeGroup === 'profile'
-    const isSitter = true;
-    const activeGroup: string = 'account';
-    expect(isSitter && activeGroup === 'profile').toBe(false);
-  });
-
-  it('owner mode never shows preview even for profile group', () => {
-    const isSitter = false;
-    const activeGroup = 'profile';
-    expect(isSitter && activeGroup === 'profile').toBe(false);
   });
 });
 

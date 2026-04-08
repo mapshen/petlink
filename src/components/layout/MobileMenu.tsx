@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, Settings, User } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -97,15 +97,11 @@ export default function MobileMenu({ open, onClose, navItems, user, onLogout }: 
             <div className="border-t border-stone-200" />
 
             <Link
-              to="/profile"
+              to="/settings"
               className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-stone-600 hover:bg-stone-50 transition-colors"
             >
-              <img
-                src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`}
-                alt={user.name}
-                className="w-6 h-6 rounded-full border border-stone-200"
-              />
-              {user.name}
+              <Settings className="w-5 h-5" />
+              Settings
             </Link>
 
             <button

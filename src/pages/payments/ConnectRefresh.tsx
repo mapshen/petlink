@@ -34,10 +34,10 @@ export default function ConnectRefresh() {
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <p className="text-red-500 mb-4">{error}</p>
         <button
-          onClick={() => navigate('/profile#section-account')}
+          onClick={() => navigate('/settings#section-payment-methods')}
           className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
         >
-          Go to Profile
+          Go to Settings
         </button>
       </div>
     );

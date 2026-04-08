@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Save, Camera, Loader2, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../../config';
@@ -148,9 +149,9 @@ export default function ProfileTab() {
               <p className="text-xs text-amber-600">No emergency contact set — add one below.</p>
             )}
           </div>
-          <a href="#section-account" className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 whitespace-nowrap">
+          <Link to="/settings#section-account" className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 whitespace-nowrap">
             Edit
-          </a>
+          </Link>
         </div>
       </div>
 

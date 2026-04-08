@@ -13,22 +13,17 @@ import AvailabilityTab from './AvailabilityTab';
 import LocationTab from './LocationTab';
 import PoliciesTab from './PoliciesTab';
 import AddonsTab from './AddonsTab';
-import AccountSection from './AccountSection';
-import SecuritySection from './SecuritySection';
-import NotificationSection from './NotificationSection';
 import SitterPreview from '../../components/profile/SitterPreview';
 import ProfileStrength from '../../components/profile/ProfileStrength';
 import ProfileSidebar from './ProfileSidebar';
-import DeleteAccountDialog from './DeleteAccountDialog';
 
 export default function ProfilePage() {
   useDocumentTitle('Profile');
-  const { user, token, loading } = useAuth();
+  const { user, loading } = useAuth();
   const { mode } = useMode();
   const previewData = useSitterPreviewData();
 
   const [activeSection, setActiveSection] = useState('about');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -39,19 +34,12 @@ export default function ProfilePage() {
     () =>
       ALL_SECTIONS.filter((s) => {
         if (s.mode === 'both') return true;
-        if (s.mode === 'sitter') return isSitter && hasSitterRole;
+        if (s.mode === 'sitter') return isSitter;
         if (s.mode === 'owner') return mode !== 'sitter';
         return false;
       }),
-    [mode, hasSitterRole],
+    [mode, isSitter],
   );
-
-  const activeGroup = useMemo(() => {
-    const found = ALL_SECTIONS.find((s) => s.id === activeSection);
-    return found?.group ?? 'profile';
-  }, [activeSection]);
-
-  const showPreview = isSitter && activeGroup === 'profile';
 
   // IntersectionObserver to track which section is in view
   useLayoutEffect(() => {
@@ -93,9 +81,6 @@ export default function ProfilePage() {
       case 'location': return <LocationTab />;
       case 'photos': return <PhotosTab />;
       case 'policies': return <PoliciesTab />;
-      case 'account': return <AccountSection token={token} user={user} />;
-      case 'security': return <SecuritySection token={token} />;
-      case 'notifications': return <NotificationSection token={token} />;
       default: return null;
     }
   };
@@ -112,9 +97,6 @@ export default function ProfilePage() {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-
-  const profileSections = visibleSections.filter((s) => s.group === 'profile');
-  const accountSections = visibleSections.filter((s) => s.group === 'account');
 
   const gridCols = isSitter
     ? 'grid-cols-1 md:grid-cols-[180px_1fr] lg:grid-cols-[180px_1fr_340px]'
@@ -138,9 +120,7 @@ export default function ProfilePage() {
             isSitter={isSitter}
             hasSitterRole={hasSitterRole}
             activeSection={activeSection}
-            profileSections={profileSections}
-            accountSections={accountSections}
-            onDeleteClick={() => setDeleteDialogOpen(true)}
+            sections={visibleSections}
           />
         </div>
 
@@ -168,9 +148,9 @@ export default function ProfilePage() {
           })}
         </div>
 
-        {/* RIGHT: Live Preview (sitter mode, lg only — fades when not on profile group) */}
+        {/* RIGHT: Live Preview (sitter mode, lg only) */}
         {isSitter && (
-          <div className={`hidden lg:block sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto transition-opacity ${showPreview ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <div className="hidden lg:block sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
             <SitterPreview
               user={user}
               services={previewData.services}
@@ -184,11 +164,6 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
-
-      <DeleteAccountDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-      />
     </div>
   );
 }
