@@ -237,11 +237,26 @@ export default function miscRoutes(router: Router): void {
 
   router.put('/expenses/:id', authMiddleware, validate(expenseSchema), async (req: AuthenticatedRequest, res) => {
     try {
-      const [existing] = await sql`SELECT id FROM sitter_expenses WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
+      const [existing] = await sql`SELECT id, auto_logged FROM sitter_expenses WHERE id = ${req.params.id} AND sitter_id = ${req.userId}`;
       if (!existing) {
         res.status(404).json({ error: 'Expense not found' });
         return;
       }
+
+      // Auto-logged expenses: only description and receipt_url are editable
+      if (existing.auto_logged) {
+        const { description, receipt_url } = req.body;
+        const [expense] = await sql`
+          UPDATE sitter_expenses SET
+            description = ${description ?? null},
+            receipt_url = ${receipt_url ?? null}
+          WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
+          RETURNING *
+        `;
+        res.json({ expense });
+        return;
+      }
+
       const { category, amount_cents, description, date, receipt_url } = req.body;
       const [expense] = await sql`
         UPDATE sitter_expenses SET

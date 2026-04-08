@@ -335,8 +335,8 @@ export const changePasswordSchema = z.object({
 
 // --- Expense Schemas ---
 export const expenseSchema = z.object({
-  category: z.enum(['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other', 'platform_subscription', 'platform_fee'], {
-    message: 'Category must be supplies, transportation, insurance, marketing, equipment, training, other, platform_subscription, or platform_fee',
+  category: z.enum(['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other', 'platform_subscription', 'platform_fee', 'background_check'], {
+    message: 'Category must be supplies, transportation, insurance, marketing, equipment, training, other, platform_subscription, platform_fee, or background_check',
   }),
   amount_cents: z.number().int().positive('Amount must be positive').max(10000000, 'Amount must be under $100,000'),
   description: z.string().max(500, 'Description must be under 500 characters').optional().nullable(),
@@ -345,11 +345,11 @@ export const expenseSchema = z.object({
 });
 
 // --- Recurring Expense Schemas ---
-const expenseCategories = ['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other', 'platform_subscription', 'platform_fee'] as const;
+const expenseCategories = ['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other', 'platform_subscription', 'platform_fee', 'background_check'] as const;
 
 export const recurringExpenseSchema = z.object({
   category: z.enum(expenseCategories, {
-    message: 'Category must be supplies, transportation, insurance, marketing, equipment, training, other, platform_subscription, or platform_fee',
+    message: 'Category must be supplies, transportation, insurance, marketing, equipment, training, other, platform_subscription, platform_fee, or background_check',
   }),
   amount_cents: z.number().int().positive('Amount must be positive').max(10000000, 'Amount must be under $100,000'),
   description: z.string().max(500, 'Description must be under 500 characters').optional().nullable(),

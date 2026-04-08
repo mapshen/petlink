@@ -586,7 +586,7 @@ export interface Referral {
   referred_avatar?: string | null;
 }
 
-export type ExpenseCategory = 'supplies' | 'transportation' | 'insurance' | 'marketing' | 'equipment' | 'training' | 'other';
+export type ExpenseCategory = 'supplies' | 'transportation' | 'insurance' | 'marketing' | 'equipment' | 'training' | 'other' | 'platform_subscription' | 'platform_fee' | 'background_check';
 
 export interface SitterExpense {
   id: number;
@@ -596,6 +596,8 @@ export interface SitterExpense {
   description?: string;
   date: string;
   receipt_url?: string;
+  auto_logged?: boolean;
+  source_reference?: string;
   created_at: string;
 }
 

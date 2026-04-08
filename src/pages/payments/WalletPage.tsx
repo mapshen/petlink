@@ -32,6 +32,9 @@ const EXPENSE_CATEGORIES = [
   { value: 'marketing', label: 'Marketing', icon: '📣' },
   { value: 'equipment', label: 'Equipment', icon: '🔧' },
   { value: 'training', label: 'Training', icon: '📚' },
+  { value: 'platform_fee', label: 'Platform Fee', icon: '💰' },
+  { value: 'platform_subscription', label: 'Subscription', icon: '⭐' },
+  { value: 'background_check', label: 'Background Check', icon: '🔍' },
   { value: 'other', label: 'Other', icon: '📝' },
 ] as const;
 
@@ -44,6 +47,8 @@ interface Expense {
   description?: string;
   date: string;
   receipt_url?: string;
+  auto_logged?: boolean;
+  source_reference?: string;
 }
 
 interface QuarterlyEstimate {
@@ -146,6 +151,7 @@ export default function WalletPage() {
   // Expense form
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingAutoLogged, setEditingAutoLogged] = useState(false);
   const [form, setForm] = useState<ExpenseForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
@@ -310,6 +316,7 @@ export default function WalletPage() {
       }
       setShowForm(false);
       setEditingId(null);
+      setEditingAutoLogged(false);
       setForm(EMPTY_FORM);
       fetchExpenses();
       fetchSummary();
@@ -590,16 +597,22 @@ export default function WalletPage() {
                 <div className="bg-stone-50 rounded-xl border border-stone-200 p-6 mb-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold text-stone-900">{editingId ? 'Edit Expense' : 'Add Expense'}</h3>
-                    <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }} aria-label="Close form" className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
+                    <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setEditingAutoLogged(false); setForm(EMPTY_FORM); }} aria-label="Close form" className="text-stone-400 hover:text-stone-600"><X className="w-5 h-5" /></button>
                   </div>
+                  {editingAutoLogged && (
+                    <p className="text-xs text-stone-400">Auto-logged expenses: only description and receipt are editable.</p>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-                      className="p-3 border border-stone-200 rounded-lg text-sm">
+                      disabled={editingAutoLogged}
+                      className={`p-3 border border-stone-200 rounded-lg text-sm ${editingAutoLogged ? 'opacity-50 cursor-not-allowed' : ''}`}>
                       {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
                     </select>
                     <Input type="number" min="0.01" step="0.01" placeholder="Amount ($)" value={form.amount}
-                      onChange={e => setForm({ ...form, amount: e.target.value })} />
-                    <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+                      onChange={e => setForm({ ...form, amount: e.target.value })}
+                      disabled={editingAutoLogged} className={editingAutoLogged ? 'opacity-50 cursor-not-allowed' : ''} />
+                    <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}
+                      disabled={editingAutoLogged} className={editingAutoLogged ? 'opacity-50 cursor-not-allowed' : ''} />
                     <Input placeholder="Description (optional)" value={form.description}
                       onChange={e => setForm({ ...form, description: e.target.value })} />
                   </div>
@@ -617,7 +630,7 @@ export default function WalletPage() {
                     <Button onClick={handleExpenseSubmit} disabled={saving || receiptUploading || !form.amount}>
                       <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}
                     </Button>
-                    <Button variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }}>
+                    <Button variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setEditingAutoLogged(false); setForm(EMPTY_FORM); }}>
                       <X className="w-4 h-4" /> Cancel
                     </Button>
                   </div>
@@ -639,7 +652,12 @@ export default function WalletPage() {
                         <div className="flex items-center gap-3">
                           <span className="text-lg">{info?.icon || '📝'}</span>
                           <div>
-                            <div className="text-sm font-medium text-stone-900">{info?.label || expense.category}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-medium text-stone-900">{info?.label || expense.category}</span>
+                              {expense.auto_logged && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-400 border border-stone-200 font-medium">Auto</span>
+                              )}
+                            </div>
                             {expense.description && <div className="text-xs text-stone-500">{expense.description}</div>}
                             <div className="text-xs text-stone-400">{new Date(expense.date).toLocaleDateString()}</div>
                           </div>
@@ -663,7 +681,7 @@ export default function WalletPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-bold text-red-600">-{formatCents(expense.amount_cents)}</span>
-                          <button onClick={() => { setForm({ category: expense.category, amount: (expense.amount_cents / 100).toString(), description: expense.description || '', date: expense.date.split('T')[0], receipt_url: expense.receipt_url || '' }); setEditingId(expense.id); setShowForm(true); }}
+                          <button onClick={() => { setForm({ category: expense.category, amount: (expense.amount_cents / 100).toString(), description: expense.description || '', date: expense.date.split('T')[0], receipt_url: expense.receipt_url || '' }); setEditingId(expense.id); setEditingAutoLogged(!!expense.auto_logged); setShowForm(true); }}
                             className="p-1.5 text-stone-400 hover:text-emerald-600"><Pencil className="w-3.5 h-3.5" /></button>
                           <button onClick={() => setDeleteDialogId(expense.id)}
                             className="p-1.5 text-stone-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
