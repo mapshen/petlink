@@ -324,7 +324,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       avg_rating: reviewStats.avg_rating ? Number(reviewStats.avg_rating.toFixed(1)) : null,
       review_count: reviewStats.review_count,
       active_badges: resolveActiveBadges(sitter),
-      avg_response_hours: trustStats?.avg_response_hours || null,
+      avg_response_hours: trustStats?.avg_response_hours ?? null,
       repeat_client_count: trustStats?.repeat_owners || 0,
       completion_rate: totalBookings > 0 ? (trustStats?.completed || 0) / totalBookings : null,
       member_since: sitter.created_at,
