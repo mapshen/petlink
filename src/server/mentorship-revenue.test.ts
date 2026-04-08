@@ -118,6 +118,15 @@ describe('acceptAgreement', () => {
     expect(result.success).toBe(true);
     expect(result.agreement?.status).toBe('active');
   });
+
+  it('returns error on concurrent modification (TOCTOU)', async () => {
+    mockSql.mockResolvedValueOnce([{ id: 1, mentee_id: 2, status: 'pending', duration_months: 6 }]);
+    mockSql.mockResolvedValueOnce([]); // UPDATE returned no rows — concurrent modification
+    const { acceptAgreement } = await import('./mentorship-revenue.ts');
+    const result = await acceptAgreement(1, 2);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('concurrently');
+  });
 });
 
 describe('cancelAgreement', () => {
@@ -125,7 +134,7 @@ describe('cancelAgreement', () => {
 
   it('allows mentee to cancel', async () => {
     mockSql.mockResolvedValueOnce([{ id: 1, mentor_id: 1, mentee_id: 2, status: 'active' }]);
-    mockSql.mockResolvedValueOnce({ count: 1 });
+    mockSql.mockResolvedValueOnce([{ id: 1 }]); // UPDATE RETURNING id
     const { cancelAgreement } = await import('./mentorship-revenue.ts');
     const result = await cancelAgreement(1, 2);
     expect(result.success).toBe(true);
@@ -136,6 +145,15 @@ describe('cancelAgreement', () => {
     const { cancelAgreement } = await import('./mentorship-revenue.ts');
     const result = await cancelAgreement(1, 99);
     expect(result.success).toBe(false);
+  });
+
+  it('returns error on concurrent modification (TOCTOU)', async () => {
+    mockSql.mockResolvedValueOnce([{ id: 1, mentor_id: 1, mentee_id: 2, status: 'active' }]);
+    mockSql.mockResolvedValueOnce([]); // UPDATE returned no rows — concurrent modification
+    const { cancelAgreement } = await import('./mentorship-revenue.ts');
+    const result = await cancelAgreement(1, 2);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('concurrently');
   });
 });
 
@@ -153,7 +171,7 @@ describe('applyRevenueSplit', () => {
 
   it('splits correctly with 5% share', async () => {
     mockSql.mockResolvedValueOnce([{ id: 1, share_percentage: 5, min_earnings_cents: 0 }]);
-    mockSql.mockResolvedValueOnce([{ id: 1 }]); // insert payout
+    mockSql.mockResolvedValueOnce([{ id: 1 }]); // insert payout RETURNING id
     const { applyRevenueSplit } = await import('./mentorship-revenue.ts');
     const result = await applyRevenueSplit(2, 100, 10000);
     expect(result.mentorAmount).toBe(500);
@@ -163,7 +181,7 @@ describe('applyRevenueSplit', () => {
 
   it('splits correctly with 15% share', async () => {
     mockSql.mockResolvedValueOnce([{ id: 1, share_percentage: 15, min_earnings_cents: 0 }]);
-    mockSql.mockResolvedValueOnce([{ id: 1 }]);
+    mockSql.mockResolvedValueOnce([{ id: 1 }]); // insert payout RETURNING id
     const { applyRevenueSplit } = await import('./mentorship-revenue.ts');
     const result = await applyRevenueSplit(2, 101, 10000);
     expect(result.mentorAmount).toBe(1500);
@@ -172,11 +190,21 @@ describe('applyRevenueSplit', () => {
 
   it('skips split when below min earnings threshold', async () => {
     mockSql.mockResolvedValueOnce([{ id: 1, share_percentage: 5, min_earnings_cents: 50000 }]);
-    mockSql.mockResolvedValueOnce([{ total: 10000 }]); // only $100 earned so far
+    mockSql.mockResolvedValueOnce([{ total: 10000 }]); // only $100 earned so far (booking_total_cents)
     const { applyRevenueSplit } = await import('./mentorship-revenue.ts');
     const result = await applyRevenueSplit(2, 102, 10000);
     expect(result.menteeAmount).toBe(10000);
     expect(result.mentorAmount).toBe(0);
+  });
+
+  it('returns full amount on duplicate booking (race condition)', async () => {
+    mockSql.mockResolvedValueOnce([{ id: 1, share_percentage: 5, min_earnings_cents: 0 }]);
+    mockSql.mockResolvedValueOnce([]); // INSERT ON CONFLICT DO NOTHING returned no rows
+    const { applyRevenueSplit } = await import('./mentorship-revenue.ts');
+    const result = await applyRevenueSplit(2, 100, 10000);
+    expect(result.menteeAmount).toBe(10000);
+    expect(result.mentorAmount).toBe(0);
+    expect(result.agreementId).toBeNull();
   });
 });
 

@@ -79,7 +79,12 @@ export default function mentorshipRevenueRoutes(router: Router): void {
   // Get mentorship earnings summary
   router.get('/mentorship-earnings', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
-      const year = req.query.year ? Number(req.query.year) : undefined;
+      const yearRaw = req.query.year ? Number(req.query.year) : undefined;
+      if (yearRaw !== undefined && (!Number.isInteger(yearRaw) || yearRaw < 2000 || yearRaw > 2100)) {
+        res.status(400).json({ error: 'Invalid year parameter' });
+        return;
+      }
+      const year = yearRaw;
       const earnings = await getMentorshipEarnings(req.userId!, year);
       res.json(earnings);
     } catch (error) {

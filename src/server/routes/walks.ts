@@ -141,19 +141,31 @@ export default function walkRoutes(router: Router, io: Server): void {
           const fee = calculateApplicationFee(booking.total_price_cents, sitterInfo?.subscription_tier || 'free');
           const sitterNet = booking.total_price_cents - fee;
 
-          // Apply mentorship revenue split if mentee has active agreement
-          const split = await applyRevenueSplit(booking.sitter_id, Number(req.params.bookingId), sitterNet).catch((err: unknown) => {
-            logger.error({ err: sanitizeError(err), bookingId: req.params.bookingId }, 'Mentorship revenue split failed');
-            return { menteeAmount: sitterNet, mentorAmount: 0, agreementId: null };
-          });
+          // Revenue split + payout recording must be atomic to prevent
+          // a split being recorded without a corresponding payout entry (or vice versa)
+          let split = { menteeAmount: sitterNet, mentorAmount: 0, agreementId: null as number | null };
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await sql.begin(async (tx: any) => {
+              // Apply mentorship revenue split if mentee has active agreement
+              split = await applyRevenueSplit(booking.sitter_id, Number(req.params.bookingId), sitterNet);
 
-          await recordPayoutForBooking(
-            Number(req.params.bookingId),
-            booking.sitter_id,
-            split.menteeAmount
-          );
+              await recordPayoutForBooking(
+                Number(req.params.bookingId),
+                booking.sitter_id,
+                split.menteeAmount
+              );
+            });
+          } catch (err) {
+            logger.error({ err: sanitizeError(err), bookingId: req.params.bookingId }, 'Mentorship revenue split/payout failed');
+            split = { menteeAmount: sitterNet, mentorAmount: 0, agreementId: null };
+          }
 
-          // Record mentor payout if split occurred
+          // Notifications are non-critical — keep outside transaction
+          // Note: Mentor payout is tracked via mentorship_payouts table (which records
+          // mentor_amount_cents per booking). The actual Stripe transfer to the mentor's
+          // Connect account is handled by a separate payout reconciliation process,
+          // not via sitter_payouts (which has a UNIQUE constraint on booking_id).
           if (split.mentorAmount > 0 && split.agreementId) {
             const [agreement] = await sql`SELECT mentor_id FROM mentorship_agreements WHERE id = ${split.agreementId}`;
             if (agreement) {

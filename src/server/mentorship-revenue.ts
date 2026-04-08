@@ -1,5 +1,8 @@
 import sql from './db.ts';
+import type { MentorshipAgreement, MentorshipPayout, MentorshipAgreementStatus } from '../types.ts';
 import logger, { sanitizeError } from './logger.ts';
+
+export type { MentorshipAgreement, MentorshipPayout, MentorshipAgreementStatus };
 
 // --- Constants ---
 export const MAX_SHARE_PERCENTAGE = 15;
@@ -7,35 +10,6 @@ export const MIN_SHARE_PERCENTAGE = 1;
 export const MAX_DURATION_MONTHS = 12;
 export const MIN_DURATION_MONTHS = 1;
 export const DEFAULT_MIN_EARNINGS_CENTS = 0; // Share kicks in immediately by default
-
-export type AgreementStatus = 'pending' | 'active' | 'cancelled' | 'completed' | 'expired';
-
-export interface MentorshipAgreement {
-  readonly id: number;
-  readonly mentorship_id: number;
-  readonly mentor_id: number;
-  readonly mentee_id: number;
-  readonly share_percentage: number;
-  readonly duration_months: number;
-  readonly min_earnings_cents: number;
-  readonly status: AgreementStatus;
-  readonly started_at: string | null;
-  readonly expires_at: string | null;
-  readonly cancelled_at: string | null;
-  readonly created_at: string;
-  readonly mentor_name?: string;
-  readonly mentee_name?: string;
-}
-
-export interface MentorshipPayout {
-  readonly id: number;
-  readonly agreement_id: number;
-  readonly booking_id: number;
-  readonly mentor_amount_cents: number;
-  readonly mentee_amount_cents: number;
-  readonly booking_total_cents: number;
-  readonly created_at: string;
-}
 
 /**
  * Create a revenue-sharing agreement proposal (mentor initiates, mentee must accept).
@@ -114,6 +88,10 @@ export async function acceptAgreement(
     RETURNING *
   `;
 
+  if (!updated) {
+    return { success: false, error: 'Agreement was modified concurrently, please try again' };
+  }
+
   return { success: true, agreement: updated as unknown as MentorshipAgreement };
 }
 
@@ -137,10 +115,14 @@ export async function cancelAgreement(
     return { success: false, error: 'Agreement is not active or pending' };
   }
 
-  await sql`
+  const [updated] = await sql`
     UPDATE mentorship_agreements SET status = 'cancelled', cancelled_at = NOW()
-    WHERE id = ${agreementId}
+    WHERE id = ${agreementId} AND status IN ('active', 'pending')
+    RETURNING id
   `;
+  if (!updated) {
+    return { success: false, error: 'Agreement was modified concurrently, please try again' };
+  }
   return { success: true };
 }
 
@@ -164,10 +146,10 @@ export async function applyRevenueSplit(
     return { menteeAmount: sitterNetCents, mentorAmount: 0, agreementId: null };
   }
 
-  // Check min earnings threshold
+  // Check min earnings threshold (sum booking_total_cents, not mentee_amount_cents)
   if (agreement.min_earnings_cents > 0) {
     const [{ total }] = await sql`
-      SELECT COALESCE(SUM(mentee_amount_cents), 0)::int AS total
+      SELECT COALESCE(SUM(booking_total_cents), 0)::int AS total
       FROM mentorship_payouts WHERE agreement_id = ${agreement.id}
     `;
     if (total < agreement.min_earnings_cents) {
@@ -178,12 +160,18 @@ export async function applyRevenueSplit(
   const mentorAmount = Math.round(sitterNetCents * (agreement.share_percentage / 100));
   const menteeAmount = sitterNetCents - mentorAmount;
 
-  // Record the split
-  await sql`
+  // Record the split — check RETURNING to detect concurrent duplicate
+  const [inserted] = await sql`
     INSERT INTO mentorship_payouts (agreement_id, booking_id, mentor_amount_cents, mentee_amount_cents, booking_total_cents)
     VALUES (${agreement.id}, ${bookingId}, ${mentorAmount}, ${menteeAmount}, ${sitterNetCents})
     ON CONFLICT (booking_id) DO NOTHING
+    RETURNING id
   `;
+
+  if (!inserted) {
+    // Another request already recorded a split for this booking — return no-split to avoid double payout
+    return { menteeAmount: sitterNetCents, mentorAmount: 0, agreementId: null };
+  }
 
   logger.info(
     { agreementId: agreement.id, bookingId, mentorAmount, menteeAmount, sharePercent: agreement.share_percentage },
