@@ -18,6 +18,7 @@ import ContactPrivacySection from './ContactPrivacySection';
 import SecuritySection from './SecuritySection';
 import NotificationSection from './NotificationSection';
 import SitterPreview from '../../components/profile/SitterPreview';
+import ProfileStrength from '../../components/profile/ProfileStrength';
 import ProfileSidebar from './ProfileSidebar';
 import DeleteAccountDialog from './DeleteAccountDialog';
 
@@ -141,7 +142,6 @@ export default function ProfilePage() {
             activeSection={activeSection}
             profileSections={profileSections}
             accountSections={accountSections}
-            previewData={previewData}
             onDeleteClick={() => setDeleteDialogOpen(true)}
           />
         </div>
@@ -174,6 +174,11 @@ export default function ProfilePage() {
         {showPreview && (
           <div className="hidden lg:block sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
             <SitterPreview
+              user={user}
+              services={previewData.services}
+              photos={previewData.photos}
+            />
+            <ProfileStrength
               user={user}
               services={previewData.services}
               photos={previewData.photos}

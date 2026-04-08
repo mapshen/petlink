@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Import, Trash2 } from 'lucide-react';
-import ProfileStrength from '../../components/profile/ProfileStrength';
 import BecomeSitterDialog from '../../components/profile/BecomeSitterDialog';
-import type { User, Service, SitterPhoto } from '../../types';
+import type { User } from '../../types';
 import type { SectionDef } from './profileSections';
 
 interface Props {
@@ -13,13 +12,12 @@ interface Props {
   readonly activeSection: string;
   readonly profileSections: readonly SectionDef[];
   readonly accountSections: readonly SectionDef[];
-  readonly previewData: { services: Service[]; photos: SitterPhoto[] };
   readonly onDeleteClick: () => void;
 }
 
 export default function ProfileSidebar({
   user, mode, isSitter, hasSitterRole, activeSection,
-  profileSections, accountSections, previewData, onDeleteClick,
+  profileSections, accountSections, onDeleteClick,
 }: Props) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-3 sticky top-20 flex flex-col">
@@ -94,16 +92,6 @@ export default function ProfileSidebar({
             <Import className="w-4 h-4 flex-shrink-0" />
             Import from Rover
           </Link>
-        )}
-
-        {isSitter && (
-          <div className="px-3 py-2">
-            <ProfileStrength
-              user={user}
-              services={previewData.services}
-              photos={previewData.photos}
-            />
-          </div>
         )}
 
         {!hasSitterRole && user.approval_status !== 'pending_approval' && (

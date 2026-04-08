@@ -8,8 +8,6 @@ interface Props {
 export default function AccountSection({ user }: Props) {
   if (!user) return null;
 
-  const roles = user.roles ?? ['owner'];
-
   return (
     <div className="space-y-4">
       <div>
@@ -18,16 +16,9 @@ export default function AccountSection({ user }: Props) {
       </div>
 
       <div>
-        <div className="text-sm font-semibold text-stone-700">Roles</div>
-        <div className="flex gap-2 mt-1">
-          {roles.map((role) => (
-            <span
-              key={role}
-              className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-stone-100 text-stone-600 capitalize"
-            >
-              {role}
-            </span>
-          ))}
+        <div className="text-sm font-semibold text-stone-700">Phone</div>
+        <div className="text-sm text-stone-500 mt-1">
+          {user.phone || <span className="text-stone-400">Not set</span>}
         </div>
       </div>
     </div>
