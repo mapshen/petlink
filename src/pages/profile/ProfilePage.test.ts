@@ -20,35 +20,35 @@ function getVisibleSectionIds(mode: 'owner' | 'sitter', hasSitter: boolean): str
 }
 
 describe('ProfilePage section visibility', () => {
-  it('owner mode (non-sitter) sees About, My Pets + all 4 Account sections', () => {
+  it('owner mode (non-sitter) sees About, My Pets + all 3 Account sections', () => {
     const ids = getVisibleSectionIds('owner', false);
     expect(ids).toEqual([
       'about', 'pets',
-      'account', 'contact-privacy', 'security', 'notifications',
-    ]);
-    expect(ids).toHaveLength(6);
-  });
-
-  it('sitter mode with sitter role sees all profile + account sections (11)', () => {
-    const ids = getVisibleSectionIds('sitter', true);
-    expect(ids).toEqual([
-      'about', 'services', 'addons', 'availability', 'location', 'photos', 'policies',
-      'account', 'contact-privacy', 'security', 'notifications',
-    ]);
-    expect(ids).toHaveLength(11);
-  });
-
-  it('sitter mode WITHOUT sitter role sees About + all 4 Account sections (5)', () => {
-    const ids = getVisibleSectionIds('sitter', false);
-    expect(ids).toEqual([
-      'about',
-      'account', 'contact-privacy', 'security', 'notifications',
+      'account', 'security', 'notifications',
     ]);
     expect(ids).toHaveLength(5);
   });
 
+  it('sitter mode with sitter role sees all profile + account sections (10)', () => {
+    const ids = getVisibleSectionIds('sitter', true);
+    expect(ids).toEqual([
+      'about', 'services', 'addons', 'availability', 'location', 'photos', 'policies',
+      'account', 'security', 'notifications',
+    ]);
+    expect(ids).toHaveLength(10);
+  });
+
+  it('sitter mode WITHOUT sitter role sees About + all 3 Account sections (4)', () => {
+    const ids = getVisibleSectionIds('sitter', false);
+    expect(ids).toEqual([
+      'about',
+      'account', 'security', 'notifications',
+    ]);
+    expect(ids).toHaveLength(4);
+  });
+
   it('Account group sections are always visible regardless of mode', () => {
-    const accountIds = ['account', 'contact-privacy', 'security', 'notifications'];
+    const accountIds = ['account', 'security', 'notifications'];
     for (const [mode, hasSitter] of [['owner', false], ['owner', true], ['sitter', false], ['sitter', true]] as const) {
       const ids = getVisibleSectionIds(mode, hasSitter);
       for (const aid of accountIds) {
@@ -61,7 +61,7 @@ describe('ProfilePage section visibility', () => {
     const ids = getVisibleSectionIds('owner', true);
     expect(ids).toEqual([
       'about', 'pets',
-      'account', 'contact-privacy', 'security', 'notifications',
+      'account', 'security', 'notifications',
     ]);
   });
 
@@ -88,7 +88,7 @@ describe('ProfilePage group membership', () => {
       .filter((s) => s.group === 'account')
       .map((s) => s.id);
     expect(accountIds).toEqual([
-      'account', 'contact-privacy', 'security', 'notifications',
+      'account', 'security', 'notifications',
     ]);
   });
 });

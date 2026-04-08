@@ -1,7 +1,7 @@
 import type React from 'react';
 import {
   User as UserIcon, PawPrint, Camera, Info, Calendar, MapPin,
-  FileText, PackagePlus, UserCog, Smartphone, KeyRound, Bell,
+  FileText, PackagePlus, UserCog, KeyRound, Bell,
 } from 'lucide-react';
 
 export interface SectionDef {
@@ -22,7 +22,6 @@ export const ALL_SECTIONS: readonly SectionDef[] = [
   { id: 'photos', label: 'Photos', icon: Camera, group: 'profile', mode: 'sitter' },
   { id: 'policies', label: 'Policies', icon: FileText, group: 'profile', mode: 'sitter' },
   { id: 'account', label: 'Account', icon: UserCog, group: 'account', mode: 'both' },
-  { id: 'contact-privacy', label: 'Contact & Privacy', icon: Smartphone, group: 'account', mode: 'both' },
   { id: 'security', label: 'Security', icon: KeyRound, group: 'account', mode: 'both' },
   { id: 'notifications', label: 'Notifications', icon: Bell, group: 'account', mode: 'both' },
 ];
@@ -36,8 +35,7 @@ export const SECTION_DESCRIPTIONS: Readonly<Record<string, string>> = {
   location: 'Your service area',
   photos: 'Showcase your space and experience',
   policies: 'Cancellation and house rules',
-  account: 'Email and account details',
-  'contact-privacy': 'Phone sharing and emergency contacts',
+  account: 'Email, phone, privacy, and emergency contacts',
   security: 'Password and linked accounts',
   notifications: 'Manage your notification preferences',
 };

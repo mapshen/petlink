@@ -586,7 +586,7 @@ export default function SitterProfile() {
 
                 {user && !user.emergency_contact_name && (
                   <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
-                    <Link to="/profile#section-contact-privacy" className="font-semibold underline hover:text-amber-800">Add an emergency contact</Link> in your profile — sitters need someone to reach in case of a pet emergency.
+                    <Link to="/profile#section-account" className="font-semibold underline hover:text-amber-800">Add an emergency contact</Link> in your profile — sitters need someone to reach in case of a pet emergency.
                   </div>
                 )}
 

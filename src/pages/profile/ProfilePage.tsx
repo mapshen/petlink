@@ -14,7 +14,6 @@ import LocationTab from './LocationTab';
 import PoliciesTab from './PoliciesTab';
 import AddonsTab from './AddonsTab';
 import AccountSection from './AccountSection';
-import ContactPrivacySection from './ContactPrivacySection';
 import SecuritySection from './SecuritySection';
 import NotificationSection from './NotificationSection';
 import SitterPreview from '../../components/profile/SitterPreview';
@@ -94,8 +93,7 @@ export default function ProfilePage() {
       case 'location': return <LocationTab />;
       case 'photos': return <PhotosTab />;
       case 'policies': return <PoliciesTab />;
-      case 'account': return <AccountSection user={user} />;
-      case 'contact-privacy': return <ContactPrivacySection token={token} user={user} />;
+      case 'account': return <AccountSection token={token} user={user} />;
       case 'security': return <SecuritySection token={token} />;
       case 'notifications': return <NotificationSection token={token} />;
       default: return null;
