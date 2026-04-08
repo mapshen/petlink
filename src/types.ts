@@ -21,6 +21,11 @@ export interface SitterWithService extends User {
   has_insurance?: boolean;
   one_client_at_a_time?: boolean;
   has_fenced_yard?: boolean;
+  avg_response_hours?: number | null;
+  repeat_client_count?: number;
+  completion_rate?: number | null;
+  member_since?: string;
+  has_availability?: boolean;
 }
 
 export type HomeType = 'house' | 'apartment' | 'condo' | 'other';
@@ -156,6 +161,10 @@ export interface User {
   camera_locations?: string[];
   camera_policy_note?: string | null;
   camera_preference?: CameraPreference;
+  avg_response_hours?: number | null;
+  repeat_client_count?: number;
+  completion_rate?: number | null;
+  member_since?: string;
 }
 
 export type CameraPreference = 'requires' | 'prefers' | 'no_preference';

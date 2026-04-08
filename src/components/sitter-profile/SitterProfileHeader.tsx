@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { MapPin, ShieldCheck, Crown, Heart, MessageSquare } from 'lucide-react';
+import { MapPin, ShieldCheck, Crown, Heart, MessageSquare, Clock, Users, CheckCircle, Calendar } from 'lucide-react';
+import { formatResponseTime } from '../../shared/response-time';
 import type { User, SitterSpeciesProfile, ProfileMember } from '../../types';
 import { getDisplayName, buildCombinedName } from '../../shared/display-name';
 import { buildSpeciesBadges } from './SpeciesDetails';
@@ -152,6 +153,37 @@ export default function SitterProfileHeader({
               <span className="font-extrabold text-lg">{sitter.review_count ?? 0}</span>
               <span className="text-sm text-stone-500 ml-1">reviews</span>
             </div>
+          </div>
+
+          {/* Trust signals */}
+          <div className="flex flex-wrap gap-x-5 gap-y-1 mb-3 text-sm text-stone-500">
+            {(() => {
+              const rt = formatResponseTime(sitter.avg_response_hours);
+              return rt ? (
+                <span className={`flex items-center gap-1.5 ${rt.color === 'emerald' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <Clock className="w-3.5 h-3.5" />
+                  {rt.label}
+                </span>
+              ) : null;
+            })()}
+            {sitter.repeat_client_count != null && sitter.repeat_client_count > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5" />
+                {sitter.repeat_client_count} repeat clients
+              </span>
+            )}
+            {sitter.completion_rate != null && (
+              <span className="flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5" />
+                {Math.round(sitter.completion_rate * 100)}% completed
+              </span>
+            )}
+            {sitter.member_since && (
+              <span className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5" />
+                Member since {new Date(sitter.member_since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+              </span>
+            )}
           </div>
 
           {/* Bio */}

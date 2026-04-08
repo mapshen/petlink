@@ -563,6 +563,14 @@ export default function SitterProfile() {
                 </div>
               )}
 
+              {/* House Rules */}
+              {sitter.house_rules && (
+                <div className="bg-white rounded-2xl border border-stone-200 p-5">
+                  <h3 className="text-lg font-bold text-stone-900 mb-3">House Rules</h3>
+                  <p className="text-sm text-stone-600 whitespace-pre-line leading-relaxed">{sitter.house_rules}</p>
+                </div>
+              )}
+
               {/* Booking Card — hidden on own profile */}
               {!isOwnProfile && (
               <div className="bg-white rounded-2xl border border-stone-200 p-6">

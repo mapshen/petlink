@@ -602,6 +602,9 @@ export const sitterSearchSchema = z.object({
   petSize: z.enum(['small', 'medium', 'large', 'giant']).optional(),
   species: z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal']).optional(),
   badges: z.string().optional(), // comma-separated badge slugs
+  cancellationPolicy: z.enum(['flexible', 'moderate', 'strict']).optional(),
+  responseTime: z.coerce.number().min(1).max(24).optional(),
+  availableThisWeek: z.string().transform(v => v === 'true').optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });

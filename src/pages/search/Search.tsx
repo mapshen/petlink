@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { SitterWithService } from '../../types';
-import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw, Navigation, Search as SearchIcon, SlidersHorizontal, X, DollarSign } from 'lucide-react';
+import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw, Navigation, Search as SearchIcon, SlidersHorizontal, X, DollarSign, Clock, Users, CalendarCheck, Shield } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { useAuth } from '../../context/AuthContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -11,7 +11,6 @@ import { useTurnstile } from '../../hooks/useTurnstile';
 import FavoriteButton from '../../components/profile/FavoriteButton';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
 import { FoundingSitterBadge } from '../../components/badges/FoundingSitterBadge';
-import LifestyleBadges from '../../components/badges/LifestyleBadges';
 import MapViewToggle from '../../components/map/MapViewToggle';
 import { BADGE_CATALOG, type BadgeDefinition } from '../../shared/badge-catalog';
 import { metersToMiles } from '../../lib/geo';
@@ -19,6 +18,7 @@ import { getServiceLabel } from '../../shared/service-labels';
 import { getDisplayName } from '../../shared/display-name';
 import { formatCents } from '../../lib/money';
 import { getAddonBySlug } from '../../shared/addon-catalog';
+import { formatResponseTime } from '../../shared/response-time';
 import LocationAutocomplete from '../../components/search/LocationAutocomplete';
 
 const SitterClusterMap = lazy(() => import('../../components/map/SitterClusterMap'));
@@ -113,6 +113,9 @@ export default function Search() {
   const [debouncedMaxPrice, setDebouncedMaxPrice] = useState(maxPrice);
   const [petSize, setPetSize] = useState(searchParams.get('petSize') || '');
   const [species, setSpecies] = useState(searchParams.get('species') || '');
+  const [cancellationPolicy, setCancellationPolicy] = useState(searchParams.get('cancellationPolicy') || '');
+  const [responseTime, setResponseTime] = useState(searchParams.get('responseTime') || '');
+  const [availableThisWeek, setAvailableThisWeek] = useState(searchParams.get('availableThisWeek') === 'true');
   const [selectedBadges, setSelectedBadges] = useState<string[]>(() => {
     const param = searchParams.get('badges');
     return param ? param.split(',').filter(Boolean) : [];
@@ -135,7 +138,7 @@ export default function Search() {
     return () => clearTimeout(timer);
   }, [maxPrice]);
 
-  const hasActiveFilters = minPrice || maxPrice || petSize || species || selectedBadges.length > 0;
+  const hasActiveFilters = minPrice || maxPrice || petSize || species || cancellationPolicy || responseTime || availableThisWeek || selectedBadges.length > 0;
   const { view, setView } = useMapViewPreference();
   const isDesktop = useIsDesktop();
 
@@ -193,15 +196,21 @@ export default function Search() {
     if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice); else params.delete('maxPrice');
     if (petSize) params.set('petSize', petSize); else params.delete('petSize');
     if (species) params.set('species', species); else params.delete('species');
+    if (cancellationPolicy) params.set('cancellationPolicy', cancellationPolicy); else params.delete('cancellationPolicy');
+    if (responseTime) params.set('responseTime', responseTime); else params.delete('responseTime');
+    if (availableThisWeek) params.set('availableThisWeek', 'true'); else params.delete('availableThisWeek');
     if (selectedBadges.length > 0) params.set('badges', selectedBadges.join(',')); else params.delete('badges');
     setSearchParams(params, { replace: true });
-  }, [debouncedMinPrice, debouncedMaxPrice, petSize, species, selectedBadges]);
+  }, [debouncedMinPrice, debouncedMaxPrice, petSize, species, cancellationPolicy, responseTime, availableThisWeek, selectedBadges]);
 
   const clearFilters = () => {
     setMinPrice('');
     setMaxPrice('');
     setPetSize('');
     setSpecies('');
+    setCancellationPolicy('');
+    setResponseTime('');
+    setAvailableThisWeek(false);
     setSelectedBadges([]);
   };
 
@@ -220,6 +229,9 @@ export default function Search() {
         if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice);
         if (petSize) params.set('petSize', petSize);
         if (species) params.set('species', species);
+        if (cancellationPolicy) params.set('cancellationPolicy', cancellationPolicy);
+        if (responseTime) params.set('responseTime', responseTime);
+        if (availableThisWeek) params.set('availableThisWeek', 'true');
         if (selectedBadges.length > 0) params.set('badges', selectedBadges.join(','));
         const headers: Record<string, string> = {};
         if (turnstileToken) {
@@ -237,7 +249,7 @@ export default function Search() {
     };
 
     fetchSitters();
-  }, [serviceType, coords, radius, retryCount, debouncedMinPrice, debouncedMaxPrice, petSize, species, selectedBadges, turnstileToken]);
+  }, [serviceType, coords, radius, retryCount, debouncedMinPrice, debouncedMaxPrice, petSize, species, cancellationPolicy, responseTime, availableThisWeek, selectedBadges, turnstileToken]);
 
   const { user: authUser } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
@@ -357,8 +369,10 @@ export default function Search() {
                 </div>
               </div>
 
+              {/* Pet size — only meaningful for dogs */}
+              {(!species || species === 'dog') && (
               <div>
-                <label className="block text-xs font-medium text-stone-600 mb-2">Pet Size</label>
+                <label className="block text-xs font-medium text-stone-600 mb-2">Dog Size</label>
                 <div className="flex flex-wrap gap-2">
                   {PET_SIZES.map((size) => (
                     <button
@@ -378,6 +392,7 @@ export default function Search() {
                   ))}
                 </div>
               </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-stone-600 mb-2">Pet Type</label>
@@ -398,6 +413,73 @@ export default function Search() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-2">
+                  <Shield className="w-3 h-3 inline mr-1" />
+                  Cancellation Policy
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(['flexible', 'moderate', 'strict'] as const).map((policy) => (
+                    <button
+                      key={policy}
+                      type="button"
+                      onClick={() => setCancellationPolicy(cancellationPolicy === policy ? '' : policy)}
+                      aria-pressed={cancellationPolicy === policy}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
+                        cancellationPolicy === policy
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {policy}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-2">
+                  <Clock className="w-3 h-3 inline mr-1" />
+                  Response Time
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[{ label: '< 1 hr', value: '1' }, { label: '< 4 hrs', value: '4' }].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setResponseTime(responseTime === opt.value ? '' : opt.value)}
+                      aria-pressed={responseTime === opt.value}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        responseTime === opt.value
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-2">
+                  <CalendarCheck className="w-3 h-3 inline mr-1" />
+                  Availability
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setAvailableThisWeek(!availableThisWeek)}
+                  aria-pressed={availableThisWeek}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    availableThisWeek
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  Available this week
+                </button>
               </div>
 
               <div className="sm:col-span-2 lg:col-span-3">
@@ -518,7 +600,8 @@ export default function Search() {
 
                           <p className="text-stone-600 text-sm mt-3 line-clamp-2">{sitter.bio}</p>
 
-                          <div className="mt-4 flex items-center gap-4 text-xs font-medium text-stone-500">
+                          {/* Row 1: Rating + core identity */}
+                          <div className="mt-3 flex items-center gap-3 text-xs font-medium text-stone-500">
                             {sitter.avg_rating ? (
                               <div className="flex items-center gap-1 text-amber-500">
                                 <Star className="w-3 h-3 fill-current" />
@@ -536,42 +619,72 @@ export default function Search() {
                             )}
                             {sitter.is_new && (
                               <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium">
-                                New Sitter
+                                New
                               </span>
                             )}
                             {sitter.founding_sitter && <FoundingSitterBadge />}
+                          </div>
+
+                          {/* Row 2: Trust signals */}
+                          <div className="mt-2 flex items-center gap-3 text-xs text-stone-500">
+                            {(() => {
+                              const rt = formatResponseTime(sitter.avg_response_hours);
+                              return rt ? (
+                                <span className={`flex items-center gap-1 ${rt.color === 'emerald' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                  <Clock className="w-3 h-3" />
+                                  {rt.shortLabel}
+                                </span>
+                              ) : null;
+                            })()}
+                            {sitter.repeat_client_count != null && sitter.repeat_client_count > 0 && (
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {sitter.repeat_client_count} repeat
+                              </span>
+                            )}
+                            {sitter.cancellation_policy && (
+                              <span className="flex items-center gap-1 capitalize">
+                                <Shield className="w-3 h-3" />
+                                {sitter.cancellation_policy}
+                              </span>
+                            )}
+                            {sitter.has_availability && (
+                              <span className="flex items-center gap-1 text-emerald-600">
+                                <CalendarCheck className="w-3 h-3" />
+                                Available
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Row 3: Species + add-ons (compact) */}
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
                             {sitter.accepted_species && sitter.accepted_species.length > 0 && (
                               <div className="flex gap-1">
                                 {sitter.accepted_species.map((s: string) => (
-                                  <span key={s} className="text-stone-400" title={s.replace(/_/g, ' ')}>
+                                  <span key={s} className="text-stone-400 text-xs" title={s.replace(/_/g, ' ')}>
                                     {SPECIES_EMOJI[s] || '🐾'}
                                   </span>
                                 ))}
                               </div>
                             )}
-                          </div>
-                          {sitter.addon_slugs && sitter.addon_slugs.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {sitter.addon_slugs.slice(0, 4).map((slug: string) => {
-                                const def = getAddonBySlug(slug);
-                                return (
-                                  <span key={slug} className="bg-emerald-50 text-emerald-700 text-[10px] font-medium px-2 py-0.5 rounded-full">
-                                    {def?.emoji} {def?.shortLabel ?? slug}
+                            {sitter.addon_slugs && sitter.addon_slugs.length > 0 && (
+                              <>
+                                {sitter.addon_slugs.slice(0, 3).map((slug: string) => {
+                                  const def = getAddonBySlug(slug);
+                                  return (
+                                    <span key={slug} className="bg-emerald-50 text-emerald-700 text-[10px] font-medium px-2 py-0.5 rounded-full">
+                                      {def?.emoji} {def?.shortLabel ?? slug}
+                                    </span>
+                                  );
+                                })}
+                                {sitter.addon_slugs.length > 3 && (
+                                  <span className="bg-stone-100 text-stone-500 text-[10px] font-medium px-2 py-0.5 rounded-full">
+                                    +{sitter.addon_slugs.length - 3} more
                                   </span>
-                                );
-                              })}
-                              {sitter.addon_slugs.length > 4 && (
-                                <span className="bg-stone-100 text-stone-500 text-[10px] font-medium px-2 py-0.5 rounded-full">
-                                  +{sitter.addon_slugs.length - 4} more
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {sitter.lifestyle_badges && sitter.lifestyle_badges.length > 0 && (
-                            <div className="mt-2">
-                              <LifestyleBadges badges={sitter.lifestyle_badges} size="sm" maxVisible={4} />
-                            </div>
-                          )}
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
