@@ -1,7 +1,6 @@
 import type { User } from '../../types';
 
 interface Props {
-  readonly token: string | null;
   readonly user: User | null;
 }
 

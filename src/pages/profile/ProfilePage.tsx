@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
@@ -41,10 +41,10 @@ export default function ProfilePage() {
       ALL_SECTIONS.filter((s) => {
         if (s.mode === 'both') return true;
         if (s.mode === 'sitter') return isSitter && hasSitterRole;
-        if (s.mode === 'owner') return !isSitter;
+        if (s.mode === 'owner') return mode !== 'sitter';
         return false;
       }),
-    [isSitter, hasSitterRole],
+    [mode, hasSitterRole],
   );
 
   const activeGroup = useMemo(() => {
@@ -55,7 +55,7 @@ export default function ProfilePage() {
   const showPreview = isSitter && activeGroup === 'profile';
 
   // IntersectionObserver to track which section is in view
-  useEffect(() => {
+  useLayoutEffect(() => {
     const refs = sectionRefs.current;
     const observer = new IntersectionObserver(
       (entries) => {
@@ -94,7 +94,7 @@ export default function ProfilePage() {
       case 'location': return <LocationTab />;
       case 'photos': return <PhotosTab />;
       case 'policies': return <PoliciesTab />;
-      case 'account': return <AccountSection token={token} user={user} />;
+      case 'account': return <AccountSection user={user} />;
       case 'contact-privacy': return <ContactPrivacySection token={token} user={user} />;
       case 'security': return <SecuritySection token={token} />;
       case 'notifications': return <NotificationSection token={token} />;

@@ -43,6 +43,7 @@ const LostPetAlertsPage = React.lazy(() => import('./pages/lost-pets/LostPetAler
 const ForumPage = React.lazy(() => import('./pages/forum/ForumPage'));
 const ForumCategoryPage = React.lazy(() => import('./pages/forum/CategoryPage'));
 const ForumThreadPage = React.lazy(() => import('./pages/forum/ThreadPage'));
+const SettingsRedirect = React.lazy(() => import('./pages/profile/SettingsRedirect'));
 
 function LoadingSpinner() {
   return (
@@ -69,7 +70,7 @@ export default function App() {
                 <Route path="/dashboard" element={<Navigate to="/home" replace />} />
                 <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                <Route path="/settings" element={<Navigate to="/profile" replace />} />
+                <Route path="/settings" element={<SettingsRedirect />} />
                 <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
                 <Route path="/promote" element={<ProtectedRoute><PromotePage /></ProtectedRoute>} />
                 <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />

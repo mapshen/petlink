@@ -131,7 +131,7 @@ export default function ProfileTab() {
         />
       </div>
 
-      {/* Emergency Contact (managed in Settings) */}
+      {/* Emergency Contact (managed below) */}
       <div className="border border-stone-200 rounded-xl p-4">
         <div className="flex justify-between items-start">
           <div>
@@ -145,11 +145,11 @@ export default function ProfileTab() {
                 )}
               </div>
             ) : (
-              <p className="text-xs text-amber-600">No emergency contact set — add one in Settings.</p>
+              <p className="text-xs text-amber-600">No emergency contact set — add one below.</p>
             )}
           </div>
           <a href="#section-contact-privacy" className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 whitespace-nowrap">
-            Edit in Settings
+            Edit
           </a>
         </div>
       </div>

@@ -36,7 +36,7 @@ export default function ProfileSidebar({
         </div>
       </div>
 
-      <nav className="flex md:flex-col gap-0.5 overflow-x-auto md:overflow-x-visible flex-1">
+      <nav aria-label="Profile sections" className="flex md:flex-col gap-0.5 overflow-x-auto md:overflow-x-visible flex-1">
         <p className="hidden md:block text-[10px] uppercase tracking-widest text-stone-400 font-semibold px-3 pt-2 pb-1">
           Profile
         </p>
@@ -46,6 +46,7 @@ export default function ProfileSidebar({
             <a
               key={s.id}
               href={`#section-${s.id}`}
+              aria-current={activeSection === s.id ? 'true' : undefined}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
                 activeSection === s.id
                   ? 'bg-emerald-50 text-emerald-700 font-medium'
@@ -69,6 +70,7 @@ export default function ProfileSidebar({
             <a
               key={s.id}
               href={`#section-${s.id}`}
+              aria-current={activeSection === s.id ? 'true' : undefined}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
                 activeSection === s.id
                   ? 'bg-emerald-50 text-emerald-700 font-medium'

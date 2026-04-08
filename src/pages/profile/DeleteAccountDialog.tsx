@@ -61,11 +61,13 @@ export default function DeleteAccountDialog({ open, onOpenChange }: Props) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="py-3">
-          <label className="block text-sm font-medium text-stone-700 mb-2">
+          <label htmlFor="delete-confirm" className="block text-sm font-medium text-stone-700 mb-2">
             Type <span className="font-bold text-red-600">DELETE</span> to confirm
           </label>
           <input
+            id="delete-confirm"
             type="text"
+            autoComplete="off"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder="DELETE"
