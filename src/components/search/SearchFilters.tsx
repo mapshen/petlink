@@ -272,7 +272,9 @@ function DateRangeFilter({
       onFromChange(format(t, 'yyyy-MM-dd'));
       onToChange(format(addDays(t, 6), 'yyyy-MM-dd'));
     } else if (label === 'next_week') {
-      const nextMon = addDays(t, 7 - t.getDay() + 1);
+      const dow = t.getDay();
+      const daysUntilMon = dow === 0 ? 1 : 8 - dow;
+      const nextMon = addDays(t, daysUntilMon);
       onFromChange(format(nextMon, 'yyyy-MM-dd'));
       onToChange(format(addDays(nextMon, 6), 'yyyy-MM-dd'));
     } else if (label === 'next_30') {
