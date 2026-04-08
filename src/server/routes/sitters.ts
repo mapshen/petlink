@@ -16,7 +16,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
-    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species, badges: badgesParam, limit: limitParam, offset: offsetParam } = parsed.data;
+    const { serviceType, lat, lng, radius, minPrice, maxPrice, petSize, species, badges: badgesParam, cancellationPolicy, responseTime, availableThisWeek, limit: limitParam, offset: offsetParam } = parsed.data;
     const limit = Math.min(limitParam || 50, 100);
     const offset = offsetParam || 0;
 
@@ -30,6 +30,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
              ROUND(u.lat::numeric, 2)::float as lat, ROUND(u.lng::numeric, 2)::float as lng,
              u.accepted_pet_sizes, u.accepted_species, u.years_experience, u.skills, u.created_at, u.approved_at, u.subscription_tier, u.founding_sitter,
              u.has_fenced_yard, u.non_smoking_home, u.has_insurance, u.one_client_at_a_time, u.has_own_pets, u.lifestyle_badges,
+             u.cancellation_policy,
              s.price_cents, s.type as service_type, s.max_pets
              ${species ? sql`, sp.years_experience as species_years_experience, sp.accepted_pet_sizes as species_pet_sizes, sp.skills as species_skills` : sql``}
              ${hasGeo ? sql`, ST_Distance(u.location, ${geoPoint}) as distance_meters` : sql``}
@@ -43,6 +44,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         ${maxPrice != null ? sql`AND s.price_cents <= ${dollarsToCents(maxPrice)}` : sql``}
         ${petSize ? sql`AND ${petSize} = ANY(u.accepted_pet_sizes)` : sql``}
         ${species ? sql`AND ${species} = ANY(u.accepted_species) AND (s.species = ${species} OR s.species IS NULL)` : sql``}
+        ${cancellationPolicy ? sql`AND u.cancellation_policy = ${cancellationPolicy}` : sql``}
         ${hasGeo ? sql`AND ST_DWithin(u.location, ${geoPoint}, ${radius})` : sql``}
       ORDER BY u.id, s.price_cents ASC
     `;
@@ -131,26 +133,41 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         subscription_tier: sitter.subscription_tier,
         active_strike_weight: s?.active_strike_weight || 0,
       };
+      const totalBookings = s?.total || 0;
       return {
         ...sitter,
         ranking_score: calculateRankingScore(sitterStats),
         is_new: isNewSitter(sitter.approved_at),
         review_count: s?.review_count || 0,
         avg_rating: s?.avg_rating ? Number(s.avg_rating.toFixed(1)) : null,
+        avg_response_hours: s?.avg_response_hours || null,
+        repeat_client_count: s?.repeat_owners || 0,
+        completion_rate: totalBookings > 0 ? (s?.completed || 0) / totalBookings : null,
+        member_since: sitter.created_at,
+        has_availability: Boolean(s?.has_availability),
       };
     });
 
     ranked.sort((a: any, b: any) => b.ranking_score - a.ranking_score);
 
+    // Post-query filters (applied after ranking since they depend on computed stats)
+    let filtered = ranked;
+    if (responseTime != null) {
+      filtered = filtered.filter((s: any) => s.avg_response_hours != null && s.avg_response_hours <= responseTime);
+    }
+    if (availableThisWeek) {
+      filtered = filtered.filter((s: any) => s.has_availability);
+    }
+
     // When species filter is active, prefer species-specific data over global user fields
     const withSpecies = species
-      ? ranked.map(({ species_years_experience, species_pet_sizes, species_skills, ...rest }: any) => ({
+      ? filtered.map(({ species_years_experience, species_pet_sizes, species_skills, ...rest }: any) => ({
           ...rest,
           years_experience: species_years_experience ?? rest.years_experience,
           accepted_pet_sizes: species_pet_sizes?.length > 0 ? species_pet_sizes : rest.accepted_pet_sizes,
           skills: species_skills?.length > 0 ? species_skills : rest.skills,
         }))
-      : ranked;
+      : filtered;
 
     // Resolve active badges for each sitter and apply badge filters
     const withBadges = withSpecies.map((s: any) => ({
@@ -189,7 +206,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     const param = req.params.idOrSlug;
     const isNumeric = /^\d+$/.test(param);
     const [sitter] = await sql`
-      SELECT id, name, roles, bio, avatar_url, slug, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance, subscription_tier, founding_sitter, non_smoking_home, one_client_at_a_time, lifestyle_badges, camera_preference FROM users
+      SELECT id, name, roles, bio, avatar_url, slug, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance, subscription_tier, founding_sitter, non_smoking_home, one_client_at_a_time, lifestyle_badges, camera_preference, created_at FROM users
       WHERE ${isNumeric ? sql`id = ${Number(param)}` : sql`slug = ${param}`}
         AND roles @> '{sitter}'::text[] AND approval_status = 'approved'
     `;
@@ -245,11 +262,43 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
       ORDER BY ir.review_date DESC NULLS LAST
     `;
 
+    // Trust stats for profile (response time, repeat clients, completion rate)
+    const [trustStats] = await sql`
+      WITH booking_stats AS (
+        SELECT
+          COUNT(*) FILTER (WHERE b.status = 'completed')::int as completed,
+          COUNT(*)::int as total,
+          AVG(EXTRACT(EPOCH FROM (b.responded_at - b.created_at)) / 3600) FILTER (WHERE b.responded_at IS NOT NULL)::float as avg_response_hours,
+          COUNT(DISTINCT b.owner_id) FILTER (WHERE b.status = 'completed')::int as unique_owners,
+          COUNT(DISTINCT CASE
+            WHEN b.status = 'completed' AND (
+              SELECT COUNT(*) FROM bookings b2
+              WHERE b2.sitter_id = b.sitter_id AND b2.owner_id = b.owner_id AND b2.status = 'completed'
+            ) > 1 THEN b.owner_id
+          END)::int as repeat_owners
+        FROM bookings b
+        LEFT JOIN services svc ON b.service_id = svc.id
+        WHERE b.sitter_id = ${sitterId}
+          AND (svc.type IS NULL OR svc.type != 'meet_greet')
+      )
+      SELECT
+        COALESCE(completed, 0)::int as completed,
+        COALESCE(total, 0)::int as total,
+        avg_response_hours,
+        COALESCE(repeat_owners, 0)::int as repeat_owners
+      FROM booking_stats
+    `;
+
+    const totalBookings = trustStats?.total || 0;
     const sitterWithStats = {
       ...sitter,
       avg_rating: reviewStats.avg_rating ? Number(reviewStats.avg_rating.toFixed(1)) : null,
       review_count: reviewStats.review_count,
       active_badges: resolveActiveBadges(sitter),
+      avg_response_hours: trustStats?.avg_response_hours || null,
+      repeat_client_count: trustStats?.repeat_owners || 0,
+      completion_rate: totalBookings > 0 ? (trustStats?.completed || 0) / totalBookings : null,
+      member_since: sitter.created_at,
     };
 
     const profileMembers = await sql`
