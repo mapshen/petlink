@@ -23,6 +23,7 @@ import { formatCents, dollarsToCents } from '../../lib/money';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import ReceiptUpload from '../../components/payment/ReceiptUpload';
 import ReceiptPreviewModal from '../../components/payment/ReceiptPreviewModal';
+import { generateTaxPDF } from '../../lib/tax-pdf';
 
 const EXPENSE_CATEGORIES = [
   { value: 'supplies', label: 'Supplies', icon: '🛒' },
@@ -86,58 +87,7 @@ const FILING_STATUS_OPTIONS = [
 
 const EMPTY_FORM: ExpenseForm = { category: 'supplies', amount: '', description: '', date: new Date().toISOString().split('T')[0], receipt_url: '' };
 
-export async function generateTaxPDF(summary: TaxSummary, categories: readonly { value: string; label: string; icon: string }[]) {
-  const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF();
-  const fmt = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  let y = 20;
-
-  doc.setFontSize(18);
-  doc.text(`PetLink Tax Summary — ${summary.year}`, 14, y);
-  y += 10;
-  doc.setFontSize(10);
-  doc.setTextColor(120, 120, 120);
-  doc.text('For informational purposes only. Consult a tax professional.', 14, y);
-  doc.setTextColor(0, 0, 0);
-  y += 12;
-
-  // Annual summary
-  doc.setFontSize(13);
-  doc.text('Annual Summary', 14, y); y += 8;
-  doc.setFontSize(10);
-  doc.text(`Gross Income: ${fmt(summary.total_income)}`, 14, y); y += 6;
-  doc.text(`Total Expenses: ${fmt(summary.total_expenses)}`, 14, y); y += 6;
-  doc.text(`Net Income: ${fmt(summary.net_income)}`, 14, y); y += 6;
-  doc.text(`Self-Employment Tax: ${fmt(summary.annual_se_tax)}`, 14, y); y += 6;
-  doc.text(`Estimated Income Tax: ${fmt(summary.annual_income_tax)}`, 14, y); y += 6;
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Total Estimated Tax: ${fmt(summary.annual_estimated_tax)}`, 14, y);
-  doc.setFont('helvetica', 'normal');
-  y += 12;
-
-  // Expenses by category
-  if (Object.keys(summary.expense_by_category).length > 0) {
-    doc.setFontSize(13);
-    doc.text('Expenses by Category', 14, y); y += 8;
-    doc.setFontSize(10);
-    for (const [cat, amount] of Object.entries(summary.expense_by_category)) {
-      const label = categories.find(c => c.value === cat)?.label || cat;
-      doc.text(`${label}: ${fmt(amount)}`, 14, y); y += 6;
-    }
-    y += 6;
-  }
-
-  // Quarterly estimates
-  doc.setFontSize(13);
-  doc.text('Quarterly Estimated Tax Payments', 14, y); y += 8;
-  doc.setFontSize(10);
-  for (const q of summary.quarterly_estimates) {
-    doc.text(`${q.quarter} (due ${q.due_date}): ${fmt(q.estimated_tax)}  (SE: ${fmt(q.se_tax)} + Income: ${fmt(q.income_tax)})`, 14, y);
-    y += 6;
-  }
-
-  doc.save(`petlink-tax-summary-${summary.year}.pdf`);
-}
+// PDF generation extracted to src/lib/tax-pdf.ts
 
 export function buildExpensePayload(form: ExpenseForm) {
   return {
@@ -750,8 +700,17 @@ export default function WalletPage() {
                   </select>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => {
-                    window.open(`${API_BASE}/expenses/export?year=${year}`, '_blank');
+                  <Button size="sm" variant="outline" onClick={async () => {
+                    const csvRes = await fetch(`${API_BASE}/expenses/export?year=${year}`, { headers: getAuthHeaders(token) });
+                    if (csvRes.ok) {
+                      const blob = await csvRes.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `expenses-${year}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }
                   }}>
                     <Download className="w-4 h-4" /> CSV
                   </Button>
@@ -764,16 +723,16 @@ export default function WalletPage() {
               {/* Next quarter callout */}
               {(() => {
                 const currentMonth = new Date().getMonth();
-                const currentQ = Math.floor(currentMonth / 3);
-                const nextQ = summary.quarterly_estimates[currentQ];
-                return nextQ && nextQ.estimated_tax > 0 ? (
+                const currentQIndex = Math.floor(currentMonth / 3);
+                const currentQuarter = summary.quarterly_estimates[currentQIndex];
+                return currentQuarter && currentQuarter.estimated_tax > 0 ? (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="text-sm font-bold text-amber-800">
-                        You may owe ~{formatCents(nextQ.estimated_tax)} for {nextQ.quarter}
+                        Estimated {currentQuarter.quarter} tax: ~{formatCents(currentQuarter.estimated_tax)}
                       </div>
-                      <div className="text-xs text-amber-600 mt-1">Due {nextQ.due_date}. This is a rough estimate — consult a tax professional.</div>
+                      <div className="text-xs text-amber-600 mt-1">Due {currentQuarter.due_date}. This is a rough estimate — consult a tax professional.</div>
                     </div>
                   </div>
                 ) : null;

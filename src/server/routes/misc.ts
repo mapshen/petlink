@@ -127,29 +127,32 @@ export default function miscRoutes(router: Router): void {
         ? req.query.filing_status as FilingStatus
         : 'single';
 
+      // Derive annual totals first, then prorate quarterly
+      const total_income = quarterlyRows.reduce((sum: number, r: { income: number }) => sum + r.income, 0);
+      const netIncome = total_income - total_expenses;
+      const annualNet = Math.max(0, netIncome);
+      const annualTax = calculateQuarterlyTax(annualNet, filingStatus);
+
       const quarterlyEstimates = [1, 2, 3, 4].map(q => {
         const income = quarterlyRows.find((r: { quarter: number }) => r.quarter === q)?.income || 0;
         const expenses = quarterlyExpenseRows.find((r: { quarter: number }) => r.quarter === q)?.expenses || 0;
-        const netIncome = Math.max(0, income - expenses);
-        const tax = calculateQuarterlyTax(netIncome, filingStatus);
+        const qNetIncome = Math.max(0, income - expenses);
+        const share = annualNet > 0 ? qNetIncome / annualNet : 0.25;
         return {
           quarter: `Q${q}`,
           income,
           expenses,
-          net_income: netIncome,
-          se_tax: tax.se_tax,
-          income_tax: tax.income_tax,
-          estimated_tax: tax.total,
+          net_income: qNetIncome,
+          se_tax: Math.round(annualTax.se_tax * share),
+          income_tax: Math.round(annualTax.income_tax * share),
+          estimated_tax: Math.round(annualTax.total * share),
           due_date: IRS_DUE_DATES[`Q${q}`],
         };
       });
 
-      // Derive annual totals from quarterly data (avoids redundant query)
-      const total_income = quarterlyRows.reduce((sum: number, r: { income: number }) => sum + r.income, 0);
-      const netIncome = total_income - total_expenses;
-      const annual_se_tax = calculateSETax(Math.max(0, netIncome));
-      const annual_income_tax = calculateIncomeTax(Math.max(0, netIncome), filingStatus);
-      const annual_estimated_tax = annual_se_tax + annual_income_tax;
+      const annual_se_tax = annualTax.se_tax;
+      const annual_income_tax = annualTax.income_tax;
+      const annual_estimated_tax = annualTax.total;
 
       res.json({
         year,
