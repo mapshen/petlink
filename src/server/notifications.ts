@@ -49,6 +49,7 @@ export async function createNotification(
       review_reminder: 'booking_reminders',
       lost_pet_alert: 'lost_pet_alerts',
       media_share_request: 'booking_status',
+      emergency_contact_viewed: 'booking_status',
     };
     // Safety-critical notifications always delivered regardless of preferences
     const alwaysNotify = new Set(['incident_report', 'dispute_update', 'emergency_contact_viewed']);

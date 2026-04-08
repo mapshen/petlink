@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Button } from '../ui/button';
 import BookingReviewDetail from '../review/BookingReviewDetail';
+import BookingContactCard from '../booking/BookingContactCard';
+import EmergencyContactReveal from '../booking/EmergencyContactReveal';
 import IncidentReportForm from '../incident/IncidentReportForm';
 import IncidentLog from '../incident/IncidentLog';
 import { formatCents } from '../../lib/money';
@@ -133,6 +135,12 @@ function BookingRow({ booking, expanded, onToggle, userId, token, onLeaveReview 
         <tr className="bg-stone-50/50 border-b border-stone-100">
           <td colSpan={7} className="px-4 py-0">
             <div className="py-4 pl-8 pr-4 space-y-3">
+              <BookingContactCard bookingId={booking.id} bookingStatus={booking.status} token={token} />
+              <EmergencyContactReveal
+                bookingId={booking.id}
+                otherPartyName={booking.owner_name || 'the owner'}
+                token={token}
+              />
               <div className="flex justify-end">
                 <Button
                   size="sm"

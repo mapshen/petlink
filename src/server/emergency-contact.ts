@@ -54,25 +54,33 @@ export async function revealEmergencyContact(
     return { error: 'no_emergency_contact' };
   }
 
-  // 5. Log access for audit trail
-  await sql`
-    INSERT INTO emergency_contact_access_log
-      (booking_id, accessed_by, contact_owner_id)
-    VALUES (${bookingId}, ${requestingUserId}, ${otherUserId})
-  `;
+  // 5. Log access + notify in transaction for atomicity
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await sql.begin(async (tx: any) => {
+    await tx`
+      INSERT INTO emergency_contact_access_log
+        (booking_id, accessed_by, contact_owner_id)
+      VALUES (${bookingId}, ${requestingUserId}, ${otherUserId})
+    `;
 
-  // 6. Get requester name for notification
-  const [requester] = await sql`
-    SELECT name FROM users WHERE id = ${requestingUserId}
-  `;
+    // 6. Get requester name for notification
+    const [requester] = await tx`
+      SELECT name FROM users WHERE id = ${requestingUserId}
+    `;
 
-  // 7. Send mandatory notification (always — safety/audit, bypasses preferences)
-  await createNotification(
-    otherUserId,
-    'emergency_contact_viewed',
-    'Emergency contact viewed',
-    `${requester?.name || 'Someone'} viewed your emergency contact for booking #${bookingId}`,
-  );
+    // 7. Send mandatory notification (always — safety/audit, bypasses preferences)
+    try {
+      await createNotification(
+        otherUserId,
+        'emergency_contact_viewed',
+        'Emergency contact viewed',
+        `${requester?.name || 'Someone'} viewed your emergency contact for booking #${bookingId}`,
+      );
+    } catch (notifyError) {
+      console.error('Failed to send emergency contact notification:', notifyError);
+      // Don't block the reveal — audit log is already persisted
+    }
+  });
 
   return {
     success: true,

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ShieldAlert, Phone, User, Heart } from 'lucide-react';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
+import type { EmergencyContact } from '../../types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,12 +14,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '../ui/alert-dialog';
-
-interface EmergencyContact {
-  name: string | null;
-  phone: string | null;
-  relationship: string | null;
-}
 
 interface Props {
   readonly bookingId: number;
@@ -64,7 +59,7 @@ export default function EmergencyContactReveal({ bookingId, otherPartyName, toke
 
   if (revealed && contact) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-3">
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-3" aria-live="polite" role="status">
         <div className="text-xs font-medium text-red-600 uppercase tracking-wider mb-2">
           Emergency Contact
         </div>
