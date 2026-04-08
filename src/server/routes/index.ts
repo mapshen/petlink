@@ -47,3 +47,4 @@ export { default as forumRoutes } from './forum.ts';
 export { default as mentorshipRoutes } from './mentorships.ts';
 export { default as mentorshipRevenueRoutes } from './mentorship-revenue.ts';
 export { default as campaignRoutes } from './campaigns.ts';
+export { default as emergencyContactRoutes } from './emergency-contact.ts';

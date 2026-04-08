@@ -25,7 +25,7 @@ import {
   bookingRoutes, reviewRoutes, verificationRoutes, availabilityRoutes,
   photoRoutes, favoriteRoutes, messageRoutes, notificationRoutes,
   paymentRoutes, subscriptionRoutes, walkRoutes, analyticsRoutes,
-  adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes, speciesProfileRoutes, tipRoutes, profileMemberRoutes, inquiryRoutes, referenceRoutes, addonRoutes, incidentRoutes, disputeRoutes, connectRoutes, creditRoutes, reliabilityRoutes, petNoteRoutes, partnerRoutes, proPeriodRoutes, loyaltyDiscountRoutes, insightRoutes, referralRoutes, phoneRelayRoutes, banActionRoutes, reviewModerationRoutes, backupSitterRoutes, lostPetAlertRoutes, forumRoutes, mentorshipRoutes, mentorshipRevenueRoutes, campaignRoutes,
+  adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes, speciesProfileRoutes, tipRoutes, profileMemberRoutes, inquiryRoutes, referenceRoutes, addonRoutes, incidentRoutes, disputeRoutes, connectRoutes, creditRoutes, reliabilityRoutes, petNoteRoutes, partnerRoutes, proPeriodRoutes, loyaltyDiscountRoutes, insightRoutes, referralRoutes, phoneRelayRoutes, banActionRoutes, reviewModerationRoutes, backupSitterRoutes, lostPetAlertRoutes, forumRoutes, mentorshipRoutes, mentorshipRevenueRoutes, campaignRoutes, emergencyContactRoutes,
 } from './src/server/routes/index.ts';
 import type { ErrorRequestHandler } from 'express';
 import logger, { sanitizeError } from './src/server/logger.ts';
@@ -201,6 +201,7 @@ async function startServer() {
   mentorshipRoutes(v1);
   mentorshipRevenueRoutes(v1);
   campaignRoutes(v1);
+  emergencyContactRoutes(v1);
 
   // Mount versioned API router at /api/v1 (canonical) and /api (backwards compat)
   app.use('/api/v1', v1);
