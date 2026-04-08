@@ -9,9 +9,12 @@ import type { SitterPayout } from '../types.ts';
 export async function recordPayoutForBooking(
   bookingId: number,
   sitterId: number,
-  amountCents: number
+  amountCents: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
 ): Promise<SitterPayout> {
-  const [payout] = await sql`
+  const db = tx || sql;
+  const [payout] = await db`
     INSERT INTO sitter_payouts (booking_id, sitter_id, amount_cents, status, scheduled_at)
     VALUES (${bookingId}, ${sitterId}, ${amountCents}, 'pending', NOW())
     ON CONFLICT (booking_id) DO NOTHING

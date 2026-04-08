@@ -1381,6 +1381,39 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_mentorships_mentee ON mentorships (mentee_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_mentorships_active ON mentorships (status) WHERE status = 'active'`.catch(() => {});
 
+  // Issue #417: Mentorship revenue-sharing agreements
+  await sql`
+    CREATE TABLE IF NOT EXISTS mentorship_agreements (
+      id SERIAL PRIMARY KEY,
+      mentorship_id INTEGER NOT NULL REFERENCES mentorships(id) ON DELETE CASCADE,
+      mentor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mentee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      share_percentage INTEGER NOT NULL CHECK(share_percentage BETWEEN 1 AND 15),
+      duration_months INTEGER NOT NULL CHECK(duration_months BETWEEN 1 AND 12),
+      min_earnings_cents INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'active', 'cancelled', 'completed', 'expired')),
+      started_at TIMESTAMPTZ,
+      expires_at TIMESTAMPTZ,
+      cancelled_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_mentorship_agreements_mentee_active ON mentorship_agreements (mentee_id) WHERE status = 'active'`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_mentorship_agreements_mentor ON mentorship_agreements (mentor_id)`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS mentorship_payouts (
+      id SERIAL PRIMARY KEY,
+      agreement_id INTEGER NOT NULL REFERENCES mentorship_agreements(id) ON DELETE CASCADE,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) UNIQUE,
+      mentor_amount_cents INTEGER NOT NULL,
+      mentee_amount_cents INTEGER NOT NULL,
+      booking_total_cents INTEGER NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_mentorship_payouts_agreement ON mentorship_payouts (agreement_id)`.catch(() => {});
+
   // Issue #346: CRM campaigns and holiday greetings
   await sql`
     CREATE TABLE IF NOT EXISTS campaigns (
