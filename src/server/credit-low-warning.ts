@@ -33,7 +33,7 @@ export async function checkCreditLowWarnings(): Promise<number> {
         const emailContent = buildCreditLowWarningEmail({
           sitterName: sitter.name,
           balanceCents: sitter.balance_cents,
-          dashboardUrl: `${process.env.APP_URL || 'https://petlink.app'}/settings#section-account`,
+          dashboardUrl: `${process.env.APP_URL || 'https://petlink.app'}/wallet`,
         });
 
         await sendEmail({

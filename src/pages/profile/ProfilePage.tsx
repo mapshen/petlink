@@ -34,11 +34,11 @@ export default function ProfilePage() {
     () =>
       ALL_SECTIONS.filter((s) => {
         if (s.mode === 'both') return true;
-        if (s.mode === 'sitter') return isSitter && hasSitterRole;
+        if (s.mode === 'sitter') return isSitter;
         if (s.mode === 'owner') return mode !== 'sitter';
         return false;
       }),
-    [mode, hasSitterRole],
+    [mode, isSitter],
   );
 
   // IntersectionObserver to track which section is in view
