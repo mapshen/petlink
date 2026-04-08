@@ -36,16 +36,26 @@ interface Props {
   readonly onClearAll: () => void;
 }
 
-// --- Click-outside hook ---
+// --- Click-outside + Escape hook ---
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () => void) {
+  const handlerRef = useRef(handler);
+  handlerRef.current = handler;
+
   useEffect(() => {
-    const listener = (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       if (!ref.current || ref.current.contains(e.target as Node)) return;
-      handler();
+      handlerRef.current();
     };
-    document.addEventListener('mousedown', listener);
-    return () => document.removeEventListener('mousedown', listener);
-  }, [ref, handler]);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handlerRef.current();
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [ref]);
 }
 
 // --- Pill Button ---
@@ -64,6 +74,8 @@ function FilterPill({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
+      aria-expanded={hasDropdown ? active : undefined}
       className={`px-3.5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
         active
           ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
@@ -74,7 +86,7 @@ function FilterPill({
       {active && !hasDropdown && (
         <span className="w-4 h-4 bg-emerald-600 text-white rounded-full text-[10px] flex items-center justify-center leading-none">✓</span>
       )}
-      {hasDropdown && <ChevronDown className={`w-3 h-3 transition-transform ${active ? '' : ''}`} />}
+      {hasDropdown && <ChevronDown className={`w-3 h-3 transition-transform ${active ? 'rotate-180' : ''}`} />}
     </button>
   );
 }
@@ -98,6 +110,8 @@ function FilterPopover({
   return (
     <div
       ref={ref}
+      role="dialog"
+      aria-label="Filter options"
       className={`absolute top-full left-0 mt-2 bg-white rounded-xl shadow-lg border border-stone-200 p-4 z-50 min-w-[220px] ${className}`}
     >
       {children}
@@ -197,7 +211,8 @@ function DateRangeFilter({
 }) {
   const [open, setOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const today = useMemo(() => startOfDay(new Date()), []);
+  // Recompute today when popover opens to avoid stale date across midnight
+  const today = useMemo(() => startOfDay(new Date()), [open]);
 
   const active = !!(dateFrom || dateTo);
   const label = active
@@ -208,21 +223,23 @@ function DateRangeFilter({
         : `Until ${format(new Date(dateTo!), 'MMM d')}`
     : 'Dates';
 
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const calStart = startOfWeek(monthStart);
-  const calEnd = endOfWeek(monthEnd);
-
-  const weeks: Date[][] = [];
-  let day = calStart;
-  while (isBefore(day, calEnd) || isSameDay(day, calEnd)) {
-    const week: Date[] = [];
-    for (let i = 0; i < 7; i++) {
-      week.push(day);
-      day = addDays(day, 1);
+  const weeks = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const calStart = startOfWeek(monthStart);
+    const calEnd = endOfWeek(monthEnd);
+    const result: Date[][] = [];
+    let day = calStart;
+    while (isBefore(day, calEnd) || isSameDay(day, calEnd)) {
+      const week: Date[] = [];
+      for (let i = 0; i < 7; i++) {
+        week.push(day);
+        day = addDays(day, 1);
+      }
+      result.push(week);
     }
-    weeks.push(week);
-  }
+    return result;
+  }, [currentMonth]);
 
   const fromDate = dateFrom ? startOfDay(new Date(dateFrom)) : null;
   const toDate = dateTo ? startOfDay(new Date(dateTo)) : null;
@@ -290,6 +307,7 @@ function DateRangeFilter({
         <div className="flex items-center justify-between mb-2">
           <button
             type="button"
+            aria-label="Previous month"
             onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
             className="p-1 rounded-md hover:bg-stone-100 text-stone-500"
           >
@@ -300,6 +318,7 @@ function DateRangeFilter({
           </span>
           <button
             type="button"
+            aria-label="Next month"
             onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
             className="p-1 rounded-md hover:bg-stone-100 text-stone-500"
           >

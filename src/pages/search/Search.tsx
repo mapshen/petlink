@@ -51,7 +51,20 @@ const STORAGE_KEY = 'petlink_search_filters';
 function loadSavedFilters(): Partial<SearchFiltersState> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    if (!raw) return {};
+    const p = JSON.parse(raw);
+    if (typeof p !== 'object' || p === null) return {};
+    return {
+      species: typeof p.species === 'string' ? p.species : '',
+      petSize: typeof p.petSize === 'string' ? p.petSize : '',
+      dateFrom: typeof p.dateFrom === 'string' ? p.dateFrom : '',
+      dateTo: typeof p.dateTo === 'string' ? p.dateTo : '',
+      minPrice: typeof p.minPrice === 'string' ? p.minPrice : '',
+      maxPrice: typeof p.maxPrice === 'string' ? p.maxPrice : '',
+      cancellationPolicy: typeof p.cancellationPolicy === 'string' ? p.cancellationPolicy : '',
+      responseTime: typeof p.responseTime === 'string' ? p.responseTime : '',
+      selectedBadges: Array.isArray(p.selectedBadges) ? p.selectedBadges.filter((b: unknown) => typeof b === 'string') : [],
+    };
   } catch {
     return {};
   }
@@ -511,7 +524,7 @@ export default function Search() {
                 {sitters.length === 0 && (
                   <div className="col-span-full text-center py-12 bg-stone-50 rounded-2xl">
                     <p className="text-stone-500">
-                      {filters.species || filters.petSize || filters.dateFrom || filters.minPrice || filters.maxPrice || filters.cancellationPolicy || filters.responseTime || filters.selectedBadges.length > 0
+                      {filters.species || filters.petSize || filters.dateFrom || filters.dateTo || filters.minPrice || filters.maxPrice || filters.cancellationPolicy || filters.responseTime || filters.selectedBadges.length > 0
                         ? 'No sitters match your filters. Try adjusting or clearing filters.'
                         : coords
                           ? 'No sitters found in this area. Try expanding your search radius.'
