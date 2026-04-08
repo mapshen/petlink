@@ -1380,6 +1380,7 @@ export async function initDb() {
       subject TEXT NOT NULL,
       body TEXT NOT NULL,
       audience TEXT NOT NULL DEFAULT 'all_clients' CHECK(audience IN ('all_clients', 'recent_clients', 'specific_clients')),
+      specific_client_ids INTEGER[],
       status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'sent', 'cancelled')),
       recipient_count INTEGER DEFAULT 0,
       open_count INTEGER DEFAULT 0,

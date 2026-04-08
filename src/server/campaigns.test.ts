@@ -100,12 +100,15 @@ describe('sendCampaign', () => {
   });
 
   it('rejects when monthly limit reached', async () => {
+    // Flow: fetch campaign -> getClients (sql fragments) -> sql.begin (limit inside tx)
     mockSql.mockResolvedValueOnce([{ id: 1, sitter_id: 1, status: 'draft', audience: 'all_clients' }]);
-    mockSql.mockResolvedValueOnce([{ count: 2 }]); // limit check
+    mockSql.mockResolvedValue([{ id: 10, name: 'Alice', email: 'a@test.com' }]);
+    mockSql.begin = vi.fn().mockRejectedValueOnce(new Error('Monthly campaign limit (2) reached'));
     const { sendCampaign } = await import('./campaigns.ts');
     const result = await sendCampaign(1, 1);
     expect(result.success).toBe(false);
     expect(result.error).toContain('limit');
+    mockSql.begin = vi.fn((fn: any) => fn(mockSql));
   });
 
   it('rejects when no recipients found', async () => {

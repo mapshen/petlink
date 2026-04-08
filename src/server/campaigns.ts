@@ -1,32 +1,15 @@
 import sql from './db.ts';
+import type { Campaign, CampaignType, CampaignAudience } from '../types.ts';
 import logger, { sanitizeError } from './logger.ts';
+
+// Re-export types for route consumers
+export type { Campaign, CampaignAudience };
 
 // --- Constants ---
 export const MAX_CAMPAIGNS_PER_MONTH = 2;
 export const MAX_SUBJECT_LENGTH = 200;
 export const MAX_BODY_LENGTH = 5000;
-
-export type CampaignType = 'holiday' | 'marketing';
-export type CampaignAudience = 'all_clients' | 'recent_clients' | 'specific_clients';
-export type CampaignStatus = 'draft' | 'sent' | 'cancelled';
-
-export interface Campaign {
-  readonly id: number;
-  readonly sitter_id: number;
-  readonly type: CampaignType;
-  readonly subject: string;
-  readonly body: string;
-  readonly audience: CampaignAudience;
-  readonly status: CampaignStatus;
-  readonly recipient_count: number;
-  readonly open_count: number;
-  readonly click_count: number;
-  readonly discount_code?: string | null;
-  readonly discount_percent?: number | null;
-  readonly holiday_name?: string | null;
-  readonly sent_at: string | null;
-  readonly created_at: string;
-}
+export const VALID_AUDIENCES: CampaignAudience[] = ['all_clients', 'recent_clients', 'specific_clients'];
 
 export interface CampaignRecipient {
   readonly id: number;
@@ -102,13 +85,15 @@ export async function createCampaign(input: {
   subject: string;
   body: string;
   audience: CampaignAudience;
+  specific_client_ids?: number[];
   discount_code?: string;
   discount_percent?: number;
   holiday_name?: string;
 }): Promise<Campaign> {
   const [campaign] = await sql`
-    INSERT INTO campaigns (sitter_id, type, subject, body, audience, discount_code, discount_percent, holiday_name, status)
+    INSERT INTO campaigns (sitter_id, type, subject, body, audience, specific_client_ids, discount_code, discount_percent, holiday_name, status)
     VALUES (${input.sitter_id}, ${input.type}, ${input.subject}, ${input.body}, ${input.audience},
+            ${input.specific_client_ids?.length ? input.specific_client_ids : null},
             ${input.discount_code ?? null}, ${input.discount_percent ?? null}, ${input.holiday_name ?? null}, 'draft')
     RETURNING *
   `;
@@ -132,36 +117,52 @@ export async function sendCampaign(
     return { success: false, error: 'Campaign has already been sent or cancelled' };
   }
 
-  const { allowed } = await canSendCampaign(sitterId);
-  if (!allowed) {
-    return { success: false, error: `Monthly campaign limit (${MAX_CAMPAIGNS_PER_MONTH}) reached` };
-  }
-
-  const clients = await getClients(sitterId, campaign.audience);
+  // Pass specific_client_ids from campaign record to getClients
+  const clients = await getClients(sitterId, campaign.audience, campaign.specific_client_ids);
   if (clients.length === 0) {
     return { success: false, error: 'No recipients found for this audience' };
   }
 
+  // Atomic: limit check + recipient insert + status update in one transaction
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await sql.begin(async (tx: any) => {
-    // Insert recipient records
-    for (const client of clients) {
-      await tx`
-        INSERT INTO campaign_recipients (campaign_id, recipient_id, sent_at)
-        VALUES (${campaignId}, ${client.id}, NOW())
-        ON CONFLICT DO NOTHING
-      `;
+  const result = await sql.begin(async (tx: any) => {
+    // Re-check monthly limit inside transaction to prevent TOCTOU race
+    const [{ count }] = await tx`
+      SELECT COUNT(*)::int AS count FROM campaigns
+      WHERE sitter_id = ${sitterId} AND status = 'sent'
+        AND sent_at >= date_trunc('month', NOW())
+    `;
+    if (count >= MAX_CAMPAIGNS_PER_MONTH) {
+      throw new Error(`Monthly campaign limit (${MAX_CAMPAIGNS_PER_MONTH}) reached`);
     }
+
+    // Bulk insert recipient records
+    const recipientValues = clients.map(c => ({ campaign_id: campaignId, recipient_id: c.id }));
+    await tx`
+      INSERT INTO campaign_recipients ${tx(recipientValues, 'campaign_id', 'recipient_id')}
+      ON CONFLICT DO NOTHING
+    `;
 
     // Mark campaign as sent
     await tx`
       UPDATE campaigns SET status = 'sent', sent_at = NOW(), recipient_count = ${clients.length}
-      WHERE id = ${campaignId}
+      WHERE id = ${campaignId} AND status = 'draft'
     `;
+
+    return { recipientCount: clients.length };
+  }).catch((err: Error) => {
+    if (err.message.includes('Monthly campaign limit')) {
+      return { error: err.message };
+    }
+    throw err;
   });
 
-  logger.info({ campaignId, sitterId, recipientCount: clients.length }, 'Campaign sent');
-  return { success: true, recipientCount: clients.length };
+  if ('error' in result) {
+    return { success: false, error: result.error };
+  }
+
+  logger.info({ campaignId, sitterId, recipientCount: result.recipientCount }, 'Campaign sent');
+  return { success: true, recipientCount: result.recipientCount };
 }
 
 /**

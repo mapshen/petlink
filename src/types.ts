@@ -842,6 +842,7 @@ export interface Campaign {
   readonly subject: string;
   readonly body: string;
   readonly audience: CampaignAudience;
+  readonly specific_client_ids?: number[] | null;
   readonly status: CampaignStatus;
   readonly recipient_count: number;
   readonly open_count: number;
