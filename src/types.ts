@@ -837,6 +837,29 @@ export interface SitterPost {
   created_at: string;
 }
 
+export type CampaignType = 'holiday' | 'marketing';
+export type CampaignAudience = 'all_clients' | 'recent_clients' | 'specific_clients';
+export type CampaignStatus = 'draft' | 'sent' | 'cancelled';
+
+export interface Campaign {
+  readonly id: number;
+  readonly sitter_id: number;
+  readonly type: CampaignType;
+  readonly subject: string;
+  readonly body: string;
+  readonly audience: CampaignAudience;
+  readonly specific_client_ids?: number[] | null;
+  readonly status: CampaignStatus;
+  readonly recipient_count: number;
+  readonly open_count: number;
+  readonly click_count: number;
+  readonly discount_code?: string | null;
+  readonly discount_percent?: number | null;
+  readonly holiday_name?: string | null;
+  readonly sent_at: string | null;
+  readonly created_at: string;
+}
+
 export interface CalendarEvent {
   id: number;
   type: 'booking' | 'availability';
