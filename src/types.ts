@@ -24,7 +24,6 @@ export interface SitterWithService extends User {
   avg_response_hours?: number | null;
   repeat_client_count?: number;
   completion_rate?: number | null;
-  cancellation_policy?: CancellationPolicy;
   member_since?: string;
   has_availability?: boolean;
 }

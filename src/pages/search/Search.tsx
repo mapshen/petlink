@@ -20,8 +20,6 @@ import { getDisplayName } from '../../shared/display-name';
 import { formatCents } from '../../lib/money';
 import { getAddonBySlug } from '../../shared/addon-catalog';
 import { formatResponseTime } from '../../shared/response-time';
-import { getPolicyDescription } from '../../shared/cancellation';
-import type { CancellationPolicy } from '../../types';
 import LocationAutocomplete from '../../components/search/LocationAutocomplete';
 
 const SitterClusterMap = lazy(() => import('../../components/map/SitterClusterMap'));
