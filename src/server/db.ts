@@ -1371,6 +1371,42 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_mentorships_mentee ON mentorships (mentee_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_mentorships_active ON mentorships (status) WHERE status = 'active'`.catch(() => {});
 
+  // Issue #346: CRM campaigns and holiday greetings
+  await sql`
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id SERIAL PRIMARY KEY,
+      sitter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL CHECK(type IN ('holiday', 'marketing')),
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      audience TEXT NOT NULL DEFAULT 'all_clients' CHECK(audience IN ('all_clients', 'recent_clients', 'specific_clients')),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'sent', 'cancelled')),
+      recipient_count INTEGER DEFAULT 0,
+      open_count INTEGER DEFAULT 0,
+      click_count INTEGER DEFAULT 0,
+      discount_code TEXT,
+      discount_percent INTEGER CHECK(discount_percent IS NULL OR (discount_percent BETWEEN 1 AND 50)),
+      holiday_name TEXT,
+      sent_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_sitter ON campaigns (sitter_id, created_at DESC)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_sent_month ON campaigns (sitter_id, sent_at) WHERE status = 'sent'`.catch(() => {});
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS campaign_recipients (
+      id SERIAL PRIMARY KEY,
+      campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+      recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      sent_at TIMESTAMPTZ DEFAULT NOW(),
+      opened_at TIMESTAMPTZ,
+      clicked_at TIMESTAMPTZ,
+      UNIQUE(campaign_id, recipient_id)
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_campaign_recipients_campaign ON campaign_recipients (campaign_id)`.catch(() => {});
+
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});
