@@ -29,7 +29,6 @@ const SubscriptionPage = React.lazy(() => import('./pages/profile/SubscriptionPa
 const AnalyticsPage = React.lazy(() => import('./pages/sitter/AnalyticsPage'));
 const AdminPage = React.lazy(() => import('./pages/admin/AdminPage'));
 const DisputesPage = React.lazy(() => import('./pages/disputes/DisputesPage'));
-const PaymentHistoryPage = React.lazy(() => import('./pages/payments/PaymentHistoryPage'));
 const ImportProfilePage = React.lazy(() => import('./pages/profile/ImportProfilePage'));
 const Onboarding = React.lazy(() => import('./pages/auth/Onboarding'));
 const PrivacyPolicy = React.lazy(() => import('./pages/legal/PrivacyPolicy'));
@@ -43,7 +42,7 @@ const LostPetAlertsPage = React.lazy(() => import('./pages/lost-pets/LostPetAler
 const ForumPage = React.lazy(() => import('./pages/forum/ForumPage'));
 const ForumCategoryPage = React.lazy(() => import('./pages/forum/CategoryPage'));
 const ForumThreadPage = React.lazy(() => import('./pages/forum/ThreadPage'));
-const SettingsRedirect = React.lazy(() => import('./pages/profile/SettingsRedirect'));
+const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'));
 
 function LoadingSpinner() {
   return (
@@ -70,7 +69,7 @@ export default function App() {
                 <Route path="/dashboard" element={<Navigate to="/home" replace />} />
                 <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                <Route path="/settings" element={<SettingsRedirect />} />
+                <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                 <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
                 <Route path="/promote" element={<ProtectedRoute><PromotePage /></ProtectedRoute>} />
                 <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
@@ -78,7 +77,7 @@ export default function App() {
                 <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
                 <Route path="/disputes" element={<ProtectedRoute><DisputesPage /></ProtectedRoute>} />
                 <Route path="/disputes/:id" element={<ProtectedRoute><DisputesPage /></ProtectedRoute>} />
-                <Route path="/payment-history" element={<ProtectedRoute><PaymentHistoryPage /></ProtectedRoute>} />
+                <Route path="/payment-history" element={<Navigate to="/settings#section-payment-methods" replace />} />
                 <Route path="/import-profile" element={<ProtectedRoute><ImportProfilePage /></ProtectedRoute>} />
                 <Route path="/pets" element={<Navigate to="/profile" replace />} />
                 <Route path="/services" element={<Navigate to="/profile" replace />} />

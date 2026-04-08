@@ -19,7 +19,7 @@ const sections = [
       { name: 'Messages', path: '/messages' },
       { name: 'Profile', path: '/profile' },
       { name: 'Wallet', path: '/wallet' },
-      { name: 'Payment History', path: '/payment-history' },
+      { name: 'Settings', path: '/settings' },
     ],
   },
   {

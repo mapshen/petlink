@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X, HelpCircle, User } from 'lucide-react';
+import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X, HelpCircle, User, Settings } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import MobileMenu from './MobileMenu';
 import { clsx } from 'clsx';
@@ -27,6 +27,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Home', path: '/home', icon: Calendar },
     { name: 'Search', path: '/search', icon: MapPin },
     { name: 'Messages', path: '/messages', icon: MessageSquare },
+    { name: 'Profile', path: '/profile', icon: User },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
     ...(user.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
   ] : [
@@ -98,12 +99,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <div className="fixed inset-0 z-40" onClick={() => setAvatarMenuOpen(false)} />
                       <div className="absolute right-0 top-10 z-50 bg-white border border-stone-200 rounded-xl shadow-lg w-48 py-1">
                         <Link
-                          to="/profile"
+                          to="/settings"
                           onClick={() => setAvatarMenuOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
                         >
-                          <User className="w-4 h-4" />
-                          Profile
+                          <Settings className="w-4 h-4" />
+                          Settings
                         </Link>
                         <div className="border-t border-stone-100 my-1" />
                         <button

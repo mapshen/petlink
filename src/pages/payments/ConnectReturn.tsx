@@ -43,7 +43,7 @@ export default function ConnectReturn() {
           <h1 className="text-2xl font-bold text-stone-900">Payouts Enabled!</h1>
           <p className="text-stone-600">Your payout account is set up. You can now accept bookings and receive payments directly to your bank account.</p>
           <button
-            onClick={() => navigate('/profile#section-account')}
+            onClick={() => navigate('/settings#section-payment-methods')}
             className="mt-4 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
             Go to Profile
@@ -57,7 +57,7 @@ export default function ConnectReturn() {
           <h1 className="text-2xl font-bold text-stone-900">Setup Incomplete</h1>
           <p className="text-stone-600">Your payout setup isn't complete yet. You can finish it from your profile page.</p>
           <button
-            onClick={() => navigate('/profile#section-account')}
+            onClick={() => navigate('/settings#section-payment-methods')}
             className="mt-4 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
             Go to Profile
