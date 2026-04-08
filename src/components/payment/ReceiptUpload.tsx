@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { isReceiptImage } from '../../pages/payments/WalletPage';
+import { isReceiptImage } from '../../pages/payments/expenseUtils';
 
 interface ReceiptUploadProps {
   receiptUrl: string;

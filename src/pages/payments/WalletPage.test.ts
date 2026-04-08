@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildExpensePayload, isReceiptImage } from './WalletPage';
+import { buildExpensePayload, isReceiptImage } from './expenseUtils';
 import { buildRecurringExpensePayload } from '../../components/payment/RecurringExpenses';
 
 describe('buildExpensePayload', () => {
