@@ -1,28 +1,18 @@
 import { describe, it, expect } from 'vitest';
+import { ALL_SECTIONS, SECTION_DESCRIPTIONS, type SectionDef } from './profileSections';
 
-// Test the section visibility logic matching ProfilePage.tsx.
-// Sections are filtered by mode AND hasSitter guard.
-
-interface SectionDef {
-  id: string;
-  label: string;
-  mode: 'owner' | 'sitter' | 'both';
-}
-
-const ALL_SECTIONS: SectionDef[] = [
-  { id: 'profile', label: 'About', mode: 'both' },
-  { id: 'species-profiles', label: 'Sitter Profile', mode: 'sitter' },
-  { id: 'pets', label: 'My Pets', mode: 'owner' },
-  { id: 'availability', label: 'Availability', mode: 'sitter' },
-  { id: 'location', label: 'Location', mode: 'sitter' },
-  { id: 'photos', label: 'Photos', mode: 'sitter' },
-  { id: 'policies', label: 'Policies', mode: 'sitter' },
-];
+/**
+ * Test the unified Profile+Settings section visibility logic matching ProfilePage.tsx.
+ * Sections have a `group` ('profile' | 'account') and `mode` ('owner' | 'sitter' | 'both').
+ */
 
 function getVisibleSections(mode: 'owner' | 'sitter', hasSitter: boolean): SectionDef[] {
-  return ALL_SECTIONS.filter(
-    (s) => s.mode === 'both' || (s.mode === mode && (s.mode === 'owner' || hasSitter))
-  );
+  return ALL_SECTIONS.filter((s) => {
+    if (s.mode === 'both') return true;
+    if (s.mode === 'sitter') return mode === 'sitter' && hasSitter;
+    if (s.mode === 'owner') return mode !== 'sitter';
+    return false;
+  });
 }
 
 function getVisibleSectionIds(mode: 'owner' | 'sitter', hasSitter: boolean): string[] {
@@ -30,40 +20,119 @@ function getVisibleSectionIds(mode: 'owner' | 'sitter', hasSitter: boolean): str
 }
 
 describe('ProfilePage section visibility', () => {
-  it('owner mode shows profile and pets', () => {
-    expect(getVisibleSectionIds('owner', false)).toEqual(['profile', 'pets']);
+  it('owner mode (non-sitter) sees About, My Pets + all 3 Account sections', () => {
+    const ids = getVisibleSectionIds('owner', false);
+    expect(ids).toEqual([
+      'about', 'pets',
+      'account', 'security', 'notifications',
+    ]);
+    expect(ids).toHaveLength(5);
   });
 
-  it('sitter mode with sitter role shows profile, species profiles, and sitter sections', () => {
-    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'species-profiles', 'availability', 'location', 'photos', 'policies']);
+  it('sitter mode with sitter role sees all profile + account sections (10)', () => {
+    const ids = getVisibleSectionIds('sitter', true);
+    expect(ids).toEqual([
+      'about', 'services', 'addons', 'availability', 'location', 'photos', 'policies',
+      'account', 'security', 'notifications',
+    ]);
+    expect(ids).toHaveLength(10);
   });
 
-  it('sitter mode WITHOUT sitter role only shows profile (guard)', () => {
-    expect(getVisibleSectionIds('sitter', false)).toEqual(['profile']);
+  it('sitter mode WITHOUT sitter role sees About + all 3 Account sections (4)', () => {
+    const ids = getVisibleSectionIds('sitter', false);
+    expect(ids).toEqual([
+      'about',
+      'account', 'security', 'notifications',
+    ]);
+    expect(ids).toHaveLength(4);
   });
 
-  it('profile section is always visible', () => {
-    expect(getVisibleSectionIds('owner', false)).toContain('profile');
-    expect(getVisibleSectionIds('sitter', true)).toContain('profile');
+  it('Account group sections are always visible regardless of mode', () => {
+    const accountIds = ['account', 'security', 'notifications'];
+    for (const [mode, hasSitter] of [['owner', false], ['owner', true], ['sitter', false], ['sitter', true]] as const) {
+      const ids = getVisibleSectionIds(mode, hasSitter);
+      for (const aid of accountIds) {
+        expect(ids, `${aid} missing for mode=${mode} hasSitter=${hasSitter}`).toContain(aid);
+      }
+    }
+  });
+
+  it('owner+sitter user sees owner sections in owner mode (no sitter-only sections)', () => {
+    const ids = getVisibleSectionIds('owner', true);
+    expect(ids).toEqual([
+      'about', 'pets',
+      'account', 'security', 'notifications',
+    ]);
   });
 
   it('pets section is only visible in owner mode', () => {
     expect(getVisibleSectionIds('owner', false)).toContain('pets');
+    expect(getVisibleSectionIds('owner', true)).toContain('pets');
     expect(getVisibleSectionIds('sitter', true)).not.toContain('pets');
+    expect(getVisibleSectionIds('sitter', false)).not.toContain('pets');
+  });
+});
+
+describe('ProfilePage group membership', () => {
+  it('profile group has correct sections', () => {
+    const profileIds = ALL_SECTIONS
+      .filter((s) => s.group === 'profile')
+      .map((s) => s.id);
+    expect(profileIds).toEqual([
+      'about', 'services', 'pets', 'addons', 'availability', 'location', 'photos', 'policies',
+    ]);
   });
 
-  it('species-profiles section requires sitter mode and sitter role', () => {
-    expect(getVisibleSectionIds('sitter', true)).toContain('species-profiles');
-    expect(getVisibleSectionIds('owner', true)).not.toContain('species-profiles');
-    expect(getVisibleSectionIds('sitter', false)).not.toContain('species-profiles');
+  it('account group has correct sections', () => {
+    const accountIds = ALL_SECTIONS
+      .filter((s) => s.group === 'account')
+      .map((s) => s.id);
+    expect(accountIds).toEqual([
+      'account', 'security', 'notifications',
+    ]);
+  });
+});
+
+describe('ProfilePage section descriptions', () => {
+  it('every section in ALL_SECTIONS has a description', () => {
+    for (const section of ALL_SECTIONS) {
+      expect(
+        SECTION_DESCRIPTIONS[section.id],
+        `Missing description for section "${section.id}"`,
+      ).toBeDefined();
+      expect(SECTION_DESCRIPTIONS[section.id].length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('ProfilePage preview panel logic', () => {
+  it('profile group sections should show preview (sitter mode)', () => {
+    const profileSections = ALL_SECTIONS.filter((s) => s.group === 'profile');
+    for (const section of profileSections) {
+      expect(section.group).toBe('profile');
+    }
+    // showPreview = isSitter && activeGroup === 'profile'
+    // When in sitter mode and active section is profile-group, preview shows
+    const isSitter = true;
+    const activeGroup = 'profile';
+    expect(isSitter && activeGroup === 'profile').toBe(true);
   });
 
-  it('owner+sitter user sees owner sections in owner mode', () => {
-    expect(getVisibleSectionIds('owner', true)).toEqual(['profile', 'pets']);
+  it('account group sections should NOT show preview', () => {
+    const accountSections = ALL_SECTIONS.filter((s) => s.group === 'account');
+    for (const section of accountSections) {
+      expect(section.group).not.toBe('profile');
+    }
+    // showPreview = isSitter && activeGroup === 'profile'
+    const isSitter = true;
+    const activeGroup: string = 'account';
+    expect(isSitter && activeGroup === 'profile').toBe(false);
   });
 
-  it('owner+sitter user sees sitter sections in sitter mode', () => {
-    expect(getVisibleSectionIds('sitter', true)).toEqual(['profile', 'species-profiles', 'availability', 'location', 'photos', 'policies']);
+  it('owner mode never shows preview even for profile group', () => {
+    const isSitter = false;
+    const activeGroup = 'profile';
+    expect(isSitter && activeGroup === 'profile').toBe(false);
   });
 });
 

@@ -384,8 +384,8 @@ export default function WalletPage() {
             <p className="text-sm font-medium text-amber-800">Payout setup required</p>
             <p className="text-sm text-amber-700 mt-1">
               Set up your payout account to receive payments from bookings.{' '}
-              <Link to="/settings#settings-payouts" className="underline font-medium hover:text-amber-900">
-                Go to Settings
+              <Link to="/profile#section-account" className="underline font-medium hover:text-amber-900">
+                Go to Profile
               </Link>
             </p>
           </div>
