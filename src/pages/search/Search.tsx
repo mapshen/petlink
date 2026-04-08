@@ -11,7 +11,6 @@ import { useTurnstile } from '../../hooks/useTurnstile';
 import FavoriteButton from '../../components/profile/FavoriteButton';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
 import { FoundingSitterBadge } from '../../components/badges/FoundingSitterBadge';
-import LifestyleBadges from '../../components/badges/LifestyleBadges';
 import MapViewToggle from '../../components/map/MapViewToggle';
 import { BADGE_CATALOG, type BadgeDefinition } from '../../shared/badge-catalog';
 import { metersToMiles } from '../../lib/geo';

@@ -61,18 +61,22 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
             COUNT(*) FILTER (WHERE b.status = 'completed')::int as completed,
             COUNT(*)::int as total,
             AVG(EXTRACT(EPOCH FROM (b.responded_at - b.created_at)) / 3600) FILTER (WHERE b.responded_at IS NOT NULL)::float as avg_response_hours,
-            COUNT(DISTINCT b.owner_id) FILTER (WHERE b.status = 'completed')::int as unique_owners,
-            COUNT(DISTINCT CASE
-              WHEN b.status = 'completed' AND (
-                SELECT COUNT(*) FROM bookings b2
-                WHERE b2.sitter_id = b.sitter_id AND b2.owner_id = b.owner_id AND b2.status = 'completed'
-              ) > 1 THEN b.owner_id
-            END)::int as repeat_owners
+            COUNT(DISTINCT b.owner_id) FILTER (WHERE b.status = 'completed')::int as unique_owners
           FROM bookings b
           LEFT JOIN services svc ON b.service_id = svc.id
           WHERE b.sitter_id = ANY(${sitterIds})
             AND (svc.type IS NULL OR svc.type != 'meet_greet')
           GROUP BY b.sitter_id
+        ),
+        repeat_owners AS (
+          SELECT b.sitter_id, COUNT(DISTINCT b.owner_id)::int as repeat_count
+          FROM bookings b
+          LEFT JOIN services svc ON b.service_id = svc.id
+          WHERE b.sitter_id = ANY(${sitterIds})
+            AND b.status = 'completed'
+            AND (svc.type IS NULL OR svc.type != 'meet_greet')
+          GROUP BY b.sitter_id, b.owner_id
+          HAVING COUNT(*) > 1
         )
         SELECT
           u.id as sitter_id,
@@ -81,7 +85,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
           COALESCE(bk.completed, 0)::int as completed,
           COALESCE(bk.total, 0)::int as total,
           COALESCE(bk.avg_response_hours, 0)::float as avg_response_hours,
-          COALESCE(bk.repeat_owners, 0)::int as repeat_owners,
+          COALESCE(ro.repeat_count, 0)::int as repeat_owners,
           COALESCE(bk.unique_owners, 0)::int as unique_owners,
           COALESCE(sc.service_count, 0)::int as service_count,
           COALESCE(av.has_avail, false) as has_availability
@@ -98,10 +102,29 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         ) rv ON true
         LEFT JOIN booking_stats bk ON bk.sitter_id = u.id
         LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int as repeat_count
+          FROM repeat_owners ro2 WHERE ro2.sitter_id = u.id
+        ) ro ON true
+        LEFT JOIN LATERAL (
           SELECT COUNT(*)::int as service_count FROM services sv WHERE sv.sitter_id = u.id
         ) sc ON true
         LEFT JOIN LATERAL (
-          SELECT EXISTS(SELECT 1 FROM availability a WHERE a.sitter_id = u.id) as has_avail
+          SELECT EXISTS(
+            SELECT 1 FROM availability a
+            WHERE a.sitter_id = u.id
+              AND (
+                (a.recurring = true AND a.day_of_week IN (
+                  EXTRACT(DOW FROM CURRENT_DATE)::int,
+                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '1 day')::int,
+                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '2 days')::int,
+                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '3 days')::int,
+                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '4 days')::int,
+                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '5 days')::int,
+                  EXTRACT(DOW FROM CURRENT_DATE + INTERVAL '6 days')::int
+                ))
+                OR (a.specific_date IS NOT NULL AND a.specific_date >= CURRENT_DATE AND a.specific_date < CURRENT_DATE + INTERVAL '7 days')
+              )
+          ) as has_avail
         ) av ON true
         LEFT JOIN LATERAL (
           SELECT COALESCE(SUM(strike_weight), 0)::float as active_strike_weight
@@ -121,7 +144,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         review_count: s?.review_count || 0,
         completed_bookings: s?.completed || 0,
         total_bookings: s?.total || 0,
-        avg_response_hours: s?.avg_response_hours || null,
+        avg_response_hours: s?.avg_response_hours ?? null,
         repeat_owner_count: s?.repeat_owners || 0,
         unique_owner_count: s?.unique_owners || 0,
         has_avatar: Boolean(sitter.avatar_url),
@@ -140,7 +163,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         is_new: isNewSitter(sitter.approved_at),
         review_count: s?.review_count || 0,
         avg_rating: s?.avg_rating ? Number(s.avg_rating.toFixed(1)) : null,
-        avg_response_hours: s?.avg_response_hours || null,
+        avg_response_hours: s?.avg_response_hours ?? null,
         repeat_client_count: s?.repeat_owners || 0,
         completion_rate: totalBookings > 0 ? (s?.completed || 0) / totalBookings : null,
         member_since: sitter.created_at,
@@ -268,25 +291,31 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
         SELECT
           COUNT(*) FILTER (WHERE b.status = 'completed')::int as completed,
           COUNT(*)::int as total,
-          AVG(EXTRACT(EPOCH FROM (b.responded_at - b.created_at)) / 3600) FILTER (WHERE b.responded_at IS NOT NULL)::float as avg_response_hours,
-          COUNT(DISTINCT b.owner_id) FILTER (WHERE b.status = 'completed')::int as unique_owners,
-          COUNT(DISTINCT CASE
-            WHEN b.status = 'completed' AND (
-              SELECT COUNT(*) FROM bookings b2
-              WHERE b2.sitter_id = b.sitter_id AND b2.owner_id = b.owner_id AND b2.status = 'completed'
-            ) > 1 THEN b.owner_id
-          END)::int as repeat_owners
+          AVG(EXTRACT(EPOCH FROM (b.responded_at - b.created_at)) / 3600) FILTER (WHERE b.responded_at IS NOT NULL)::float as avg_response_hours
         FROM bookings b
         LEFT JOIN services svc ON b.service_id = svc.id
         WHERE b.sitter_id = ${sitterId}
           AND (svc.type IS NULL OR svc.type != 'meet_greet')
+      ),
+      repeat_owners AS (
+        SELECT COUNT(*)::int as repeat_count
+        FROM (
+          SELECT b.owner_id
+          FROM bookings b
+          LEFT JOIN services svc ON b.service_id = svc.id
+          WHERE b.sitter_id = ${sitterId}
+            AND b.status = 'completed'
+            AND (svc.type IS NULL OR svc.type != 'meet_greet')
+          GROUP BY b.owner_id
+          HAVING COUNT(*) > 1
+        ) rpt
       )
       SELECT
-        COALESCE(completed, 0)::int as completed,
-        COALESCE(total, 0)::int as total,
-        avg_response_hours,
-        COALESCE(repeat_owners, 0)::int as repeat_owners
-      FROM booking_stats
+        COALESCE(bs.completed, 0)::int as completed,
+        COALESCE(bs.total, 0)::int as total,
+        bs.avg_response_hours,
+        COALESCE(ro.repeat_count, 0)::int as repeat_owners
+      FROM booking_stats bs, repeat_owners ro
     `;
 
     const totalBookings = trustStats?.total || 0;
