@@ -7,6 +7,7 @@ import { createNotification } from '../notifications.ts';
 import { recordPayoutForBooking } from '../payouts.ts';
 import { calculateApplicationFee } from '../stripe-connect.ts';
 import { capturePayment } from '../payments.ts';
+import { applyRevenueSplit } from '../mentorship-revenue.ts';
 import { MAX_POSTS_PER_SITTER } from './posts.ts';
 import { completeReferral } from '../referrals.ts';
 import { checkMentorshipCompletion } from '../mentorships.ts';
@@ -139,11 +140,28 @@ export default function walkRoutes(router: Router, io: Server): void {
           const [sitterInfo] = await sql`SELECT subscription_tier FROM users WHERE id = ${booking.sitter_id}`;
           const fee = calculateApplicationFee(booking.total_price_cents, sitterInfo?.subscription_tier || 'free');
           const sitterNet = booking.total_price_cents - fee;
+
+          // Apply mentorship revenue split if mentee has active agreement
+          const split = await applyRevenueSplit(booking.sitter_id, Number(req.params.bookingId), sitterNet).catch((err: unknown) => {
+            logger.error({ err: sanitizeError(err), bookingId: req.params.bookingId }, 'Mentorship revenue split failed');
+            return { menteeAmount: sitterNet, mentorAmount: 0, agreementId: null };
+          });
+
           await recordPayoutForBooking(
             Number(req.params.bookingId),
             booking.sitter_id,
-            sitterNet
+            split.menteeAmount
           );
+
+          // Record mentor payout if split occurred
+          if (split.mentorAmount > 0 && split.agreementId) {
+            const [agreement] = await sql`SELECT mentor_id FROM mentorship_agreements WHERE id = ${split.agreementId}`;
+            if (agreement) {
+              const mentorPayoutNotif = await createNotification(agreement.mentor_id, 'payment_update', 'Mentorship Earnings', `You earned ${(split.mentorAmount / 100).toFixed(2)} from a mentee booking.`, { booking_id: Number(req.params.bookingId) });
+              if (mentorPayoutNotif) io.to(String(agreement.mentor_id)).emit('notification', mentorPayoutNotif);
+            }
+          }
+
           const payoutNotif = await createNotification(booking.sitter_id, 'payment_update', 'Payout Scheduled', 'Your payout will be processed by Stripe automatically.', { booking_id: Number(req.params.bookingId) });
           if (payoutNotif) io.to(String(booking.sitter_id)).emit('notification', payoutNotif);
         }

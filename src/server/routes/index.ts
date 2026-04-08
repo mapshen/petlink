@@ -45,4 +45,5 @@ export { default as backupSitterRoutes } from './backup-sitters.ts';
 export { default as lostPetAlertRoutes } from './lost-pet-alerts.ts';
 export { default as forumRoutes } from './forum.ts';
 export { default as mentorshipRoutes } from './mentorships.ts';
+export { default as mentorshipRevenueRoutes } from './mentorship-revenue.ts';
 export { default as campaignRoutes } from './campaigns.ts';

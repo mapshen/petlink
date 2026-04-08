@@ -47,6 +47,35 @@ export interface Mentorship {
   readonly mentee_avatar?: string | null;
 }
 
+export type MentorshipAgreementStatus = 'pending' | 'active' | 'cancelled' | 'completed' | 'expired';
+
+export interface MentorshipAgreement {
+  readonly id: number;
+  readonly mentorship_id: number;
+  readonly mentor_id: number;
+  readonly mentee_id: number;
+  readonly share_percentage: number;
+  readonly duration_months: number;
+  readonly min_earnings_cents: number;
+  readonly status: MentorshipAgreementStatus;
+  readonly started_at: string | null;
+  readonly expires_at: string | null;
+  readonly cancelled_at: string | null;
+  readonly created_at: string;
+  readonly mentor_name?: string;
+  readonly mentee_name?: string;
+}
+
+export interface MentorshipPayout {
+  readonly id: number;
+  readonly agreement_id: number;
+  readonly booking_id: number;
+  readonly mentor_amount_cents: number;
+  readonly mentee_amount_cents: number;
+  readonly booking_total_cents: number;
+  readonly created_at: string;
+}
+
 export type BetaCohort = 'founding' | 'early_beta' | 'post_beta';
 export type ProPeriodSource = 'beta' | 'trial' | 'beta_transition';
 export type ProPeriodStatus = 'active' | 'expired' | 'cancelled';
