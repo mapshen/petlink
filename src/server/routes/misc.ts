@@ -2,6 +2,7 @@ import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, cancellationPolicySchema, expenseSchema, recurringExpenseSchema, featuredListingSchema } from '../validation.ts';
+import { calculateSETax, calculateIncomeTax, calculateQuarterlyTax, isValidFilingStatus, IRS_DUE_DATES, type FilingStatus } from '../tax-calculator.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function miscRoutes(router: Router): void {
@@ -122,32 +123,47 @@ export default function miscRoutes(router: Router): void {
         ORDER BY quarter
       `;
 
-      const ESTIMATED_TAX_RATE = 0.25;
+      const filingStatus: FilingStatus = isValidFilingStatus(req.query.filing_status as string)
+        ? req.query.filing_status as FilingStatus
+        : 'single';
+
+      // Derive annual totals first, then prorate quarterly
+      const total_income = quarterlyRows.reduce((sum: number, r: { income: number }) => sum + r.income, 0);
+      const netIncome = total_income - total_expenses;
+      const annualNet = Math.max(0, netIncome);
+      const annualTax = calculateQuarterlyTax(annualNet, filingStatus);
+
       const quarterlyEstimates = [1, 2, 3, 4].map(q => {
         const income = quarterlyRows.find((r: { quarter: number }) => r.quarter === q)?.income || 0;
         const expenses = quarterlyExpenseRows.find((r: { quarter: number }) => r.quarter === q)?.expenses || 0;
-        const netIncome = Math.max(0, income - expenses);
+        const qNetIncome = Math.max(0, income - expenses);
+        const share = annualNet > 0 ? qNetIncome / annualNet : 0.25;
         return {
           quarter: `Q${q}`,
           income,
           expenses,
-          net_income: netIncome,
-          estimated_tax: Math.round(netIncome * ESTIMATED_TAX_RATE),
+          net_income: qNetIncome,
+          se_tax: Math.round(annualTax.se_tax * share),
+          income_tax: Math.round(annualTax.income_tax * share),
+          estimated_tax: Math.round(annualTax.total * share),
+          due_date: IRS_DUE_DATES[`Q${q}`],
         };
       });
 
-      // Derive annual totals from quarterly data (avoids redundant query)
-      const total_income = quarterlyRows.reduce((sum: number, r: { income: number }) => sum + r.income, 0);
-      const netIncome = total_income - total_expenses;
-      const annual_estimated_tax = quarterlyEstimates.reduce((sum, q) => sum + q.estimated_tax, 0);
+      const annual_se_tax = annualTax.se_tax;
+      const annual_income_tax = annualTax.income_tax;
+      const annual_estimated_tax = annualTax.total;
 
       res.json({
         year,
+        filing_status: filingStatus,
         total_income,
         total_expenses,
         net_income: netIncome,
         expense_by_category,
         quarterly_estimates: quarterlyEstimates,
+        annual_se_tax,
+        annual_income_tax,
         annual_estimated_tax,
       });
     } catch (error) {
