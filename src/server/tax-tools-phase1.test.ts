@@ -18,6 +18,11 @@ describe('expense schema with new categories', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts background_check category', () => {
+    const result = expenseSchema.safeParse({ ...baseExpense, category: 'background_check' });
+    expect(result.success).toBe(true);
+  });
+
   it('still accepts all original categories', () => {
     const original = ['supplies', 'transportation', 'insurance', 'marketing', 'equipment', 'training', 'other'];
     for (const cat of original) {

@@ -8,6 +8,7 @@ import { getPayoutsForSitter, getPendingPayoutsForSitter } from '../payouts.ts';
 import { createNotification } from '../notifications.ts';
 import { handleAccountUpdated } from '../stripe-connect.ts';
 import { getBalance } from '../credits.ts';
+import { insertAutoExpense } from '../auto-expenses.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function paymentRoutes(router: Router): void {
@@ -69,6 +70,21 @@ export default function paymentRoutes(router: Router): void {
       await capturePayment(booking.payment_intent_id);
       await sql`UPDATE bookings SET payment_status = 'captured' WHERE id = ${booking_id}`;
       await createNotification(booking.owner_id, 'payment_update', 'Payment Captured', 'Your payment has been processed.', { booking_id });
+
+      // Auto-log platform fee expense for free-tier sitters
+      const [captureSitter] = await sql`SELECT subscription_tier FROM users WHERE id = ${req.userId}`;
+      const platformFee = calculateApplicationFee(booking.total_price_cents, captureSitter?.subscription_tier || 'free');
+      if (platformFee > 0) {
+        await insertAutoExpense({
+          sitter_id: req.userId!,
+          category: 'platform_fee',
+          amount_cents: platformFee,
+          description: `PetLink platform fee - Booking #${booking_id} (auto-logged)`,
+          date: new Date().toISOString().split('T')[0],
+          source_reference: `platform_fee:booking:${booking_id}`,
+        });
+      }
+
       res.json({ success: true });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Payment capture error');
@@ -145,9 +161,23 @@ export default function paymentRoutes(router: Router): void {
           const pi = event.data.object as { id: string };
           // Only update held payments — don't overwrite already-cancelled bookings
           await sql`UPDATE bookings SET payment_status = 'captured' WHERE payment_intent_id = ${pi.id} AND payment_status = 'held'`;
-          const [succeededBooking] = await sql`SELECT id, owner_id FROM bookings WHERE payment_intent_id = ${pi.id}`;
+          const [succeededBooking] = await sql`SELECT id, owner_id, sitter_id, total_price_cents FROM bookings WHERE payment_intent_id = ${pi.id}`;
           if (succeededBooking) {
             await createNotification(succeededBooking.owner_id, 'payment_update', 'Payment Captured', 'Your payment has been processed.', { booking_id: succeededBooking.id });
+
+            // Auto-log platform fee (idempotent — same source_reference as capture endpoint)
+            const [whSitter] = await sql`SELECT subscription_tier FROM users WHERE id = ${succeededBooking.sitter_id}`;
+            const whFee = calculateApplicationFee(succeededBooking.total_price_cents, whSitter?.subscription_tier || 'free');
+            if (whFee > 0) {
+              await insertAutoExpense({
+                sitter_id: succeededBooking.sitter_id,
+                category: 'platform_fee',
+                amount_cents: whFee,
+                description: `PetLink platform fee - Booking #${succeededBooking.id} (auto-logged)`,
+                date: new Date().toISOString().split('T')[0],
+                source_reference: `platform_fee:booking:${succeededBooking.id}`,
+              });
+            }
           }
           break;
         }
@@ -313,23 +343,21 @@ export default function paymentRoutes(router: Router): void {
           }
 
           // Auto-log subscription expense for tax tracking
-          try {
-            const [subRecord] = await sql`SELECT tier FROM sitter_subscriptions WHERE stripe_subscription_id = ${invoice.subscription}`;
+          {
+            const [subRecord] = await sql`SELECT tier FROM sitter_subscriptions WHERE stripe_subscription_id = ${invoice.subscription}`.catch(() => [] as any[]);
             const tierName = subRecord?.tier === 'premium' ? 'Premium' : 'Pro';
-            // Use invoice creation date (not webhook execution date) for accurate quarterly tax tracking
             const invoiceCreated = (invoice as unknown as { created?: number }).created;
             const expenseDate = invoiceCreated
               ? new Date(invoiceCreated * 1000).toISOString().split('T')[0]
               : new Date().toISOString().split('T')[0];
-            await sql`
-              INSERT INTO sitter_expenses (sitter_id, category, amount_cents, description, date, auto_logged, source_reference)
-              VALUES (${subSitter.sitter_id}, 'platform_subscription', ${invoice.amount_paid},
-                      ${'PetLink ' + tierName + ' subscription (auto-logged)'},
-                      ${expenseDate}, true, ${'invoice:' + invoice.id})
-              ON CONFLICT (source_reference) WHERE source_reference IS NOT NULL DO NOTHING
-            `;
-          } catch (err) {
-            logger.warn({ err: sanitizeError(err), sitterId: subSitter.sitter_id }, 'Failed to auto-log subscription expense');
+            await insertAutoExpense({
+              sitter_id: subSitter.sitter_id,
+              category: 'platform_subscription',
+              amount_cents: invoice.amount_paid,
+              description: `PetLink ${tierName} subscription (auto-logged)`,
+              date: expenseDate,
+              source_reference: `invoice:${invoice.id}`,
+            });
           }
           break;
         }

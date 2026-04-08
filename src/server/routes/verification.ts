@@ -6,6 +6,7 @@ import { validate, verificationUpdateSchema } from '../validation.ts';
 import { botBlockMiddleware, requireUserAgent } from '../bot-detection.ts';
 import { createCandidate, createInvitation, verifyWebhookSignature, parseWebhookEvent, mapCheckrStatus, isCheckrConfigured } from '../checkr.ts';
 import { createNotification } from '../notifications.ts';
+import { insertAutoExpense, BACKGROUND_CHECK_FEE_CENTS } from '../auto-expenses.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function verificationRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
@@ -107,6 +108,16 @@ export default function verificationRoutes(router: Router, publicLimiter: RateLi
         await sql`UPDATE verifications SET completed_at = NOW() WHERE id = ${updated.id}`;
         await createNotification(updated.sitter_id, 'verification_update', 'Verification Complete', 'Your background check has been approved!', { verification_id: updated.id });
       }
+
+      // Auto-log background check expense (Checkr charges regardless of outcome)
+      await insertAutoExpense({
+        sitter_id: verification.sitter_id,
+        category: 'background_check',
+        amount_cents: BACKGROUND_CHECK_FEE_CENTS,
+        description: 'Background check fee (auto-logged)',
+        date: new Date().toISOString().split('T')[0],
+        source_reference: `bg_check:verification:${verification.id}`,
+      });
 
       res.json({ success: true });
       return;
