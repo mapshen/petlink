@@ -819,6 +819,9 @@ export interface RevenueDataPoint {
 
 export type SitterPostType = 'update' | 'walk_photo' | 'walk_video' | 'care_update';
 
+export type OwnerConsentStatus = 'pending' | 'approved' | 'denied';
+export type PostSourceType = 'manual' | 'walk_event' | 'chat' | 'care_update';
+
 export interface SitterPost {
   id: number;
   sitter_id: number;
@@ -828,6 +831,9 @@ export interface SitterPost {
   booking_id?: number;
   walk_event_id?: number;
   post_type: SitterPostType;
+  owner_consent_status?: OwnerConsentStatus;
+  source_type?: PostSourceType;
+  owner_id?: number;
   created_at: string;
 }
 

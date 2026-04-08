@@ -835,6 +835,11 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_posts_sitter ON sitter_posts (sitter_id, created_at DESC)`.catch(() => {});
 
+  // Issue #343: Booking media → sitter profile feed with owner consent
+  await sql`ALTER TABLE sitter_posts ADD COLUMN IF NOT EXISTS owner_consent_status TEXT DEFAULT 'approved' CHECK(owner_consent_status IN ('pending', 'approved', 'denied'))`.catch(() => {});
+  await sql`ALTER TABLE sitter_posts ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'manual' CHECK(source_type IN ('manual', 'walk_event', 'chat', 'care_update'))`.catch(() => {});
+  await sql`ALTER TABLE sitter_posts ADD COLUMN IF NOT EXISTS owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL`.catch(() => {});
+
   // Issue #302: Per-species sitter profiles
   await sql`
     CREATE TABLE IF NOT EXISTS sitter_species_profiles (
@@ -1262,6 +1267,9 @@ export async function initDb() {
     )
   `.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_review_reports_status ON review_reports (status)`.catch(() => {});
+
+  // Issue #343: Media share request notification type
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'media_share_request'`.catch(() => {});
 
   // Issue #407: Lost pet community alerts
   await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'lost_pet_alert'`.catch(() => {});
