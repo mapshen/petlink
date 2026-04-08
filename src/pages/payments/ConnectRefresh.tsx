@@ -20,10 +20,10 @@ export default function ConnectRefresh() {
           const { url } = await res.json();
           window.location.href = url;
         } else {
-          setError('Failed to generate a new onboarding link. Please try again from Settings.');
+          setError('Failed to generate a new onboarding link. Please try again from your profile.');
         }
       } catch {
-        setError('Something went wrong. Please try again from Settings.');
+        setError('Something went wrong. Please try again from your profile.');
       }
     }
     refreshLink();
@@ -34,10 +34,10 @@ export default function ConnectRefresh() {
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <p className="text-red-500 mb-4">{error}</p>
         <button
-          onClick={() => navigate('/settings')}
+          onClick={() => navigate('/profile#section-account')}
           className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
         >
-          Go to Settings
+          Go to Profile
         </button>
       </div>
     );

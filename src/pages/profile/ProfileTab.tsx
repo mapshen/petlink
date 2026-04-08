@@ -148,7 +148,7 @@ export default function ProfileTab() {
               <p className="text-xs text-amber-600">No emergency contact set — add one in Settings.</p>
             )}
           </div>
-          <a href="/settings#settings-emergency" className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 whitespace-nowrap">
+          <a href="#section-contact-privacy" className="text-xs text-emerald-600 font-semibold hover:text-emerald-700 whitespace-nowrap">
             Edit in Settings
           </a>
         </div>

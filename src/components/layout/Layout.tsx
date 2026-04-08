@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
-import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X, HelpCircle, Settings, User } from 'lucide-react';
+import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X, HelpCircle, User } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import MobileMenu from './MobileMenu';
 import { clsx } from 'clsx';
@@ -104,14 +104,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         >
                           <User className="w-4 h-4" />
                           Profile
-                        </Link>
-                        <Link
-                          to="/settings"
-                          onClick={() => setAvatarMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-                        >
-                          <Settings className="w-4 h-4" />
-                          Settings
                         </Link>
                         <div className="border-t border-stone-100 my-1" />
                         <button

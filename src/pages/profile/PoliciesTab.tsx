@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Save, Check, ShieldCheck, Heart, Plus, Trash2 } from 'lucide-react';
+import { Save, Check, ShieldCheck, Heart, Plus, Trash2, Camera } from 'lucide-react';
+import CameraPolicyForm from './CameraPolicyForm';
 import { API_BASE } from '../../config';
 import type { CancellationPolicy } from '../../types';
 
@@ -357,6 +358,14 @@ export default function PoliciesTab() {
           {saving ? 'Saving...' : 'Save Policies'}
         </button>
       </form>
+
+      <div className="border-t pt-6 mt-6">
+        <h3 className="text-base font-semibold text-stone-800 mb-4 flex items-center gap-2">
+          <Camera className="w-4 h-4" />
+          Camera Disclosure
+        </h3>
+        <CameraPolicyForm token={token} />
+      </div>
     </div>
   );
 }
