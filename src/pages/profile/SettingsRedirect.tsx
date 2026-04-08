@@ -8,13 +8,16 @@ const HASH_MAP: Record<string, string> = {
   '#settings-notifications': '#section-notifications',
   '#settings-account': '#section-account',
   '#settings-cameras': '#section-policies',
-  '#settings-credits': '#section-account',
-  '#settings-payouts': '#section-account',
-  '#settings-subscription': '#section-account',
+  '#settings-credits': '/wallet',
+  '#settings-payouts': '/wallet',
+  '#settings-subscription': '/subscription',
 };
 
 export default function SettingsRedirect() {
   const { hash } = useLocation();
-  const newHash = HASH_MAP[hash] ?? '';
-  return <Navigate to={`/profile${newHash}`} replace />;
+  const target = HASH_MAP[hash] ?? '';
+  if (target.startsWith('/')) {
+    return <Navigate to={target} replace />;
+  }
+  return <Navigate to={`/profile${target}`} replace />;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
@@ -116,7 +116,7 @@ export default function ProfilePage() {
   const profileSections = visibleSections.filter((s) => s.group === 'profile');
   const accountSections = visibleSections.filter((s) => s.group === 'account');
 
-  const gridCols = showPreview
+  const gridCols = isSitter
     ? 'grid-cols-1 md:grid-cols-[180px_1fr] lg:grid-cols-[180px_1fr_340px]'
     : 'grid-cols-1 md:grid-cols-[180px_1fr]';
 
@@ -168,9 +168,9 @@ export default function ProfilePage() {
           })}
         </div>
 
-        {/* RIGHT: Live Preview (sitter mode, profile group, lg only) */}
-        {showPreview && (
-          <div className="hidden lg:block sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
+        {/* RIGHT: Live Preview (sitter mode, lg only — fades when not on profile group) */}
+        {isSitter && (
+          <div className={`hidden lg:block sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto transition-opacity ${showPreview ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <SitterPreview
               user={user}
               services={previewData.services}
