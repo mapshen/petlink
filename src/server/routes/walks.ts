@@ -73,14 +73,30 @@ export default function walkRoutes(router: Router, io: Server): void {
         RETURNING *
       `;
 
-      // Auto-create sitter post for photo/video events (#275)
+      // Create pending-consent sitter post for photo/video events (#343)
       if ((event_type === 'photo' && photo_url) || (event_type === 'video' && video_url)) {
         const postType = event_type === 'photo' ? 'walk_photo' : 'walk_video';
-        await sql`
-          INSERT INTO sitter_posts (sitter_id, content, photo_url, video_url, booking_id, walk_event_id, post_type)
-          SELECT ${req.userId}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${Number(req.params.bookingId)}, ${event.id}, ${postType}
-          WHERE (SELECT COUNT(*) FROM sitter_posts WHERE sitter_id = ${req.userId}) < ${MAX_POSTS_PER_SITTER}
-        `.catch((err) => { logger.error({ err: sanitizeError(err) }, 'Auto-post creation failed'); });
+        try {
+          const [post] = await sql`
+            INSERT INTO sitter_posts (sitter_id, content, photo_url, video_url, booking_id, walk_event_id, post_type, owner_consent_status, source_type, owner_id)
+            SELECT ${req.userId}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${Number(req.params.bookingId)}, ${event.id}, ${postType}, 'pending', 'walk_event', ${booking.owner_id}
+            WHERE (SELECT COUNT(*) FROM sitter_posts WHERE sitter_id = ${req.userId}) < ${MAX_POSTS_PER_SITTER}
+            RETURNING *
+          `;
+          if (post) {
+            const [sitterName] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
+            const shareNotif = await createNotification(
+              booking.owner_id,
+              'media_share_request',
+              'Profile Share Request',
+              `${sitterName?.name || 'Your sitter'} wants to share a ${event_type} from your booking on their profile.`,
+              { post_id: post.id, booking_id: Number(req.params.bookingId) }
+            );
+            if (shareNotif) io.to(String(booking.owner_id)).emit('notification', shareNotif);
+          }
+        } catch (err) {
+          logger.error({ err: sanitizeError(err) }, 'Pending-consent post creation failed');
+        }
       }
 
       // If event is 'start', update booking to in_progress and notify owner

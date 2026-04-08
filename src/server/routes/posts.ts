@@ -11,6 +11,24 @@ const MAX_LIMIT = 50;
 export const MAX_POSTS_PER_SITTER = 100;
 
 export default function postRoutes(router: Router, publicLimiter: RateLimitRequestHandler): void {
+  // Auth: get pending share requests for the current owner (#343)
+  // Must be registered BEFORE /:sitterId to avoid route parameter conflict
+  router.get('/sitter-posts/pending-consent', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const posts = await sql`
+        SELECT sp.*, u.name AS sitter_name, u.avatar_url AS sitter_avatar
+        FROM sitter_posts sp
+        JOIN users u ON u.id = sp.sitter_id
+        WHERE sp.owner_id = ${req.userId} AND sp.owner_consent_status = 'pending'
+        ORDER BY sp.created_at DESC
+      `;
+      res.json({ posts });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch pending consent posts');
+      res.status(500).json({ error: 'Failed to fetch pending requests' });
+    }
+  });
+
   // Public: get posts for a sitter (paginated)
   router.get('/sitter-posts/:sitterId', requireUserAgent, botBlockMiddleware, publicLimiter, async (req, res) => {
     try {
@@ -27,11 +45,11 @@ export default function postRoutes(router: Router, publicLimiter: RateLimitReque
         sql`
           SELECT id, sitter_id, content, photo_url, video_url, booking_id, walk_event_id, post_type, created_at
           FROM sitter_posts
-          WHERE sitter_id = ${sitterId}
+          WHERE sitter_id = ${sitterId} AND owner_consent_status = 'approved'
           ORDER BY created_at DESC
           LIMIT ${limit} OFFSET ${offset}
         `,
-        sql`SELECT COUNT(*)::int as count FROM sitter_posts WHERE sitter_id = ${sitterId}`,
+        sql`SELECT COUNT(*)::int as count FROM sitter_posts WHERE sitter_id = ${sitterId} AND owner_consent_status = 'approved'`,
       ]);
 
       res.json({ posts, total: count });
@@ -96,4 +114,62 @@ export default function postRoutes(router: Router, publicLimiter: RateLimitReque
       res.status(500).json({ error: 'Failed to delete sitter post' });
     }
   });
+
+  // Auth: owner approves/denies a media share request (#343)
+  router.put('/sitter-posts/:id/consent', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ error: 'Invalid post ID' });
+        return;
+      }
+      const { status } = req.body;
+      if (!['approved', 'denied'].includes(status)) {
+        res.status(400).json({ error: 'Status must be approved or denied' });
+        return;
+      }
+
+      // Atomic: check ownership + pending status in the UPDATE WHERE clause
+      const [updated] = await sql`
+        UPDATE sitter_posts SET owner_consent_status = ${status}
+        WHERE id = ${id} AND owner_id = ${req.userId} AND owner_consent_status = 'pending'
+        RETURNING *
+      `;
+      if (!updated) {
+        res.status(404).json({ error: 'Post not found, not yours, or already resolved' });
+        return;
+      }
+      res.json({ post: updated });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to update post consent');
+      res.status(500).json({ error: 'Failed to update consent' });
+    }
+  });
+
+  // Auth: owner revokes consent on an approved post (removes it from profile)
+  router.put('/sitter-posts/:id/revoke', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ error: 'Invalid post ID' });
+        return;
+      }
+
+      // Atomic: check ownership + approved status in the UPDATE WHERE clause
+      const [updated] = await sql`
+        UPDATE sitter_posts SET owner_consent_status = 'denied'
+        WHERE id = ${id} AND owner_id = ${req.userId} AND owner_consent_status = 'approved'
+        RETURNING *
+      `;
+      if (!updated) {
+        res.status(404).json({ error: 'Post not found, not yours, or not currently approved' });
+        return;
+      }
+      res.json({ post: updated });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to revoke post consent');
+      res.status(500).json({ error: 'Failed to revoke consent' });
+    }
+  });
+
 }
