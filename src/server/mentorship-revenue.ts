@@ -134,10 +134,13 @@ export async function cancelAgreement(
 export async function applyRevenueSplit(
   menteeId: number,
   bookingId: number,
-  sitterNetCents: number
+  sitterNetCents: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
 ): Promise<{ menteeAmount: number; mentorAmount: number; agreementId: number | null }> {
+  const db = tx || sql;
   // Find active, non-expired agreement for this mentee
-  const [agreement] = await sql`
+  const [agreement] = await db`
     SELECT * FROM mentorship_agreements
     WHERE mentee_id = ${menteeId} AND status = 'active' AND expires_at > NOW()
   `;
@@ -148,7 +151,7 @@ export async function applyRevenueSplit(
 
   // Check min earnings threshold (sum booking_total_cents, not mentee_amount_cents)
   if (agreement.min_earnings_cents > 0) {
-    const [{ total }] = await sql`
+    const [{ total }] = await db`
       SELECT COALESCE(SUM(booking_total_cents), 0)::int AS total
       FROM mentorship_payouts WHERE agreement_id = ${agreement.id}
     `;
@@ -161,7 +164,7 @@ export async function applyRevenueSplit(
   const menteeAmount = sitterNetCents - mentorAmount;
 
   // Record the split — check RETURNING to detect concurrent duplicate
-  const [inserted] = await sql`
+  const [inserted] = await db`
     INSERT INTO mentorship_payouts (agreement_id, booking_id, mentor_amount_cents, mentee_amount_cents, booking_total_cents)
     VALUES (${agreement.id}, ${bookingId}, ${mentorAmount}, ${menteeAmount}, ${sitterNetCents})
     ON CONFLICT (booking_id) DO NOTHING
@@ -238,7 +241,7 @@ export async function getMentorshipEarnings(userId: number, year?: number): Prom
     SELECT mp.*
     FROM mentorship_payouts mp
     JOIN mentorship_agreements ma ON ma.id = mp.agreement_id
-    WHERE ma.mentor_id = ${userId} OR ma.mentee_id = ${userId}
+    WHERE (ma.mentor_id = ${userId} OR ma.mentee_id = ${userId})
     ${yearFilter}
     ORDER BY mp.created_at DESC
     LIMIT 100

@@ -148,12 +148,13 @@ export default function walkRoutes(router: Router, io: Server): void {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await sql.begin(async (tx: any) => {
               // Apply mentorship revenue split if mentee has active agreement
-              split = await applyRevenueSplit(booking.sitter_id, Number(req.params.bookingId), sitterNet);
+              split = await applyRevenueSplit(booking.sitter_id, Number(req.params.bookingId), sitterNet, tx);
 
               await recordPayoutForBooking(
                 Number(req.params.bookingId),
                 booking.sitter_id,
-                split.menteeAmount
+                split.menteeAmount,
+                tx
               );
             });
           } catch (err) {
