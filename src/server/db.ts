@@ -839,6 +839,8 @@ export async function initDb() {
   await sql`ALTER TABLE sitter_posts ADD COLUMN IF NOT EXISTS owner_consent_status TEXT DEFAULT 'approved' CHECK(owner_consent_status IN ('pending', 'approved', 'denied'))`.catch(() => {});
   await sql`ALTER TABLE sitter_posts ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'manual' CHECK(source_type IN ('manual', 'walk_event', 'chat', 'care_update'))`.catch(() => {});
   await sql`ALTER TABLE sitter_posts ADD COLUMN IF NOT EXISTS owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_posts_consent ON sitter_posts (sitter_id, owner_consent_status, created_at DESC)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_sitter_posts_owner_pending ON sitter_posts (owner_id, owner_consent_status) WHERE owner_consent_status = 'pending'`.catch(() => {});
 
   // Issue #302: Per-species sitter profiles
   await sql`

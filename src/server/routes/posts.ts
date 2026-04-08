@@ -119,33 +119,26 @@ export default function postRoutes(router: Router, publicLimiter: RateLimitReque
   router.put('/sitter-posts/:id/consent', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ error: 'Invalid post ID' });
+        return;
+      }
       const { status } = req.body;
       if (!['approved', 'denied'].includes(status)) {
         res.status(400).json({ error: 'Status must be approved or denied' });
         return;
       }
 
-      const [post] = await sql`
-        SELECT id, owner_id, sitter_id, owner_consent_status FROM sitter_posts WHERE id = ${id}
-      `;
-      if (!post) {
-        res.status(404).json({ error: 'Post not found' });
-        return;
-      }
-      if (post.owner_id !== req.userId) {
-        res.status(403).json({ error: 'Only the pet owner can approve or deny this share' });
-        return;
-      }
-      if (post.owner_consent_status !== 'pending') {
-        res.status(400).json({ error: 'This share request has already been resolved' });
-        return;
-      }
-
+      // Atomic: check ownership + pending status in the UPDATE WHERE clause
       const [updated] = await sql`
         UPDATE sitter_posts SET owner_consent_status = ${status}
-        WHERE id = ${id} AND owner_id = ${req.userId}
+        WHERE id = ${id} AND owner_id = ${req.userId} AND owner_consent_status = 'pending'
         RETURNING *
       `;
+      if (!updated) {
+        res.status(404).json({ error: 'Post not found, not yours, or already resolved' });
+        return;
+      }
       res.json({ post: updated });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to update post consent');
@@ -157,27 +150,21 @@ export default function postRoutes(router: Router, publicLimiter: RateLimitReque
   router.put('/sitter-posts/:id/revoke', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const id = Number(req.params.id);
-      const [post] = await sql`
-        SELECT id, owner_id, owner_consent_status FROM sitter_posts WHERE id = ${id}
-      `;
-      if (!post) {
-        res.status(404).json({ error: 'Post not found' });
-        return;
-      }
-      if (post.owner_id !== req.userId) {
-        res.status(403).json({ error: 'Only the pet owner can revoke consent' });
-        return;
-      }
-      if (post.owner_consent_status !== 'approved') {
-        res.status(400).json({ error: 'Post is not currently approved' });
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ error: 'Invalid post ID' });
         return;
       }
 
+      // Atomic: check ownership + approved status in the UPDATE WHERE clause
       const [updated] = await sql`
         UPDATE sitter_posts SET owner_consent_status = 'denied'
-        WHERE id = ${id} AND owner_id = ${req.userId}
+        WHERE id = ${id} AND owner_id = ${req.userId} AND owner_consent_status = 'approved'
         RETURNING *
       `;
+      if (!updated) {
+        res.status(404).json({ error: 'Post not found, not yours, or not currently approved' });
+        return;
+      }
       res.json({ post: updated });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to revoke post consent');
