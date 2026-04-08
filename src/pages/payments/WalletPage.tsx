@@ -288,6 +288,7 @@ export default function WalletPage() {
       }
       setShowForm(false);
       setEditingId(null);
+      setEditingAutoLogged(false);
       setForm(EMPTY_FORM);
       fetchExpenses();
       fetchSummary();
