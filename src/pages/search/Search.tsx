@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { SitterWithService } from '../../types';
-import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw, Navigation, Search as SearchIcon, SlidersHorizontal, X, DollarSign, Clock, Users, CalendarCheck, Shield } from 'lucide-react';
+import { MapPin, Star, ShieldCheck, AlertCircle, RefreshCw, Navigation, Search as SearchIcon, Clock, Users, CalendarCheck, Shield } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { useAuth } from '../../context/AuthContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -12,13 +12,13 @@ import FavoriteButton from '../../components/profile/FavoriteButton';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
 import { FoundingSitterBadge } from '../../components/badges/FoundingSitterBadge';
 import MapViewToggle from '../../components/map/MapViewToggle';
-import { BADGE_CATALOG, type BadgeDefinition } from '../../shared/badge-catalog';
 import { metersToMiles } from '../../lib/geo';
 import { getServiceLabel } from '../../shared/service-labels';
 import { getDisplayName } from '../../shared/display-name';
 import { formatCents } from '../../lib/money';
 import { getAddonBySlug } from '../../shared/addon-catalog';
 import { formatResponseTime } from '../../shared/response-time';
+import SearchFilters, { type SearchFiltersState } from '../../components/search/SearchFilters';
 import LocationAutocomplete from '../../components/search/LocationAutocomplete';
 
 const SitterClusterMap = lazy(() => import('../../components/map/SitterClusterMap'));
@@ -44,22 +44,49 @@ const SERVICE_LABELS: Record<string, string> = {
   daycare: 'Daycare Providers',
 };
 
-const PET_SIZES = [
-  { label: 'Small', value: 'small', description: '0-25 lbs' },
-  { label: 'Medium', value: 'medium', description: '26-50 lbs' },
-  { label: 'Large', value: 'large', description: '51-100 lbs' },
-  { label: 'Giant', value: 'giant', description: '100+ lbs' },
-];
-
-const PET_SPECIES = [
-  { label: 'Dog', value: 'dog' },
-  { label: 'Cat', value: 'cat' },
-  { label: 'Bird', value: 'bird' },
-  { label: 'Reptile', value: 'reptile' },
-  { label: 'Small Animal', value: 'small_animal' },
-];
-
 const SPECIES_EMOJI: Record<string, string> = { dog: '🐕', cat: '🐱', bird: '🐦', reptile: '🦎', small_animal: '🐹' };
+
+const STORAGE_KEY = 'petlink_search_filters';
+
+function loadSavedFilters(): Partial<SearchFiltersState> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const p = JSON.parse(raw);
+    if (typeof p !== 'object' || p === null) return {};
+    return {
+      species: typeof p.species === 'string' ? p.species : '',
+      petSize: typeof p.petSize === 'string' ? p.petSize : '',
+      dateFrom: typeof p.dateFrom === 'string' ? p.dateFrom : '',
+      dateTo: typeof p.dateTo === 'string' ? p.dateTo : '',
+      minPrice: typeof p.minPrice === 'string' ? p.minPrice : '',
+      maxPrice: typeof p.maxPrice === 'string' ? p.maxPrice : '',
+      cancellationPolicy: typeof p.cancellationPolicy === 'string' ? p.cancellationPolicy : '',
+      responseTime: typeof p.responseTime === 'string' ? p.responseTime : '',
+      selectedBadges: Array.isArray(p.selectedBadges) ? p.selectedBadges.filter((b: unknown) => typeof b === 'string') : [],
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveFilters(filters: SearchFiltersState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+  } catch { /* quota exceeded, ignore */ }
+}
+
+const EMPTY_FILTERS: SearchFiltersState = {
+  species: '',
+  petSize: '',
+  dateFrom: '',
+  dateTo: '',
+  minPrice: '',
+  maxPrice: '',
+  cancellationPolicy: '',
+  responseTime: '',
+  selectedBadges: [],
+};
 
 async function geocodeAddress(address: string): Promise<Coords | null> {
   try {
@@ -106,20 +133,23 @@ export default function Search() {
   const [geocoding, setGeocoding] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
 
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '');
-  const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '');
-  const [debouncedMinPrice, setDebouncedMinPrice] = useState(minPrice);
-  const [debouncedMaxPrice, setDebouncedMaxPrice] = useState(maxPrice);
-  const [petSize, setPetSize] = useState(searchParams.get('petSize') || '');
-  const [species, setSpecies] = useState(searchParams.get('species') || '');
-  const [cancellationPolicy, setCancellationPolicy] = useState(searchParams.get('cancellationPolicy') || '');
-  const [responseTime, setResponseTime] = useState(searchParams.get('responseTime') || '');
-  const [availableThisWeek, setAvailableThisWeek] = useState(searchParams.get('availableThisWeek') === 'true');
-  const [selectedBadges, setSelectedBadges] = useState<string[]>(() => {
-    const param = searchParams.get('badges');
-    return param ? param.split(',').filter(Boolean) : [];
+  // Unified filter state: URL params take priority, then localStorage, then defaults
+  const [filters, setFilters] = useState<SearchFiltersState>(() => {
+    const saved = loadSavedFilters();
+    return {
+      species: searchParams.get('species') || saved.species || '',
+      petSize: searchParams.get('petSize') || saved.petSize || '',
+      dateFrom: searchParams.get('dateFrom') || saved.dateFrom || '',
+      dateTo: searchParams.get('dateTo') || saved.dateTo || '',
+      minPrice: searchParams.get('minPrice') || saved.minPrice || '',
+      maxPrice: searchParams.get('maxPrice') || saved.maxPrice || '',
+      cancellationPolicy: searchParams.get('cancellationPolicy') || saved.cancellationPolicy || '',
+      responseTime: searchParams.get('responseTime') || saved.responseTime || '',
+      selectedBadges: searchParams.get('badges')?.split(',').filter(Boolean) || saved.selectedBadges || [],
+    };
   });
+  const [debouncedMinPrice, setDebouncedMinPrice] = useState(filters.minPrice);
+  const [debouncedMaxPrice, setDebouncedMaxPrice] = useState(filters.maxPrice);
 
   const [highlightedSitterId, setHighlightedSitterId] = useState<number | null>(null);
 
@@ -129,16 +159,25 @@ export default function Search() {
 
   // Debounce price inputs to avoid excessive API calls
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedMinPrice(minPrice), 300);
+    const timer = setTimeout(() => setDebouncedMinPrice(filters.minPrice), 300);
     return () => clearTimeout(timer);
-  }, [minPrice]);
+  }, [filters.minPrice]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedMaxPrice(maxPrice), 300);
+    const timer = setTimeout(() => setDebouncedMaxPrice(filters.maxPrice), 300);
     return () => clearTimeout(timer);
-  }, [maxPrice]);
+  }, [filters.maxPrice]);
 
-  const hasActiveFilters = minPrice || maxPrice || petSize || species || cancellationPolicy || responseTime || availableThisWeek || selectedBadges.length > 0;
+  // Persist filters to localStorage
+  useEffect(() => { saveFilters(filters); }, [filters]);
+
+  const handleFilterChange = useCallback(<K extends keyof SearchFiltersState>(key: K, value: SearchFiltersState[K]) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFilters(EMPTY_FILTERS);
+  }, []);
   const { view, setView } = useMapViewPreference();
   const isDesktop = useIsDesktop();
 
@@ -194,25 +233,15 @@ export default function Search() {
     const params = new URLSearchParams(searchParams);
     if (debouncedMinPrice) params.set('minPrice', debouncedMinPrice); else params.delete('minPrice');
     if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice); else params.delete('maxPrice');
-    if (petSize) params.set('petSize', petSize); else params.delete('petSize');
-    if (species) params.set('species', species); else params.delete('species');
-    if (cancellationPolicy) params.set('cancellationPolicy', cancellationPolicy); else params.delete('cancellationPolicy');
-    if (responseTime) params.set('responseTime', responseTime); else params.delete('responseTime');
-    if (availableThisWeek) params.set('availableThisWeek', 'true'); else params.delete('availableThisWeek');
-    if (selectedBadges.length > 0) params.set('badges', selectedBadges.join(',')); else params.delete('badges');
+    if (filters.petSize) params.set('petSize', filters.petSize); else params.delete('petSize');
+    if (filters.species) params.set('species', filters.species); else params.delete('species');
+    if (filters.dateFrom) params.set('dateFrom', filters.dateFrom); else params.delete('dateFrom');
+    if (filters.dateTo) params.set('dateTo', filters.dateTo); else params.delete('dateTo');
+    if (filters.cancellationPolicy) params.set('cancellationPolicy', filters.cancellationPolicy); else params.delete('cancellationPolicy');
+    if (filters.responseTime) params.set('responseTime', filters.responseTime); else params.delete('responseTime');
+    if (filters.selectedBadges.length > 0) params.set('badges', filters.selectedBadges.join(',')); else params.delete('badges');
     setSearchParams(params, { replace: true });
-  }, [debouncedMinPrice, debouncedMaxPrice, petSize, species, cancellationPolicy, responseTime, availableThisWeek, selectedBadges]);
-
-  const clearFilters = () => {
-    setMinPrice('');
-    setMaxPrice('');
-    setPetSize('');
-    setSpecies('');
-    setCancellationPolicy('');
-    setResponseTime('');
-    setAvailableThisWeek(false);
-    setSelectedBadges([]);
-  };
+  }, [debouncedMinPrice, debouncedMaxPrice, filters]);
 
   useEffect(() => {
     const fetchSitters = async () => {
@@ -227,12 +256,13 @@ export default function Search() {
         }
         if (debouncedMinPrice) params.set('minPrice', debouncedMinPrice);
         if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice);
-        if (petSize) params.set('petSize', petSize);
-        if (species) params.set('species', species);
-        if (cancellationPolicy) params.set('cancellationPolicy', cancellationPolicy);
-        if (responseTime) params.set('responseTime', responseTime);
-        if (availableThisWeek) params.set('availableThisWeek', 'true');
-        if (selectedBadges.length > 0) params.set('badges', selectedBadges.join(','));
+        if (filters.petSize) params.set('petSize', filters.petSize);
+        if (filters.species) params.set('species', filters.species);
+        if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+        if (filters.dateTo) params.set('dateTo', filters.dateTo);
+        if (filters.cancellationPolicy) params.set('cancellationPolicy', filters.cancellationPolicy);
+        if (filters.responseTime) params.set('responseTime', filters.responseTime);
+        if (filters.selectedBadges.length > 0) params.set('badges', filters.selectedBadges.join(','));
         const headers: Record<string, string> = {};
         if (turnstileToken) {
           headers['cf-turnstile-response'] = turnstileToken;
@@ -249,7 +279,7 @@ export default function Search() {
     };
 
     fetchSitters();
-  }, [serviceType, coords, radius, retryCount, debouncedMinPrice, debouncedMaxPrice, petSize, species, cancellationPolicy, responseTime, availableThisWeek, selectedBadges, turnstileToken]);
+  }, [serviceType, coords, radius, retryCount, debouncedMinPrice, debouncedMaxPrice, filters, turnstileToken]);
 
   const { user: authUser } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites();
@@ -321,208 +351,8 @@ export default function Search() {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 mb-8">
-        <button
-          type="button"
-          onClick={() => setFiltersOpen(!filtersOpen)}
-          className="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-stone-700 hover:bg-stone-50 rounded-2xl transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4" />
-            <span>Filters</span>
-            {hasActiveFilters && (
-              <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                Active
-              </span>
-            )}
-          </div>
-          <span className="text-stone-400 text-xs">{filtersOpen ? 'Hide' : 'Show'}</span>
-        </button>
-
-        {filtersOpen && (
-          <div className="px-4 pb-4 border-t border-stone-100 pt-4">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-xs font-medium text-stone-600 mb-2">
-                  <DollarSign className="w-3 h-3 inline mr-1" />
-                  Price Range
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Min"
-                    value={minPrice}
-                    onChange={(e) => setMinPrice(e.target.value)}
-                    className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  />
-                  <span className="text-stone-400 text-xs">to</span>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Max"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(e.target.value)}
-                    className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-
-              {/* Pet size — only meaningful for dogs */}
-              {(!species || species === 'dog') && (
-              <div>
-                <label className="block text-xs font-medium text-stone-600 mb-2">Dog Size</label>
-                <div className="flex flex-wrap gap-2">
-                  {PET_SIZES.map((size) => (
-                    <button
-                      key={size.value}
-                      type="button"
-                      onClick={() => setPetSize(petSize === size.value ? '' : size.value)}
-                      aria-pressed={petSize === size.value}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        petSize === size.value
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                      }`}
-                      title={size.description}
-                    >
-                      {size.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-medium text-stone-600 mb-2">Pet Type</label>
-                <div className="flex flex-wrap gap-2">
-                  {PET_SPECIES.map((s) => (
-                    <button
-                      key={s.value}
-                      type="button"
-                      onClick={() => setSpecies(species === s.value ? '' : s.value)}
-                      aria-pressed={species === s.value}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        species === s.value
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-stone-600 mb-2">
-                  <Shield className="w-3 h-3 inline mr-1" />
-                  Cancellation Policy
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {(['flexible', 'moderate', 'strict'] as const).map((policy) => (
-                    <button
-                      key={policy}
-                      type="button"
-                      onClick={() => setCancellationPolicy(cancellationPolicy === policy ? '' : policy)}
-                      aria-pressed={cancellationPolicy === policy}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
-                        cancellationPolicy === policy
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                      }`}
-                    >
-                      {policy}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-stone-600 mb-2">
-                  <Clock className="w-3 h-3 inline mr-1" />
-                  Response Time
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[{ label: '< 1 hr', value: '1' }, { label: '< 4 hrs', value: '4' }].map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setResponseTime(responseTime === opt.value ? '' : opt.value)}
-                      aria-pressed={responseTime === opt.value}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        responseTime === opt.value
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-stone-600 mb-2">
-                  <CalendarCheck className="w-3 h-3 inline mr-1" />
-                  Availability
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setAvailableThisWeek(!availableThisWeek)}
-                  aria-pressed={availableThisWeek}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    availableThisWeek
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                  }`}
-                >
-                  Available this week
-                </button>
-              </div>
-
-              <div className="sm:col-span-2 lg:col-span-3">
-                <label className="block text-xs font-medium text-stone-600 mb-2">Sitter Badges</label>
-                <div className="flex flex-wrap gap-2">
-                  {BADGE_CATALOG.map((badge: BadgeDefinition) => (
-                    <button
-                      key={badge.slug}
-                      type="button"
-                      onClick={() => setSelectedBadges((prev) =>
-                        prev.includes(badge.slug)
-                          ? prev.filter((b) => b !== badge.slug)
-                          : [...prev, badge.slug]
-                      )}
-                      aria-pressed={selectedBadges.includes(badge.slug)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        selectedBadges.includes(badge.slug)
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                      }`}
-                    >
-                      {badge.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-end">
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-700 font-medium transition-colors"
-                  >
-                    <X className="w-3 h-3" />
-                    Clear all filters
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Filters — horizontal pill bar */}
+      <SearchFilters filters={filters} onFilterChange={handleFilterChange} onClearAll={clearFilters} />
 
       {error && (
         <div role="alert" className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
@@ -592,7 +422,7 @@ export default function Search() {
                               <span className="block text-lg font-bold text-emerald-600">{sitter.price_cents === 0 ? 'Free' : formatCents(sitter.price_cents)}</span>
                               {sitter.price_cents > 0 && (
                                 <span className="text-xs text-stone-400">
-                                  {getServiceLabel(serviceType || sitter.service_type, species ? [species] : undefined)}
+                                  {getServiceLabel(serviceType || sitter.service_type, filters.species ? [filters.species] : undefined)}
                                 </span>
                               )}
                             </div>
@@ -694,7 +524,7 @@ export default function Search() {
                 {sitters.length === 0 && (
                   <div className="col-span-full text-center py-12 bg-stone-50 rounded-2xl">
                     <p className="text-stone-500">
-                      {hasActiveFilters
+                      {filters.species || filters.petSize || filters.dateFrom || filters.dateTo || filters.minPrice || filters.maxPrice || filters.cancellationPolicy || filters.responseTime || filters.selectedBadges.length > 0
                         ? 'No sitters match your filters. Try adjusting or clearing filters.'
                         : coords
                           ? 'No sitters found in this area. Try expanding your search radius.'
