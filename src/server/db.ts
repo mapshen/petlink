@@ -913,6 +913,18 @@ export async function initDb() {
     FROM posts p
     WHERE NOT EXISTS (SELECT 1 FROM post_destinations WHERE post_id = p.id)
   `.catch(() => {});
+  // Create pet destinations for migrated booking-linked posts (via booking_pets junction)
+  await sql`
+    INSERT INTO post_destinations (post_id, destination_type, destination_id)
+    SELECT DISTINCT p.id, 'pet', bp.pet_id
+    FROM posts p
+    JOIN booking_pets bp ON bp.booking_id = p.booking_id
+    WHERE p.booking_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM post_destinations
+        WHERE post_id = p.id AND destination_type = 'pet' AND destination_id = bp.pet_id
+      )
+  `.catch(() => {});
   // Sync sequence after migration
   await sql`SELECT setval('posts_id_seq', COALESCE((SELECT MAX(id) FROM posts), 0) + 1, false)`.catch(() => {});
 

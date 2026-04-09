@@ -33,12 +33,15 @@ export default function universalPostRoutes(router: Router): void {
           SELECT p.id, p.author_id, p.content, p.photo_url, p.video_url, p.post_type,
                  p.booking_id, p.walk_event_id, p.created_at,
                  u.name AS author_name, u.avatar_url AS author_avatar_url,
-                 (SELECT COUNT(*)::int FROM post_likes WHERE post_id = p.id) AS like_count,
-                 (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id) AS comment_count,
-                 EXISTS(SELECT 1 FROM post_likes WHERE post_id = p.id AND user_id = ${req.userId}) AS user_liked
+                 COALESCE(lk.cnt, 0)::int AS like_count,
+                 COALESCE(cm.cnt, 0)::int AS comment_count,
+                 COALESCE(ul.liked, false) AS user_liked
           FROM posts p
           JOIN post_destinations pd ON pd.post_id = p.id
           JOIN users u ON u.id = p.author_id
+          LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM post_likes GROUP BY post_id) lk ON lk.post_id = p.id
+          LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM post_comments GROUP BY post_id) cm ON cm.post_id = p.id
+          LEFT JOIN (SELECT post_id, true AS liked FROM post_likes WHERE user_id = ${req.userId}) ul ON ul.post_id = p.id
           WHERE pd.destination_type = ${type} AND pd.destination_id = ${destId}
             AND p.owner_consent_status = 'approved'
           ORDER BY p.created_at DESC
@@ -93,11 +96,14 @@ export default function universalPostRoutes(router: Router): void {
 
       const [post] = await sql`
         SELECT p.*, u.name AS author_name, u.avatar_url AS author_avatar_url,
-               (SELECT COUNT(*)::int FROM post_likes WHERE post_id = p.id) AS like_count,
-               (SELECT COUNT(*)::int FROM post_comments WHERE post_id = p.id) AS comment_count,
-               EXISTS(SELECT 1 FROM post_likes WHERE post_id = p.id AND user_id = ${req.userId}) AS user_liked
+               COALESCE(lk.cnt, 0)::int AS like_count,
+               COALESCE(cm.cnt, 0)::int AS comment_count,
+               COALESCE(ul.liked, false) AS user_liked
         FROM posts p
         JOIN users u ON u.id = p.author_id
+        LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM post_likes WHERE post_id = ${id} GROUP BY post_id) lk ON lk.post_id = p.id
+        LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM post_comments WHERE post_id = ${id} GROUP BY post_id) cm ON cm.post_id = p.id
+        LEFT JOIN (SELECT post_id, true AS liked FROM post_likes WHERE post_id = ${id} AND user_id = ${req.userId}) ul ON ul.post_id = p.id
         WHERE p.id = ${id} AND p.owner_consent_status = 'approved'
       `;
       if (!post) {

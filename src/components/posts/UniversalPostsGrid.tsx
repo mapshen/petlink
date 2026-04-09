@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { format, isToday, isYesterday } from 'date-fns';
-import { MessageCircle } from 'lucide-react';
+import { Heart, MessageCircle } from 'lucide-react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 import LikeButton from './LikeButton';
@@ -27,6 +27,8 @@ export default function UniversalPostsGrid({ destinationType, destinationId, onT
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [expandedPost, setExpandedPost] = useState<number | null>(null);
+  const onTotalLoadedRef = useRef(onTotalLoaded);
+  onTotalLoadedRef.current = onTotalLoaded;
 
   const fetchPosts = useCallback(async (offset: number) => {
     if (!token) return;
@@ -41,13 +43,13 @@ export default function UniversalPostsGrid({ destinationType, destinationId, onT
       const data = await res.json();
       setPosts(prev => offset === 0 ? data.posts : [...prev, ...data.posts]);
       setTotal(data.total);
-      onTotalLoaded?.(data.total);
+      onTotalLoadedRef.current?.(data.total);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [token, destinationType, destinationId, onTotalLoaded]);
+  }, [token, destinationType, destinationId]);
 
   useEffect(() => {
     setPosts([]);
@@ -104,8 +106,8 @@ export default function UniversalPostsGrid({ destinationType, destinationId, onT
             {/* Hover overlay */}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-3 text-white text-sm font-medium">
-                <span>❤️ {post.like_count || 0}</span>
-                <span>💬 {post.comment_count || 0}</span>
+                <span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" /> {post.like_count || 0}</span>
+                <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" /> {post.comment_count || 0}</span>
               </div>
             </div>
             {/* Pet tags */}

@@ -14,35 +14,44 @@ export default function PostComments({ postId, token, userId }: PostCommentsProp
   const [total, setTotal] = useState(0);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
+    setError(null);
     fetch(`${API_BASE}/posts/${postId}/comments?limit=20`, { headers: getAuthHeaders(token) })
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to load comments');
+        return r.json();
+      })
       .then(data => {
         setComments(data.comments || []);
         setTotal(data.total || 0);
       })
-      .catch(() => {});
+      .catch(err => setError(err.message));
   }, [postId, token]);
 
   async function addComment() {
     if (!input.trim() || !token) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`${API_BASE}/posts/${postId}/comments`, {
         method: 'POST',
         headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: input.trim() }),
       });
-      if (res.ok) {
+      if (!res.ok) {
         const data = await res.json();
-        setComments(prev => [...prev, data.comment]);
-        setTotal(prev => prev + 1);
-        setInput('');
+        setError(data.error || 'Failed to add comment');
+        return;
       }
+      const data = await res.json();
+      setComments(prev => [...prev, data.comment]);
+      setTotal(prev => prev + 1);
+      setInput('');
     } catch {
-      // Silently fail
+      setError('Failed to add comment');
     } finally {
       setLoading(false);
     }
@@ -50,22 +59,33 @@ export default function PostComments({ postId, token, userId }: PostCommentsProp
 
   async function deleteComment(commentId: number) {
     if (!token) return;
+    const prev = comments;
+    // Optimistic remove
+    setComments(c => c.filter(x => x.id !== commentId));
+    setTotal(t => t - 1);
     try {
       const res = await fetch(`${API_BASE}/posts/comments/${commentId}`, {
         method: 'DELETE',
         headers: getAuthHeaders(token),
       });
-      if (res.ok) {
-        setComments(prev => prev.filter(c => c.id !== commentId));
-        setTotal(prev => prev - 1);
+      if (!res.ok) {
+        // Revert
+        setComments(prev);
+        setTotal(t => t + 1);
+        setError('Failed to delete comment');
       }
     } catch {
-      // Silently fail
+      setComments(prev);
+      setTotal(t => t + 1);
+      setError('Failed to delete comment');
     }
   }
 
   return (
     <div className="space-y-3">
+      {error && (
+        <div className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-1.5">{error}</div>
+      )}
       {comments.map(c => (
         <div key={c.id} className="flex gap-2">
           <div className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center text-[10px] font-medium flex-shrink-0 overflow-hidden">

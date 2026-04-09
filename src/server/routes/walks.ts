@@ -78,19 +78,23 @@ export default function walkRoutes(router: Router, io: Server): void {
       if ((event_type === 'photo' && photo_url) || (event_type === 'video' && video_url)) {
         const postType = event_type === 'photo' ? 'walk_photo' : 'walk_video';
         try {
-          const [post] = await sql`
-            INSERT INTO posts (author_id, content, photo_url, video_url, booking_id, walk_event_id, post_type, owner_consent_status, source_type, consent_owner_id)
-            SELECT ${req.userId}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${Number(req.params.bookingId)}, ${event.id}, ${postType}, 'pending', 'walk_event', ${booking.owner_id}
-            WHERE (SELECT COUNT(*) FROM posts WHERE author_id = ${req.userId}) < ${MAX_POSTS_PER_USER}
-            RETURNING *
-          `;
-          if (post) {
-            // Add profile destination for the auto-post
-            await sql`
-              INSERT INTO post_destinations (post_id, destination_type, destination_id)
-              VALUES (${post.id}, 'profile', ${req.userId})
-              ON CONFLICT DO NOTHING
+          const post = await sql.begin(async (tx: any) => {
+            const [p] = await tx`
+              INSERT INTO posts (author_id, content, photo_url, video_url, booking_id, walk_event_id, post_type, owner_consent_status, source_type, consent_owner_id)
+              SELECT ${req.userId}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${Number(req.params.bookingId)}, ${event.id}, ${postType}, 'pending', 'walk_event', ${booking.owner_id}
+              WHERE (SELECT COUNT(*) FROM posts WHERE author_id = ${req.userId}) < ${MAX_POSTS_PER_USER}
+              RETURNING *
             `;
+            if (p) {
+              await tx`
+                INSERT INTO post_destinations (post_id, destination_type, destination_id)
+                VALUES (${p.id}, 'profile', ${req.userId})
+                ON CONFLICT DO NOTHING
+              `;
+            }
+            return p || null;
+          });
+          if (post) {
             const [sitterName] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
             const shareNotif = await createNotification(
               booking.owner_id,

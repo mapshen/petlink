@@ -16,7 +16,14 @@ export default function LikeButton({ postId, initialLiked, initialCount, token }
 
   async function toggleLike() {
     if (!token) return;
-    const method = liked ? 'DELETE' : 'POST';
+
+    // Optimistic update
+    const prevLiked = liked;
+    const prevCount = count;
+    setLiked(!liked);
+    setCount(liked ? count - 1 : count + 1);
+
+    const method = prevLiked ? 'DELETE' : 'POST';
     try {
       const res = await fetch(`${API_BASE}/posts/${postId}/like`, {
         method,
@@ -26,15 +33,22 @@ export default function LikeButton({ postId, initialLiked, initialCount, token }
         const data = await res.json();
         setLiked(data.liked);
         setCount(data.like_count);
+      } else {
+        // Revert on failure
+        setLiked(prevLiked);
+        setCount(prevCount);
       }
     } catch {
-      // Silently fail — optimistic UI already reverted
+      // Revert on network error
+      setLiked(prevLiked);
+      setCount(prevCount);
     }
   }
 
   return (
     <button
       onClick={toggleLike}
+      aria-label={liked ? 'Unlike post' : 'Like post'}
       className="flex items-center gap-1.5 text-sm transition-colors hover:text-red-500"
     >
       <Heart className={`w-4 h-4 ${liked ? 'fill-red-500 text-red-500' : 'text-stone-400'}`} />
