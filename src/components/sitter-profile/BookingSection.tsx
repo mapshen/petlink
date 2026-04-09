@@ -11,23 +11,14 @@ import PetSelector from '../booking/PetSelector';
 import FirstBookingNudge from '../booking/FirstBookingNudge';
 import InquiryForm from '../booking/InquiryForm';
 import CameraInfoCard from '../booking/CameraInfoCard';
-import PaymentForm from '../payment/PaymentForm';
 import { usePaymentIntent } from '../../hooks/usePaymentIntent';
 import { calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing';
 import { findApplicableTier } from '../../shared/loyalty-discount';
 import { formatCents } from '../../lib/money';
 import { getAddonBySlug } from '../../shared/addon-catalog';
 import { getPolicyDescription } from '../../shared/cancellation';
-import { Alert, AlertDescription } from '../ui/alert';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-} from '../ui/alert-dialog';
+import PriceBreakdown from './PriceBreakdown';
+import PaymentDialog from './PaymentDialog';
 
 const SitterLocationMap = lazy(() => import('../map/SitterLocationMap'));
 
@@ -446,51 +437,11 @@ export default function BookingSection({
                   )}
 
                   {/* Price breakdown */}
-                  <div className="p-3 bg-stone-50 rounded-xl space-y-1">
-                    <div className="flex justify-between text-sm text-stone-600">
-                      <span>
-                        {pricing.breakdown.holidayApplied ? 'Holiday rate' : pricing.breakdown.puppyApplied ? 'Puppy/kitten rate' : 'Base price'}
-                      </span>
-                      <span>{formatCents(pricing.breakdown.baseCents)}</span>
-                    </div>
-                    {pricing.breakdown.extraPetsCents > 0 && (
-                      <div className="flex justify-between text-sm text-stone-600">
-                        <span>{selectedPetIds.length - 1} extra pet{selectedPetIds.length > 2 ? 's' : ''}</span>
-                        <span>{formatCents(pricing.breakdown.extraPetsCents)}</span>
-                      </div>
-                    )}
-                    {pricing.breakdown.pickupDropoffCents > 0 && (
-                      <div className="flex justify-between text-sm text-stone-600">
-                        <span>Pickup & drop-off</span>
-                        <span>{formatCents(pricing.breakdown.pickupDropoffCents)}</span>
-                      </div>
-                    )}
-                    {pricing.breakdown.groomingCents > 0 && (
-                      <div className="flex justify-between text-sm text-stone-600">
-                        <span>Grooming add-on</span>
-                        <span>{formatCents(pricing.breakdown.groomingCents)}</span>
-                      </div>
-                    )}
-                    {pricing.breakdown.addonDetails.map((a) => {
-                      const addonDef = getAddonBySlug(a.slug);
-                      return (
-                        <div key={a.slug} className="flex justify-between text-sm text-stone-600">
-                          <span>{addonDef?.emoji} {addonDef?.label ?? a.slug}</span>
-                          <span>{a.priceCents === 0 ? 'Free' : formatCents(a.priceCents)}</span>
-                        </div>
-                      );
-                    })}
-                    {pricing.breakdown.discountCents > 0 && (
-                      <div className="flex justify-between text-sm text-emerald-600">
-                        <span>Loyalty discount ({pricing.breakdown.discountPercent}%)</span>
-                        <span>-{formatCents(pricing.breakdown.discountCents)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
-                      <span>Total</span>
-                      <span>{formatCents(pricing.totalCents)}</span>
-                    </div>
-                  </div>
+                  <PriceBreakdown
+                    breakdown={pricing.breakdown}
+                    totalCents={pricing.totalCents}
+                    extraPetCount={selectedPetIds.length - 1}
+                  />
                 </div>
               );
             })()}
@@ -561,47 +512,17 @@ export default function BookingSection({
         pets={pets}
       />
 
-      {/* Payment Dialog */}
-      <AlertDialog open={showPayment} onOpenChange={(open) => { if (!open) setShowPayment(false); }}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-emerald-600" />
-              Complete Payment
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Your booking has been created. Complete payment to confirm.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {clientSecret && paymentAmount > 0 ? (
-            <PaymentForm
-              clientSecret={clientSecret}
-              amount={paymentAmount}
-              onSuccess={() => {
-                setShowPayment(false);
-                navigate('/home');
-              }}
-              onError={(msg) => setBookingError(msg)}
-            />
-          ) : paymentLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-            </div>
-          ) : paymentError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{paymentError}</AlertDescription>
-            </Alert>
-          ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setShowPayment(false);
-              navigate('/home');
-            }}>
-              Pay Later
-            </AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <PaymentDialog
+        open={showPayment}
+        onDismiss={() => setShowPayment(false)}
+        onPayLater={() => { setShowPayment(false); navigate('/home'); }}
+        onSuccess={() => { setShowPayment(false); navigate('/home'); }}
+        onError={(msg) => setBookingError(msg)}
+        clientSecret={clientSecret}
+        paymentAmount={paymentAmount}
+        paymentLoading={paymentLoading}
+        paymentError={paymentError}
+      />
     </>
   );
 }

@@ -16,14 +16,27 @@ interface AnalyticsOverview {
 
 export default function OwnerInsightsStrip({ token }: OwnerInsightsStripProps) {
   const [data, setData] = useState<AnalyticsOverview | null>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!token) return;
+    setError(false);
     fetch(`${API_BASE}/analytics/overview`, { headers: getAuthHeaders(token) })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
       .then(d => setData(d))
-      .catch(() => {});
+      .catch(() => setError(true));
   }, [token]);
+
+  if (error) {
+    return (
+      <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 mb-4 text-center">
+        <p className="text-xs text-stone-400">Could not load profile insights</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-4">
