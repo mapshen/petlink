@@ -555,6 +555,7 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_verifications_sitter_id ON verifications (sitter_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites (user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_pets_booking_id ON booking_pets (booking_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_pets_pet_id ON booking_pets (pet_id)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user_id ON oauth_accounts (user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_expenses_sitter_id ON sitter_expenses (sitter_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_recurring_expenses_sitter_id ON recurring_expenses (sitter_id)`;

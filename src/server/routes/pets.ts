@@ -90,16 +90,20 @@ export default function petRoutes(router: Router): void {
       }
       const isOwner = req.userId === pet.owner_id;
       // Check if requester has an active/completed booking with this pet
-      const [hasBooking] = await sql`
-        SELECT EXISTS(
-          SELECT 1 FROM booking_pets bp
-          JOIN bookings b ON b.id = bp.booking_id
-          WHERE bp.pet_id = ${pet.id}
-            AND b.sitter_id = ${req.userId}
-            AND b.status IN ('confirmed', 'completed')
-        ) AS has_booking
-      `;
-      const canViewPrivate = isOwner || hasBooking?.has_booking;
+      const [[hasBooking], [currentUser]] = await Promise.all([
+        sql`
+          SELECT EXISTS(
+            SELECT 1 FROM booking_pets bp
+            JOIN bookings b ON b.id = bp.booking_id
+            WHERE bp.pet_id = ${pet.id}
+              AND b.sitter_id = ${req.userId}
+              AND b.status IN ('confirmed', 'in_progress', 'completed')
+          ) AS has_booking
+        `,
+        sql`SELECT roles FROM users WHERE id = ${req.userId}`,
+      ]);
+      const isAdmin = currentUser?.roles?.includes('admin');
+      const canViewPrivate = isOwner || isAdmin || hasBooking?.has_booking;
 
       const [owner, vaccinations] = await Promise.all([
         sql`SELECT id, name, slug, avatar_url, created_at FROM users WHERE id = ${pet.owner_id}`.then(r => r[0]),
