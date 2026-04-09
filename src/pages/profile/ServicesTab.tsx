@@ -219,7 +219,7 @@ export default function ServicesTab() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-bold text-stone-900">Services</h2>
+        <div />
         {availableTypesForAdd.length > 0 && !showAddForm && !editingId && (
           <button
             onClick={startAdd}

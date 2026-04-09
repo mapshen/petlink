@@ -65,8 +65,6 @@ export default function ReviewsTab() {
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-stone-900 mb-6">Reviews</h2>
-
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertDescription className="flex items-center justify-between">

@@ -110,8 +110,6 @@ export default function LocationTab() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <h2 className="text-lg font-bold text-stone-900">Location</h2>
-
       {/* Address search */}
       <div>
         <label className="block text-sm font-medium text-stone-700 mb-2">Set your location</label>

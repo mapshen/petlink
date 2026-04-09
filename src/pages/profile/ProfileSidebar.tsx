@@ -26,7 +26,7 @@ export default function ProfileSidebar({
           className="w-10 h-10 rounded-full object-cover border border-stone-200"
         />
         <div className="min-w-0">
-          <p className="text-sm font-bold text-stone-900 truncate">{user.name}</p>
+          <p className="text-sm font-bold text-stone-900 leading-tight">{user.name}</p>
           <p className="text-[10px] text-stone-400 capitalize">
             {mode === 'owner' ? 'Pet Owner' : 'Sitter'}
           </p>
