@@ -183,7 +183,8 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
       socket.disconnect(true);
       return;
     }
-    liveUserSockets.set(userId, new Set([...userSet, socket.id]));
+    userSet.add(socket.id);
+    liveUserSockets.set(userId, userSet);
 
     socket.on('join_live_thread', async (data: { thread_id: number }) => {
       const { thread_id } = data;
@@ -230,9 +231,8 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
 
       const set = liveUserSockets.get(userId);
       if (set) {
-        const next = new Set([...set].filter(id => id !== socket.id));
-        if (next.size === 0) liveUserSockets.delete(userId);
-        else liveUserSockets.set(userId, next);
+        set.delete(socket.id);
+        if (set.size === 0) liveUserSockets.delete(userId);
       }
     });
 
@@ -300,6 +300,8 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
     }
   }
 
+  // Store interval for potential cleanup during graceful shutdown
   const archiveInterval = setInterval(archiveStaleThreads, 10 * 60 * 1000);
+  void archiveInterval; // referenced to prevent unused-var lint; cleared via process exit
   void archiveInterval; // stored for potential cleanup
 }

@@ -6,7 +6,6 @@ import { messageSearchSchema } from '../validation.ts';
 import { createNotification, getPreferences } from '../notifications.ts';
 import { sendEmail, buildNewMessageEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
-import { setupSocketAuth } from '../socket-auth.ts';
 
 export default function messageRoutes(router: Router, io: Server): void {
   router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -147,8 +146,7 @@ export default function messageRoutes(router: Router, io: Server): void {
     }
   });
 
-  // Socket.io with shared JWT authentication
-  setupSocketAuth(io);
+  // Socket.io auth is set up in server.ts via setupSocketAuth(io)
 
   const userSockets = new Map<number, Set<string>>();
   const messageLimiter = new Map<number, number[]>();

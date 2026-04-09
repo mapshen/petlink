@@ -477,10 +477,17 @@ describe('pagination logic', () => {
 // Part 4: Role gating tests
 // ---------------------------------------------------------------------------
 describe('forum category role gating', () => {
+  // SQLite stores role_gate as TEXT, not PG array. Convert at test boundary.
+  function parseRoleGate(raw: string | null): string[] | null {
+    if (!raw) return null;
+    return raw.split(',');
+  }
+
+  // Import-compatible wrapper using the same logic as src/server/space-access.ts
   function canAccessSpace(userRoles: string[], roleGate: string | null): boolean {
-    if (!roleGate) return true;
-    const gates = roleGate.split(',');
-    return gates.some(role => userRoles.includes(role));
+    const parsed = parseRoleGate(roleGate);
+    if (!parsed || parsed.length === 0) return true;
+    return parsed.some(role => userRoles.includes(role));
   }
 
   let db: ReturnType<typeof createTestDb>;
