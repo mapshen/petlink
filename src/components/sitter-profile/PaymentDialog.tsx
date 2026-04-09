@@ -13,7 +13,8 @@ import {
 
 interface PaymentDialogProps {
   open: boolean;
-  onClose: () => void;
+  onDismiss: () => void;
+  onPayLater: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
   clientSecret: string | null;
@@ -24,7 +25,8 @@ interface PaymentDialogProps {
 
 export default function PaymentDialog({
   open,
-  onClose,
+  onDismiss,
+  onPayLater,
   onSuccess,
   onError,
   clientSecret,
@@ -33,7 +35,7 @@ export default function PaymentDialog({
   paymentError,
 }: PaymentDialogProps) {
   return (
-    <AlertDialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
+    <AlertDialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onDismiss(); }}>
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
@@ -61,7 +63,7 @@ export default function PaymentDialog({
           </Alert>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onClose}>
+          <AlertDialogCancel onClick={onPayLater}>
             Pay Later
           </AlertDialogCancel>
         </AlertDialogFooter>

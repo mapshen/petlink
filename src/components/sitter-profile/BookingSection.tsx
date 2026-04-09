@@ -514,7 +514,8 @@ export default function BookingSection({
 
       <PaymentDialog
         open={showPayment}
-        onClose={() => { setShowPayment(false); navigate('/home'); }}
+        onDismiss={() => setShowPayment(false)}
+        onPayLater={() => { setShowPayment(false); navigate('/home'); }}
         onSuccess={() => { setShowPayment(false); navigate('/home'); }}
         onError={(msg) => setBookingError(msg)}
         clientSecret={clientSecret}
