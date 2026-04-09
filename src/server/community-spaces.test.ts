@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { canAccessSpace } from './space-access.ts';
 
 describe('community spaces role gating', () => {
-  function canAccessSpace(userRoles: string[], roleGate: string[] | null): boolean {
-    if (!roleGate || roleGate.length === 0) return true;
-    return roleGate.some(role => userRoles.includes(role));
-  }
 
   it('allows access when role_gate is null (everyone)', () => {
     expect(canAccessSpace(['owner'], null)).toBe(true);

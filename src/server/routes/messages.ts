@@ -1,11 +1,12 @@
 import type { Router } from 'express';
 import type { Server } from 'socket.io';
 import sql from '../db.ts';
-import { authMiddleware, verifyToken, type AuthenticatedRequest } from '../auth.ts';
+import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { messageSearchSchema } from '../validation.ts';
 import { createNotification, getPreferences } from '../notifications.ts';
 import { sendEmail, buildNewMessageEmail } from '../email.ts';
 import logger, { sanitizeError } from '../logger.ts';
+import { setupSocketAuth } from '../socket-auth.ts';
 
 export default function messageRoutes(router: Router, io: Server): void {
   router.get('/conversations', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -146,20 +147,8 @@ export default function messageRoutes(router: Router, io: Server): void {
     }
   });
 
-  // Socket.io with JWT authentication
-  io.use((socket, next) => {
-    const token = socket.handshake.auth?.token;
-    if (!token) {
-      return next(new Error('Authentication required'));
-    }
-    try {
-      const decoded = verifyToken(token);
-      (socket as any).userId = decoded.userId;
-      next();
-    } catch {
-      next(new Error('Invalid token'));
-    }
-  });
+  // Socket.io with shared JWT authentication
+  setupSocketAuth(io);
 
   const userSockets = new Map<number, Set<string>>();
   const messageLimiter = new Map<number, number[]>();

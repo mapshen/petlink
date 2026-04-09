@@ -159,8 +159,8 @@ export default function UniversalPostsGrid({ destinationType, destinationId, onT
             {post.destinations && post.destinations.filter(d => d.destination_type !== 'profile').length > 0 && (
               <div className="flex flex-wrap gap-1.5 text-xs text-stone-400">
                 <span>Also in:</span>
-                {post.destinations.filter(d => d.destination_type !== 'profile').map((d, i) => (
-                  <span key={i} className="bg-stone-50 px-1.5 py-0.5 rounded text-stone-500">
+                {post.destinations.filter(d => d.destination_type !== 'profile').map((d) => (
+                  <span key={`${d.destination_type}-${d.destination_id}`} className="bg-stone-50 px-1.5 py-0.5 rounded text-stone-500">
                     {d.destination_name || (d.destination_type === 'pet' ? 'Pet profile' : 'Space')}
                   </span>
                 ))}

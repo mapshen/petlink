@@ -26,7 +26,7 @@ export interface OwnerProfileData {
     cancellation_rate?: number;
   };
   pets: Pet[];
-  reviews: OwnerReview[];
+  reviews?: OwnerReview[];
   isOwner: boolean;
 }
 

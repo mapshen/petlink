@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Shield, Calendar } from 'lucide-react';
+import { isPast, parseISO, differenceInYears } from 'date-fns';
 import { useProfileData, type OwnerProfileData, type OwnerReview, type PetProfileData, type PetVaccination } from '../../hooks/useProfileData';
 import { useEditableProfile } from '../../hooks/useEditableProfile';
 import ProfileViewHeader from './ProfileViewHeader';
@@ -82,9 +83,10 @@ function TrustStats({ owner }: { owner: OwnerProfileData['owner'] }) {
       )}
       <div className="text-center">
         <div className="text-sm font-semibold text-stone-800">
-          {new Date(owner.created_at).getFullYear() === new Date().getFullYear()
-            ? 'New'
-            : `${new Date().getFullYear() - new Date(owner.created_at).getFullYear()} yrs`}
+          {(() => {
+            const memberYears = differenceInYears(new Date(), new Date(owner.created_at));
+            return memberYears === 0 ? 'New' : `${memberYears} yrs`;
+          })()}
         </div>
         <div className="text-xs text-stone-500">Member</div>
       </div>
@@ -222,7 +224,7 @@ function VaccinationsList({ vaccinations }: { vaccinations: PetVaccination[] }) 
   return (
     <div className="space-y-2">
       {vaccinations.map(v => {
-        const isExpired = v.expires_at && new Date(v.expires_at) < new Date();
+        const isExpired = v.expires_at && isPast(parseISO(v.expires_at));
         return (
           <div key={v.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl">
             <div className="flex items-center gap-2">

@@ -223,7 +223,7 @@ export default function UniversalCreatePostDialog({
                   <label key={`space-${space.id}`} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-emerald-50 border border-emerald-200' : 'border border-stone-100 hover:border-emerald-200'}`}>
                     <input type="checkbox" checked={isSelected} onChange={() => toggleDestination('space', space.id)} className="accent-emerald-600 w-4 h-4" />
                     <div className="flex items-center gap-1.5 text-sm text-stone-700">
-                      <span>{space.emoji}</span> {space.name}
+                      {space.emoji && <span>{space.emoji}</span>} {space.name}
                     </div>
                   </label>
                 );
