@@ -93,7 +93,22 @@ export default function petRoutes(router: Router): void {
         FROM users WHERE id = ${pet.owner_id}
       `;
       res.json({
-        pet: { ...pet, owner_id: undefined },
+        pet: {
+          id: pet.id,
+          name: pet.name,
+          slug: pet.slug,
+          species: pet.species,
+          breed: pet.breed,
+          age: pet.age,
+          weight: pet.weight,
+          gender: pet.gender,
+          spayed_neutered: pet.spayed_neutered,
+          energy_level: pet.energy_level,
+          house_trained: pet.house_trained,
+          temperament: pet.temperament,
+          special_needs: pet.special_needs,
+          photo_url: pet.photo_url,
+        },
         owner: owner ? { id: owner.id, name: owner.name, slug: owner.slug, avatar_url: owner.avatar_url } : null,
         isOwner: req.userId === pet.owner_id,
       });

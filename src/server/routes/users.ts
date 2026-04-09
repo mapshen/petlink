@@ -384,7 +384,7 @@ export default function userRoutes(router: Router): void {
     try {
       const [owner] = await sql`
         SELECT id, name, slug, avatar_url, bio, created_at, roles
-        FROM users WHERE slug = ${req.params.slug}
+        FROM users WHERE slug = ${req.params.slug} AND roles @> '{owner}'::text[]
       `;
       if (!owner) {
         res.status(404).json({ error: 'User not found' });

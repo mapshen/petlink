@@ -16,30 +16,41 @@ const SPECIES_EMOJI: Record<string, string> = {
   small_animal: '🐹',
 };
 
-function PetCard({ pet }: { pet: Pet }) {
+function PetCardContent({ pet }: { pet: Pet }) {
   return (
-    <Link
-      to={`/pet/${pet.slug || pet.id}`}
-      className="border border-stone-200 rounded-xl p-4 hover:border-emerald-200 hover:shadow-sm transition-all"
-    >
-      <div className="flex items-start gap-3">
-        <div className="w-14 h-14 rounded-xl bg-amber-50 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">
-          {pet.photo_url ? (
-            <img src={pet.photo_url} alt={pet.name} className="w-full h-full object-cover" />
-          ) : (
-            SPECIES_EMOJI[pet.species] || '🐾'
-          )}
+    <div className="flex items-start gap-3">
+      <div className="w-14 h-14 rounded-xl bg-amber-50 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">
+        {pet.photo_url ? (
+          <img src={pet.photo_url} alt={pet.name} className="w-full h-full object-cover" />
+        ) : (
+          SPECIES_EMOJI[pet.species] || '🐾'
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="font-semibold text-stone-800 text-sm">{pet.name}</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-semibold text-stone-800 text-sm">{pet.name}</span>
-          </div>
-          <div className="text-xs text-stone-500">
-            {pet.breed && `${pet.breed} · `}{pet.age ? `${pet.age} yrs` : ''}{pet.gender ? ` · ${pet.gender}` : ''}
-          </div>
+        <div className="text-xs text-stone-500">
+          {pet.breed && `${pet.breed} · `}{pet.age ? `${pet.age} yrs` : ''}{pet.gender ? ` · ${pet.gender}` : ''}
         </div>
       </div>
-    </Link>
+    </div>
+  );
+}
+
+function PetCard({ pet }: { pet: Pet }) {
+  const className = "border border-stone-200 rounded-xl p-4 hover:border-emerald-200 hover:shadow-sm transition-all";
+  if (pet.slug) {
+    return (
+      <Link to={`/pet/${pet.slug}`} className={className}>
+        <PetCardContent pet={pet} />
+      </Link>
+    );
+  }
+  return (
+    <div className={className}>
+      <PetCardContent pet={pet} />
+    </div>
   );
 }
 
