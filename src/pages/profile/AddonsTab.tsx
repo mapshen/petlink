@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import type { SitterAddon } from '../../types';
 import { Save, X, PackagePlus } from 'lucide-react';

@@ -53,21 +53,6 @@ export default function PoliciesTab() {
     setCameraPolicyNote(user.camera_policy_note || '');
   }, [user]);
 
-  useEffect(() => {
-    if (!user) return;
-    const fetchPolicy = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/cancellation-policy`, { headers: getAuthHeaders(token) });
-        if (res.ok) {
-          const data = await res.json();
-          setPolicy(data.cancellation_policy);
-        }
-      } catch {
-        // Non-critical
-      }
-    };
-    fetchPolicy();
-  }, [user, token]);
 
   const fetchLoyaltyTiers = useCallback(async () => {
     try {
@@ -124,11 +109,12 @@ export default function PoliciesTab() {
     setSaving(true);
     setMessage('');
     try {
-      await fetch(`${API_BASE}/cancellation-policy`, {
+      const policyRes = await fetch(`${API_BASE}/cancellation-policy`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
         body: JSON.stringify({ cancellation_policy: policy }),
       });
+      if (!policyRes.ok) throw new Error('Failed to save cancellation policy');
 
       const userRes = await fetch(`${API_BASE}/users/me`, {
         method: 'PUT',
@@ -148,11 +134,12 @@ export default function PoliciesTab() {
         updateUser(data.user);
       }
 
-      await fetch(`${API_BASE}/loyalty-discounts`, {
+      const loyaltyRes = await fetch(`${API_BASE}/loyalty-discounts`, {
         method: 'PUT',
         headers: getAuthHeaders(token),
         body: JSON.stringify({ tiers: loyaltyTiers }),
       });
+      if (!loyaltyRes.ok) throw new Error('Failed to save discount tiers');
 
       setMessage('Policies saved');
       setTimeout(() => setMessage(''), 3000);

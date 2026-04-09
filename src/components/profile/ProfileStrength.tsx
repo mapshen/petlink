@@ -18,7 +18,7 @@ function computeStrength(user: User, services: Service[], photos: SitterPhoto[])
     { label: 'Upload avatar', done: !!user.avatar_url, href: '#section-about' },
     { label: 'Write bio', done: !!user.bio, href: '#section-about' },
     { label: 'Add services', done: services.length > 0, href: '#section-services' },
-    { label: 'Set location', done: !!(user.lat && user.lng), href: '#section-location' },
+    { label: 'Set location', done: user.lat != null && user.lng != null, href: '#section-location' },
     { label: 'Upload photos', done: photos.length > 0, href: '#section-photos' },
     { label: 'Set pet types and experience', done: (user.accepted_species?.length ?? 0) > 0, href: '#section-services' },
   ];
