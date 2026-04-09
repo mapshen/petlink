@@ -16,7 +16,7 @@ const ALL_SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   { id: 'account', label: 'Account', mode: 'both' },
   { id: 'security', label: 'Security', mode: 'both' },
   { id: 'notifications', label: 'Notifications', mode: 'both' },
-  { id: 'payment-methods', label: 'Payment Methods', mode: 'both' },
+  { id: 'payment-methods', label: 'Payments', mode: 'both' },
   { id: 'subscription', label: 'Subscription', mode: 'sitter' },
 ];
 
@@ -40,7 +40,7 @@ function getVisibleSectionIds(
 }
 
 describe('SettingsPage section visibility', () => {
-  it('all users see 4 base sections (Account, Security, Notifications, Payment Methods)', () => {
+  it('all users see 4 base sections (Account, Security, Notifications, Payments)', () => {
     const ids = getVisibleSectionIds('owner', false);
     expect(ids).toEqual(['account', 'security', 'notifications', 'payment-methods']);
     expect(ids).toHaveLength(4);
