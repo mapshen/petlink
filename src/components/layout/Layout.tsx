@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useMode } from '../../context/ModeContext';
 import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X, HelpCircle, User, Settings } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import MobileMenu from './MobileMenu';
@@ -14,21 +13,18 @@ function cn(...inputs: (string | undefined | null | false)[]) {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const { mode } = useMode();
   const location = useLocation();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
-  const isSitter = mode === 'sitter' || (user?.roles?.includes('sitter') ?? false);
-
   const navItems = user ? [
     { name: 'Home', path: '/home', icon: Calendar },
     { name: 'Search', path: '/search', icon: MapPin },
     { name: 'Messages', path: '/messages', icon: MessageSquare },
     { name: 'Profile', path: '/profile', icon: User },
-    ...(isSitter ? [{ name: 'Wallet', path: '/wallet', icon: Wallet }] : []),
+    { name: 'Wallet', path: '/wallet', icon: Wallet },
     ...(user.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
   ] : [
     { name: 'Search', path: '/search', icon: MapPin },

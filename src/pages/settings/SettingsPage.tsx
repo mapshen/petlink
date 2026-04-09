@@ -1,17 +1,12 @@
-import { useState, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useLayoutEffect, useRef, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
-import { UserCog, KeyRound, Bell, CreditCard, Crown, Trash2, History, Coins } from 'lucide-react';
+import { UserCog, KeyRound, Bell, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useMode } from '../../context/ModeContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import AccountSection from '../profile/AccountSection';
 import SecuritySection from '../profile/SecuritySection';
 import NotificationSection from '../profile/NotificationSection';
 import DeleteAccountDialog from '../profile/DeleteAccountDialog';
-import SubscriptionPage from '../profile/SubscriptionPage';
-import PaymentMethodsSection from './PaymentMethodsSection';
-import PaymentHistorySection from '../payments/PaymentHistorySection';
-import CreditsSection from '../payments/CreditsSection';
 import type React from 'react';
 
 interface SettingsSectionDef {
@@ -19,54 +14,22 @@ interface SettingsSectionDef {
   readonly label: string;
   readonly icon: React.ElementType;
   readonly description: string;
-  readonly group: 'account' | 'billing';
-  readonly mode: 'owner' | 'sitter' | 'both';
 }
 
 const ALL_SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
-  // Account group
-  { id: 'account', label: 'Account', icon: UserCog, description: 'Email, phone, privacy, and emergency contacts', group: 'account', mode: 'both' },
-  { id: 'security', label: 'Security', icon: KeyRound, description: 'Password and linked accounts', group: 'account', mode: 'both' },
-  { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Manage your notification preferences', group: 'account', mode: 'both' },
-  // Billing group
-  { id: 'payments', label: 'Payments', icon: CreditCard, description: 'Manage your saved cards', group: 'billing', mode: 'both' },
-  { id: 'payment-history', label: 'Payment History', icon: History, description: 'Your payment transactions', group: 'billing', mode: 'both' },
-  { id: 'credits', label: 'Credits', icon: Coins, description: 'Credit balance and history', group: 'billing', mode: 'both' },
-  { id: 'subscription', label: 'Subscription', icon: Crown, description: 'Manage your subscription plan', group: 'billing', mode: 'sitter' },
+  { id: 'account', label: 'Account', icon: UserCog, description: 'Email, phone, privacy, and emergency contacts' },
+  { id: 'security', label: 'Security', icon: KeyRound, description: 'Password and linked accounts' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Manage your notification preferences' },
 ];
 
 export default function SettingsPage() {
   useDocumentTitle('Settings');
   const { user, token, loading } = useAuth();
-  const { mode } = useMode();
 
   const [activeSection, setActiveSection] = useState('account');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-
-  const hasSitterRole = user?.roles?.includes('sitter') ?? false;
-  const isSitter = mode === 'sitter' && hasSitterRole;
-
-  const visibleSections = useMemo(
-    () =>
-      ALL_SETTINGS_SECTIONS.filter((s) => {
-        if (s.mode === 'both') return true;
-        if (s.mode === 'sitter') return isSitter;
-        return false;
-      }),
-    [isSitter],
-  );
-
-  const accountSections = useMemo(
-    () => visibleSections.filter((s) => s.group === 'account'),
-    [visibleSections],
-  );
-
-  const billingSections = useMemo(
-    () => visibleSections.filter((s) => s.group === 'billing'),
-    [visibleSections],
-  );
 
   useLayoutEffect(() => {
     const refs = sectionRefs.current;
@@ -87,7 +50,7 @@ export default function SettingsPage() {
     }
 
     return () => observer.disconnect();
-  }, [visibleSections]);
+  }, []);
 
   const registerRef = useCallback((id: string, el: HTMLDivElement | null) => {
     if (el) {
@@ -102,10 +65,6 @@ export default function SettingsPage() {
       case 'account': return <AccountSection token={token} user={user} />;
       case 'security': return <SecuritySection token={token} />;
       case 'notifications': return <NotificationSection token={token} />;
-      case 'payments': return <PaymentMethodsSection />;
-      case 'payment-history': return <PaymentHistorySection token={token} />;
-      case 'credits': return <CreditsSection token={token} />;
-      case 'subscription': return <SubscriptionPage embedded />;
       default: return null;
     }
   };
@@ -123,32 +82,6 @@ export default function SettingsPage() {
     return <Navigate to="/login" replace />;
   }
 
-  const renderSidebarGroup = (label: string, sections: readonly SettingsSectionDef[]) => (
-    <div key={label}>
-      <span className="block px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-stone-400">
-        {label}
-      </span>
-      {sections.map((s) => {
-        const Icon = s.icon;
-        return (
-          <a
-            key={s.id}
-            href={`#section-${s.id}`}
-            aria-current={activeSection === s.id ? 'true' : undefined}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
-              activeSection === s.id
-                ? 'bg-emerald-50 text-emerald-700 font-medium'
-                : 'text-stone-500 hover:bg-stone-50 hover:text-stone-900'
-            }`}
-          >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            {s.label}
-          </a>
-        );
-      })}
-    </div>
-  );
-
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-6">
@@ -161,9 +94,24 @@ export default function SettingsPage() {
         <div>
           <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-3 sticky top-20 flex flex-col">
             <nav aria-label="Settings sections" className="flex md:flex-col gap-0.5 overflow-x-auto md:overflow-x-visible flex-1">
-              {renderSidebarGroup('Account', accountSections)}
-              <div className="my-1 border-t border-stone-100" />
-              {renderSidebarGroup('Billing', billingSections)}
+              {ALL_SETTINGS_SECTIONS.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <a
+                    key={s.id}
+                    href={`#section-${s.id}`}
+                    aria-current={activeSection === s.id ? 'true' : undefined}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
+                      activeSection === s.id
+                        ? 'bg-emerald-50 text-emerald-700 font-medium'
+                        : 'text-stone-500 hover:bg-stone-50 hover:text-stone-900'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    {s.label}
+                  </a>
+                );
+              })}
             </nav>
 
             <div className="mt-auto pt-3 border-t border-stone-100">
@@ -180,7 +128,7 @@ export default function SettingsPage() {
 
         {/* RIGHT: Section Content */}
         <div className="min-w-0 space-y-6">
-          {visibleSections.map((s) => {
+          {ALL_SETTINGS_SECTIONS.map((s) => {
             const Icon = s.icon;
             return (
               <div
