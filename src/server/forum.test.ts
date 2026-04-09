@@ -31,6 +31,11 @@ function createTestDb() {
       slug TEXT NOT NULL UNIQUE,
       description TEXT,
       sort_order INTEGER NOT NULL DEFAULT 0,
+      space_type TEXT NOT NULL DEFAULT 'everyone',
+      role_gate TEXT,
+      emoji TEXT,
+      member_count INTEGER DEFAULT 0,
+      active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -65,12 +70,14 @@ function createTestDb() {
   db.prepare("INSERT INTO users (email, password_hash, name, roles, approval_status) VALUES (?, ?, ?, ?, ?)").run('sitter@test.com', 'hash', 'Sitter', 'owner,sitter', 'approved');
   db.prepare("INSERT INTO users (email, password_hash, name, roles, approval_status) VALUES (?, ?, ?, ?, ?)").run('admin@test.com', 'hash', 'Admin', 'owner,sitter,admin', 'approved');
 
-  // Seed categories
-  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order) VALUES (?, ?, ?, ?)").run('General', 'general', 'General discussion', 1);
-  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order) VALUES (?, ?, ?, ?)").run('Tips & Tricks', 'tips-and-tricks', 'Share tips', 2);
-  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order) VALUES (?, ?, ?, ?)").run('Pet Care', 'pet-care', 'Pet care discussion', 3);
-  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order) VALUES (?, ?, ?, ?)").run('Business', 'business', 'Business discussion', 4);
-  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order) VALUES (?, ?, ?, ?)").run('Introductions', 'introductions', 'Introduce yourself', 5);
+  // Seed categories (7 matching production community spaces)
+  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order, space_type, role_gate, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)").run('Sitter Lounge', 'sitter-lounge', 'Sitter community hangout', 1, 'sitter_only', 'sitter', '☕');
+  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order, space_type, role_gate, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)").run('Pro Tips', 'tips-and-tricks', 'Share tips and tricks', 2, 'sitter_only', 'sitter', '💡');
+  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order, space_type, role_gate, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)").run('Pet Health', 'pet-care', 'Pet health discussion', 3, 'everyone', null, '🩺');
+  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order, space_type, role_gate, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)").run('New Sitters', 'new-sitters', 'New sitter resources', 4, 'sitter_only', 'sitter', '🌱');
+  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order, space_type, role_gate, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)").run('Pet Parents', 'pet-parents', 'Owner community', 5, 'owner_only', 'owner', '🐾');
+  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order, space_type, role_gate, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)").run('General', 'general', 'General discussion', 6, 'everyone', null, '💬');
+  db.prepare("INSERT INTO forum_categories (name, slug, description, sort_order, space_type, role_gate, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)").run('Introductions', 'introductions', 'Introduce yourself', 7, 'everyone', null, '👋');
 
   return db;
 }
@@ -253,11 +260,11 @@ describe('forum_categories schema', () => {
     db = createTestDb();
   });
 
-  it('seeds 5 categories with correct ordering', () => {
+  it('seeds 7 categories with correct ordering', () => {
     const categories = db.prepare('SELECT * FROM forum_categories ORDER BY sort_order').all() as any[];
-    expect(categories).toHaveLength(5);
-    expect(categories[0].slug).toBe('general');
-    expect(categories[4].slug).toBe('introductions');
+    expect(categories).toHaveLength(7);
+    expect(categories[0].slug).toBe('sitter-lounge');
+    expect(categories[6].slug).toBe('introductions');
   });
 
   it('enforces unique slug constraint', () => {
@@ -463,5 +470,48 @@ describe('pagination logic', () => {
   it('prevents negative offset', () => {
     const offset = Math.max(Number(-5) || 0, 0);
     expect(offset).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Part 4: Role gating tests
+// ---------------------------------------------------------------------------
+describe('forum category role gating', () => {
+  // SQLite stores role_gate as TEXT, not PG array. Convert at test boundary.
+  function parseRoleGate(raw: string | null): string[] | null {
+    if (!raw) return null;
+    return raw.split(',');
+  }
+
+  // Import-compatible wrapper using the same logic as src/server/space-access.ts
+  function canAccessSpace(userRoles: string[], roleGate: string | null): boolean {
+    const parsed = parseRoleGate(roleGate);
+    if (!parsed || parsed.length === 0) return true;
+    return parsed.some(role => userRoles.includes(role));
+  }
+
+  let db: ReturnType<typeof createTestDb>;
+
+  beforeEach(() => {
+    db = createTestDb();
+  });
+
+  it('sitter-only space blocks owner-only users', () => {
+    const category = db.prepare("SELECT role_gate FROM forum_categories WHERE slug = 'sitter-lounge'").get() as any;
+    const ownerRoles = ['owner'];
+    expect(canAccessSpace(ownerRoles, category.role_gate)).toBe(false);
+  });
+
+  it('everyone space allows all roles', () => {
+    const category = db.prepare("SELECT role_gate FROM forum_categories WHERE slug = 'general'").get() as any;
+    expect(canAccessSpace(['owner'], category.role_gate)).toBe(true);
+    expect(canAccessSpace(['sitter'], category.role_gate)).toBe(true);
+    expect(canAccessSpace(['owner', 'sitter', 'admin'], category.role_gate)).toBe(true);
+  });
+
+  it('owner-only space blocks sitter-only users', () => {
+    const category = db.prepare("SELECT role_gate FROM forum_categories WHERE slug = 'pet-parents'").get() as any;
+    const sitterOnlyRoles = ['sitter'];
+    expect(canAccessSpace(sitterOnlyRoles, category.role_gate)).toBe(false);
   });
 });

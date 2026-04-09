@@ -4,15 +4,10 @@ import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { adminMiddleware, isAdminUser } from '../admin.ts';
 import { validate, createForumThreadSchema, createForumReplySchema, adminUpdateThreadSchema } from '../validation.ts';
 import logger, { sanitizeError } from '../logger.ts';
+import { canAccessSpace } from '../space-access.ts';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
-
-/** Check if user has access to a space based on its role_gate */
-function canAccessSpace(userRoles: string[], roleGate: string[] | null): boolean {
-  if (!roleGate || roleGate.length === 0) return true;
-  return roleGate.some(role => userRoles.includes(role));
-}
 
 export default function forumRoutes(router: Router): void {
   // ---- Community Spaces (Categories) ----
@@ -28,21 +23,19 @@ export default function forumRoutes(router: Router): void {
       const categories = await sql`
         SELECT
           fc.id, fc.name, fc.slug, fc.description, fc.sort_order,
-          fc.space_type, fc.role_gate, fc.emoji, fc.member_count,
+          fc.space_type, fc.role_gate, fc.emoji,
+          (SELECT COUNT(DISTINCT ft2.author_id) FROM forum_threads ft2 WHERE ft2.category_id = fc.id) AS member_count,
           COUNT(ft.id)::int AS thread_count,
           MAX(GREATEST(ft.created_at, ft.updated_at)) AS latest_activity
         FROM forum_categories fc
         LEFT JOIN forum_threads ft ON ft.category_id = fc.id
         WHERE fc.active = TRUE
+          AND (fc.role_gate IS NULL OR fc.role_gate = '{}' OR fc.role_gate && ${userRoles}::text[])
         GROUP BY fc.id
         ORDER BY fc.sort_order ASC
       `;
 
-      const filtered = categories.filter((c: { role_gate: string[] | null }) =>
-        canAccessSpace(userRoles, c.role_gate)
-      );
-
-      res.json({ categories: filtered });
+      res.json({ categories });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to fetch forum categories');
       res.status(500).json({ error: 'Failed to fetch forum categories' });
@@ -62,7 +55,7 @@ export default function forumRoutes(router: Router): void {
       const threads = await sql`
         SELECT
           ft.id, ft.title, ft.content, ft.created_at,
-          fc.name AS space_name, fc.slug AS space_slug, fc.emoji AS space_emoji, fc.role_gate,
+          fc.name AS space_name, fc.slug AS space_slug, fc.emoji AS space_emoji,
           u.name AS author_name, u.avatar_url AS author_avatar,
           COUNT(fr.id)::int AS reply_count
         FROM forum_threads ft
@@ -71,16 +64,13 @@ export default function forumRoutes(router: Router): void {
         LEFT JOIN forum_replies fr ON fr.thread_id = ft.id
         WHERE fc.active = TRUE
           AND ft.created_at > NOW() - INTERVAL '7 days'
+          AND (fc.role_gate IS NULL OR fc.role_gate = '{}' OR fc.role_gate && ${userRoles}::text[])
         GROUP BY ft.id, fc.id, u.id
         ORDER BY COUNT(fr.id) DESC, ft.created_at DESC
         LIMIT 10
       `;
 
-      const filtered = threads.filter((t: { role_gate: string[] | null }) =>
-        canAccessSpace(userRoles, t.role_gate)
-      );
-
-      res.json({ threads: filtered });
+      res.json({ threads });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to fetch trending threads');
       res.status(500).json({ error: 'Failed to fetch trending threads' });

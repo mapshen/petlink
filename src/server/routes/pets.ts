@@ -77,6 +77,12 @@ export default function petRoutes(router: Router): void {
   // --- Public Pet Profile (auth-gated) ---
   router.get('/pets/by-slug/:slug', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
+      const slug = req.params.slug;
+      if (!slug || slug.length > 100 || !/^[a-z0-9-]+$/.test(slug)) {
+        res.status(400).json({ error: 'Invalid slug format' });
+        return;
+      }
+
       const [pet] = await sql`
         SELECT p.id, p.name, p.slug, p.species, p.breed, p.age, p.weight, p.gender,
                p.spayed_neutered, p.energy_level, p.house_trained, p.temperament,

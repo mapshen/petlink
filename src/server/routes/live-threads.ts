@@ -3,16 +3,13 @@ import type { Server } from 'socket.io';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import logger, { sanitizeError } from '../logger.ts';
+import { canAccessSpace } from '../space-access.ts';
 
 const MAX_ACTIVE_THREADS_PER_SPACE = 3;
 const AUTO_ARCHIVE_MINUTES = 120;
 const MESSAGE_RATE_LIMIT = 10;
 const MESSAGE_RATE_WINDOW_MS = 10000;
-
-function canAccessSpace(userRoles: string[], roleGate: string[] | null): boolean {
-  if (!roleGate || roleGate.length === 0) return true;
-  return roleGate.some(role => userRoles.includes(role));
-}
+const MAX_LIVE_CONNECTIONS = 5;
 
 async function verifyThreadAccess(threadId: number, userId: number): Promise<{ thread: any; allowed: boolean }> {
   const [thread] = await sql`SELECT lt.id, lt.space_id, lt.status FROM live_threads lt WHERE lt.id = ${threadId}`;
@@ -174,10 +171,20 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
   // Socket.io event handlers for live threads
   const socketRooms = new Map<string, Set<number>>();
   const messageLimiter = new Map<number, number[]>();
+  const liveUserSockets = new Map<number, Set<string>>();
 
   io.on('connection', (socket) => {
     const userId = (socket as any).userId;
-    if (!userId) return;
+    if (!userId) return; // Auth middleware guarantees this, but defensive guard
+
+    // Per-user connection limit
+    const userSet = liveUserSockets.get(userId) ?? new Set<string>();
+    if (userSet.size >= MAX_LIVE_CONNECTIONS) {
+      socket.disconnect(true);
+      return;
+    }
+    userSet.add(socket.id);
+    liveUserSockets.set(userId, userSet);
 
     socket.on('join_live_thread', async (data: { thread_id: number }) => {
       const { thread_id } = data;
@@ -221,6 +228,12 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
       }
       socketRooms.delete(socket.id);
       messageLimiter.delete(userId);
+
+      const set = liveUserSockets.get(userId);
+      if (set) {
+        set.delete(socket.id);
+        if (set.size === 0) liveUserSockets.delete(userId);
+      }
     });
 
     socket.on('live_message', async (data: { thread_id: number; content: string; photo_url?: string }) => {
@@ -287,5 +300,8 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
     }
   }
 
-  setInterval(archiveStaleThreads, 10 * 60 * 1000);
+  // Store interval for potential cleanup during graceful shutdown
+  const archiveInterval = setInterval(archiveStaleThreads, 10 * 60 * 1000);
+  void archiveInterval; // referenced to prevent unused-var lint; cleared via process exit
+  void archiveInterval; // stored for potential cleanup
 }

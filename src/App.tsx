@@ -43,8 +43,6 @@ const ForumPage = React.lazy(() => import('./pages/forum/ForumPage'));
 const CommunityPage = React.lazy(() => import('./pages/community/CommunityPage'));
 const OwnerProfilePage = React.lazy(() => import('./pages/profile/OwnerProfilePage'));
 const PetProfilePage = React.lazy(() => import('./pages/profile/PetProfilePage'));
-const ForumCategoryPage = React.lazy(() => import('./pages/forum/CategoryPage'));
-const ForumThreadPage = React.lazy(() => import('./pages/forum/ThreadPage'));
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'));
 
 function LoadingSpinner() {
@@ -100,8 +98,8 @@ export default function App() {
                 <Route path="/community/:slug" element={<ProtectedRoute><ForumPage /></ProtectedRoute>} />
                 <Route path="/community/:slug/thread/:threadId" element={<ProtectedRoute><ForumPage /></ProtectedRoute>} />
                 <Route path="/forum" element={<Navigate to="/community" replace />} />
-                <Route path="/forum/threads/:id" element={<ProtectedRoute><ForumThreadPage /></ProtectedRoute>} />
-                <Route path="/forum/:slug" element={<ProtectedRoute><ForumCategoryPage /></ProtectedRoute>} />
+                <Route path="/forum/:slug" element={<Navigate to="/community" replace />} />
+                <Route path="/forum/threads/:id" element={<Navigate to="/community" replace />} />
                 <Route path="/track/:bookingId" element={<ProtectedRoute><TrackWalk /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

@@ -8,6 +8,9 @@ import {
 import { validate, updateProfileSchema } from '../validation.ts';
 import { isAdminUser } from '../admin.ts';
 import logger, { sanitizeError } from '../logger.ts';
+
+const OWNER_PROFILE_REVIEW_LIMIT = 50;
+
 export default function userRoutes(router: Router): void {
   router.put(
     '/users/me',
@@ -385,9 +388,15 @@ export default function userRoutes(router: Router): void {
   // --- Public Owner Profile (auth-gated) ---
   router.get('/owners/by-slug/:slug', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
+      const slug = req.params.slug;
+      if (!slug || slug.length > 100 || !/^[a-z0-9-]+$/.test(slug)) {
+        res.status(400).json({ error: 'Invalid slug format' });
+        return;
+      }
+
       const [owner] = await sql`
         SELECT id, name, slug, avatar_url, bio, created_at, roles
-        FROM users WHERE slug = ${req.params.slug} AND roles @> '{owner}'::text[]
+        FROM users WHERE slug = ${slug} AND roles @> '{owner}'::text[]
       `;
       if (!owner) {
         res.status(404).json({ error: 'User not found' });
@@ -421,7 +430,7 @@ export default function userRoutes(router: Router): void {
           JOIN users u ON u.id = r.reviewer_id
           WHERE r.reviewee_id = ${owner.id} AND r.published_at IS NOT NULL
           ORDER BY r.created_at DESC
-          LIMIT 50
+          LIMIT ${OWNER_PROFILE_REVIEW_LIMIT}
         `,
       ]);
 

@@ -2,19 +2,19 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, ArrowLeft } from 'lucide-react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
-import type { LiveThread as LiveThreadType, LiveThreadMessage } from '../../types';
+import type { LiveThreadMessage } from '../../types';
 import io from 'socket.io-client';
 
 interface LiveThreadProps {
   threadId: number;
+  title?: string;
   onBack: () => void;
 }
 
-export default function LiveThread({ threadId, onBack }: LiveThreadProps) {
+export default function LiveThread({ threadId, title, onBack }: LiveThreadProps) {
   const { user, token } = useAuth();
   const [messages, setMessages] = useState<LiveThreadMessage[]>([]);
   const [input, setInput] = useState('');
-  const [thread, setThread] = useState<LiveThreadType | null>(null);
   const [participants, setParticipants] = useState<Array<{ user_id: number; user_name: string }>>([]);
   const [archived, setArchived] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -89,13 +89,13 @@ export default function LiveThread({ threadId, onBack }: LiveThreadProps) {
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 p-4">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="text-emerald-100 hover:text-white">
+          <button onClick={onBack} className="text-emerald-100 hover:text-white" aria-label="Go back">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
             <div className="flex items-center gap-2">
               {!archived && <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />}
-              <h2 className="text-white font-semibold text-sm">{thread?.title || 'Live Thread'}</h2>
+              <h2 className="text-white font-semibold text-sm">{title || 'Live Thread'}</h2>
             </div>
             <div className="text-emerald-100 text-xs mt-0.5">
               {archived ? 'Archived' : `${participants.length} people`}
@@ -150,6 +150,7 @@ export default function LiveThread({ threadId, onBack }: LiveThreadProps) {
             onClick={sendMessage}
             disabled={!input.trim()}
             className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-50"
+            aria-label="Send message"
           >
             <Send className="w-5 h-5" />
           </button>

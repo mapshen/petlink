@@ -27,6 +27,7 @@ import {
   paymentRoutes, subscriptionRoutes, walkRoutes, analyticsRoutes,
   adminRoutes, uploadRoutes, calendarRoutes, importRoutes, miscRoutes, postRoutes, speciesProfileRoutes, tipRoutes, profileMemberRoutes, inquiryRoutes, referenceRoutes, addonRoutes, incidentRoutes, disputeRoutes, connectRoutes, creditRoutes, reliabilityRoutes, petNoteRoutes, partnerRoutes, proPeriodRoutes, loyaltyDiscountRoutes, insightRoutes, referralRoutes, phoneRelayRoutes, banActionRoutes, reviewModerationRoutes, backupSitterRoutes, lostPetAlertRoutes, forumRoutes, mentorshipRoutes, mentorshipRevenueRoutes, campaignRoutes, emergencyContactRoutes, universalPostRoutes, liveThreadRoutes,
 } from './src/server/routes/index.ts';
+import { setupSocketAuth } from './src/server/socket-auth.ts';
 import type { ErrorRequestHandler } from 'express';
 import logger, { sanitizeError } from './src/server/logger.ts';
 
@@ -150,6 +151,9 @@ async function startServer() {
 
   // All versioned API routes — async handlers auto-wrapped with error catching
   const v1 = createAsyncRouter();
+
+  // Socket.io auth — must be registered before any route that uses io
+  setupSocketAuth(io);
 
   // Register all domain routes
   authRoutes(v1);
