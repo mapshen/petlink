@@ -47,6 +47,7 @@ export interface BookingSectionProps {
   cityName: string | null;
   bookingRef: React.RefObject<HTMLDivElement>;
   onAvailabilityLoaded: (data: Availability[]) => void;
+  initialServiceId?: number | null;
 }
 
 export default function BookingSection({
@@ -65,13 +66,15 @@ export default function BookingSection({
   cityName,
   bookingRef,
   onAvailabilityLoaded,
+  initialServiceId,
 }: BookingSectionProps) {
   const navigate = useNavigate();
 
   // Booking-specific state
-  const [selectedService, setSelectedService] = useState<number | null>(
-    services.length > 0 ? services[0].id : null
-  );
+  const [selectedService, setSelectedService] = useState<number | null>(() => {
+    const matched = initialServiceId && services.find(s => s.id === initialServiceId);
+    return matched ? matched.id : services.length > 0 ? services[0].id : null;
+  });
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [wantsPickup, setWantsPickup] = useState(false);

@@ -236,10 +236,11 @@ export default function SitterProfileHeader({
                 {viewAsVisitor ? 'Back to editing' : 'View as visitor'}
               </button>
             )}
-            {!isOwner && (
+            {(!isOwner || viewAsVisitor) && (
               <button
-                onClick={onBookClick}
-                className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors"
+                onClick={isOwner ? undefined : onBookClick}
+                disabled={isOwner}
+                className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Book Now
               </button>

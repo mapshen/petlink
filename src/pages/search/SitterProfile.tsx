@@ -3,7 +3,7 @@ import { useEditableProfile } from '../../hooks/useEditableProfile';
 import EditableSection from '../../components/sitter-profile/EditableSection';
 import OwnerInsightsStrip from '../../components/sitter-profile/OwnerInsightsStrip';
 import SitterProfileStrengthBar from '../../components/sitter-profile/SitterProfileStrengthBar';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile, ProfileMember, SitterAddon } from '../../types';
 import SitterProfileHeader from '../../components/sitter-profile/SitterProfileHeader';
 import ServiceHighlights from '../../components/sitter-profile/ServiceHighlights';
@@ -19,7 +19,6 @@ import BookingSection from '../../components/sitter-profile/BookingSection';
 import { API_BASE } from '../../config';
 import { reverseGeocode } from '../../lib/geo';
 
-const SitterLocationMap = lazy(() => import('../../components/map/SitterLocationMap'));
 const ProfileTab = lazy(() => import('../profile/ProfileTab'));
 const SpeciesProfilesTab = lazy(() => import('../profile/SpeciesProfilesTab'));
 const HomeEnvironmentTab = lazy(() => import('../profile/HomeEnvironmentTab'));
@@ -36,8 +35,7 @@ import TurnstileWidget from '../../components/auth/TurnstileWidget';
 export default function SitterProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const serviceIdParam = searchParams.get('serviceId');
+  const serviceIdParam = new URLSearchParams(window.location.search).get('serviceId');
   const { user, token } = useAuth();
   const { token: turnstileToken, containerRef: turnstileRef } = useTurnstile({
     siteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
@@ -361,6 +359,7 @@ export default function SitterProfile() {
             cityName={cityName}
             bookingRef={bookingRef}
             onAvailabilityLoaded={handleAvailabilityLoaded}
+            initialServiceId={serviceIdParam ? Number(serviceIdParam) : null}
           />
         )}
       </div>

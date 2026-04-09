@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { Pencil, X } from 'lucide-react';
 
 interface EditableSectionProps {
@@ -23,6 +23,15 @@ export default function EditableSection({
   editContent,
 }: EditableSectionProps) {
   const showEditAffordance = isOwner && !viewAsVisitor && !isEditing;
+
+  useEffect(() => {
+    if (!isEditing) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isEditing, onClose]);
 
   if (isEditing) {
     return (
