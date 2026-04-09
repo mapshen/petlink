@@ -8,7 +8,7 @@ import { recordPayoutForBooking } from '../payouts.ts';
 import { calculateApplicationFee } from '../stripe-connect.ts';
 import { capturePayment } from '../payments.ts';
 import { applyRevenueSplit } from '../mentorship-revenue.ts';
-import { MAX_POSTS_PER_SITTER } from './posts.ts';
+import { MAX_POSTS_PER_USER } from './universal-posts.ts';
 import { completeReferral } from '../referrals.ts';
 import { checkMentorshipCompletion } from '../mentorships.ts';
 import logger, { sanitizeError } from '../logger.ts';
@@ -78,12 +78,22 @@ export default function walkRoutes(router: Router, io: Server): void {
       if ((event_type === 'photo' && photo_url) || (event_type === 'video' && video_url)) {
         const postType = event_type === 'photo' ? 'walk_photo' : 'walk_video';
         try {
-          const [post] = await sql`
-            INSERT INTO sitter_posts (sitter_id, content, photo_url, video_url, booking_id, walk_event_id, post_type, owner_consent_status, source_type, owner_id)
-            SELECT ${req.userId}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${Number(req.params.bookingId)}, ${event.id}, ${postType}, 'pending', 'walk_event', ${booking.owner_id}
-            WHERE (SELECT COUNT(*) FROM sitter_posts WHERE sitter_id = ${req.userId}) < ${MAX_POSTS_PER_SITTER}
-            RETURNING *
-          `;
+          const post = await sql.begin(async (tx: any) => {
+            const [p] = await tx`
+              INSERT INTO posts (author_id, content, photo_url, video_url, booking_id, walk_event_id, post_type, owner_consent_status, source_type, consent_owner_id)
+              SELECT ${req.userId}, ${note || null}, ${photo_url || null}, ${video_url || null}, ${Number(req.params.bookingId)}, ${event.id}, ${postType}, 'pending', 'walk_event', ${booking.owner_id}
+              WHERE (SELECT COUNT(*) FROM posts WHERE author_id = ${req.userId}) < ${MAX_POSTS_PER_USER}
+              RETURNING *
+            `;
+            if (p) {
+              await tx`
+                INSERT INTO post_destinations (post_id, destination_type, destination_id)
+                VALUES (${p.id}, 'profile', ${req.userId})
+                ON CONFLICT DO NOTHING
+              `;
+            }
+            return p || null;
+          });
           if (post) {
             const [sitterName] = await sql`SELECT name FROM users WHERE id = ${req.userId}`;
             const shareNotif = await createNotification(
