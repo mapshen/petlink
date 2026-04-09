@@ -174,10 +174,13 @@ export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';
 export type PetGender = 'male' | 'female';
 export type EnergyLevel = 'low' | 'medium' | 'high';
 
+export type ProfileType = 'sitter' | 'owner' | 'pet';
+
 export interface Pet {
   id: number;
   owner_id: number;
   name: string;
+  slug?: string;
   species: PetSpecies;
   breed?: string;
   age?: number;

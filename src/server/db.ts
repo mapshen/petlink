@@ -142,6 +142,7 @@ export async function initDb() {
       id SERIAL PRIMARY KEY,
       owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
+      slug TEXT UNIQUE,
       species TEXT DEFAULT 'dog',
       breed TEXT,
       age INTEGER,
@@ -1456,6 +1457,13 @@ export async function initDb() {
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});
+  // Pet slug migration, index, and backfill
+  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_pets_slug ON pets (slug) WHERE slug IS NOT NULL`.catch(() => {});
+  await sql`
+    UPDATE pets SET slug = LOWER(REPLACE(REPLACE(name, ' ', '-'), '''', '')) || '-' || id
+    WHERE slug IS NULL AND name IS NOT NULL
+  `.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_accepted_species ON users USING GIN (accepted_species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_users_accepted_pet_sizes ON users USING GIN (accepted_pet_sizes)`.catch(() => {});
   // Unique constraint: one service per (sitter, type, species) combination
