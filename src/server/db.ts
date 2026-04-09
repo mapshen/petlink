@@ -1461,6 +1461,32 @@ export async function initDb() {
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS uq_forum_reactions_thread ON forum_reactions (thread_id, user_id, emoji) WHERE thread_id IS NOT NULL`.catch(() => {});
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS uq_forum_reactions_reply ON forum_reactions (reply_id, user_id, emoji) WHERE reply_id IS NOT NULL`.catch(() => {});
 
+  // Issue #480: Live threads (real-time group chat in spaces)
+  await sql`
+    CREATE TABLE IF NOT EXISTS live_threads (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL REFERENCES forum_categories(id) ON DELETE CASCADE,
+      creator_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL CHECK(char_length(title) <= 200),
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+      participant_count INTEGER DEFAULT 0,
+      last_activity_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS live_thread_messages (
+      id SERIAL PRIMARY KEY,
+      thread_id INTEGER NOT NULL REFERENCES live_threads(id) ON DELETE CASCADE,
+      author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL CHECK(char_length(content) <= 2000),
+      photo_url TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_live_threads_space ON live_threads (space_id, status, last_activity_at DESC)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_live_thread_messages_thread ON live_thread_messages (thread_id, created_at ASC)`.catch(() => {});
+
   // Seed community spaces (idempotent, upsert)
   await sql`
     INSERT INTO forum_categories (name, slug, description, sort_order, space_type, role_gate, emoji)
