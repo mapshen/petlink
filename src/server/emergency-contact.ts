@@ -1,4 +1,5 @@
 import sql from './db.ts';
+import logger, { sanitizeError } from './logger.ts';
 import { createNotification } from './notifications.ts';
 import type { EmergencyContact } from '../types.ts';
 
@@ -77,7 +78,7 @@ export async function revealEmergencyContact(
         `${requester?.name || 'Someone'} viewed your emergency contact for booking #${bookingId}`,
       );
     } catch (notifyError) {
-      console.error('Failed to send emergency contact notification:', notifyError);
+      logger.error({ err: sanitizeError(notifyError) }, 'Failed to send emergency contact notification');
       // Don't block the reveal — audit log is already persisted
     }
   });
