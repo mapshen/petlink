@@ -963,6 +963,14 @@ export interface LostPetAlert {
   notified_sitter_count?: number;
 }
 
+// --- Emergency Contact ---
+
+export interface EmergencyContact {
+  name: string | null;
+  phone: string | null;
+  relationship: string | null;
+}
+
 // --- Ban Actions & Appeals ---
 
 export type BanActionType = 'warning' | 'suspension' | 'ban';

@@ -1459,6 +1459,19 @@ export async function initDb() {
   // Unique constraint: one service per (sitter, type, species) combination
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_services_sitter_type_species ON services (sitter_id, type, COALESCE(species, ''))`.catch(() => {});
 
+  // Emergency contact access log (#461)
+  await sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'emergency_contact_viewed'`.catch(() => {});
+  await sql`
+    CREATE TABLE IF NOT EXISTS emergency_contact_access_log (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id),
+      accessed_by INTEGER NOT NULL REFERENCES users(id),
+      contact_owner_id INTEGER NOT NULL REFERENCES users(id),
+      accessed_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_ec_access_booking_user ON emergency_contact_access_log (booking_id, accessed_by)`.catch(() => {});
+
   // Global sitter fields and FK constraints are now in the CREATE TABLE above.
 
   // Backfill species profiles for sitters missing them and set species on services
