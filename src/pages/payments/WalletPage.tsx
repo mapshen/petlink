@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useLayoutEffect, useRef, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
@@ -8,8 +8,6 @@ import EarningsSection from './EarningsSection';
 import ExpensesSection from './ExpensesSection';
 import TaxSection from './TaxSection';
 import PayoutsSection from './PayoutsSection';
-import PaymentHistorySection from './PaymentHistorySection';
-import CreditsSection from './CreditsSection';
 import { ALL_WALLET_SECTIONS } from './walletSections';
 
 export default function WalletPage() {
@@ -23,16 +21,6 @@ export default function WalletPage() {
 
   const hasSitterRole = user?.roles?.includes('sitter') ?? false;
   const isSitter = mode === 'sitter' && hasSitterRole;
-
-  const visibleSections = useMemo(
-    () =>
-      ALL_WALLET_SECTIONS.filter((s) => {
-        if (s.mode === 'both') return true;
-        if (s.mode === 'sitter') return isSitter;
-        return false;
-      }),
-    [isSitter],
-  );
 
   useLayoutEffect(() => {
     const refs = sectionRefs.current;
@@ -53,7 +41,7 @@ export default function WalletPage() {
     }
 
     return () => observer.disconnect();
-  }, [visibleSections]);
+  }, []);
 
   const registerRef = useCallback((id: string, el: HTMLDivElement | null) => {
     if (el) {
@@ -70,8 +58,6 @@ export default function WalletPage() {
       case 'expenses': return <ExpensesSection year={year} token={token} />;
       case 'tax': return <TaxSection year={year} token={token} />;
       case 'payouts': return <PayoutsSection token={token} />;
-      case 'payment-history': return <PaymentHistorySection token={token} />;
-      case 'credits': return <CreditsSection token={token} />;
       default: return null;
     }
   };
@@ -89,6 +75,10 @@ export default function WalletPage() {
     return <Navigate to="/login" replace />;
   }
 
+  if (!isSitter) {
+    return <Navigate to="/settings" replace />;
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-6">
@@ -101,7 +91,7 @@ export default function WalletPage() {
         <div>
           <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-3 sticky top-20 flex flex-col">
             <nav aria-label="Wallet sections" className="flex md:flex-col gap-0.5 overflow-x-auto md:overflow-x-visible flex-1">
-              {visibleSections.map((s) => {
+              {ALL_WALLET_SECTIONS.map((s) => {
                 const Icon = s.icon;
                 return (
                   <a
@@ -125,7 +115,7 @@ export default function WalletPage() {
 
         {/* RIGHT: Section Content */}
         <div className="min-w-0 space-y-6">
-          {visibleSections.map((s) => {
+          {ALL_WALLET_SECTIONS.map((s) => {
             const Icon = s.icon;
             return (
               <div
