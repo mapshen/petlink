@@ -3,6 +3,15 @@ import { useAuth, getAuthHeaders } from '../context/AuthContext';
 import { API_BASE } from '../config';
 import type { ProfileType, Pet } from '../types';
 
+export interface OwnerReview {
+  id: number;
+  rating: number;
+  comment?: string;
+  created_at: string;
+  reviewer_name: string;
+  reviewer_avatar?: string;
+}
+
 export interface OwnerProfileData {
   owner: {
     id: number;
@@ -11,8 +20,13 @@ export interface OwnerProfileData {
     avatar_url?: string;
     bio?: string;
     created_at: string;
+    completed_bookings?: number;
+    avg_rating?: number | null;
+    review_count?: number;
+    cancellation_rate?: number;
   };
   pets: Pet[];
+  reviews: OwnerReview[];
   isOwner: boolean;
 }
 

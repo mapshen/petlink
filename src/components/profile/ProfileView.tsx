@@ -1,8 +1,14 @@
+import { useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { useProfileData, type OwnerProfileData, type PetProfileData } from '../../hooks/useProfileData';
+import { Star } from 'lucide-react';
+import { useProfileData, type OwnerProfileData, type OwnerReview, type PetProfileData } from '../../hooks/useProfileData';
+import { useEditableProfile } from '../../hooks/useEditableProfile';
 import ProfileViewHeader from './ProfileViewHeader';
+import EditableSection from '../sitter-profile/EditableSection';
 import UniversalPostsGrid from '../posts/UniversalPostsGrid';
 import type { ProfileType, Pet } from '../../types';
+
+const ProfileTab = lazy(() => import('../../pages/profile/ProfileTab'));
 
 interface ProfileViewProps {
   profileType: ProfileType;
@@ -55,20 +61,111 @@ function PetCard({ pet }: { pet: Pet }) {
   );
 }
 
+function TrustStats({ owner }: { owner: OwnerProfileData['owner'] }) {
+  return (
+    <div className="flex gap-4 pt-3 border-t border-stone-100 mt-3">
+      <div className="text-center">
+        <div className="text-sm font-semibold text-stone-800">{owner.completed_bookings ?? 0}</div>
+        <div className="text-xs text-stone-500">Bookings</div>
+      </div>
+      {owner.avg_rating != null && (
+        <div className="text-center">
+          <div className="text-sm font-semibold text-stone-800">{owner.avg_rating}</div>
+          <div className="text-xs text-stone-500">{owner.review_count} reviews</div>
+        </div>
+      )}
+      {owner.cancellation_rate != null && owner.cancellation_rate > 0 && (
+        <div className="text-center">
+          <div className="text-sm font-semibold text-amber-600">{owner.cancellation_rate}%</div>
+          <div className="text-xs text-stone-500">Cancel rate</div>
+        </div>
+      )}
+      <div className="text-center">
+        <div className="text-sm font-semibold text-stone-800">
+          {new Date(owner.created_at).getFullYear() === new Date().getFullYear()
+            ? 'New'
+            : `${new Date().getFullYear() - new Date(owner.created_at).getFullYear()} yrs`}
+        </div>
+        <div className="text-xs text-stone-500">Member</div>
+      </div>
+    </div>
+  );
+}
+
+function OwnerReviewsList({ reviews }: { reviews: OwnerReview[] }) {
+  if (reviews.length === 0) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-stone-400 text-sm">No reviews yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {reviews.map(review => (
+        <div key={review.id} className="flex gap-3 pb-4 border-b border-stone-100 last:border-0 last:pb-0">
+          <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-sm flex-shrink-0 overflow-hidden">
+            {review.reviewer_avatar ? (
+              <img src={review.reviewer_avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              (review.reviewer_name || '?')[0].toUpperCase()
+            )}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-sm font-medium text-stone-800">{review.reviewer_name}</span>
+              <div className="flex gap-0.5">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-200'}`} />
+                ))}
+              </div>
+              <span className="text-xs text-stone-400">
+                {new Date(review.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            </div>
+            {review.comment && <p className="text-sm text-stone-600">{review.comment}</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type OwnerTab = 'posts' | 'reviews';
+
 function OwnerProfile({ data }: { data: OwnerProfileData }) {
+  const [activeTab, setActiveTab] = useState<OwnerTab>('posts');
+  const { editingSection, viewAsVisitor, startEditing, stopEditing } = useEditableProfile();
+
   return (
     <>
-      <ProfileViewHeader
-        name={data.owner.name}
-        avatarUrl={data.owner.avatar_url}
-        profileType="owner"
+      <EditableSection
+        sectionId="header"
         isOwner={data.isOwner}
-        subtitle={`Member since ${new Date(data.owner.created_at).getFullYear()}`}
+        isEditing={editingSection === 'header'}
+        viewAsVisitor={viewAsVisitor}
+        onEdit={startEditing}
+        onClose={stopEditing}
+        editContent={
+          <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+            <ProfileTab />
+          </Suspense>
+        }
       >
-        {data.owner.bio && (
-          <p className="text-sm text-stone-600 mt-2 leading-relaxed">{data.owner.bio}</p>
-        )}
-      </ProfileViewHeader>
+        <ProfileViewHeader
+          name={data.owner.name}
+          avatarUrl={data.owner.avatar_url}
+          profileType="owner"
+          isOwner={data.isOwner}
+          subtitle={`Member since ${new Date(data.owner.created_at).getFullYear()}`}
+        >
+          {data.owner.bio && (
+            <p className="text-sm text-stone-600 mt-2 leading-relaxed">{data.owner.bio}</p>
+          )}
+          <TrustStats owner={data.owner} />
+        </ProfileViewHeader>
+      </EditableSection>
 
       {data.pets.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-4">
@@ -83,9 +180,30 @@ function OwnerProfile({ data }: { data: OwnerProfileData }) {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-4">
-        <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">Posts</h3>
-        <UniversalPostsGrid destinationType="profile" destinationId={data.owner.id} />
+      {/* Tabs */}
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 mb-4">
+        <div className="flex border-b border-stone-100 px-6">
+          <button
+            onClick={() => setActiveTab('posts')}
+            className={`px-4 py-3 text-sm transition-colors ${activeTab === 'posts' ? 'border-b-2 border-emerald-500 text-emerald-600 font-semibold' : 'text-stone-500 hover:text-stone-700'}`}
+          >
+            Posts
+          </button>
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={`px-4 py-3 text-sm transition-colors ${activeTab === 'reviews' ? 'border-b-2 border-emerald-500 text-emerald-600 font-semibold' : 'text-stone-500 hover:text-stone-700'}`}
+          >
+            Reviews ({data.reviews?.length || 0})
+          </button>
+        </div>
+        <div className="p-6">
+          {activeTab === 'posts' && (
+            <UniversalPostsGrid destinationType="profile" destinationId={data.owner.id} />
+          )}
+          {activeTab === 'reviews' && (
+            <OwnerReviewsList reviews={data.reviews || []} />
+          )}
+        </div>
       </div>
     </>
   );
@@ -149,7 +267,7 @@ function PetProfile({ data }: { data: PetProfileData }) {
 }
 
 export default function ProfileView({ profileType, slug }: ProfileViewProps) {
-  const { data, loading, error, isOwner: _isOwner } = useProfileData(profileType, slug);
+  const { data, loading, error } = useProfileData(profileType, slug);
 
   if (loading) {
     return (

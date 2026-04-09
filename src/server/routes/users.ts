@@ -393,11 +393,45 @@ export default function userRoutes(router: Router): void {
         res.status(404).json({ error: 'User not found' });
         return;
       }
-      const pets = await sql`
-        SELECT id, name, slug, species, breed, age, weight, gender, photo_url
-        FROM pets WHERE owner_id = ${owner.id}
-        ORDER BY id
-      `;
+      const [pets, [trustStats], [reviewAgg], reviews] = await Promise.all([
+        sql`
+          SELECT id, name, slug, species, breed, age, weight, gender, photo_url
+          FROM pets WHERE owner_id = ${owner.id}
+          ORDER BY id
+        `,
+        sql`
+          SELECT
+            COUNT(*)::int FILTER (WHERE status = 'completed') AS completed_bookings,
+            COUNT(*)::int FILTER (WHERE status = 'cancelled' AND cancelled_by = 'owner') AS cancelled_count,
+            COUNT(*)::int AS total_bookings
+          FROM bookings WHERE owner_id = ${owner.id}
+        `,
+        sql`
+          SELECT
+            ROUND(AVG(rating)::numeric, 1) AS avg_rating,
+            COUNT(*)::int AS review_count
+          FROM reviews
+          WHERE reviewee_id = ${owner.id} AND published_at IS NOT NULL
+        `,
+        sql`
+          SELECT r.id, r.rating, r.comment, r.created_at,
+                 CONCAT(SPLIT_PART(u.name, ' ', 1), ' ', LEFT(SPLIT_PART(u.name, ' ', 2), 1), '.') AS reviewer_name,
+                 u.avatar_url AS reviewer_avatar
+          FROM reviews r
+          JOIN users u ON u.id = r.reviewer_id
+          WHERE r.reviewee_id = ${owner.id} AND r.published_at IS NOT NULL
+          ORDER BY r.created_at DESC
+          LIMIT 50
+        `,
+      ]);
+
+      const completedBookings = trustStats?.completed_bookings || 0;
+      const totalBookings = trustStats?.total_bookings || 0;
+      const cancelledCount = trustStats?.cancelled_count || 0;
+      const cancellationRate = totalBookings > 0 ? Math.round((cancelledCount / totalBookings) * 100) : 0;
+      const avgRating = reviewAgg?.avg_rating != null ? Number(reviewAgg.avg_rating) : null;
+      const reviewCount = reviewAgg?.review_count || 0;
+
       res.json({
         owner: {
           id: owner.id,
@@ -406,8 +440,13 @@ export default function userRoutes(router: Router): void {
           avatar_url: owner.avatar_url,
           bio: owner.bio,
           created_at: owner.created_at,
+          completed_bookings: completedBookings,
+          avg_rating: avgRating,
+          review_count: reviewCount,
+          cancellation_rate: cancellationRate,
         },
         pets,
+        reviews,
         isOwner: req.userId === owner.id,
       });
     } catch (error) {
