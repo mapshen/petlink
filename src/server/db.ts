@@ -1423,6 +1423,7 @@ export async function initDb() {
     )
   `.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_forum_threads_category ON forum_threads (category_id, created_at DESC)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_forum_threads_created ON forum_threads (created_at DESC)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_forum_threads_author ON forum_threads (author_id)`.catch(() => {});
 
   await sql`
@@ -1438,16 +1439,46 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_forum_replies_thread ON forum_replies (thread_id, created_at ASC)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_forum_replies_author ON forum_replies (author_id)`.catch(() => {});
 
-  // Seed forum categories (idempotent)
+  // Issue #479: Evolve forum into community spaces
+  await sql`ALTER TABLE forum_categories ADD COLUMN IF NOT EXISTS space_type TEXT DEFAULT 'everyone' CHECK (space_type IN ('sitter_only', 'owner_only', 'everyone', 'local'))`.catch(() => {});
+  await sql`ALTER TABLE forum_categories ADD COLUMN IF NOT EXISTS role_gate TEXT[]`.catch(() => {});
+  await sql`ALTER TABLE forum_categories ADD COLUMN IF NOT EXISTS emoji TEXT`.catch(() => {});
+  await sql`ALTER TABLE forum_categories ADD COLUMN IF NOT EXISTS member_count INTEGER DEFAULT 0`.catch(() => {});
+  await sql`ALTER TABLE forum_categories ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE`.catch(() => {});
+
+  // Reactions on threads and replies
   await sql`
-    INSERT INTO forum_categories (name, slug, description, sort_order)
+    CREATE TABLE IF NOT EXISTS forum_reactions (
+      id SERIAL PRIMARY KEY,
+      thread_id INTEGER REFERENCES forum_threads(id) ON DELETE CASCADE,
+      reply_id INTEGER REFERENCES forum_replies(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      emoji TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      CHECK ((thread_id IS NOT NULL AND reply_id IS NULL) OR (thread_id IS NULL AND reply_id IS NOT NULL))
+    )
+  `.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS uq_forum_reactions_thread ON forum_reactions (thread_id, user_id, emoji) WHERE thread_id IS NOT NULL`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS uq_forum_reactions_reply ON forum_reactions (reply_id, user_id, emoji) WHERE reply_id IS NOT NULL`.catch(() => {});
+
+  // Seed community spaces (idempotent, upsert)
+  await sql`
+    INSERT INTO forum_categories (name, slug, description, sort_order, space_type, role_gate, emoji)
     VALUES
-      ('General', 'general', 'General discussion for the sitter community', 1),
-      ('Tips & Tricks', 'tips-and-tricks', 'Share your best practices and helpful tips', 2),
-      ('Pet Care', 'pet-care', 'Discuss pet health, behavior, and care techniques', 3),
-      ('Business', 'business', 'Tax tips, insurance, pricing strategies, and more', 4),
-      ('Introductions', 'introductions', 'Introduce yourself to the community', 5)
-    ON CONFLICT (slug) DO NOTHING
+      ('Sitter Lounge', 'sitter-lounge', 'Vent, celebrate wins, share the real talk', 1, 'sitter_only', '{sitter}', '☕'),
+      ('Pro Tips & Tricks', 'tips-and-tricks', 'Business advice, pricing strategies, client management', 2, 'sitter_only', '{sitter}', '💡'),
+      ('Pet Health & Care', 'pet-care', 'Health questions, nutrition, behavior — sitters and owners welcome', 3, 'everyone', NULL, '🩺'),
+      ('New Sitter Support', 'new-sitters', 'Getting started, first bookings, onboarding help', 4, 'sitter_only', '{sitter}', '🌱'),
+      ('Pet Parents Hangout', 'pet-parents', 'Share stories, ask questions, find playdate buddies', 5, 'owner_only', '{owner}', '🐾'),
+      ('General', 'general', 'General discussion for the community', 6, 'everyone', NULL, '💬'),
+      ('Introductions', 'introductions', 'Introduce yourself to the community', 7, 'everyone', NULL, '👋')
+    ON CONFLICT (slug) DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      sort_order = EXCLUDED.sort_order,
+      space_type = EXCLUDED.space_type,
+      role_gate = EXCLUDED.role_gate,
+      emoji = EXCLUDED.emoji
   `.catch(() => {});
 
   // Issue #368: Sitter mentor program
