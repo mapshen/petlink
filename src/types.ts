@@ -1091,3 +1091,32 @@ export interface ForumReaction {
   emoji: string;
   created_at: string;
 }
+
+// Live threads (#480)
+export interface LiveThread {
+  id: number;
+  space_id: number;
+  creator_id: number;
+  title: string;
+  status: 'active' | 'archived';
+  participant_count: number;
+  last_activity_at: string;
+  created_at: string;
+  // Joined
+  creator_name?: string;
+  creator_avatar_url?: string;
+  space_name?: string;
+  space_emoji?: string;
+}
+
+export interface LiveThreadMessage {
+  id: number;
+  thread_id: number;
+  author_id: number;
+  content: string;
+  photo_url?: string;
+  created_at: string;
+  // Joined
+  author_name?: string;
+  author_avatar_url?: string;
+}
