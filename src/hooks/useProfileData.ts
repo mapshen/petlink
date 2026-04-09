@@ -30,6 +30,13 @@ export interface OwnerProfileData {
   isOwner: boolean;
 }
 
+export interface PetVaccination {
+  id: number;
+  vaccine_name: string;
+  administered_date?: string;
+  expires_at?: string;
+}
+
 export interface PetProfileData {
   pet: {
     id: number;
@@ -46,6 +53,7 @@ export interface PetProfileData {
     temperament?: string[];
     special_needs?: string;
     photo_url?: string;
+    care_instructions?: Array<{ category: string; instructions: string; schedule?: string }>;
   };
   owner: {
     id: number;
@@ -53,7 +61,9 @@ export interface PetProfileData {
     slug: string;
     avatar_url?: string;
   } | null;
+  vaccinations: PetVaccination[];
   isOwner: boolean;
+  canViewPrivate: boolean;
 }
 
 type ProfileData = OwnerProfileData | PetProfileData;

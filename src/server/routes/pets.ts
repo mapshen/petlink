@@ -80,7 +80,7 @@ export default function petRoutes(router: Router): void {
       const [pet] = await sql`
         SELECT p.id, p.name, p.slug, p.species, p.breed, p.age, p.weight, p.gender,
                p.spayed_neutered, p.energy_level, p.house_trained, p.temperament,
-               p.special_needs, p.photo_url, p.owner_id
+               p.special_needs, p.photo_url, p.owner_id, p.care_instructions
         FROM pets p
         WHERE p.slug = ${req.params.slug}
       `;
@@ -88,10 +88,26 @@ export default function petRoutes(router: Router): void {
         res.status(404).json({ error: 'Pet not found' });
         return;
       }
-      const [owner] = await sql`
-        SELECT id, name, slug, avatar_url, created_at
-        FROM users WHERE id = ${pet.owner_id}
+      const isOwner = req.userId === pet.owner_id;
+      // Check if requester has an active/completed booking with this pet
+      const [hasBooking] = await sql`
+        SELECT EXISTS(
+          SELECT 1 FROM booking_pets bp
+          JOIN bookings b ON b.id = bp.booking_id
+          WHERE bp.pet_id = ${pet.id}
+            AND b.sitter_id = ${req.userId}
+            AND b.status IN ('confirmed', 'completed')
+        ) AS has_booking
       `;
+      const canViewPrivate = isOwner || hasBooking?.has_booking;
+
+      const [owner, vaccinations] = await Promise.all([
+        sql`SELECT id, name, slug, avatar_url, created_at FROM users WHERE id = ${pet.owner_id}`.then(r => r[0]),
+        canViewPrivate
+          ? sql`SELECT id, vaccine_name, administered_date, expires_at FROM pet_vaccinations WHERE pet_id = ${pet.id} ORDER BY expires_at DESC NULLS LAST, created_at DESC`
+          : Promise.resolve([]),
+      ]);
+
       res.json({
         pet: {
           id: pet.id,
@@ -108,9 +124,13 @@ export default function petRoutes(router: Router): void {
           temperament: pet.temperament,
           special_needs: pet.special_needs,
           photo_url: pet.photo_url,
+          // Private fields: only for owner or booked sitters
+          ...(canViewPrivate ? { care_instructions: pet.care_instructions } : {}),
         },
         owner: owner ? { id: owner.id, name: owner.name, slug: owner.slug, avatar_url: owner.avatar_url } : null,
-        isOwner: req.userId === pet.owner_id,
+        vaccinations,
+        isOwner,
+        canViewPrivate,
       });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to fetch pet profile');

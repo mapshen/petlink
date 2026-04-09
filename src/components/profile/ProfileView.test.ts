@@ -44,7 +44,11 @@ describe('ProfileView data contracts', () => {
       slug: 'jessica-r',
       avatar_url: 'https://example.com/avatar.jpg',
     },
+    vaccinations: [
+      { id: 1, vaccine_name: 'Rabies', administered_date: '2025-06-01', expires_at: '2027-06-01' },
+    ],
     isOwner: true,
+    canViewPrivate: true,
   };
 
   describe('owner profile data', () => {

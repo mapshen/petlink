@@ -1,7 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { Star } from 'lucide-react';
-import { useProfileData, type OwnerProfileData, type OwnerReview, type PetProfileData } from '../../hooks/useProfileData';
+import { Star, Shield, Calendar } from 'lucide-react';
+import { useProfileData, type OwnerProfileData, type OwnerReview, type PetProfileData, type PetVaccination } from '../../hooks/useProfileData';
 import { useEditableProfile } from '../../hooks/useEditableProfile';
 import ProfileViewHeader from './ProfileViewHeader';
 import EditableSection from '../sitter-profile/EditableSection';
@@ -209,8 +209,81 @@ function OwnerProfile({ data }: { data: OwnerProfileData }) {
   );
 }
 
+const CARE_CATEGORY_EMOJI: Record<string, string> = {
+  feeding: '🍽️', medication: '💊', exercise: '🏃', grooming: '✂️',
+  behavioral: '🧠', litter_box: '🪣', cage_cleaning: '🧹',
+  habitat_maintenance: '🏠', other: '📋',
+};
+
+function VaccinationsList({ vaccinations }: { vaccinations: PetVaccination[] }) {
+  if (vaccinations.length === 0) {
+    return <p className="text-sm text-stone-400 text-center py-4">No vaccination records</p>;
+  }
+  return (
+    <div className="space-y-2">
+      {vaccinations.map(v => {
+        const isExpired = v.expires_at && new Date(v.expires_at) < new Date();
+        return (
+          <div key={v.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl">
+            <div className="flex items-center gap-2">
+              <Shield className={`w-4 h-4 ${isExpired ? 'text-amber-500' : 'text-emerald-500'}`} />
+              <span className="text-sm font-medium text-stone-800">{v.vaccine_name}</span>
+            </div>
+            <div className="text-xs text-stone-500 flex items-center gap-3">
+              {v.administered_date && (
+                <span>Given: {new Date(v.administered_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              )}
+              {v.expires_at && (
+                <span className={isExpired ? 'text-amber-600 font-medium' : ''}>
+                  {isExpired ? 'Expired' : 'Expires'}: {new Date(v.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CareInstructions({ instructions }: { instructions: Array<{ category: string; instructions: string; schedule?: string }> }) {
+  if (!instructions || instructions.length === 0) {
+    return <p className="text-sm text-stone-400 text-center py-4">No care instructions</p>;
+  }
+  return (
+    <div className="space-y-3">
+      {instructions.map((item, idx) => (
+        <div key={idx} className="p-3 bg-stone-50 rounded-xl">
+          <div className="flex items-center gap-2 mb-1">
+            <span>{CARE_CATEGORY_EMOJI[item.category] || '📋'}</span>
+            <span className="text-sm font-medium text-stone-800 capitalize">{item.category.replace(/_/g, ' ')}</span>
+            {item.schedule && (
+              <span className="text-xs text-stone-400 flex items-center gap-1">
+                <Calendar className="w-3 h-3" /> {item.schedule}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-stone-600 ml-6">{item.instructions}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type PetTab = 'posts' | 'care' | 'vaccinations';
+
 function PetProfile({ data }: { data: PetProfileData }) {
   const pet = data.pet;
+  const [activeTab, setActiveTab] = useState<PetTab>('posts');
+
+  const tabItems: Array<{ id: PetTab; label: string; count?: number }> = [
+    { id: 'posts', label: 'Posts' },
+    ...(data.canViewPrivate ? [
+      { id: 'care' as PetTab, label: 'Care Info', count: pet.care_instructions?.length },
+      { id: 'vaccinations' as PetTab, label: 'Vaccinations', count: data.vaccinations?.length },
+    ] : []),
+  ];
+
   return (
     <>
       <ProfileViewHeader
@@ -258,9 +331,30 @@ function PetProfile({ data }: { data: PetProfileData }) {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-4">
-        <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">Posts</h3>
-        <UniversalPostsGrid destinationType="pet" destinationId={pet.id} />
+      {/* Tabs */}
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 mb-4">
+        <div className="flex border-b border-stone-100 px-6">
+          {tabItems.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-3 text-sm transition-colors ${activeTab === tab.id ? 'border-b-2 border-emerald-500 text-emerald-600 font-semibold' : 'text-stone-500 hover:text-stone-700'}`}
+            >
+              {tab.label}{tab.count != null ? ` (${tab.count})` : ''}
+            </button>
+          ))}
+        </div>
+        <div className="p-6">
+          {activeTab === 'posts' && (
+            <UniversalPostsGrid destinationType="pet" destinationId={pet.id} />
+          )}
+          {activeTab === 'care' && data.canViewPrivate && (
+            <CareInstructions instructions={pet.care_instructions || []} />
+          )}
+          {activeTab === 'vaccinations' && data.canViewPrivate && (
+            <VaccinationsList vaccinations={data.vaccinations || []} />
+          )}
+        </div>
       </div>
     </>
   );
