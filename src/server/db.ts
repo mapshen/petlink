@@ -1476,6 +1476,7 @@ export async function initDb() {
 
   // Per-species addon pricing: add species column and new unique index
   await sql`ALTER TABLE sitter_addons ADD COLUMN IF NOT EXISTS species TEXT`.catch(() => {});
+  await sql`ALTER TABLE sitter_addons DROP CONSTRAINT IF EXISTS sitter_addons_sitter_id_addon_slug_key`.catch(() => {});
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sitter_addons_species ON sitter_addons (sitter_id, addon_slug, COALESCE(species, ''))`.catch(() => {});
 
   // Global sitter fields and FK constraints are now in the CREATE TABLE above.

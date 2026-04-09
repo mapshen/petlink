@@ -74,6 +74,8 @@ export const updateProfileSchema = z.object({
   camera_policy_note: z.string().max(500, 'Camera policy note must be under 500 characters').optional().nullable(),
   camera_preference: z.enum(['requires', 'prefers', 'no_preference']).optional().nullable(),
   children_ages: z.string().max(200).optional().nullable(),
+  non_smoking_home: z.boolean().optional().nullable(),
+  children_in_home: z.boolean().optional().nullable(),
 });
 
 // --- Pet Schemas ---

@@ -46,6 +46,8 @@ export default function userRoutes(router: Router): void {
         camera_policy_note,
         camera_preference,
         children_ages,
+        non_smoking_home,
+        children_in_home,
       } = req.body;
 
       // Slug is permanent — does not change when name is updated
@@ -78,6 +80,8 @@ export default function userRoutes(router: Router): void {
       ${camera_policy_note !== undefined ? sql`, camera_policy_note = ${camera_policy_note || null}` : sql``}
       ${camera_preference !== undefined ? sql`, camera_preference = ${camera_preference || 'no_preference'}` : sql``}
       ${children_ages !== undefined ? sql`, children_ages = ${children_ages || null}` : sql``}
+      ${non_smoking_home !== undefined ? sql`, non_smoking_home = ${non_smoking_home ?? false}` : sql``}
+      ${children_in_home !== undefined ? sql`, children_in_home = ${children_in_home ?? false}` : sql``}
       WHERE id = ${req.userId}
     `;
 

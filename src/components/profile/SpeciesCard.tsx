@@ -7,7 +7,7 @@ import { formatCentsDecimal } from '../../lib/money';
 import { formatCents } from '../../lib/money';
 import { ADDON_CATALOG, type AddonDefinition } from '../../shared/addon-catalog';
 
-const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
+const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝', boarding: '🏡' };
 // Unified brand-consistent style — emerald stripe, no rainbow
 const SPECIES_STYLE = { border: 'border-stone-200', text: 'text-stone-900' };
 

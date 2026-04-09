@@ -4,8 +4,6 @@ import { Save } from 'lucide-react';
 import { API_BASE } from '../../config';
 import type { HomeType, SitterSpeciesProfile } from '../../types';
 
-interface Props {}
-
 const HOME_TYPES: { value: HomeType; label: string; icon: string }[] = [
   { value: 'house', label: 'House', icon: '🏠' },
   { value: 'apartment', label: 'Apartment', icon: '🏢' },
@@ -131,7 +129,7 @@ export default function HomeEnvironmentTab() {
 
       // Save dog species profile fields if applicable
       if (hasDog) {
-        await fetch(`${API_BASE}/species-profiles/dog`, {
+        const dogRes = await fetch(`${API_BASE}/species-profiles/dog`, {
           method: 'PUT',
           headers: getAuthHeaders(token),
           body: JSON.stringify({
@@ -140,6 +138,7 @@ export default function HomeEnvironmentTab() {
             potty_break_frequency: pottyBreakFrequency || null,
           }),
         });
+        if (!dogRes.ok) throw new Error('Failed to save dog environment settings');
       }
 
       setMessage('Settings saved');

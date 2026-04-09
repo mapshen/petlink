@@ -60,20 +60,22 @@ export default function addonRoutes(router: Router, publicLimiter: RateLimitRequ
         return;
       }
 
-      // ON CONFLICT uses the original (sitter_id, addon_slug) constraint for backward compat.
-      // The new unique index (sitter_id, addon_slug, COALESCE(species, '')) prevents
-      // species-specific duplicates via a unique_violation caught below.
       const speciesVal = species ?? null;
-      const [addon] = await sql`
-        INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents, notes, species)
-        VALUES (${req.userId}, ${addon_slug}, ${price_cents}, ${notes ?? null}, ${speciesVal})
-        ON CONFLICT (sitter_id, addon_slug) DO NOTHING
-        RETURNING *
+      // Check for existing addon with same (sitter_id, addon_slug, species) combo
+      const [existing] = await sql`
+        SELECT id FROM sitter_addons
+        WHERE sitter_id = ${req.userId} AND addon_slug = ${addon_slug}
+        AND COALESCE(species, '') = COALESCE(${speciesVal}, '')
       `;
-      if (!addon) {
+      if (existing) {
         res.status(409).json({ error: 'You have already enabled this add-on. Edit it instead.' });
         return;
       }
+      const [addon] = await sql`
+        INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents, notes, species)
+        VALUES (${req.userId}, ${addon_slug}, ${price_cents}, ${notes ?? null}, ${speciesVal})
+        RETURNING *
+      `;
       res.status(201).json({ addon });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to create add-on');
