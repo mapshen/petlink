@@ -253,7 +253,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
     const param = req.params.idOrSlug;
     const isNumeric = /^\d+$/.test(param);
     const [sitter] = await sql`
-      SELECT id, name, roles, bio, avatar_url, slug, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance, subscription_tier, founding_sitter, non_smoking_home, one_client_at_a_time, lifestyle_badges, camera_preference, created_at FROM users
+      SELECT id, name, roles, bio, avatar_url, slug, ROUND(lat::numeric, 2)::float as lat, ROUND(lng::numeric, 2)::float as lng, accepted_pet_sizes, accepted_species, cancellation_policy, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, house_rules, emergency_procedures, has_insurance, subscription_tier, founding_sitter, non_smoking_home, one_client_at_a_time, lifestyle_badges, camera_preference, children_ages, created_at FROM users
       WHERE ${isNumeric ? sql`id = ${Number(param)}` : sql`slug = ${param}`}
         AND roles @> '{sitter}'::text[] AND approval_status = 'approved'
     `;
@@ -264,7 +264,7 @@ export default function sitterRoutes(router: Router, publicLimiter: RateLimitReq
 
     const sitterId = sitter.id;
     const services = await sql`SELECT * FROM services WHERE sitter_id = ${sitterId}`;
-    const addons = await sql`SELECT id, addon_slug, price_cents, notes FROM sitter_addons WHERE sitter_id = ${sitterId} ORDER BY created_at`;
+    const addons = await sql`SELECT id, addon_slug, price_cents, notes, species FROM sitter_addons WHERE sitter_id = ${sitterId} ORDER BY created_at`;
     const photos = await sql`SELECT * FROM sitter_photos WHERE sitter_id = ${sitterId} ORDER BY sort_order, created_at`;
 
     // Public review stats (not gated behind auth) — excludes hidden reviews

@@ -73,6 +73,9 @@ export const updateProfileSchema = z.object({
   camera_locations: z.array(z.enum(['living_room', 'backyard', 'kitchen', 'front_door', 'garage', 'bedroom', 'hallway', 'patio'])).optional(),
   camera_policy_note: z.string().max(500, 'Camera policy note must be under 500 characters').optional().nullable(),
   camera_preference: z.enum(['requires', 'prefers', 'no_preference']).optional().nullable(),
+  children_ages: z.string().max(200).optional().nullable(),
+  non_smoking_home: z.boolean().optional().nullable(),
+  children_in_home: z.boolean().optional().nullable(),
 });
 
 // --- Pet Schemas ---
@@ -157,7 +160,7 @@ export const loyaltyDiscountListSchema = z.object({
 // --- Inquiry Schemas ---
 export const createInquirySchema = z.object({
   sitter_id: z.number().int().positive('Invalid sitter ID'),
-  service_type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare']).optional(),
+  service_type: z.enum(['walking', 'sitting', 'boarding', 'drop-in', 'grooming', 'meet_greet', 'daycare']).optional(),
   pet_ids: z.array(z.number().int().positive('Invalid pet ID')).min(1, 'At least one pet is required').max(10, 'Maximum 10 pets').refine((ids) => new Set(ids).size === ids.length, 'Duplicate pet IDs are not allowed'),
   message: z.string().min(1, 'Message is required').max(2000, 'Message must be under 2000 characters'),
 });
@@ -174,7 +177,7 @@ export const sendOfferSchema = z.object({
 
 // --- Service Schemas ---
 export const serviceSchema = z.object({
-  type: z.enum(['walking', 'sitting', 'drop-in', 'grooming', 'meet_greet', 'daycare'], { message: 'Type must be walking, sitting, drop-in, grooming, meet_greet, or daycare' }),
+  type: z.enum(['walking', 'sitting', 'boarding', 'drop-in', 'grooming', 'meet_greet', 'daycare'], { message: 'Type must be walking, sitting, boarding, drop-in, grooming, meet_greet, or daycare' }),
   price_cents: z.number().int().min(0, 'Price cannot be negative').max(999900, 'Price must be under $10,000'),
   description: z.string().max(1000, 'Description must be under 1000 characters').optional().nullable(),
   additional_pet_price_cents: z.number().int().min(0, 'Additional pet price cannot be negative').max(50000, 'Additional pet price must be under $500').optional().default(0),
@@ -217,11 +220,13 @@ export const sitterAddonSchema = z.object({
   addon_slug: addonSlugEnum,
   price_cents: z.number().int().min(0, 'Price cannot be negative').max(50000, 'Price must be under $500'),
   notes: z.string().max(500, 'Notes must be under 500 characters').optional().nullable(),
+  species: z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal']).optional().nullable(),
 });
 
 export const updateSitterAddonSchema = z.object({
   price_cents: z.number().int().min(0, 'Price cannot be negative').max(50000, 'Price must be under $500'),
   notes: z.string().max(500, 'Notes must be under 500 characters').optional().nullable(),
+  species: z.enum(['dog', 'cat', 'bird', 'reptile', 'small_animal']).optional().nullable(),
 });
 
 // --- Tip Schemas ---

@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Save, Check, ShieldCheck, Heart, Plus, Trash2, Camera, Eye, Home, Mic, Shield, Share2 } from 'lucide-react';
+import { Save, Check, ShieldCheck, Heart, Plus, Trash2 } from 'lucide-react';
 import { API_BASE } from '../../config';
 import type { CancellationPolicy } from '../../types';
-import { CAMERA_LOCATIONS, CAMERA_LOCATION_LABELS, getCameraGuidelines, type CameraLocation } from '../../shared/camera-guidelines';
 
 interface LoyaltyTier {
   min_bookings: number;
@@ -16,27 +15,11 @@ const CANCELLATION_POLICIES: { value: CancellationPolicy; label: string; descrip
   { value: 'strict', label: 'Strict', description: 'No refund within 7 days of the booking.' },
 ];
 
-const GUIDELINE_ICONS: Record<string, React.ElementType> = { eye: Eye, home: Home, mic: Mic, shield: Shield, share: Share2 };
-
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button type="button" role="switch" aria-checked={checked} onClick={onChange}
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors ${checked ? 'bg-emerald-600' : 'bg-stone-300'}`}>
-      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform mt-0.5 ${checked ? 'translate-x-5 ml-0.5' : 'translate-x-0 ml-0.5'}`} />
-    </button>
-  );
-}
-
 export default function PoliciesTab() {
   const { user, token, updateUser } = useAuth();
 
   const [policy, setPolicy] = useState<CancellationPolicy>('flexible');
-  const [houseRules, setHouseRules] = useState('');
   const [emergencyProcedures, setEmergencyProcedures] = useState('');
-  const [hasInsurance, setHasInsurance] = useState(false);
-  const [hasCameras, setHasCameras] = useState(false);
-  const [cameraLocations, setCameraLocations] = useState<string[]>([]);
-  const [cameraPolicyNote, setCameraPolicyNote] = useState('');
   const [loyaltyTiers, setLoyaltyTiers] = useState<LoyaltyTier[]>([]);
 
   const [saving, setSaving] = useState(false);
@@ -45,12 +28,7 @@ export default function PoliciesTab() {
   useEffect(() => {
     if (!user) return;
     setPolicy(user.cancellation_policy || 'flexible');
-    setHouseRules(user.house_rules || '');
     setEmergencyProcedures(user.emergency_procedures || '');
-    setHasInsurance(user.has_insurance || false);
-    setHasCameras(user.has_cameras || false);
-    setCameraLocations(user.camera_locations || []);
-    setCameraPolicyNote(user.camera_policy_note || '');
   }, [user]);
 
 
@@ -99,12 +77,6 @@ export default function PoliciesTab() {
     );
   };
 
-  const toggleCameraLocation = (loc: string) => {
-    setCameraLocations((prev) =>
-      prev.includes(loc) ? prev.filter((l) => l !== loc) : [...prev, loc],
-    );
-  };
-
   const handleSaveAll = async () => {
     setSaving(true);
     setMessage('');
@@ -121,12 +93,7 @@ export default function PoliciesTab() {
         headers: getAuthHeaders(token),
         body: JSON.stringify({
           name: user?.name,
-          house_rules: houseRules || null,
           emergency_procedures: emergencyProcedures || null,
-          has_insurance: hasInsurance,
-          has_cameras: hasCameras,
-          camera_locations: hasCameras ? cameraLocations : [],
-          camera_policy_note: hasCameras ? cameraPolicyNote || null : null,
         }),
       });
       if (userRes.ok) {
@@ -151,8 +118,6 @@ export default function PoliciesTab() {
   };
 
   if (!user) return null;
-
-  const guidelines = getCameraGuidelines();
 
   return (
     <div className="space-y-6">
@@ -180,87 +145,12 @@ export default function PoliciesTab() {
         </div>
       </div>
 
-      {/* House Rules */}
-      <div className="border-t pt-4">
-        <label className="block text-sm font-medium text-stone-700 mb-1">House Rules</label>
-        <textarea rows={3} value={houseRules} onChange={(e) => setHouseRules(e.target.value)}
-          placeholder="E.g., pets must be up to date on vaccinations, no aggressive dogs..."
-          className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm resize-none" />
-      </div>
-
       {/* Emergency Procedures */}
       <div className="border-t pt-4">
         <label className="block text-sm font-medium text-stone-700 mb-1">Emergency Procedures</label>
         <textarea rows={3} value={emergencyProcedures} onChange={(e) => setEmergencyProcedures(e.target.value)}
           placeholder="What you do in an emergency situation..."
           className="w-full p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm resize-none" />
-      </div>
-
-      {/* Insurance Toggle */}
-      <div className="border-t pt-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-stone-700">I carry pet sitter insurance</span>
-          <Toggle checked={hasInsurance} onChange={() => setHasInsurance((prev) => !prev)} />
-        </div>
-      </div>
-
-      {/* Camera Disclosure */}
-      <div className="border-t pt-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Camera className="w-5 h-5 text-emerald-600" />
-          <h3 className="text-sm font-bold text-stone-900">Camera Disclosure</h3>
-        </div>
-
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-sm font-medium text-stone-900">I have cameras in my home</p>
-            <p className="text-xs text-stone-500">Let sitters know about cameras before bookings</p>
-          </div>
-          <Toggle checked={hasCameras} onChange={() => setHasCameras((prev) => !prev)} />
-        </div>
-
-        {hasCameras && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-2">Camera locations</label>
-              <div className="flex flex-wrap gap-2">
-                {CAMERA_LOCATIONS.map((loc) => (
-                  <button key={loc} type="button" onClick={() => toggleCameraLocation(loc)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${cameraLocations.includes(loc) ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
-                    {CAMERA_LOCATION_LABELS[loc as CameraLocation]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1">Additional notes</label>
-              <textarea value={cameraPolicyNote} onChange={(e) => setCameraPolicyNote(e.target.value)}
-                placeholder="e.g., Cameras are only active during bookings, audio is disabled..." maxLength={500} rows={3}
-                className="w-full p-3 border border-stone-200 rounded-lg text-sm focus:ring-emerald-500 focus:border-emerald-500 resize-none" />
-              <p className="text-xs text-stone-400 mt-1">{cameraPolicyNote.length}/500</p>
-            </div>
-          </div>
-        )}
-
-        {/* Guidelines */}
-        <div className="bg-stone-50 rounded-xl p-4 mt-4 space-y-3">
-          <h4 className="text-xs font-semibold text-stone-700 uppercase tracking-wide flex items-center gap-1.5">
-            <Camera className="w-3.5 h-3.5" /> Camera Best Practices
-          </h4>
-          {guidelines.map((g) => {
-            const Icon = GUIDELINE_ICONS[g.icon] || Eye;
-            return (
-              <div key={g.title} className="flex gap-2.5">
-                <Icon className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-medium text-stone-800">{g.title}</p>
-                  <p className="text-xs text-stone-500">{g.description}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* Repeat Customer Discounts */}

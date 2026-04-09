@@ -6,7 +6,7 @@ import { formatSpecies } from '../../shared/species-utils';
 import { formatCents } from '../../lib/money';
 import { formatSkill } from './SitterProfileHeader';
 
-const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
+const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝', boarding: '🏡' };
 const SIZE_LABELS: Record<string, string> = { small: 'Small (0-15 lbs)', medium: 'Medium (16-40 lbs)', large: 'Large (41-100 lbs)', giant: 'Giant (101+ lbs)' };
 
 export interface SpeciesBadge {

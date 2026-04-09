@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import type { SitterSpeciesProfile, Service } from '../../types';
+import { ChevronDown, ChevronRight, Save, X } from 'lucide-react';
+import type { SitterSpeciesProfile, Service, SitterAddon } from '../../types';
 import { getAvailableServices, getServiceLabel, getAvailableSkills, type SkillOption } from '../../shared/service-labels';
 import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
 import { formatCentsDecimal } from '../../lib/money';
+import { formatCents } from '../../lib/money';
+import { ADDON_CATALOG, type AddonDefinition } from '../../shared/addon-catalog';
 
-const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝' };
+const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝', boarding: '🏡' };
 // Unified brand-consistent style — emerald stripe, no rainbow
 const SPECIES_STYLE = { border: 'border-stone-200', text: 'text-stone-900' };
 
@@ -20,14 +22,21 @@ interface SpeciesCardProps {
   readonly species: string;
   readonly profile: Partial<SitterSpeciesProfile>;
   readonly services: Service[];
+  readonly addons: SitterAddon[];
   readonly onProfileChange: (profile: Partial<SitterSpeciesProfile>) => void;
   readonly onServicePriceChange: (serviceType: string, price: number) => void;
+  readonly onAddonToggle: (def: AddonDefinition) => void;
+  readonly onAddonEdit: (addon: SitterAddon, priceCents: number, notes: string | null) => void;
+  readonly addonSaving?: boolean;
   readonly onRemove: () => void;
   readonly defaultCollapsed?: boolean;
 }
 
-export default function SpeciesCard({ species, profile, services, onProfileChange, onServicePriceChange, onRemove, defaultCollapsed = true }: SpeciesCardProps) {
+export default function SpeciesCard({ species, profile, services, addons, onProfileChange, onServicePriceChange, onAddonToggle, onAddonEdit, addonSaving, onRemove, defaultCollapsed = true }: SpeciesCardProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const [editingAddonSlug, setEditingAddonSlug] = useState<string | null>(null);
+  const [editAddonPrice, setEditAddonPrice] = useState('');
+  const [editAddonNotes, setEditAddonNotes] = useState('');
 
   const colors = SPECIES_STYLE;
   const isDog = species === 'dog';
@@ -50,6 +59,28 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
     onProfileChange({ ...profile, skills: updated });
   };
 
+  // Filter catalog addons for this species + its active service types
+  const activeServiceTypes = new Set(services.filter((s) => s.price_cents > 0 || s.type === 'meet_greet').map((s) => s.type));
+  const speciesAddons = ADDON_CATALOG.filter((def) => {
+    const speciesMatch = def.species === 'all' || def.species.includes(species as 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal');
+    const serviceMatch = def.applicableServices.some((st) => activeServiceTypes.has(st));
+    return speciesMatch && serviceMatch;
+  });
+  const enabledAddonSlugs = new Set(addons.map((a) => a.addon_slug));
+
+  const startEditingAddon = (addon: SitterAddon) => {
+    setEditingAddonSlug(addon.addon_slug);
+    setEditAddonPrice((addon.price_cents / 100).toFixed(2));
+    setEditAddonNotes(addon.notes || '');
+  };
+
+  const saveAddonEdit = (addon: SitterAddon) => {
+    const priceCents = Math.round(parseFloat(editAddonPrice) * 100);
+    if (isNaN(priceCents) || priceCents < 0 || priceCents > 50000) return;
+    onAddonEdit(addon, priceCents, editAddonNotes || null);
+    setEditingAddonSlug(null);
+  };
+
   // Build summary for collapsed header
   const summaryParts: string[] = [];
   if (profile.years_experience) summaryParts.push(`${profile.years_experience} yrs`);
@@ -57,7 +88,6 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
   if (showSizes && profile.accepted_pet_sizes && profile.accepted_pet_sizes.length > 0) {
     summaryParts.push(profile.accepted_pet_sizes.map((s) => s[0].toUpperCase()).join('/'));
   }
-  if (isDog && profile.has_fenced_yard) summaryParts.push('fenced yard');
 
   return (
     <div className={`border rounded-2xl overflow-hidden ${colors.border} flex`}>
@@ -202,33 +232,6 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
             </div>
           </div>
 
-          {/* Dog-specific environment */}
-          {isDog && (
-            <div>
-              <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1.5">Dog environment</div>
-              <div className="flex flex-wrap gap-3 text-xs">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={profile.has_yard ?? false} onChange={(e) => { onProfileChange({ ...profile, has_yard: e.target.checked, has_fenced_yard: e.target.checked ? profile.has_fenced_yard : false }); }} className="rounded text-emerald-600" />
-                  Has yard
-                </label>
-                {profile.has_yard && (
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={profile.has_fenced_yard ?? false} onChange={(e) => onProfileChange({ ...profile, has_fenced_yard: e.target.checked })} className="rounded text-emerald-600" />
-                    Fenced
-                  </label>
-                )}
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={profile.dogs_on_furniture ?? false} onChange={(e) => onProfileChange({ ...profile, dogs_on_furniture: e.target.checked })} className="rounded text-emerald-600" />
-                  On furniture
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={profile.dogs_on_bed ?? false} onChange={(e) => onProfileChange({ ...profile, dogs_on_bed: e.target.checked })} className="rounded text-emerald-600" />
-                  On bed
-                </label>
-              </div>
-            </div>
-          )}
-
           {/* Own pets of this species */}
           <div>
             <label className="flex items-center gap-1.5 cursor-pointer text-xs mb-1">
@@ -278,6 +281,97 @@ export default function SpeciesCard({ species, profile, services, onProfileChang
               })}
             </div>
           </div>
+
+          {/* Add-ons */}
+          {speciesAddons.length > 0 && (
+            <div>
+              <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1.5">{formatSpecies(species)} add-ons</div>
+              <div className="border border-stone-200 rounded-xl divide-y divide-stone-100">
+                {speciesAddons.map((def) => {
+                  const enabled = enabledAddonSlugs.has(def.slug);
+                  const addon = addons.find((a) => a.addon_slug === def.slug);
+                  const isEditing = editingAddonSlug === def.slug;
+
+                  return (
+                    <div key={def.slug} className="px-3 py-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-sm flex-shrink-0">{def.emoji}</span>
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => enabled && addon && !isEditing ? startEditingAddon(addon) : undefined}
+                          tabIndex={enabled && !isEditing ? 0 : -1}
+                        >
+                          <span className="text-xs font-semibold text-stone-900 block">{def.label}</span>
+                          <span className="text-[10px] text-stone-400 leading-snug block">{def.description}</span>
+                        </button>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {enabled && addon && !isEditing && (
+                            <span className="text-[11px] font-medium text-emerald-700">
+                              {addon.price_cents === 0 ? 'Free' : formatCents(addon.price_cents)}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={enabled}
+                            aria-label={`Toggle ${def.label}`}
+                            onClick={() => onAddonToggle(def)}
+                            disabled={addonSaving}
+                            className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${enabled ? 'bg-emerald-500' : 'bg-stone-300'}`}
+                          >
+                            <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transform transition-transform ${enabled ? 'translate-x-3' : 'translate-x-0.5'}`} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {enabled && addon && isEditing && (
+                        <div className="mt-2 ml-6 space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-stone-500">$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="500"
+                              value={editAddonPrice}
+                              onChange={(e) => setEditAddonPrice(e.target.value)}
+                              className="w-20 p-1 border border-stone-200 rounded-md text-xs text-right"
+                            />
+                            <span className="text-[10px] text-stone-400">/ {def.pricingUnit}</span>
+                          </div>
+                          <input
+                            placeholder="Optional note..."
+                            value={editAddonNotes}
+                            onChange={(e) => setEditAddonNotes(e.target.value)}
+                            maxLength={500}
+                            className="w-full p-1 border border-stone-200 rounded-md text-[11px]"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => saveAddonEdit(addon)}
+                              disabled={addonSaving}
+                              className="inline-flex items-center gap-0.5 text-[11px] font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                            >
+                              <Save className="w-3 h-3" /> Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingAddonSlug(null)}
+                              className="inline-flex items-center gap-0.5 text-[11px] text-stone-400 hover:text-stone-600"
+                            >
+                              <X className="w-3 h-3" /> Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
       </div>

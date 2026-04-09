@@ -29,7 +29,7 @@ describe('ProfilePage section visibility', () => {
   it('sitter mode with sitter role sees all 7 profile sections', () => {
     const ids = getVisibleSectionIds('sitter', true);
     expect(ids).toEqual([
-      'about', 'services', 'addons', 'availability', 'location', 'photos', 'policies',
+      'about', 'services', 'home_environment', 'availability', 'location', 'photos', 'policies',
     ]);
     expect(ids).toHaveLength(7);
   });

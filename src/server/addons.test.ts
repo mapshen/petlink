@@ -130,7 +130,9 @@ describe('POST /addons', () => {
   it('creates an add-on for an approved sitter', async () => {
     // 1st SQL call: user lookup
     mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
-    // 2nd SQL call: INSERT ... ON CONFLICT DO NOTHING RETURNING *
+    // 2nd SQL call: existence check — no duplicate found
+    mockSqlFn.mockResolvedValueOnce([] as any);
+    // 3rd SQL call: INSERT RETURNING *
     const created = { id: 10, sitter_id: 1, addon_slug: 'bathing', price_cents: 1500, notes: 'Warm water only' };
     mockSqlFn.mockResolvedValueOnce([created] as any);
 
@@ -142,11 +144,13 @@ describe('POST /addons', () => {
     expect(res.body.addon.addon_slug).toBe('bathing');
     expect(res.body.addon.price_cents).toBe(1500);
     expect(res.body.addon.notes).toBe('Warm water only');
-    expect(mockSqlFn).toHaveBeenCalledTimes(2);
+    expect(mockSqlFn).toHaveBeenCalledTimes(3);
   });
 
   it('creates an add-on for an onboarding sitter', async () => {
     mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'onboarding' }] as any);
+    // existence check — no duplicate
+    mockSqlFn.mockResolvedValueOnce([] as any);
     mockSqlFn.mockResolvedValueOnce([{ id: 11, sitter_id: 1, addon_slug: 'nail_trimming', price_cents: 800, notes: null }] as any);
 
     const res = await request(app)
@@ -159,6 +163,8 @@ describe('POST /addons', () => {
 
   it('creates an add-on with null notes when notes omitted', async () => {
     mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
+    // existence check — no duplicate
+    mockSqlFn.mockResolvedValueOnce([] as any);
     mockSqlFn.mockResolvedValueOnce([{ id: 12, sitter_id: 1, addon_slug: 'daily_updates', price_cents: 0, notes: null }] as any);
 
     const res = await request(app)
@@ -228,8 +234,8 @@ describe('POST /addons', () => {
 
   it('returns 409 when duplicate addon_slug for this sitter', async () => {
     mockSqlFn.mockResolvedValueOnce([{ roles: ['owner', 'sitter'], approval_status: 'approved' }] as any);
-    // ON CONFLICT DO NOTHING returns empty when duplicate exists
-    mockSqlFn.mockResolvedValueOnce([] as any);
+    // Existence check returns a row — duplicate found
+    mockSqlFn.mockResolvedValueOnce([{ id: 99 }] as any);
 
     const res = await request(app)
       .post('/addons')

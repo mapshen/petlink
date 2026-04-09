@@ -45,6 +45,9 @@ export default function userRoutes(router: Router): void {
         camera_locations,
         camera_policy_note,
         camera_preference,
+        children_ages,
+        non_smoking_home,
+        children_in_home,
       } = req.body;
 
       // Slug is permanent — does not change when name is updated
@@ -76,11 +79,14 @@ export default function userRoutes(router: Router): void {
       ${camera_locations !== undefined ? sql`, camera_locations = ${camera_locations || []}` : sql``}
       ${camera_policy_note !== undefined ? sql`, camera_policy_note = ${camera_policy_note || null}` : sql``}
       ${camera_preference !== undefined ? sql`, camera_preference = ${camera_preference || 'no_preference'}` : sql``}
+      ${children_ages !== undefined ? sql`, children_ages = ${children_ages || null}` : sql``}
+      ${non_smoking_home !== undefined ? sql`, non_smoking_home = ${non_smoking_home ?? false}` : sql``}
+      ${children_in_home !== undefined ? sql`, children_in_home = ${children_in_home ?? false}` : sql``}
       WHERE id = ${req.userId}
     `;
 
       const [user] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, lifestyle_badges, non_smoking_home, one_client_at_a_time, phone, share_phone_for_bookings, has_cameras, camera_locations, camera_policy_note, camera_preference FROM users WHERE id = ${req.userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, lifestyle_badges, non_smoking_home, one_client_at_a_time, phone, share_phone_for_bookings, has_cameras, camera_locations, camera_policy_note, camera_preference, children_ages FROM users WHERE id = ${req.userId}
     `;
 
       res.json({ user: { ...user, is_admin: isAdminUser(user.email, user.roles) } });
@@ -120,7 +126,7 @@ export default function userRoutes(router: Router): void {
     `;
 
     const [updated] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, lifestyle_badges, non_smoking_home, one_client_at_a_time FROM users WHERE id = ${userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, lifestyle_badges, non_smoking_home, one_client_at_a_time, children_ages FROM users WHERE id = ${userId}
     `;
 
     res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });
@@ -167,7 +173,7 @@ export default function userRoutes(router: Router): void {
     }
 
     const [updated] = await sql`
-      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, lifestyle_badges, non_smoking_home, one_client_at_a_time FROM users WHERE id = ${userId}
+      SELECT id, email, name, roles, bio, avatar_url, lat, lng, slug, accepted_pet_sizes, accepted_species, years_experience, home_type, has_yard, has_fenced_yard, has_own_pets, own_pets_description, skills, service_radius_miles, max_pets_at_once, max_pets_per_walk, cancellation_policy, house_rules, emergency_procedures, has_insurance, subscription_tier, approval_status, approval_rejected_reason, lifestyle_badges, non_smoking_home, one_client_at_a_time, children_ages FROM users WHERE id = ${userId}
     `;
 
     res.json({ user: { ...updated, is_admin: isAdminUser(updated.email, updated.roles) } });

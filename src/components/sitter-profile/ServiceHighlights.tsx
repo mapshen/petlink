@@ -1,9 +1,9 @@
-import { Footprints, Home, Clock, Scissors, Users, Sun } from 'lucide-react';
+import { Footprints, Home, Clock, Scissors, Users, Sun, TreePine } from 'lucide-react';
 import type { Service } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
 import { formatCents } from '../../lib/money';
 
-export const ALL_SERVICE_TYPES = ['meet_greet', 'walking', 'sitting', 'drop-in', 'daycare', 'grooming'] as const;
+export const ALL_SERVICE_TYPES = ['meet_greet', 'walking', 'sitting', 'drop-in', 'daycare', 'grooming', 'boarding'] as const;
 
 const SERVICE_ICONS: Record<string, typeof Footprints> = {
   walking: Footprints,
@@ -12,6 +12,7 @@ const SERVICE_ICONS: Record<string, typeof Footprints> = {
   daycare: Sun,
   grooming: Scissors,
   meet_greet: Users,
+  boarding: TreePine,
 };
 
 interface Props {
