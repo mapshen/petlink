@@ -2,6 +2,7 @@ import type { Router } from 'express';
 import sql from '../db.ts';
 import { authMiddleware, type AuthenticatedRequest } from '../auth.ts';
 import { validate, petSchema, petVaccinationSchema, updateCareInstructionsSchema } from '../validation.ts';
+import { generateUniqueSlug } from '../slugify.ts';
 import logger, { sanitizeError } from '../logger.ts';
 
 export default function petRoutes(router: Router): void {
@@ -19,9 +20,10 @@ export default function petRoutes(router: Router): void {
   router.post('/pets', authMiddleware, validate(petSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const { name, species, breed, age, weight, gender, spayed_neutered, energy_level, house_trained, temperament, special_needs, microchip_number, vet_name, vet_phone, emergency_contact_name, emergency_contact_phone, medical_history, photo_url } = req.body;
+      const slug = await generateUniqueSlug(name, 'pets');
       const [pet] = await sql`
-        INSERT INTO pets (owner_id, name, species, breed, age, weight, gender, spayed_neutered, energy_level, house_trained, temperament, special_needs, microchip_number, vet_name, vet_phone, emergency_contact_name, emergency_contact_phone, medical_history, photo_url)
-        VALUES (${req.userId}, ${name}, ${species || 'dog'}, ${breed || null}, ${age ?? null}, ${weight ?? null}, ${gender || null}, ${spayed_neutered ?? null}, ${energy_level || null}, ${house_trained ?? null}, ${temperament || []}, ${special_needs || null}, ${microchip_number || null}, ${vet_name || null}, ${vet_phone || null}, ${emergency_contact_name || null}, ${emergency_contact_phone || null}, ${medical_history || null}, ${photo_url || null})
+        INSERT INTO pets (owner_id, name, slug, species, breed, age, weight, gender, spayed_neutered, energy_level, house_trained, temperament, special_needs, microchip_number, vet_name, vet_phone, emergency_contact_name, emergency_contact_phone, medical_history, photo_url)
+        VALUES (${req.userId}, ${name}, ${slug}, ${species || 'dog'}, ${breed || null}, ${age ?? null}, ${weight ?? null}, ${gender || null}, ${spayed_neutered ?? null}, ${energy_level || null}, ${house_trained ?? null}, ${temperament || []}, ${special_needs || null}, ${microchip_number || null}, ${vet_name || null}, ${vet_phone || null}, ${emergency_contact_name || null}, ${emergency_contact_phone || null}, ${medical_history || null}, ${photo_url || null})
         RETURNING *
       `;
       res.status(201).json({ pet });
@@ -69,6 +71,50 @@ export default function petRoutes(router: Router): void {
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to delete pet');
       res.status(500).json({ error: 'Failed to delete pet' });
+    }
+  });
+
+  // --- Public Pet Profile (auth-gated) ---
+  router.get('/pets/by-slug/:slug', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [pet] = await sql`
+        SELECT p.id, p.name, p.slug, p.species, p.breed, p.age, p.weight, p.gender,
+               p.spayed_neutered, p.energy_level, p.house_trained, p.temperament,
+               p.special_needs, p.photo_url, p.owner_id
+        FROM pets p
+        WHERE p.slug = ${req.params.slug}
+      `;
+      if (!pet) {
+        res.status(404).json({ error: 'Pet not found' });
+        return;
+      }
+      const [owner] = await sql`
+        SELECT id, name, slug, avatar_url, created_at
+        FROM users WHERE id = ${pet.owner_id}
+      `;
+      res.json({
+        pet: {
+          id: pet.id,
+          name: pet.name,
+          slug: pet.slug,
+          species: pet.species,
+          breed: pet.breed,
+          age: pet.age,
+          weight: pet.weight,
+          gender: pet.gender,
+          spayed_neutered: pet.spayed_neutered,
+          energy_level: pet.energy_level,
+          house_trained: pet.house_trained,
+          temperament: pet.temperament,
+          special_needs: pet.special_needs,
+          photo_url: pet.photo_url,
+        },
+        owner: owner ? { id: owner.id, name: owner.name, slug: owner.slug, avatar_url: owner.avatar_url } : null,
+        isOwner: req.userId === pet.owner_id,
+      });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch pet profile');
+      res.status(500).json({ error: 'Failed to fetch pet profile' });
     }
   });
 

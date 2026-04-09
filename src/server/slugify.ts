@@ -19,21 +19,40 @@ function randomSuffix(): string {
   return crypto.randomBytes(2).toString('hex'); // 4 hex chars
 }
 
-export async function generateUniqueSlug(name: string, userId?: number): Promise<string> {
+type SlugTable = 'users' | 'pets';
+
+const FALLBACK_PREFIX: Record<SlugTable, string> = {
+  users: 'sitter',
+  pets: 'pet',
+};
+
+export async function generateUniqueSlug(
+  name: string,
+  table: SlugTable = 'users',
+  excludeId?: number
+): Promise<string> {
   const base = slugify(name);
-  if (!base) return `sitter-${randomSuffix()}`;
+  if (!base) return `${FALLBACK_PREFIX[table]}-${randomSuffix()}`;
 
-  // Check if base slug is available (excluding current user)
-  const [existing] = await sql`
-    SELECT id FROM users WHERE slug = ${base} ${userId ? sql`AND id != ${userId}` : sql``} LIMIT 1
-  `;
+  const checkSlug = (candidate: string) => {
+    if (table === 'pets') {
+      return excludeId
+        ? sql`SELECT id FROM pets WHERE slug = ${candidate} AND id != ${excludeId} LIMIT 1`
+        : sql`SELECT id FROM pets WHERE slug = ${candidate} LIMIT 1`;
+    }
+    return excludeId
+      ? sql`SELECT id FROM users WHERE slug = ${candidate} AND id != ${excludeId} LIMIT 1`
+      : sql`SELECT id FROM users WHERE slug = ${candidate} LIMIT 1`;
+  };
 
+  // Check if base slug is available
+  const [existing] = await checkSlug(base);
   if (!existing) return base;
 
   // Append random suffix and retry if collision
   for (let i = 0; i < 5; i++) {
     const candidate = `${base}-${randomSuffix()}`;
-    const [dup] = await sql`SELECT id FROM users WHERE slug = ${candidate} LIMIT 1`;
+    const [dup] = await checkSlug(candidate);
     if (!dup) return candidate;
   }
 

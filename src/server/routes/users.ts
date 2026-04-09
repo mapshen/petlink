@@ -378,4 +378,38 @@ export default function userRoutes(router: Router): void {
       res.status(500).json({ error: 'Failed to delete account' });
     }
   });
+
+  // --- Public Owner Profile (auth-gated) ---
+  router.get('/owners/by-slug/:slug', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [owner] = await sql`
+        SELECT id, name, slug, avatar_url, bio, created_at, roles
+        FROM users WHERE slug = ${req.params.slug} AND roles @> '{owner}'::text[]
+      `;
+      if (!owner) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+      const pets = await sql`
+        SELECT id, name, slug, species, breed, age, weight, gender, photo_url
+        FROM pets WHERE owner_id = ${owner.id}
+        ORDER BY id
+      `;
+      res.json({
+        owner: {
+          id: owner.id,
+          name: owner.name,
+          slug: owner.slug,
+          avatar_url: owner.avatar_url,
+          bio: owner.bio,
+          created_at: owner.created_at,
+        },
+        pets,
+        isOwner: req.userId === owner.id,
+      });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch owner profile');
+      res.status(500).json({ error: 'Failed to fetch owner profile' });
+    }
+  });
 }

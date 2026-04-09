@@ -40,6 +40,8 @@ const ConnectRefresh = React.lazy(() => import('./pages/payments/ConnectRefresh'
 const ReferralPage = React.lazy(() => import('./pages/referrals/ReferralPage'));
 const LostPetAlertsPage = React.lazy(() => import('./pages/lost-pets/LostPetAlertsPage'));
 const ForumPage = React.lazy(() => import('./pages/forum/ForumPage'));
+const OwnerProfilePage = React.lazy(() => import('./pages/profile/OwnerProfilePage'));
+const PetProfilePage = React.lazy(() => import('./pages/profile/PetProfilePage'));
 const ForumCategoryPage = React.lazy(() => import('./pages/forum/CategoryPage'));
 const ForumThreadPage = React.lazy(() => import('./pages/forum/ThreadPage'));
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'));
@@ -65,6 +67,8 @@ export default function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/sitter/:id" element={<SitterProfile />} />
+                <Route path="/owner/:slug" element={<ProtectedRoute><OwnerProfilePage /></ProtectedRoute>} />
+                <Route path="/pet/:slug" element={<ProtectedRoute><PetProfilePage /></ProtectedRoute>} />
                 <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
                 <Route path="/dashboard" element={<Navigate to="/home" replace />} />
                 <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
