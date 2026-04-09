@@ -258,6 +258,26 @@ export const createSitterPostSchema = z.object({
   { message: 'Post must have content, a photo, or a video' }
 );
 
+// --- Universal Post Schemas (#475) ---
+export const createPostSchema = z.object({
+  content: z.string().trim().min(1, 'Content cannot be empty').max(2000, 'Post content must be under 2000 characters').optional(),
+  photo_url: z.string().url('A valid photo URL is required').refine((url) => url.startsWith('https://'), 'Photo URL must use HTTPS').optional(),
+  video_url: z.string().url('A valid video URL is required').refine((url) => url.startsWith('https://'), 'Video URL must use HTTPS').optional(),
+  post_type: z.enum(['update', 'walk_photo', 'walk_video', 'care_update']).default('update'),
+  destinations: z.array(z.object({
+    destination_type: z.enum(['profile', 'pet', 'space']),
+    destination_id: z.number().int().positive(),
+  })).optional(),
+  pet_tag_ids: z.array(z.number().int().positive()).optional(),
+}).refine(
+  (data) => data.content || data.photo_url || data.video_url,
+  { message: 'Post must have content, a photo, or a video' }
+);
+
+export const createPostCommentSchema = z.object({
+  content: z.string().trim().min(1, 'Comment cannot be empty').max(1000, 'Comment must be under 1000 characters'),
+});
+
 // --- Review Schemas ---
 const subRating = z.number().int().min(1, 'Sub-rating must be 1-5').max(5, 'Sub-rating must be 1-5').optional().nullable();
 

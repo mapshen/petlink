@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useProfileData, type OwnerProfileData, type PetProfileData } from '../../hooks/useProfileData';
 import ProfileViewHeader from './ProfileViewHeader';
+import UniversalPostsGrid from '../posts/UniversalPostsGrid';
 import type { ProfileType, Pet } from '../../types';
 
 interface ProfileViewProps {
@@ -81,6 +82,11 @@ function OwnerProfile({ data }: { data: OwnerProfileData }) {
           </div>
         </div>
       )}
+
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-4">
+        <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">Posts</h3>
+        <UniversalPostsGrid destinationType="profile" destinationId={data.owner.id} />
+      </div>
     </>
   );
 }
@@ -133,6 +139,11 @@ function PetProfile({ data }: { data: PetProfileData }) {
           <p className="text-sm text-stone-700">{pet.special_needs}</p>
         </div>
       )}
+
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-4">
+        <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">Posts</h3>
+        <UniversalPostsGrid destinationType="pet" destinationId={pet.id} />
+      </div>
     </>
   );
 }

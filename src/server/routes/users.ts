@@ -349,6 +349,7 @@ export default function userRoutes(router: Router): void {
         await tx`DELETE FROM push_subscriptions WHERE user_id = ${userId}`;
         await tx`DELETE FROM sitter_photos WHERE sitter_id = ${userId}`;
         await tx`DELETE FROM sitter_posts WHERE sitter_id = ${userId}`;
+        await tx`DELETE FROM posts WHERE author_id = ${userId}`;
         await tx`DELETE FROM sitter_addons WHERE sitter_id = ${userId}`;
         await tx`DELETE FROM loyalty_discounts WHERE sitter_id = ${userId}`;
         await tx`DELETE FROM sitter_expenses WHERE sitter_id = ${userId}`;

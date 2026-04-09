@@ -882,6 +882,58 @@ export interface SitterPost {
   created_at: string;
 }
 
+// Universal posts (#475)
+export type PostType = 'update' | 'walk_photo' | 'walk_video' | 'care_update';
+export type PostDestinationType = 'profile' | 'pet' | 'space';
+
+export interface Post {
+  id: number;
+  author_id: number;
+  content?: string;
+  photo_url?: string;
+  video_url?: string;
+  post_type: PostType;
+  booking_id?: number;
+  walk_event_id?: number;
+  owner_consent_status?: OwnerConsentStatus;
+  source_type?: PostSourceType;
+  consent_owner_id?: number;
+  created_at: string;
+  // Joined fields
+  author_name?: string;
+  author_avatar_url?: string;
+  like_count?: number;
+  comment_count?: number;
+  user_liked?: boolean;
+  destinations?: PostDestination[];
+  pet_tags?: PostPetTag[];
+}
+
+export interface PostDestination {
+  id: number;
+  post_id: number;
+  destination_type: PostDestinationType;
+  destination_id: number;
+}
+
+export interface PostPetTag {
+  post_id: number;
+  pet_id: number;
+  pet_name?: string;
+  pet_slug?: string;
+  pet_species?: string;
+}
+
+export interface PostComment {
+  id: number;
+  post_id: number;
+  author_id: number;
+  content: string;
+  created_at: string;
+  author_name?: string;
+  author_avatar_url?: string;
+}
+
 export type CampaignType = 'holiday' | 'marketing';
 export type CampaignAudience = 'all_clients' | 'recent_clients' | 'specific_clients';
 export type CampaignStatus = 'draft' | 'sent' | 'cancelled';

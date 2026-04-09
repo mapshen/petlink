@@ -48,3 +48,4 @@ export { default as mentorshipRoutes } from './mentorships.ts';
 export { default as mentorshipRevenueRoutes } from './mentorship-revenue.ts';
 export { default as campaignRoutes } from './campaigns.ts';
 export { default as emergencyContactRoutes } from './emergency-contact.ts';
+export { default as universalPostRoutes } from './universal-posts.ts';

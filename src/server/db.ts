@@ -844,6 +844,78 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_posts_consent ON sitter_posts (sitter_id, owner_consent_status, created_at DESC)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_sitter_posts_owner_pending ON sitter_posts (owner_id, owner_consent_status) WHERE owner_consent_status = 'pending'`.catch(() => {});
 
+  // Issue #475: Universal posts system
+  await sql`
+    CREATE TABLE IF NOT EXISTS posts (
+      id SERIAL PRIMARY KEY,
+      author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT,
+      photo_url TEXT,
+      video_url TEXT,
+      post_type TEXT NOT NULL DEFAULT 'update' CHECK (post_type IN ('update', 'walk_photo', 'walk_video', 'care_update')),
+      booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+      walk_event_id INTEGER REFERENCES walk_events(id) ON DELETE SET NULL,
+      owner_consent_status TEXT DEFAULT 'approved' CHECK (owner_consent_status IN ('pending', 'approved', 'denied')),
+      source_type TEXT DEFAULT 'manual' CHECK (source_type IN ('manual', 'walk_event', 'chat', 'care_update')),
+      consent_owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS post_destinations (
+      id SERIAL PRIMARY KEY,
+      post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+      destination_type TEXT NOT NULL CHECK (destination_type IN ('profile', 'pet', 'space')),
+      destination_id INTEGER NOT NULL,
+      UNIQUE(post_id, destination_type, destination_id)
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS post_pet_tags (
+      post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      PRIMARY KEY (post_id, pet_id)
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS post_likes (
+      post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (post_id, user_id)
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS post_comments (
+      id SERIAL PRIMARY KEY,
+      post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+      author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_posts_author ON posts (author_id, created_at DESC)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_post_destinations_lookup ON post_destinations (destination_type, destination_id, post_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_post_likes_post ON post_likes (post_id)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_post_comments_post ON post_comments (post_id, created_at)`.catch(() => {});
+  // Migrate sitter_posts to posts (idempotent — skip if posts already has data)
+  await sql`
+    INSERT INTO posts (id, author_id, content, photo_url, video_url, post_type, booking_id, walk_event_id, owner_consent_status, source_type, consent_owner_id, created_at)
+    SELECT id, sitter_id, content, photo_url, video_url, post_type, booking_id, walk_event_id,
+           COALESCE(owner_consent_status, 'approved'), COALESCE(source_type, 'manual'), owner_id, created_at
+    FROM sitter_posts
+    WHERE NOT EXISTS (SELECT 1 FROM posts LIMIT 1)
+  `.catch(() => {});
+  // Create profile destinations for migrated posts
+  await sql`
+    INSERT INTO post_destinations (post_id, destination_type, destination_id)
+    SELECT p.id, 'profile', p.author_id
+    FROM posts p
+    WHERE NOT EXISTS (SELECT 1 FROM post_destinations WHERE post_id = p.id)
+  `.catch(() => {});
+  // Sync sequence after migration
+  await sql`SELECT setval('posts_id_seq', COALESCE((SELECT MAX(id) FROM posts), 0) + 1, false)`.catch(() => {});
+
   // Issue #302: Per-species sitter profiles
   await sql`
     CREATE TABLE IF NOT EXISTS sitter_species_profiles (
