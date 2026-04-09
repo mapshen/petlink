@@ -393,11 +393,38 @@ export default function userRoutes(router: Router): void {
         res.status(404).json({ error: 'User not found' });
         return;
       }
-      const pets = await sql`
-        SELECT id, name, slug, species, breed, age, weight, gender, photo_url
-        FROM pets WHERE owner_id = ${owner.id}
-        ORDER BY id
-      `;
+      const [pets, [trustStats], reviews] = await Promise.all([
+        sql`
+          SELECT id, name, slug, species, breed, age, weight, gender, photo_url
+          FROM pets WHERE owner_id = ${owner.id}
+          ORDER BY id
+        `,
+        sql`
+          SELECT
+            COUNT(*)::int FILTER (WHERE status = 'completed') AS completed_bookings,
+            COUNT(*)::int FILTER (WHERE status = 'cancelled' AND owner_id = ${owner.id}) AS cancelled_count,
+            COUNT(*)::int AS total_bookings
+          FROM bookings WHERE owner_id = ${owner.id}
+        `,
+        sql`
+          SELECT r.id, r.rating, r.comment, r.created_at,
+                 u.name AS reviewer_name, u.avatar_url AS reviewer_avatar
+          FROM reviews r
+          JOIN users u ON u.id = r.reviewer_id
+          WHERE r.reviewee_id = ${owner.id} AND r.published_at IS NOT NULL
+          ORDER BY r.created_at DESC
+          LIMIT 50
+        `,
+      ]);
+
+      const completedBookings = trustStats?.completed_bookings || 0;
+      const totalBookings = trustStats?.total_bookings || 0;
+      const cancelledCount = trustStats?.cancelled_count || 0;
+      const cancellationRate = totalBookings > 0 ? Math.round((cancelledCount / totalBookings) * 100) : 0;
+      const avgRating = reviews.length > 0
+        ? Math.round((reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviews.length) * 10) / 10
+        : null;
+
       res.json({
         owner: {
           id: owner.id,
@@ -406,8 +433,13 @@ export default function userRoutes(router: Router): void {
           avatar_url: owner.avatar_url,
           bio: owner.bio,
           created_at: owner.created_at,
+          completed_bookings: completedBookings,
+          avg_rating: avgRating,
+          review_count: reviews.length,
+          cancellation_rate: cancellationRate,
         },
         pets,
+        reviews,
         isOwner: req.userId === owner.id,
       });
     } catch (error) {

@@ -16,6 +16,9 @@ describe('ProfileView data contracts', () => {
       { id: 1, owner_id: 1, name: 'Barkley', slug: 'barkley', species: 'dog', breed: 'Golden Retriever', age: 4, photo_url: 'https://example.com/barkley.jpg' },
       { id: 2, owner_id: 1, name: 'Luna', slug: 'luna', species: 'dog', breed: 'Pomeranian', age: 6 },
     ],
+    reviews: [
+      { id: 1, rating: 5, comment: 'Great pet parent!', created_at: '2026-01-15T00:00:00Z', reviewer_name: 'Sarah M.', reviewer_avatar: null },
+    ],
     isOwner: false,
   };
 
