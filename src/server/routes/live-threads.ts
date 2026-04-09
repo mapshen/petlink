@@ -6,10 +6,20 @@ import logger, { sanitizeError } from '../logger.ts';
 
 const MAX_ACTIVE_THREADS_PER_SPACE = 3;
 const AUTO_ARCHIVE_MINUTES = 120;
+const MESSAGE_RATE_LIMIT = 10;
+const MESSAGE_RATE_WINDOW_MS = 10000;
 
 function canAccessSpace(userRoles: string[], roleGate: string[] | null): boolean {
   if (!roleGate || roleGate.length === 0) return true;
   return roleGate.some(role => userRoles.includes(role));
+}
+
+async function verifyThreadAccess(threadId: number, userId: number): Promise<{ thread: any; allowed: boolean }> {
+  const [thread] = await sql`SELECT lt.id, lt.space_id, lt.status FROM live_threads lt WHERE lt.id = ${threadId}`;
+  if (!thread) return { thread: null, allowed: false };
+  const [user] = await sql`SELECT roles FROM users WHERE id = ${userId}`;
+  const [space] = await sql`SELECT role_gate FROM forum_categories WHERE id = ${thread.space_id}`;
+  return { thread, allowed: canAccessSpace(user?.roles || [], space?.role_gate) };
 }
 
 export default function liveThreadRoutes(router: Router, io: Server): void {
@@ -61,7 +71,6 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
         return;
       }
 
-      // Limit active threads per space
       const [{ count }] = await sql`
         SELECT COUNT(*)::int AS count FROM live_threads WHERE space_id = ${space_id} AND status = 'active'
       `;
@@ -76,7 +85,6 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
         RETURNING *
       `;
 
-      // Notify the space room
       io.to(`space-${space_id}`).emit('live_thread_created', {
         thread: { ...thread, creator_name: user?.name, space_name: space.name, space_emoji: space.emoji },
       });
@@ -88,12 +96,22 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
     }
   });
 
-  // Get messages for a live thread
+  // Get messages for a live thread (role-gated)
   router.get('/live-threads/:id/messages', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) {
         res.status(400).json({ error: 'Invalid thread ID' });
+        return;
+      }
+
+      const { thread, allowed } = await verifyThreadAccess(id, req.userId!);
+      if (!thread) {
+        res.status(404).json({ error: 'Thread not found' });
+        return;
+      }
+      if (!allowed) {
+        res.status(403).json({ error: 'You do not have access to this space' });
         return;
       }
 
@@ -117,7 +135,7 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
     }
   });
 
-  // Archive a live thread (creator or admin)
+  // Archive a live thread (creator or admin, role-gated)
   router.put('/live-threads/:id/archive', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const id = Number(req.params.id);
@@ -133,6 +151,11 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
       }
 
       const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      const [space] = await sql`SELECT role_gate FROM forum_categories WHERE id = ${thread.space_id}`;
+      if (!canAccessSpace(user?.roles || [], space?.role_gate)) {
+        res.status(403).json({ error: 'You do not have access to this space' });
+        return;
+      }
       if (thread.creator_id !== req.userId && !user?.roles?.includes('admin')) {
         res.status(403).json({ error: 'Only the creator or an admin can archive this thread' });
         return;
@@ -149,6 +172,9 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
   });
 
   // Socket.io event handlers for live threads
+  const socketRooms = new Map<string, Set<number>>();
+  const messageLimiter = new Map<number, number[]>();
+
   io.on('connection', (socket) => {
     const userId = (socket as any).userId;
     if (!userId) return;
@@ -157,18 +183,19 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
       const { thread_id } = data;
       if (!thread_id) return;
 
-      const [thread] = await sql`SELECT id, space_id FROM live_threads WHERE id = ${thread_id} AND status = 'active'`;
-      if (!thread) return;
-
-      // Verify space access
-      const [user] = await sql`SELECT roles, name, avatar_url FROM users WHERE id = ${userId}`;
-      const [space] = await sql`SELECT role_gate FROM forum_categories WHERE id = ${thread.space_id}`;
-      if (!canAccessSpace(user?.roles || [], space?.role_gate)) return;
+      const { thread, allowed } = await verifyThreadAccess(thread_id, userId);
+      if (!thread || !allowed || thread.status !== 'active') return;
 
       const room = `live-thread-${thread_id}`;
       socket.join(room);
+
+      const rooms = socketRooms.get(socket.id) ?? new Set();
+      rooms.add(thread_id);
+      socketRooms.set(socket.id, rooms);
+
       await sql`UPDATE live_threads SET participant_count = participant_count + 1, last_activity_at = NOW() WHERE id = ${thread_id}`;
 
+      const [user] = await sql`SELECT name, avatar_url FROM users WHERE id = ${userId}`;
       io.to(room).emit('participant_joined', {
         user_id: userId,
         user_name: user?.name,
@@ -179,20 +206,48 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
     socket.on('leave_live_thread', async (data: { thread_id: number }) => {
       const room = `live-thread-${data.thread_id}`;
       socket.leave(room);
+      const rooms = socketRooms.get(socket.id);
+      if (rooms) rooms.delete(data.thread_id);
       await sql`UPDATE live_threads SET participant_count = GREATEST(participant_count - 1, 0) WHERE id = ${data.thread_id}`.catch(() => {});
       io.to(room).emit('participant_left', { user_id: userId });
+    });
+
+    // Disconnect cleanup — decrement participant count for all joined threads
+    socket.on('disconnect', async () => {
+      const rooms = socketRooms.get(socket.id) ?? new Set();
+      for (const threadId of rooms) {
+        await sql`UPDATE live_threads SET participant_count = GREATEST(participant_count - 1, 0) WHERE id = ${threadId}`.catch(() => {});
+        io.to(`live-thread-${threadId}`).emit('participant_left', { user_id: userId });
+      }
+      socketRooms.delete(socket.id);
+      messageLimiter.delete(userId);
     });
 
     socket.on('live_message', async (data: { thread_id: number; content: string; photo_url?: string }) => {
       const { thread_id, content, photo_url } = data;
       if (!thread_id || !content || typeof content !== 'string' || content.length > 2000) return;
 
-      const [thread] = await sql`SELECT id, space_id FROM live_threads WHERE id = ${thread_id} AND status = 'active'`;
-      if (!thread) return;
+      // Rate limit
+      const now = Date.now();
+      const timestamps = (messageLimiter.get(userId) ?? []).filter(t => now - t < MESSAGE_RATE_WINDOW_MS);
+      if (timestamps.length >= MESSAGE_RATE_LIMIT) {
+        socket.emit('error', { message: 'Too many messages, slow down' });
+        return;
+      }
+      messageLimiter.set(userId, [...timestamps, now]);
 
-      const [user] = await sql`SELECT roles, name, avatar_url FROM users WHERE id = ${userId}`;
-      const [space] = await sql`SELECT role_gate FROM forum_categories WHERE id = ${thread.space_id}`;
-      if (!canAccessSpace(user?.roles || [], space?.role_gate)) return;
+      const { thread, allowed } = await verifyThreadAccess(thread_id, userId);
+      if (!thread || thread.status !== 'active' || !allowed) return;
+
+      // Validate photo_url (must be HTTPS)
+      if (photo_url) {
+        try {
+          const url = new URL(photo_url);
+          if (url.protocol !== 'https:') return;
+        } catch {
+          return;
+        }
+      }
 
       const [msg] = await sql`
         INSERT INTO live_thread_messages (thread_id, author_id, content, photo_url)
@@ -202,6 +257,7 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
 
       await sql`UPDATE live_threads SET last_activity_at = NOW() WHERE id = ${thread_id}`;
 
+      const [user] = await sql`SELECT name, avatar_url FROM users WHERE id = ${userId}`;
       io.to(`live-thread-${thread_id}`).emit('live_message', {
         ...msg,
         author_name: user?.name,
@@ -210,20 +266,18 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
     });
 
     socket.on('live_typing', (data: { thread_id: number }) => {
-      socket.to(`live-thread-${data.thread_id}`).emit('live_typing', {
-        user_id: userId,
-      });
+      socket.to(`live-thread-${data.thread_id}`).emit('live_typing', { user_id: userId });
     });
   });
 
-  // Auto-archive stale threads (called periodically)
+  // Auto-archive stale threads
   async function archiveStaleThreads() {
     try {
       const stale = await sql`
         UPDATE live_threads SET status = 'archived'
         WHERE status = 'active'
-          AND last_activity_at < NOW() - INTERVAL '${sql.unsafe(String(AUTO_ARCHIVE_MINUTES))} minutes'
-        RETURNING id, space_id
+          AND last_activity_at < NOW() - INTERVAL '1 minute' * ${AUTO_ARCHIVE_MINUTES}
+        RETURNING id
       `;
       for (const thread of stale) {
         io.to(`live-thread-${thread.id}`).emit('live_thread_archived', { thread_id: thread.id });
@@ -233,6 +287,5 @@ export default function liveThreadRoutes(router: Router, io: Server): void {
     }
   }
 
-  // Run archive check every 10 minutes
   setInterval(archiveStaleThreads, 10 * 60 * 1000);
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Image, ArrowLeft } from 'lucide-react';
+import { Send, ArrowLeft } from 'lucide-react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 import type { LiveThread as LiveThreadType, LiveThreadMessage } from '../../types';
