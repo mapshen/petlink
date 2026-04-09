@@ -8,46 +8,99 @@ import logger, { sanitizeError } from '../logger.ts';
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 
+/** Check if user has access to a space based on its role_gate */
+function canAccessSpace(userRoles: string[], roleGate: string[] | null): boolean {
+  if (!roleGate || roleGate.length === 0) return true;
+  return roleGate.some(role => userRoles.includes(role));
+}
+
 export default function forumRoutes(router: Router): void {
-  // ---- Categories ----
+  // ---- Community Spaces (Categories) ----
   router.get('/forum/categories', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
-      if (!user || !user.roles.includes('sitter')) {
-        res.status(403).json({ error: 'Only sitters can access the forum' });
+      if (!user) {
+        res.status(403).json({ error: 'Authentication required' });
         return;
       }
+      const userRoles: string[] = user.roles || [];
 
       const categories = await sql`
         SELECT
           fc.id, fc.name, fc.slug, fc.description, fc.sort_order,
-          COUNT(ft.id)::int AS thread_count
+          fc.space_type, fc.role_gate, fc.emoji, fc.member_count,
+          COUNT(ft.id)::int AS thread_count,
+          MAX(GREATEST(ft.created_at, ft.updated_at)) AS latest_activity
         FROM forum_categories fc
         LEFT JOIN forum_threads ft ON ft.category_id = fc.id
+        WHERE fc.active = TRUE
         GROUP BY fc.id
         ORDER BY fc.sort_order ASC
       `;
 
-      res.json({ categories });
+      const filtered = categories.filter((c: { role_gate: string[] | null }) =>
+        canAccessSpace(userRoles, c.role_gate)
+      );
+
+      res.json({ categories: filtered });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to fetch forum categories');
       res.status(500).json({ error: 'Failed to fetch forum categories' });
     }
   });
 
-  // ---- Threads in a category ----
+  // ---- Trending posts across all accessible spaces ----
+  router.get('/forum/trending', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      const userRoles: string[] = user?.roles || [];
+
+      const threads = await sql`
+        SELECT
+          ft.id, ft.title, ft.content, ft.created_at,
+          fc.name AS space_name, fc.slug AS space_slug, fc.emoji AS space_emoji, fc.role_gate,
+          u.name AS author_name, u.avatar_url AS author_avatar,
+          COUNT(fr.id)::int AS reply_count
+        FROM forum_threads ft
+        JOIN forum_categories fc ON fc.id = ft.category_id
+        JOIN users u ON u.id = ft.author_id
+        LEFT JOIN forum_replies fr ON fr.thread_id = ft.id
+        WHERE fc.active = TRUE
+          AND ft.created_at > NOW() - INTERVAL '7 days'
+        GROUP BY ft.id, fc.id, u.id
+        ORDER BY COUNT(fr.id) DESC, ft.created_at DESC
+        LIMIT 10
+      `;
+
+      const filtered = threads.filter((t: { role_gate: string[] | null }) =>
+        canAccessSpace(userRoles, t.role_gate)
+      );
+
+      res.json({ threads: filtered });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to fetch trending threads');
+      res.status(500).json({ error: 'Failed to fetch trending threads' });
+    }
+  });
+
+  // ---- Threads in a category (space) ----
   router.get('/forum/categories/:slug/threads', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
-      if (!user || !user.roles.includes('sitter')) {
-        res.status(403).json({ error: 'Only sitters can access the forum' });
+      const userRoles: string[] = user?.roles || [];
+
+      const { slug } = req.params;
+      const [category] = await sql`
+        SELECT id, name, slug, description, space_type, role_gate, emoji, member_count
+        FROM forum_categories WHERE slug = ${slug} AND active = TRUE
+      `;
+      if (!category) {
+        res.status(404).json({ error: 'Space not found' });
         return;
       }
 
-      const { slug } = req.params;
-      const [category] = await sql`SELECT id, name, slug, description FROM forum_categories WHERE slug = ${slug}`;
-      if (!category) {
-        res.status(404).json({ error: 'Category not found' });
+      if (!canAccessSpace(userRoles, category.role_gate)) {
+        res.status(403).json({ error: 'You do not have access to this space' });
         return;
       }
 
@@ -79,24 +132,24 @@ export default function forumRoutes(router: Router): void {
     }
   });
 
-  // ---- Create thread ----
+  // ---- Create thread (role-gated per space) ----
   router.post('/forum/threads', authMiddleware, validate(createForumThreadSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const [user] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
-      if (!user || !user.roles.includes('sitter')) {
-        res.status(403).json({ error: 'Only sitters can post in the forum' });
-        return;
-      }
-      if (user.approval_status !== 'approved') {
-        res.status(403).json({ error: 'Your sitter account must be approved to post' });
+      if (!user) {
+        res.status(403).json({ error: 'Authentication required' });
         return;
       }
 
       const { category_id, title, content } = req.body;
-
-      const [category] = await sql`SELECT id FROM forum_categories WHERE id = ${category_id}`;
+      const [category] = await sql`SELECT id, role_gate FROM forum_categories WHERE id = ${category_id} AND active = TRUE`;
       if (!category) {
-        res.status(404).json({ error: 'Category not found' });
+        res.status(404).json({ error: 'Space not found' });
+        return;
+      }
+
+      if (!canAccessSpace(user.roles || [], category.role_gate)) {
+        res.status(403).json({ error: 'You do not have access to this space' });
         return;
       }
 
@@ -117,10 +170,7 @@ export default function forumRoutes(router: Router): void {
   router.get('/forum/threads/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
-      if (!user || !user.roles.includes('sitter')) {
-        res.status(403).json({ error: 'Only sitters can access the forum' });
-        return;
-      }
+      const userRoles: string[] = user?.roles || [];
 
       const threadId = Number(req.params.id);
       if (!Number.isInteger(threadId) || threadId <= 0) {
@@ -132,13 +182,20 @@ export default function forumRoutes(router: Router): void {
         SELECT
           ft.id, ft.category_id, ft.title, ft.content, ft.pinned, ft.locked,
           ft.created_at, ft.updated_at,
-          u.id AS author_id, u.name AS author_name, u.avatar_url AS author_avatar
+          u.id AS author_id, u.name AS author_name, u.avatar_url AS author_avatar,
+          fc.role_gate
         FROM forum_threads ft
         JOIN users u ON u.id = ft.author_id
+        JOIN forum_categories fc ON fc.id = ft.category_id
         WHERE ft.id = ${threadId}
       `;
       if (!thread) {
         res.status(404).json({ error: 'Thread not found' });
+        return;
+      }
+
+      if (!canAccessSpace(userRoles, thread.role_gate)) {
+        res.status(403).json({ error: 'You do not have access to this space' });
         return;
       }
 
@@ -159,25 +216,17 @@ export default function forumRoutes(router: Router): void {
         sql`SELECT COUNT(*)::int AS count FROM forum_replies WHERE thread_id = ${threadId}`,
       ]);
 
-      res.json({ thread, replies, total: count });
+      res.json({ thread: { ...thread, role_gate: undefined }, replies, total: count });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to fetch forum thread');
       res.status(500).json({ error: 'Failed to fetch forum thread' });
     }
   });
 
-  // ---- Reply to thread ----
+  // ---- Reply to thread (role-gated via thread's category) ----
   router.post('/forum/threads/:id/replies', authMiddleware, validate(createForumReplySchema), async (req: AuthenticatedRequest, res) => {
     try {
-      const [user] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
-      if (!user || !user.roles.includes('sitter')) {
-        res.status(403).json({ error: 'Only sitters can reply in the forum' });
-        return;
-      }
-      if (user.approval_status !== 'approved') {
-        res.status(403).json({ error: 'Your sitter account must be approved to reply' });
-        return;
-      }
+      const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
 
       const threadId = Number(req.params.id);
       if (!Number.isInteger(threadId) || threadId <= 0) {
@@ -185,7 +234,12 @@ export default function forumRoutes(router: Router): void {
         return;
       }
 
-      const [thread] = await sql`SELECT id, locked FROM forum_threads WHERE id = ${threadId}`;
+      const [thread] = await sql`
+        SELECT ft.id, ft.locked, fc.role_gate
+        FROM forum_threads ft
+        JOIN forum_categories fc ON fc.id = ft.category_id
+        WHERE ft.id = ${threadId}
+      `;
       if (!thread) {
         res.status(404).json({ error: 'Thread not found' });
         return;
@@ -194,22 +248,73 @@ export default function forumRoutes(router: Router): void {
         res.status(403).json({ error: 'This thread is locked' });
         return;
       }
+      if (!canAccessSpace(user?.roles || [], thread.role_gate)) {
+        res.status(403).json({ error: 'You do not have access to this space' });
+        return;
+      }
 
       const { content } = req.body;
-
       const [reply] = await sql`
         INSERT INTO forum_replies (thread_id, author_id, content)
         VALUES (${threadId}, ${req.userId}, ${content})
         RETURNING *
       `;
-
-      // Bump thread updated_at
       await sql`UPDATE forum_threads SET updated_at = NOW() WHERE id = ${threadId}`;
 
       res.status(201).json({ reply });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to create forum reply');
       res.status(500).json({ error: 'Failed to create forum reply' });
+    }
+  });
+
+  // ---- Add reaction to thread or reply ----
+  router.post('/forum/reactions', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { thread_id, reply_id, emoji } = req.body;
+      if ((!thread_id && !reply_id) || (thread_id && reply_id)) {
+        res.status(400).json({ error: 'Provide either thread_id or reply_id' });
+        return;
+      }
+      if (!emoji || typeof emoji !== 'string' || emoji.length > 10) {
+        res.status(400).json({ error: 'Invalid emoji' });
+        return;
+      }
+
+      if (thread_id) {
+        await sql`
+          INSERT INTO forum_reactions (thread_id, user_id, emoji)
+          VALUES (${thread_id}, ${req.userId}, ${emoji})
+          ON CONFLICT (thread_id, user_id, emoji) DO NOTHING
+        `;
+      } else {
+        await sql`
+          INSERT INTO forum_reactions (reply_id, user_id, emoji)
+          VALUES (${reply_id}, ${req.userId}, ${emoji})
+          ON CONFLICT (reply_id, user_id, emoji) DO NOTHING
+        `;
+      }
+
+      res.status(201).json({ success: true });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to add reaction');
+      res.status(500).json({ error: 'Failed to add reaction' });
+    }
+  });
+
+  // ---- Remove reaction ----
+  router.delete('/forum/reactions', authMiddleware, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { thread_id, reply_id, emoji } = req.body;
+      if (thread_id) {
+        await sql`DELETE FROM forum_reactions WHERE thread_id = ${thread_id} AND user_id = ${req.userId} AND emoji = ${emoji}`;
+      } else if (reply_id) {
+        await sql`DELETE FROM forum_reactions WHERE reply_id = ${reply_id} AND user_id = ${req.userId} AND emoji = ${emoji}`;
+      }
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: sanitizeError(error) }, 'Failed to remove reaction');
+      res.status(500).json({ error: 'Failed to remove reaction' });
     }
   });
 
@@ -229,7 +334,6 @@ export default function forumRoutes(router: Router): void {
       }
 
       const [user] = await sql`SELECT email, roles FROM users WHERE id = ${req.userId}`;
-
       if (thread.author_id !== req.userId && !isAdminUser(user.email, user.roles)) {
         res.status(403).json({ error: 'You can only delete your own threads' });
         return;
@@ -259,7 +363,6 @@ export default function forumRoutes(router: Router): void {
       }
 
       const [user] = await sql`SELECT email, roles FROM users WHERE id = ${req.userId}`;
-
       if (reply.author_id !== req.userId && !isAdminUser(user.email, user.roles)) {
         res.status(403).json({ error: 'You can only delete your own replies' });
         return;
@@ -289,7 +392,6 @@ export default function forumRoutes(router: Router): void {
       }
 
       const { pinned, locked } = req.body;
-
       if (pinned === undefined && locked === undefined) {
         res.status(400).json({ error: 'No valid fields to update' });
         return;

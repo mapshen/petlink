@@ -1062,3 +1062,32 @@ export interface BanAppeal {
   ban_reason?: BanReason;
   ban_description?: string;
 }
+
+// Community spaces (#479)
+export type SpaceType = 'sitter_only' | 'owner_only' | 'everyone' | 'local';
+
+export interface CommunitySpace {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  sort_order: number;
+  space_type: SpaceType;
+  role_gate?: string[];
+  emoji?: string;
+  member_count: number;
+  active: boolean;
+  created_at: string;
+  // Joined
+  thread_count?: number;
+  latest_activity?: string;
+}
+
+export interface ForumReaction {
+  id: number;
+  thread_id?: number;
+  reply_id?: number;
+  user_id: number;
+  emoji: string;
+  created_at: string;
+}
