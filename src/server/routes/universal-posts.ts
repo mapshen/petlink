@@ -73,9 +73,30 @@ export default function universalPostRoutes(router: Router): void {
         tagsByPost.get(tag.post_id)!.push(tag);
       }
 
+      // Fetch destinations for all posts
+      const destinations = postIds.length > 0
+        ? await sql`
+            SELECT pd.post_id, pd.destination_type, pd.destination_id,
+                   CASE pd.destination_type
+                     WHEN 'pet' THEN (SELECT pe.name FROM pets pe WHERE pe.id = pd.destination_id)
+                     WHEN 'space' THEN (SELECT fc.name FROM forum_categories fc WHERE fc.id = pd.destination_id)
+                     ELSE NULL
+                   END AS destination_name
+            FROM post_destinations pd
+            WHERE pd.post_id = ANY(${postIds})
+          `
+        : [];
+
+      const destsByPost = new Map<number, typeof destinations>();
+      for (const dest of destinations) {
+        if (!destsByPost.has(dest.post_id)) destsByPost.set(dest.post_id, []);
+        destsByPost.get(dest.post_id)!.push(dest);
+      }
+
       const enriched = posts.map((p: { id: number }) => ({
         ...p,
         pet_tags: tagsByPost.get(p.id) || [],
+        destinations: destsByPost.get(p.id) || [],
       }));
 
       res.json({ posts: enriched, total: count });

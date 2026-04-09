@@ -3,7 +3,7 @@ import { Camera, X } from 'lucide-react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { API_BASE } from '../../config';
-import type { Pet, PostDestinationType } from '../../types';
+import type { Pet, PostDestinationType, CommunitySpace } from '../../types';
 
 interface UniversalCreatePostDialogProps {
   open: boolean;
@@ -23,6 +23,7 @@ export default function UniversalCreatePostDialog({
   const [content, setContent] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
   const [pets, setPets] = useState<Pet[]>([]);
+  const [spaces, setSpaces] = useState<CommunitySpace[]>([]);
   const [selectedPetIds, setSelectedPetIds] = useState<number[]>([]);
   const [selectedDestinations, setSelectedDestinations] = useState<Array<{ destination_type: PostDestinationType; destination_id: number }>>(defaultDestinations || []);
   const [error, setError] = useState('');
@@ -30,10 +31,13 @@ export default function UniversalCreatePostDialog({
 
   useEffect(() => {
     if (!open || !token) return;
-    fetch(`${API_BASE}/pets`, { headers: getAuthHeaders(token) })
-      .then(r => r.json())
-      .then(data => setPets(data.pets || []))
-      .catch(() => {});
+    Promise.allSettled([
+      fetch(`${API_BASE}/pets`, { headers: getAuthHeaders(token) }).then(r => r.json()),
+      fetch(`${API_BASE}/forum/categories`, { headers: getAuthHeaders(token) }).then(r => r.json()),
+    ]).then(([petsResult, spacesResult]) => {
+      if (petsResult.status === 'fulfilled') setPets(petsResult.value.pets || []);
+      if (spacesResult.status === 'fulfilled') setSpaces(spacesResult.value.categories || []);
+    });
   }, [open, token]);
 
   useEffect(() => {
@@ -200,16 +204,27 @@ export default function UniversalCreatePostDialog({
         )}
 
         {/* Destinations */}
-        {pets.length > 0 && (
+        {(selectedPetIds.length > 0 || spaces.length > 0) && (
           <div className="px-4 pb-4">
             <div className="text-xs font-medium text-stone-500 mb-2">Also share to</div>
             <div className="space-y-2">
               {pets.filter(p => selectedPetIds.includes(p.id)).map(pet => {
                 const isSelected = selectedDestinations.some(d => d.destination_type === 'pet' && d.destination_id === pet.id);
                 return (
-                  <label key={pet.id} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-emerald-50 border border-emerald-200' : 'border border-stone-100 hover:border-emerald-200'}`}>
+                  <label key={`pet-${pet.id}`} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-emerald-50 border border-emerald-200' : 'border border-stone-100 hover:border-emerald-200'}`}>
                     <input type="checkbox" checked={isSelected} onChange={() => toggleDestination('pet', pet.id)} className="accent-emerald-600 w-4 h-4" />
                     <div className="text-sm text-stone-700">{pet.name}'s profile</div>
+                  </label>
+                );
+              })}
+              {spaces.map(space => {
+                const isSelected = selectedDestinations.some(d => d.destination_type === 'space' && d.destination_id === space.id);
+                return (
+                  <label key={`space-${space.id}`} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-emerald-50 border border-emerald-200' : 'border border-stone-100 hover:border-emerald-200'}`}>
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleDestination('space', space.id)} className="accent-emerald-600 w-4 h-4" />
+                    <div className="flex items-center gap-1.5 text-sm text-stone-700">
+                      <span>{space.emoji}</span> {space.name}
+                    </div>
                   </label>
                 );
               })}

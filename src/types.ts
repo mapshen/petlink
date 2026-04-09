@@ -914,7 +914,10 @@ export interface PostDestination {
   post_id: number;
   destination_type: PostDestinationType;
   destination_id: number;
+  destination_name?: string;
 }
+
+export type PostDestinationInput = Pick<PostDestination, 'destination_type' | 'destination_id'>;
 
 export interface PostPetTag {
   post_id: number;
