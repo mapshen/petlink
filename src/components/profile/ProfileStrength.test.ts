@@ -9,33 +9,40 @@ const baseUser = {
 } as any;
 
 describe('computeStrength', () => {
-  it('returns 0% for empty profile', () => {
-    const { percentage } = computeStrength(baseUser, [], []);
-    expect(percentage).toBe(0);
+  it('returns 0 completed for empty profile', () => {
+    const { completed, total } = computeStrength(baseUser, [], []);
+    expect(completed).toBe(0);
+    expect(total).toBe(6);
   });
 
-  it('counts bio + avatar as one item', () => {
-    const user = { ...baseUser, bio: 'Hi', avatar_url: 'https://example.com/pic.jpg' };
+  it('counts avatar as done', () => {
+    const user = { ...baseUser, avatar_url: 'https://example.com/pic.jpg' };
     const { items } = computeStrength(user, [], []);
-    expect(items.find((i) => i.label.includes('bio'))?.done).toBe(true);
+    expect(items.find((i) => i.label === 'Upload avatar')?.done).toBe(true);
   });
 
-  it('requires both bio and avatar for that item', () => {
-    const userBioOnly = { ...baseUser, bio: 'Hi' };
-    const { items } = computeStrength(userBioOnly, [], []);
-    expect(items.find((i) => i.label.includes('bio'))?.done).toBe(false);
+  it('counts bio as done', () => {
+    const user = { ...baseUser, bio: 'Hi there' };
+    const { items } = computeStrength(user, [], []);
+    expect(items.find((i) => i.label === 'Write bio')?.done).toBe(true);
   });
 
   it('counts services as done when at least one exists', () => {
     const services = [{ id: 1, sitter_id: 1, type: 'walking' as const, price_cents: 2500 }];
     const { items } = computeStrength(baseUser, services, []);
-    expect(items.find((i) => i.label.includes('services'))?.done).toBe(true);
+    expect(items.find((i) => i.label === 'Add services')?.done).toBe(true);
+  });
+
+  it('counts location as done when lat/lng set', () => {
+    const user = { ...baseUser, lat: 40.7, lng: -74.0 };
+    const { items } = computeStrength(user, [], []);
+    expect(items.find((i) => i.label === 'Set location')?.done).toBe(true);
   });
 
   it('counts photos as done when at least one exists', () => {
     const photos = [{ id: 1, sitter_id: 1, photo_url: 'https://example.com', caption: '', sort_order: 0, created_at: '' }];
     const { items } = computeStrength(baseUser, [], photos);
-    expect(items.find((i) => i.label.includes('photos'))?.done).toBe(true);
+    expect(items.find((i) => i.label === 'Upload photos')?.done).toBe(true);
   });
 
   it('counts accepted species as done', () => {
@@ -44,18 +51,19 @@ describe('computeStrength', () => {
     expect(items.find((i) => i.label.includes('pet types'))?.done).toBe(true);
   });
 
-  it('counts policies as done when house_rules set', () => {
-    const user = { ...baseUser, house_rules: 'No aggressive dogs' };
-    const { items } = computeStrength(user, [], []);
-    expect(items.find((i) => i.label.includes('policies'))?.done).toBe(true);
-  });
-
-  it('calculates percentage correctly', () => {
-    const user = { ...baseUser, bio: 'Hi', avatar_url: 'pic.jpg', accepted_species: ['dog'], house_rules: 'Rules' };
+  it('calculates fraction correctly for full profile', () => {
+    const user = { ...baseUser, avatar_url: 'pic.jpg', bio: 'Hi', lat: 40.7, lng: -74.0, accepted_species: ['dog'] };
     const services = [{ id: 1, sitter_id: 1, type: 'walking' as const, price_cents: 2500 }];
     const photos = [{ id: 1, sitter_id: 1, photo_url: 'url', caption: '', sort_order: 0, created_at: '' }];
-    const { percentage } = computeStrength(user, services, photos);
-    // 5 out of 8 items done (bio+avatar, services, photos, species, policies)
-    expect(percentage).toBe(63);
+    const { completed, total } = computeStrength(user, services, photos);
+    expect(completed).toBe(6);
+    expect(total).toBe(6);
+  });
+
+  it('each item has an href for navigation', () => {
+    const { items } = computeStrength(baseUser, [], []);
+    for (const item of items) {
+      expect(item.href).toMatch(/^#section-/);
+    }
   });
 });

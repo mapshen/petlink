@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { Pet, PetVaccination } from '../../types';
 import { PawPrint, Plus, Pencil, Trash2, X, Save, AlertCircle, Camera, Loader2, Syringe, ChevronDown, ChevronUp } from 'lucide-react';
+import { EmptyState } from '../../components/ui/EmptyState';
 import CareInstructionsEditor from '../../components/profile/CareInstructionsEditor';
 import { API_BASE } from '../../config';
 import { useImageUpload } from '../../hooks/useImageUpload';
@@ -211,7 +212,7 @@ export default function PetsTab() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-bold text-stone-900">My Pets</h2>
+        <div />
         {!showForm && (
           <button
             onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true); }}
@@ -372,10 +373,13 @@ export default function PetsTab() {
       )}
 
       {pets.length === 0 && !showForm ? (
-        <div className="bg-stone-50 rounded-xl border border-stone-200 p-12 text-center">
-          <PawPrint className="w-12 h-12 mx-auto mb-4 text-stone-300" />
-          <p className="text-stone-500">No pets yet. Add your first pet!</p>
-        </div>
+        <EmptyState
+          icon={PawPrint}
+          title="No pets yet"
+          description="Add your first pet to get started with bookings."
+          actionLabel="Add Pet"
+          onAction={() => { setForm(emptyForm); setEditingId(null); setShowForm(true); }}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {pets.map(pet => (

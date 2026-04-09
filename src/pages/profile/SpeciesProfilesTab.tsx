@@ -176,11 +176,6 @@ export default function SpeciesProfilesTab() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-bold text-stone-900 mb-0.5">Sitter Profile</h2>
-        <p className="text-xs text-stone-400">Each species you care for gets its own section with tailored options</p>
-      </div>
-
       {/* Species Cards */}
       <div className="space-y-3">
         {activeSpecies.map((species) => (

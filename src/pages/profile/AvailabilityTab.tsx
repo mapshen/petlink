@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, Clock } from 'lucide-react';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { API_BASE } from '../../config';
 
 interface AvailabilitySlot {
@@ -126,12 +127,20 @@ export default function AvailabilityTab() {
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-stone-900 mb-6">Availability</h2>
-
       {error && (
         <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg flex justify-between items-center">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="text-xs font-medium hover:underline">Dismiss</button>
+        </div>
+      )}
+
+      {slots.length === 0 && addingDay === null && (
+        <div className="mb-4">
+          <EmptyState
+            icon={Clock}
+            title="No availability set"
+            description="Add time slots so pet owners know when you're available."
+          />
         </div>
       )}
 

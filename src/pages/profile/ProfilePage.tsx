@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useMode } from '../../context/ModeContext';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useSitterPreviewData } from '../../hooks/useSitterPreviewData';
-import { ALL_SECTIONS, SECTION_DESCRIPTIONS } from './profileSections';
+import { ALL_SECTIONS } from './profileSections';
 import ProfileTab from './ProfileTab';
 import SpeciesProfilesTab from './SpeciesProfilesTab';
 import PetsTab from './PetsTab';
@@ -135,13 +135,10 @@ export default function ProfilePage() {
                 ref={(el) => registerRef(s.id, el)}
                 className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 scroll-mt-24"
               >
-                <h2 className="text-lg font-semibold text-stone-900 mb-1 flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-stone-900 mb-5 flex items-center gap-2">
                   <Icon className="w-5 h-5 text-stone-400" />
                   {s.label}
                 </h2>
-                <p className="text-sm text-stone-400 mb-5">
-                  {SECTION_DESCRIPTIONS[s.id]}
-                </p>
                 {renderSectionContent(s.id)}
               </div>
             );

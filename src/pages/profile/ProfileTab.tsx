@@ -60,8 +60,6 @@ export default function ProfileTab() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <h2 className="text-lg font-bold text-stone-900">About</h2>
-
       {/* Avatar upload */}
       <div className="flex items-center gap-4">
         <div className="relative group">

@@ -1,22 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import type { SitterAddon } from '../../types';
-import { Plus, Trash2, Save, X } from 'lucide-react';
+import { Save, X, PackagePlus } from 'lucide-react';
 import { API_BASE } from '../../config';
-import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Input } from '../../components/ui/input';
 import { formatCents } from '../../lib/money';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../components/ui/alert-dialog';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { getAddonsByCategory, getAddonsForSpecies, type AddonDefinition } from '../../shared/addon-catalog';
 
 export default function AddonsTab() {
@@ -28,8 +18,6 @@ export default function AddonsTab() {
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [editNotes, setEditNotes] = useState('');
-  const [deleteDialogId, setDeleteDialogId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const acceptedSpecies = user?.accepted_species || [];
   const availableCatalog = getAddonsForSpecies(acceptedSpecies);
@@ -53,32 +41,37 @@ export default function AddonsTab() {
     }
   };
 
-  const enableAddon = async (def: AddonDefinition) => {
+  const toggleAddon = async (def: AddonDefinition) => {
+    const existing = addons.find((a) => a.addon_slug === def.slug);
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/addons`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
-        body: JSON.stringify({ addon_slug: def.slug, price_cents: def.defaultPriceCents, notes: null }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to enable add-on');
+      if (existing) {
+        const res = await fetch(`${API_BASE}/addons/${existing.id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(token),
+        });
+        if (!res.ok) throw new Error('Failed to remove add-on');
+      } else {
+        const res = await fetch(`${API_BASE}/addons`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) },
+          body: JSON.stringify({ addon_slug: def.slug, price_cents: def.defaultPriceCents, notes: null }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to enable add-on');
+        }
       }
       await fetchAddons();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to enable add-on');
+      setError(err instanceof Error ? err.message : 'Failed to update add-on');
     } finally {
       setSaving(false);
     }
   };
 
-  const startEditing = (addon: SitterAddon) => {
-    setEditingSlug(addon.addon_slug);
-    setEditPrice((addon.price_cents / 100).toFixed(2));
-    setEditNotes(addon.notes || '');
-  };
+  const startEditing = (addon: SitterAddon) => { setEditingSlug(addon.addon_slug); setEditPrice((addon.price_cents / 100).toFixed(2)); setEditNotes(addon.notes || ''); };
 
   const saveEdit = async (addon: SitterAddon) => {
     const priceCents = Math.round(parseFloat(editPrice) * 100);
@@ -107,46 +100,17 @@ export default function AddonsTab() {
     }
   };
 
-  const deleteAddon = async (id: number) => {
-    setDeletingId(id);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/addons/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(token),
-      });
-      if (!res.ok) throw new Error('Failed to remove add-on');
-      await fetchAddons();
-    } catch {
-      setError('Failed to remove add-on');
-    } finally {
-      setDeletingId(null);
-      setDeleteDialogId(null);
-    }
-  };
+  // Flat list sorted by category (no grouping headers)
+  const flatAddons = getAddonsByCategory()
+    .flatMap((group) => group.addons)
+    .filter((a) => availableCatalog.some((ac) => ac.slug === a.slug));
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-      </div>
-    );
-  }
-
-  const categories = getAddonsByCategory().map((group) => ({
-    ...group,
-    addons: group.addons.filter((a) => availableCatalog.some((ac) => ac.slug === a.slug)),
-  })).filter((g) => g.addons.length > 0);
+  if (loading) return <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>;
+  if (flatAddons.length === 0) return <EmptyState icon={PackagePlus} title="No add-ons available" description="Set up services for a species first" />;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-lg font-bold text-stone-900">Add-on Services</h2>
-          <p className="text-sm text-stone-500">Enable extras to stand out in search results</p>
-        </div>
-        <span className="text-xs text-stone-400">{addons.length} enabled</span>
-      </div>
+      <p className="text-xs text-stone-400 text-right mb-4">{addons.length} enabled</p>
 
       {error && (
         <Alert variant="destructive" className="mb-4">
@@ -154,157 +118,85 @@ export default function AddonsTab() {
         </Alert>
       )}
 
-      <div className="space-y-6">
-        {categories.map((group) => (
-          <div key={group.category}>
-            <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">{group.label}</h3>
-            <div className="space-y-2">
-              {group.addons.map((def) => {
-                const enabled = enabledSlugs.has(def.slug);
-                const addon = addons.find((a) => a.addon_slug === def.slug);
-                const isEditing = editingSlug === def.slug;
+      <div className="border border-stone-200 rounded-xl divide-y divide-stone-200">
+        {flatAddons.map((def) => {
+          const enabled = enabledSlugs.has(def.slug);
+          const addon = addons.find((a) => a.addon_slug === def.slug);
+          const isEditing = editingSlug === def.slug;
 
-                return (
-                  <div
-                    key={def.slug}
-                    className={`rounded-xl p-4 transition-colors ${
-                      enabled
-                        ? 'border border-emerald-200 bg-emerald-50/30'
-                        : 'border border-stone-200'
-                    }`}
+          return (
+            <div key={def.slug} className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="text-base flex-shrink-0">{def.emoji}</span>
+                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => enabled && addon && !isEditing ? startEditing(addon) : undefined} tabIndex={enabled && !isEditing ? 0 : -1}>
+                  <span className="text-sm font-medium text-stone-900 hover:text-emerald-700 block">{def.label}</span>
+                  <span className="text-xs text-stone-400 leading-snug block">{def.description}</span>
+                </button>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {enabled && addon && !isEditing && (
+                    <span className="text-xs font-medium text-emerald-700">
+                      {addon.price_cents === 0 ? 'Free' : formatCents(addon.price_cents)}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-label={`Toggle ${def.label}`}
+                    onClick={() => toggleAddon(def)}
+                    disabled={saving}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? 'bg-emerald-500' : 'bg-stone-300'}`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <span className="text-lg flex-shrink-0">{def.emoji}</span>
-                        <div className="min-w-0">
-                          <div className="font-medium text-stone-900 text-sm">{def.label}</div>
-                          <div className="text-xs text-stone-500 mt-0.5">{def.description}</div>
-                        </div>
-                      </div>
+                    <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+              </div>
 
-                      {enabled ? (
-                        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                          {!isEditing && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => addon && startEditing(addon)}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
-                                onClick={() => addon && setDeleteDialogId(addon.id)}
-                                disabled={deletingId === addon?.id}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs flex-shrink-0 ml-2"
-                          onClick={() => enableAddon(def)}
-                          disabled={saving}
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Enable
-                        </Button>
-                      )}
-                    </div>
-
-                    {enabled && addon && !isEditing && (
-                      <div className="mt-2 ml-8 flex items-center gap-3 text-xs text-stone-500">
-                        <span className="font-medium text-emerald-700">
-                          {addon.price_cents === 0 ? 'Free' : `${formatCents(addon.price_cents)} / ${def.pricingUnit}`}
-                        </span>
-                        {addon.notes && (
-                          <span className="text-stone-400 truncate">{addon.notes}</span>
-                        )}
-                      </div>
-                    )}
-
-                    {enabled && addon && isEditing && (
-                      <div className="mt-3 ml-8 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs text-stone-500">$</span>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="500"
-                              value={editPrice}
-                              onChange={(e) => setEditPrice(e.target.value)}
-                              className="w-24 h-7 text-sm text-right"
-                            />
-                            <span className="text-xs text-stone-400 whitespace-nowrap">/ {def.pricingUnit}</span>
-                          </div>
-                        </div>
-                        <Input
-                          placeholder="Optional note (shown to owners)..."
-                          value={editNotes}
-                          onChange={(e) => setEditNotes(e.target.value)}
-                          maxLength={500}
-                          className="h-7 text-xs"
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => saveEdit(addon)}
-                            disabled={saving}
-                          >
-                            <Save className="w-3 h-3 mr-1" />
-                            Save
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => setEditingSlug(null)}
-                          >
-                            <X className="w-3 h-3 mr-1" />
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+              {enabled && addon && isEditing && (
+                <div className="mt-3 ml-7 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-stone-500">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="500"
+                      value={editPrice}
+                      onChange={(e) => setEditPrice(e.target.value)}
+                      className="w-24 h-7 text-sm text-right"
+                    />
+                    <span className="text-xs text-stone-400 whitespace-nowrap">/ {def.pricingUnit}</span>
                   </div>
-                );
-              })}
+                  <Input
+                    placeholder="Optional note (shown to owners)..."
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    maxLength={500}
+                    className="h-7 text-xs"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => saveEdit(addon)}
+                      disabled={saving}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                    >
+                      <Save className="w-3 h-3" /> Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingSlug(null)}
+                      className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600"
+                    >
+                      <X className="w-3 h-3" /> Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-
-      <AlertDialog open={deleteDialogId !== null} onOpenChange={() => setDeleteDialogId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove add-on?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This add-on will no longer appear on your profile or be available for new bookings.
-              Existing bookings with this add-on are not affected.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteDialogId && deleteAddon(deleteDialogId)}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

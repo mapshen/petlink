@@ -3,6 +3,7 @@ import { useAuth, getAuthHeaders } from '../../context/AuthContext';
 import { SitterPhoto } from '../../types';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { Trash2, ArrowUp, ArrowDown, Camera, Loader2, AlertCircle } from 'lucide-react';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { API_BASE } from '../../config';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -148,8 +149,6 @@ export default function PhotosTab() {
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-stone-900 mb-6">Photos</h2>
-
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertDescription className="flex items-center justify-between">
@@ -275,11 +274,11 @@ export default function PhotosTab() {
         ))}
 
         {photos.length === 0 && (
-          <div className="text-center py-12 bg-stone-50 rounded-xl border border-stone-200">
-            <Camera className="w-12 h-12 mx-auto mb-4 text-stone-300" />
-            <p className="text-stone-500 mb-2">No photos yet.</p>
-            <p className="text-sm text-stone-400">Add photos of your home, yard, and walking areas to attract more bookings.</p>
-          </div>
+          <EmptyState
+            icon={Camera}
+            title="No photos yet"
+            description="Add photos of your home, yard, and walking areas to attract more bookings."
+          />
         )}
       </div>
 

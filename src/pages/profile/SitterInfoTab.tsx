@@ -125,8 +125,6 @@ export default function SitterInfoTab() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <h2 className="text-lg font-bold text-stone-900">Sitter Info</h2>
-
       {/* Pet types — drives everything below */}
       <div>
         <label className="block text-sm font-medium text-stone-700 mb-2">Pet types I accept</label>
