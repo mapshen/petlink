@@ -267,8 +267,8 @@ export const createPostSchema = z.object({
   destinations: z.array(z.object({
     destination_type: z.enum(['profile', 'pet', 'space']),
     destination_id: z.number().int().positive(),
-  })).optional(),
-  pet_tag_ids: z.array(z.number().int().positive()).optional(),
+  })).max(10).optional(),
+  pet_tag_ids: z.array(z.number().int().positive()).max(20).optional(),
 }).refine(
   (data) => data.content || data.photo_url || data.video_url,
   { message: 'Post must have content, a photo, or a video' }

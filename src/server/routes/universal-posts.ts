@@ -8,6 +8,12 @@ export const MAX_POSTS_PER_USER = 100;
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 50;
 
+/** Verify post exists and is approved. Returns post or null. */
+async function requireApprovedPost(id: number) {
+  const [post] = await sql`SELECT id FROM posts WHERE id = ${id} AND owner_consent_status = 'approved'`;
+  return post || null;
+}
+
 export default function universalPostRoutes(router: Router): void {
   // Get posts by destination (profile, pet, space) — auth required
   router.get('/posts/destination/:type/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -60,8 +66,8 @@ export default function universalPostRoutes(router: Router): void {
 
       const tagsByPost = new Map<number, typeof petTags>();
       for (const tag of petTags) {
-        const existing = tagsByPost.get(tag.post_id) || [];
-        tagsByPost.set(tag.post_id, [...existing, tag]);
+        if (!tagsByPost.has(tag.post_id)) tagsByPost.set(tag.post_id, []);
+        tagsByPost.get(tag.post_id)!.push(tag);
       }
 
       const enriched = posts.map((p: { id: number }) => ({
@@ -121,6 +127,35 @@ export default function universalPostRoutes(router: Router): void {
     try {
       const { content, photo_url, video_url, post_type, destinations, pet_tag_ids } = req.body;
 
+      // Validate destination ownership
+      if (destinations && destinations.length > 0) {
+        for (const dest of destinations) {
+          if (dest.destination_type === 'profile' && dest.destination_id !== req.userId) {
+            res.status(403).json({ error: 'Cannot post to another user\'s profile' });
+            return;
+          }
+          if (dest.destination_type === 'pet') {
+            const [pet] = await sql`SELECT id FROM pets WHERE id = ${dest.destination_id} AND owner_id = ${req.userId}`;
+            if (!pet) {
+              res.status(403).json({ error: 'Cannot post to a pet you do not own' });
+              return;
+            }
+          }
+        }
+      }
+
+      // Validate pet tag ownership
+      if (pet_tag_ids && pet_tag_ids.length > 0) {
+        const ownedPets = await sql`SELECT id FROM pets WHERE id = ANY(${pet_tag_ids}) AND owner_id = ${req.userId}`;
+        const ownedIds = new Set(ownedPets.map((p: { id: number }) => p.id));
+        for (const petId of pet_tag_ids) {
+          if (!ownedIds.has(petId)) {
+            res.status(403).json({ error: 'Cannot tag a pet you do not own' });
+            return;
+          }
+        }
+      }
+
       // Atomic insert with limit check
       const [post] = await sql`
         INSERT INTO posts (author_id, content, photo_url, video_url, post_type)
@@ -142,7 +177,7 @@ export default function universalPostRoutes(router: Router): void {
       // Add extra destinations
       if (destinations && destinations.length > 0) {
         for (const dest of destinations) {
-          if (dest.destination_type === 'profile' && dest.destination_id === req.userId) continue; // already added
+          if (dest.destination_type === 'profile' && dest.destination_id === req.userId) continue;
           await sql`
             INSERT INTO post_destinations (post_id, destination_type, destination_id)
             VALUES (${post.id}, ${dest.destination_type}, ${dest.destination_id})
@@ -169,7 +204,7 @@ export default function universalPostRoutes(router: Router): void {
     }
   });
 
-  // Delete own post
+  // Delete own post (atomic)
   router.delete('/posts/:id', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const id = Number(req.params.id);
@@ -178,12 +213,11 @@ export default function universalPostRoutes(router: Router): void {
         return;
       }
 
-      const [existing] = await sql`SELECT id FROM posts WHERE id = ${id} AND author_id = ${req.userId}`;
-      if (!existing) {
+      const [deleted] = await sql`DELETE FROM posts WHERE id = ${id} AND author_id = ${req.userId} RETURNING id`;
+      if (!deleted) {
         res.status(404).json({ error: 'Post not found' });
         return;
       }
-      await sql`DELETE FROM posts WHERE id = ${id} AND author_id = ${req.userId}`;
       res.json({ success: true });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to delete post');
@@ -191,12 +225,17 @@ export default function universalPostRoutes(router: Router): void {
     }
   });
 
-  // Like a post
+  // Like a post (must be approved)
   router.post('/posts/:id/like', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) {
         res.status(400).json({ error: 'Invalid post ID' });
+        return;
+      }
+
+      if (!await requireApprovedPost(id)) {
+        res.status(404).json({ error: 'Post not found' });
         return;
       }
 
@@ -213,12 +252,17 @@ export default function universalPostRoutes(router: Router): void {
     }
   });
 
-  // Unlike a post
+  // Unlike a post (must be approved)
   router.delete('/posts/:id/like', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) {
         res.status(400).json({ error: 'Invalid post ID' });
+        return;
+      }
+
+      if (!await requireApprovedPost(id)) {
+        res.status(404).json({ error: 'Post not found' });
         return;
       }
 
@@ -231,12 +275,17 @@ export default function universalPostRoutes(router: Router): void {
     }
   });
 
-  // Get comments for a post
+  // Get comments for a post (must be approved)
   router.get('/posts/:id/comments', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) {
         res.status(400).json({ error: 'Invalid post ID' });
+        return;
+      }
+
+      if (!await requireApprovedPost(id)) {
+        res.status(404).json({ error: 'Post not found' });
         return;
       }
 
@@ -263,7 +312,7 @@ export default function universalPostRoutes(router: Router): void {
     }
   });
 
-  // Add a comment
+  // Add a comment (must be approved)
   router.post('/posts/:id/comments', authMiddleware, validate(createPostCommentSchema), async (req: AuthenticatedRequest, res) => {
     try {
       const id = Number(req.params.id);
@@ -272,8 +321,7 @@ export default function universalPostRoutes(router: Router): void {
         return;
       }
 
-      const [post] = await sql`SELECT id FROM posts WHERE id = ${id} AND owner_consent_status = 'approved'`;
-      if (!post) {
+      if (!await requireApprovedPost(id)) {
         res.status(404).json({ error: 'Post not found' });
         return;
       }
