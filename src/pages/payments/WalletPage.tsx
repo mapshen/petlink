@@ -34,16 +34,6 @@ export default function WalletPage() {
     [isSitter],
   );
 
-  const sitterSections = useMemo(
-    () => visibleSections.filter((s) => s.group === 'sitter'),
-    [visibleSections],
-  );
-
-  const accountSections = useMemo(
-    () => visibleSections.filter((s) => s.group === 'account'),
-    [visibleSections],
-  );
-
   useLayoutEffect(() => {
     const refs = sectionRefs.current;
     const observer = new IntersectionObserver(
@@ -111,37 +101,7 @@ export default function WalletPage() {
         <div>
           <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-3 sticky top-20 flex flex-col">
             <nav aria-label="Wallet sections" className="flex md:flex-col gap-0.5 overflow-x-auto md:overflow-x-visible flex-1">
-              {sitterSections.length > 0 && (
-                <>
-                  <div className="hidden md:block text-[10px] uppercase tracking-widest text-stone-400 font-semibold px-3 mb-1">
-                    Sitter
-                  </div>
-                  {sitterSections.map((s) => {
-                    const Icon = s.icon;
-                    return (
-                      <a
-                        key={s.id}
-                        href={`#section-${s.id}`}
-                        aria-current={activeSection === s.id ? 'true' : undefined}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
-                          activeSection === s.id
-                            ? 'bg-emerald-50 text-emerald-700 font-medium'
-                            : 'text-stone-500 hover:bg-stone-50 hover:text-stone-900'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4 flex-shrink-0" />
-                        {s.label}
-                      </a>
-                    );
-                  })}
-                  <div className="hidden md:block border-t border-stone-100 my-2" />
-                </>
-              )}
-
-              <div className="hidden md:block text-[10px] uppercase tracking-widest text-stone-400 font-semibold px-3 mb-1">
-                {isSitter ? 'Account' : 'Payments'}
-              </div>
-              {accountSections.map((s) => {
+              {visibleSections.map((s) => {
                 const Icon = s.icon;
                 return (
                   <a

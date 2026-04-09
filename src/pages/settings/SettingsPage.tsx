@@ -24,7 +24,7 @@ const ALL_SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   { id: 'account', label: 'Account', icon: UserCog, description: 'Email, phone, privacy, and emergency contacts', mode: 'both' },
   { id: 'security', label: 'Security', icon: KeyRound, description: 'Password and linked accounts', mode: 'both' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Manage your notification preferences', mode: 'both' },
-  { id: 'payment-methods', label: 'Payment Methods', icon: CreditCard, description: 'Saved cards and payment history', mode: 'both' },
+  { id: 'payment-methods', label: 'Payments', icon: CreditCard, description: 'Manage your saved cards', mode: 'both' },
   { id: 'subscription', label: 'Subscription', icon: Crown, description: 'Manage your subscription plan', mode: 'sitter' },
 ];
 
