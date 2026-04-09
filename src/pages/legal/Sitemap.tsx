@@ -18,7 +18,7 @@ const sections = [
       { name: 'Home', path: '/home' },
       { name: 'Messages', path: '/messages' },
       { name: 'Profile', path: '/profile' },
-      { name: 'Wallet', path: '/wallet' },
+      { name: 'Settings', path: '/settings' },
       { name: 'Settings', path: '/settings' },
     ],
   },

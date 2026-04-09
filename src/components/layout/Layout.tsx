@@ -28,7 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Search', path: '/search', icon: MapPin },
     { name: 'Messages', path: '/messages', icon: MessageSquare },
     { name: 'Profile', path: '/profile', icon: User },
-    { name: 'Wallet', path: '/wallet', icon: Wallet },
+    ...(isSitter ? [{ name: 'Wallet', path: '/wallet', icon: Wallet }] : []),
     ...(user.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
   ] : [
     { name: 'Search', path: '/search', icon: MapPin },

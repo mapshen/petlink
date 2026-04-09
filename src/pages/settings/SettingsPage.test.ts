@@ -9,15 +9,18 @@ import { describe, it, expect } from 'vitest';
 interface SettingsSectionDef {
   readonly id: string;
   readonly label: string;
+  readonly group: 'account' | 'billing';
   readonly mode: 'owner' | 'sitter' | 'both';
 }
 
 const ALL_SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
-  { id: 'account', label: 'Account', mode: 'both' },
-  { id: 'security', label: 'Security', mode: 'both' },
-  { id: 'notifications', label: 'Notifications', mode: 'both' },
-  { id: 'payment-methods', label: 'Payments', mode: 'both' },
-  { id: 'subscription', label: 'Subscription', mode: 'sitter' },
+  { id: 'account', label: 'Account', group: 'account', mode: 'both' },
+  { id: 'security', label: 'Security', group: 'account', mode: 'both' },
+  { id: 'notifications', label: 'Notifications', group: 'account', mode: 'both' },
+  { id: 'payments', label: 'Payments', group: 'billing', mode: 'both' },
+  { id: 'payment-history', label: 'Payment History', group: 'billing', mode: 'both' },
+  { id: 'credits', label: 'Credits', group: 'billing', mode: 'both' },
+  { id: 'subscription', label: 'Subscription', group: 'billing', mode: 'sitter' },
 ];
 
 function getVisibleSections(
@@ -40,36 +43,48 @@ function getVisibleSectionIds(
 }
 
 describe('SettingsPage section visibility', () => {
-  it('all users see 4 base sections (Account, Security, Notifications, Payments)', () => {
+  it('all users see 6 base sections (Account + Billing without Subscription)', () => {
     const ids = getVisibleSectionIds('owner', false);
-    expect(ids).toEqual(['account', 'security', 'notifications', 'payment-methods']);
-    expect(ids).toHaveLength(4);
+    expect(ids).toEqual(['account', 'security', 'notifications', 'payments', 'payment-history', 'credits']);
+    expect(ids).toHaveLength(6);
   });
 
-  it('sitter mode with sitter role sees 5 sections (adds Subscription)', () => {
+  it('sitter mode with sitter role sees 7 sections (adds Subscription)', () => {
     const ids = getVisibleSectionIds('sitter', true);
     expect(ids).toEqual([
-      'account', 'security', 'notifications', 'payment-methods', 'subscription',
+      'account', 'security', 'notifications', 'payments', 'payment-history', 'credits', 'subscription',
     ]);
-    expect(ids).toHaveLength(5);
+    expect(ids).toHaveLength(7);
   });
 
-  it('owner mode sees 4 sections (no Subscription)', () => {
+  it('owner mode sees 6 sections (no Subscription)', () => {
     const ids = getVisibleSectionIds('owner', true);
-    expect(ids).toEqual(['account', 'security', 'notifications', 'payment-methods']);
-    expect(ids).toHaveLength(4);
+    expect(ids).toEqual(['account', 'security', 'notifications', 'payments', 'payment-history', 'credits']);
+    expect(ids).toHaveLength(6);
   });
 
-  it('sitter mode WITHOUT sitter role sees 4 sections (no Subscription)', () => {
+  it('sitter mode WITHOUT sitter role sees 6 sections (no Subscription)', () => {
     const ids = getVisibleSectionIds('sitter', false);
-    expect(ids).toEqual(['account', 'security', 'notifications', 'payment-methods']);
-    expect(ids).toHaveLength(4);
+    expect(ids).toEqual(['account', 'security', 'notifications', 'payments', 'payment-history', 'credits']);
+    expect(ids).toHaveLength(6);
   });
 
   it('all section IDs are correct', () => {
     const allIds = ALL_SETTINGS_SECTIONS.map((s) => s.id);
     expect(allIds).toEqual([
-      'account', 'security', 'notifications', 'payment-methods', 'subscription',
+      'account', 'security', 'notifications', 'payments', 'payment-history', 'credits', 'subscription',
     ]);
+  });
+
+  it('account group contains 3 sections', () => {
+    const accountSections = ALL_SETTINGS_SECTIONS.filter((s) => s.group === 'account');
+    expect(accountSections).toHaveLength(3);
+    expect(accountSections.map((s) => s.id)).toEqual(['account', 'security', 'notifications']);
+  });
+
+  it('billing group contains 4 sections', () => {
+    const billingSections = ALL_SETTINGS_SECTIONS.filter((s) => s.group === 'billing');
+    expect(billingSections).toHaveLength(4);
+    expect(billingSections.map((s) => s.id)).toEqual(['payments', 'payment-history', 'credits', 'subscription']);
   });
 });
