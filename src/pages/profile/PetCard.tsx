@@ -1,17 +1,12 @@
 import React from 'react';
 import { Pet } from '../../types';
-import { PawPrint } from 'lucide-react';
-import { formatTag } from './pet-constants';
+import { formatTag, SPECIES_EMOJI } from './pet-constants';
 
 interface PetCardProps {
   pet: Pet;
   isSelected: boolean;
   onClick: () => void;
 }
-
-const SPECIES_EMOJI: Record<string, string> = {
-  dog: '🐕', cat: '🐈', bird: '🐦', reptile: '🦎', small_animal: '🐹',
-};
 
 export default function PetCard({ pet, isSelected, onClick }: PetCardProps) {
   return (

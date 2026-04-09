@@ -20,7 +20,7 @@ export default function PetsTab() {
   useEffect(() => {
     if (!user) return;
     fetchPets();
-  }, [user]);
+  }, [user, token]);
 
   const fetchPets = async () => {
     try {

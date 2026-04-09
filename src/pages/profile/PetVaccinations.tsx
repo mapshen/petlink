@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { PetVaccination } from '../../types';
-import { Syringe, Trash2 } from 'lucide-react';
+import { Syringe, Trash2, AlertCircle } from 'lucide-react';
 import { API_BASE } from '../../config';
 import { getAuthHeaders } from '../../context/AuthContext';
 import { Button } from '../../components/ui/button';
+import { format, parseISO } from 'date-fns';
 
 interface PetVaccinationsProps {
   petId: number;
@@ -17,10 +18,11 @@ export default function PetVaccinations({ petId, token }: PetVaccinationsProps) 
   const [administeredDate, setAdministeredDate] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchVaccinations();
-  }, [petId]);
+  }, [petId, token]);
 
   const fetchVaccinations = async () => {
     try {
@@ -30,13 +32,14 @@ export default function PetVaccinations({ petId, token }: PetVaccinationsProps) 
         setVaccinations(data.vaccinations);
       }
     } catch {
-      // Non-critical
+      setError('Failed to load vaccinations.');
     }
   };
 
   const handleAdd = async () => {
     if (!vaccineName.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch(`${API_BASE}/pets/${petId}/vaccinations`, {
         method: 'POST',
@@ -47,29 +50,35 @@ export default function PetVaccinations({ petId, token }: PetVaccinationsProps) 
           expires_at: expiresAt || null,
         }),
       });
-      if (res.ok) {
-        setVaccineName('');
-        setAdministeredDate('');
-        setExpiresAt('');
-        setShowAdd(false);
-        fetchVaccinations();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to add vaccination');
       }
-    } catch {
-      // Silently fail
+      setVaccineName('');
+      setAdministeredDate('');
+      setExpiresAt('');
+      setShowAdd(false);
+      setError(null);
+      fetchVaccinations();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add vaccination.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (vaccId: number) => {
+    setError(null);
     try {
-      await fetch(`${API_BASE}/pets/${petId}/vaccinations/${vaccId}`, {
+      const res = await fetch(`${API_BASE}/pets/${petId}/vaccinations/${vaccId}`, {
         method: 'DELETE',
         headers: getAuthHeaders(token),
       });
+      if (!res.ok) throw new Error('Failed to delete vaccination');
+      setError(null);
       fetchVaccinations();
-    } catch {
-      // Silently fail
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete vaccination.');
     }
   };
 
@@ -79,10 +88,21 @@ export default function PetVaccinations({ petId, token }: PetVaccinationsProps) 
         <span className="font-medium text-stone-700 flex items-center gap-1.5">
           <Syringe className="w-3.5 h-3.5" /> Vaccinations
         </span>
-        <button type="button" onClick={() => setShowAdd(!showAdd)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+        <button
+          type="button"
+          onClick={() => setShowAdd(!showAdd)}
+          aria-label={showAdd ? 'Cancel adding vaccination' : 'Add vaccination'}
+          className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+        >
           {showAdd ? 'Cancel' : '+ Add'}
         </button>
       </div>
+
+      {error && (
+        <p className="text-sm text-red-600 flex items-center gap-1 mb-3">
+          <AlertCircle className="w-4 h-4" /> {error}
+        </p>
+      )}
 
       {showAdd && (
         <div className="space-y-2 mb-3">
@@ -109,11 +129,11 @@ export default function PetVaccinations({ petId, token }: PetVaccinationsProps) 
           <div>
             <span className="text-sm font-medium">{v.vaccine_name}</span>
             <span className="text-xs text-stone-400 ml-2">
-              {v.administered_date && `Given: ${new Date(v.administered_date).toLocaleDateString()}`}
-              {v.expires_at && ` | Expires: ${new Date(v.expires_at).toLocaleDateString()}`}
+              {v.administered_date && `Given: ${format(parseISO(v.administered_date), 'MMM d, yyyy')}`}
+              {v.expires_at && ` | Expires: ${format(parseISO(v.expires_at), 'MMM d, yyyy')}`}
             </span>
           </div>
-          <button onClick={() => handleDelete(v.id)} className="text-stone-300 hover:text-red-500 p-1">
+          <button onClick={() => handleDelete(v.id)} aria-label={`Delete ${v.vaccine_name} vaccination`} className="text-stone-300 hover:text-red-500 p-1">
             <Trash2 className="w-3 h-3" />
           </button>
         </div>

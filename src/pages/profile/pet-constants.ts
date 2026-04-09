@@ -1,3 +1,5 @@
+import type { PetSpecies, PetGender, EnergyLevel } from '../../types';
+
 export const SPECIES_OPTIONS = [
   { value: 'dog', label: 'Dog' },
   { value: 'cat', label: 'Cat' },
@@ -28,15 +30,19 @@ export function formatTag(tag: string): string {
   return tag.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+export const SPECIES_EMOJI: Record<string, string> = {
+  dog: '🐕', cat: '🐈', bird: '🐦', reptile: '🦎', small_animal: '🐹',
+};
+
 export interface PetFormData {
   name: string;
-  species: string;
+  species: PetSpecies | string;
   breed: string;
   age: string;
   weight: string;
-  gender: string;
+  gender: PetGender | '';
   spayed_neutered: boolean | null;
-  energy_level: string;
+  energy_level: EnergyLevel | '';
   house_trained: boolean | null;
   temperament: string[];
   special_needs: string;
@@ -49,10 +55,12 @@ export interface PetFormData {
   photo_url: string;
 }
 
-export const emptyForm: PetFormData = {
-  name: '', species: 'dog', breed: '', age: '', weight: '',
-  gender: '', spayed_neutered: null, energy_level: '', house_trained: null,
-  temperament: [], special_needs: '', microchip_number: '',
-  vet_name: '', vet_phone: '', emergency_contact_name: '', emergency_contact_phone: '',
-  medical_history: '', photo_url: '',
-};
+export function createEmptyForm(): PetFormData {
+  return {
+    name: '', species: 'dog', breed: '', age: '', weight: '',
+    gender: '', spayed_neutered: null, energy_level: '', house_trained: null,
+    temperament: [], special_needs: '', microchip_number: '',
+    vet_name: '', vet_phone: '', emergency_contact_name: '', emergency_contact_phone: '',
+    medical_history: '', photo_url: '',
+  };
+}

@@ -14,13 +14,9 @@ import {
 import CareInstructionsEditor from '../../components/profile/CareInstructionsEditor';
 import PetDetailsForm from './PetDetailsForm';
 import PetVaccinations from './PetVaccinations';
-import { formatTag } from './pet-constants';
+import { formatTag, SPECIES_EMOJI } from './pet-constants';
 
 type SubTab = 'details' | 'vaccinations' | 'care';
-
-const SPECIES_EMOJI: Record<string, string> = {
-  dog: '🐕', cat: '🐈', bird: '🐦', reptile: '🦎', small_animal: '🐹',
-};
 
 interface PetDetailProps {
   pet: Pet;
@@ -41,7 +37,7 @@ export default function PetDetail({ pet, token, onClose, onUpdate, onDelete }: P
     { key: 'care', label: 'Care Instructions' },
   ];
 
-  const careCount = pet.care_instructions ? (pet.care_instructions as unknown[]).length : 0;
+  const careCount = Array.isArray(pet.care_instructions) ? pet.care_instructions.length : 0;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">

@@ -6,7 +6,7 @@ import { getAuthHeaders } from '../../context/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import {
   SPECIES_OPTIONS, GENDER_OPTIONS, ENERGY_LEVELS, TEMPERAMENT_TAGS,
-  formatTag, emptyForm, PetFormData,
+  formatTag, createEmptyForm, PetFormData,
 } from './pet-constants';
 
 interface PetDetailsFormProps {
@@ -40,7 +40,7 @@ function petToFormData(pet: Pet): PetFormData {
 }
 
 export default function PetDetailsForm({ pet, token, onSave, onCancel }: PetDetailsFormProps) {
-  const [form, setForm] = useState<PetFormData>(pet ? petToFormData(pet) : emptyForm);
+  const [form, setForm] = useState<PetFormData>(pet ? petToFormData(pet) : createEmptyForm());
   const [error, setError] = useState<string | null>(null);
   const petFileInputRef = useRef<HTMLInputElement>(null);
   const { uploading, progress, error: uploadError, upload, clearError } = useImageUpload(token);
@@ -119,13 +119,13 @@ export default function PetDetailsForm({ pet, token, onSave, onCancel }: PetDeta
         </select>
         <input placeholder="Breed" value={form.breed} onChange={e => setForm({ ...form, breed: e.target.value })}
           className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
-        <select value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}
+        <select value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value as PetFormData['gender'] })}
           className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
           {GENDER_OPTIONS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
         </select>
-        <input type="number" placeholder="Age (years)" value={form.age} onChange={e => setForm({ ...form, age: e.target.value })}
+        <input type="number" min="0" placeholder="Age (years)" value={form.age} onChange={e => setForm({ ...form, age: e.target.value })}
           className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
-        <input type="number" step="0.1" placeholder="Weight (lbs)" value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })}
+        <input type="number" min="0" step="0.1" placeholder="Weight (lbs)" value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })}
           className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" />
       </div>
 
@@ -143,7 +143,7 @@ export default function PetDetailsForm({ pet, token, onSave, onCancel }: PetDeta
             className="rounded text-emerald-600 focus:ring-emerald-500" />
           <span className="text-sm text-stone-700">House Trained</span>
         </label>
-        <select value={form.energy_level} onChange={e => setForm({ ...form, energy_level: e.target.value })}
+        <select value={form.energy_level} onChange={e => setForm({ ...form, energy_level: e.target.value as PetFormData['energy_level'] })}
           className="p-3 border border-stone-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm">
           {ENERGY_LEVELS.map(l => <option key={l.value} value={l.value}>{l.value ? `Energy: ${l.label}` : 'Energy Level'}</option>)}
         </select>
