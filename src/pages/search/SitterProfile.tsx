@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { useEditableProfile } from '../../hooks/useEditableProfile';
+import EditableSection from '../../components/sitter-profile/EditableSection';
+import OwnerInsightsStrip from '../../components/sitter-profile/OwnerInsightsStrip';
+import SitterProfileStrengthBar from '../../components/sitter-profile/SitterProfileStrengthBar';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, SitterSpeciesProfile, ProfileMember, SitterAddon } from '../../types';
-import { getServiceLabel } from '../../shared/service-labels';
-import ImportedReviewBadge from '../../components/profile/ImportedReviewBadge';
-import SubRatingBars from '../../components/review/SubRatingBars';
-import SubRatingPills from '../../components/review/SubRatingPills';
-import ReviewResponse from '../../components/review/ReviewResponse';
 import SitterProfileHeader from '../../components/sitter-profile/SitterProfileHeader';
 import ServiceHighlights from '../../components/sitter-profile/ServiceHighlights';
 import ProfileTabs, { type TabId } from '../../components/sitter-profile/ProfileTabs';
@@ -13,38 +12,26 @@ import SpeciesDetails from '../../components/sitter-profile/SpeciesDetails';
 import PostsGrid from '../../components/sitter-profile/PostsGrid';
 import CreatePostDialog from '../../components/sitter-profile/CreatePostDialog';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
-import { Star, AlertCircle, CreditCard, ShieldCheck, ImagePlus, Flag } from 'lucide-react';
+import { AlertCircle, ImagePlus } from 'lucide-react';
 import ReportReviewDialog from '../../components/review/ReportReviewDialog';
+import ReviewsSection from '../../components/sitter-profile/ReviewsSection';
+import BookingSection from '../../components/sitter-profile/BookingSection';
 import { API_BASE } from '../../config';
 import { reverseGeocode } from '../../lib/geo';
 
 const SitterLocationMap = lazy(() => import('../../components/map/SitterLocationMap'));
-import BookingCalendar from '../../components/booking/BookingCalendar';
-import TimeSlotPicker from '../../components/booking/TimeSlotPicker';
-import PetSelector from '../../components/booking/PetSelector';
-import FirstBookingNudge from '../../components/booking/FirstBookingNudge';
-import InquiryForm from '../../components/booking/InquiryForm';
-import CameraInfoCard from '../../components/booking/CameraInfoCard';
+const ProfileTab = lazy(() => import('../profile/ProfileTab'));
+const SpeciesProfilesTab = lazy(() => import('../profile/SpeciesProfilesTab'));
+const HomeEnvironmentTab = lazy(() => import('../profile/HomeEnvironmentTab'));
+const AvailabilityTab = lazy(() => import('../profile/AvailabilityTab'));
+const LocationTab = lazy(() => import('../profile/LocationTab'));
+const PhotosTab = lazy(() => import('../profile/PhotosTab'));
+const PoliciesTab = lazy(() => import('../profile/PoliciesTab'));
+import { getAddonBySlug } from '../../shared/addon-catalog';
+import { formatCents } from '../../lib/money';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useTurnstile } from '../../hooks/useTurnstile';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
-import PaymentForm from '../../components/payment/PaymentForm';
-import { usePaymentIntent } from '../../hooks/usePaymentIntent';
-import { calculateBookingPrice, calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/pricing';
-import { findApplicableTier } from '../../shared/loyalty-discount';
-import { formatCents, formatCentsDecimal } from '../../lib/money';
-import { getAddonBySlug } from '../../shared/addon-catalog';
-import { getPolicyDescription } from '../../shared/cancellation';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-} from '../../components/ui/alert-dialog';
 
 export default function SitterProfile() {
   const { id } = useParams();
@@ -62,18 +49,10 @@ export default function SitterProfile() {
   const [importedReviews, setImportedReviews] = useState<ImportedReview[]>([]);
   const [profileMembers, setProfileMembers] = useState<ProfileMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedService, setSelectedService] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [bookingError, setBookingError] = useState<string | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
   const [selectedPetIds, setSelectedPetIds] = useState<number[]>([]);
-  const [showPayment, setShowPayment] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState(0);
-  const { clientSecret, loading: paymentLoading, error: paymentError, createIntent } = usePaymentIntent();
-  const [bookingLoading, setBookingLoading] = useState(false);
   const [cityName, setCityName] = useState<string | null>(null);
   const [speciesProfiles, setSpeciesProfiles] = useState<SitterSpeciesProfile[]>([]);
   const [postCount, setPostCount] = useState(0);
@@ -81,11 +60,7 @@ export default function SitterProfile() {
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [reportingReviewId, setReportingReviewId] = useState<number | null>(null);
   const [postsKey, setPostsKey] = useState(0);
-  const [wantsPickup, setWantsPickup] = useState(false);
-  const [wantsGrooming, setWantsGrooming] = useState(false);
   const [sitterAddons, setSitterAddons] = useState<SitterAddon[]>([]);
-  const [selectedAddonIds, setSelectedAddonIds] = useState<Set<number>>(new Set());
-  const [showInquiry, setShowInquiry] = useState(false);
   const [depositCredit, setDepositCredit] = useState<{ booking_id: number; amount_cents: number } | null>(null);
   const [loyaltyInfo, setLoyaltyInfo] = useState<{ tiers: { min_bookings: number; discount_percent: number }[]; completed_bookings: number } | null>(null);
   const bookingRef = useRef<HTMLDivElement>(null);
@@ -99,11 +74,6 @@ export default function SitterProfile() {
 
   const handleAvailabilityLoaded = useCallback((data: Availability[]) => {
     setAvailability(data);
-  }, []);
-
-  const handleDateSelect = useCallback((date: Date) => {
-    setSelectedDate(date);
-    setSelectedTime(null);
   }, []);
 
   // Track profile view once per sitter load
@@ -148,9 +118,6 @@ export default function SitterProfile() {
         setImportedReviews(data.imported_reviews || []);
         setProfileMembers(data.profile_members || []);
         setSitterAddons(data.addons || []);
-        const rebookServiceId = Number(serviceIdParam);
-        const matchedService = rebookServiceId && data.services.find((s: Service) => s.id === rebookServiceId);
-        setSelectedService(matchedService ? matchedService.id : data.services.length > 0 ? data.services[0].id : null);
 
         // Fetch species profiles before clearing loading state to avoid tab flash
         try {
@@ -226,126 +193,13 @@ export default function SitterProfile() {
   }, [user, sitter, token]);
 
   const isOwnProfile = user != null && user.id === sitter?.id;
+  const { editingSection, viewAsVisitor, startEditing, stopEditing, toggleViewAsVisitor } = useEditableProfile();
+  const showEditMode = isOwnProfile && !viewAsVisitor;
   const speciesTabs = speciesProfiles.map((p) => p.species);
   const selectedSpecies = activeTab.startsWith('species-') ? activeTab.replace('species-', '') : null;
   const selectedSpeciesProfile = selectedSpecies ? speciesProfiles.find((p) => p.species === selectedSpecies) : null;
 
-  // Filter booking services by selected pets' species (memoized to avoid useEffect churn)
-  const selectedPetSpecies: string[] = useMemo(
-    () => [...new Set(pets.filter((p) => selectedPetIds.includes(p.id)).map((p) => p.species as string))],
-    [pets, selectedPetIds]
-  );
-  const bookingServices = useMemo(
-    () => selectedPetSpecies.length > 0
-      ? services.filter((s) => !s.species || selectedPetSpecies.includes(s.species))
-      : services,
-    [services, selectedPetSpecies]
-  );
 
-  // Reset selected service if it's no longer in the filtered list
-  useEffect(() => {
-    if (selectedService && !bookingServices.find((s) => s.id === selectedService)) {
-      setSelectedService(bookingServices.length > 0 ? bookingServices[0].id : null);
-    }
-  }, [bookingServices, selectedService]);
-
-  // Clear add-on selections when switching service type
-  useEffect(() => {
-    setSelectedAddonIds(new Set());
-  }, [selectedService]);
-
-  const handleBooking = async () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    if (isOwnProfile) return;
-
-    if (!selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0) return;
-    setBookingError(null);
-    setBookingLoading(true);
-
-    try {
-      const [hours, minutes] = selectedTime.split(':').map(Number);
-      const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), hours, minutes, 0, 0);
-      const selectedSvc = services.find((s) => s.id === selectedService);
-      const meetGreetMinutes = (selectedSvc?.service_details as Record<string, unknown>)?.duration_minutes as number | undefined;
-      const durationMs = selectedSvc?.type === 'meet_greet'
-        ? (meetGreetMinutes || 30) * 60 * 1000
-        : 3600000;
-      const endDate = new Date(startDate.getTime() + durationMs);
-
-      const res = await fetch(`${API_BASE}/bookings`, {
-        method: 'POST',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({
-          sitter_id: sitter?.id,
-          service_id: selectedService,
-          pet_ids: selectedPetIds,
-          start_time: startDate.toISOString(),
-          end_time: endDate.toISOString(),
-          pickup_dropoff: wantsPickup,
-          grooming_addon: wantsGrooming,
-          addon_ids: [...selectedAddonIds],
-        })
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Booking request failed');
-      }
-      const bookingData = await res.json();
-      const selectedSvcObj = services.find((s) => s.id === selectedService);
-      const isFree = selectedSvcObj?.price_cents === 0;
-
-      if (isFree) {
-        navigate('/home');
-        return;
-      }
-
-      const bookingId = bookingData.id ?? bookingData.booking?.id;
-      if (bookingId) {
-        const selectedPetsForPrice = pets.filter((p) => selectedPetIds.includes(p.id));
-        const selectedAddonList = sitterAddons.filter((a) => selectedAddonIds.has(a.id));
-        const loyaltyTierForPayment = loyaltyInfo
-          ? findApplicableTier(
-              loyaltyInfo.tiers.map((t) => ({ sitter_id: sitter!.id, ...t })),
-              loyaltyInfo.completed_bookings
-            )
-          : null;
-        const pricing = calculateAdvancedPrice({
-          basePriceCents: selectedSvcObj!.price_cents,
-          additionalPetPriceCents: selectedSvcObj!.additional_pet_price_cents || 0,
-          petCount: selectedPetIds.length,
-          isHoliday: selectedDate ? isUSHoliday(selectedDate) : false,
-          holidayRateCents: selectedSvcObj!.holiday_rate_cents,
-          hasPuppy: selectedPetsForPrice.some((p) => isPuppy(p.age)),
-          puppyRateCents: selectedSvcObj!.puppy_rate_cents,
-          pickupDropoff: wantsPickup,
-          pickupDropoffFeeCents: selectedSvcObj!.pickup_dropoff_fee_cents,
-          groomingAddon: wantsGrooming,
-          groomingAddonFeeCents: selectedSvcObj!.grooming_addon_fee_cents,
-          addons: selectedAddonList.map((a) => ({ slug: a.addon_slug, priceCents: a.price_cents })),
-          discountPercent: loyaltyTierForPayment?.discount_percent,
-        });
-        const totalCents = pricing.totalCents;
-        setPaymentAmount(totalCents);
-        const result = await createIntent(bookingId);
-        if (result.secret) {
-          setShowPayment(true);
-          return;
-        }
-        setBookingError(`Booking created but payment setup failed: ${result.error || 'unknown error'}. You can pay later from the Home page.`);
-        return;
-      } else {
-        navigate('/home');
-      }
-    } catch (err) {
-      setBookingError(err instanceof Error ? err.message : 'Failed to create booking. Please try again.');
-    } finally {
-      setBookingLoading(false);
-    }
-  };
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
   if (!sitter) return (
@@ -364,27 +218,68 @@ export default function SitterProfile() {
   return (
     <div>
       <TurnstileWidget containerRef={turnstileRef} />
-      <SitterProfileHeader
-        sitter={sitter}
-        postCount={postCount}
-        cityName={cityName}
-        currentUser={user}
-        isFavorited={isFavorited(sitter.id)}
-        onToggleFavorite={toggleFavorite}
-        onBookClick={scrollToBooking}
-        onMessageClick={() => navigate(`/messages?recipient=${sitter.id}`)}
-        speciesProfiles={speciesProfiles}
-        profileMembers={profileMembers}
-      />
+      {/* Owner-only: Profile Strength + Insights */}
+      {showEditMode && (
+        <div className="max-w-[960px] mx-auto px-4 pt-6">
+          <SitterProfileStrengthBar
+            user={sitter}
+            services={services}
+            photos={[]}
+            onEditSection={startEditing}
+          />
+          <OwnerInsightsStrip token={token} />
+        </div>
+      )}
 
-      <ServiceHighlights
-        services={services}
-        selectedSpecies={selectedSpecies}
-        onServiceClick={(service) => {
-          setSelectedService(service.id);
-          scrollToBooking();
-        }}
-      />
+      <EditableSection
+        sectionId="header"
+        isOwner={isOwnProfile}
+        isEditing={editingSection === 'header'}
+        viewAsVisitor={viewAsVisitor}
+        onEdit={startEditing}
+        onClose={stopEditing}
+        editContent={
+          <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+            <ProfileTab />
+          </Suspense>
+        }
+      >
+        <SitterProfileHeader
+          sitter={sitter}
+          postCount={postCount}
+          cityName={cityName}
+          currentUser={user}
+          isFavorited={isFavorited(sitter.id)}
+          onToggleFavorite={toggleFavorite}
+          onBookClick={scrollToBooking}
+          onMessageClick={() => navigate(`/messages?recipient=${sitter.id}`)}
+          speciesProfiles={speciesProfiles}
+          profileMembers={profileMembers}
+          isOwner={isOwnProfile}
+          viewAsVisitor={viewAsVisitor}
+          onToggleViewMode={toggleViewAsVisitor}
+        />
+      </EditableSection>
+
+      <EditableSection
+        sectionId="services"
+        isOwner={isOwnProfile}
+        isEditing={editingSection === 'services'}
+        viewAsVisitor={viewAsVisitor}
+        onEdit={startEditing}
+        onClose={stopEditing}
+        editContent={
+          <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+            <SpeciesProfilesTab />
+          </Suspense>
+        }
+      >
+        <ServiceHighlights
+          services={services}
+          selectedSpecies={selectedSpecies}
+          onServiceClick={() => scrollToBooking()}
+        />
+      </EditableSection>
 
       {sitterAddons.length > 0 && (
         <div className="bg-white border-b border-stone-200 px-6 py-3">
@@ -439,457 +334,36 @@ export default function SitterProfile() {
 
         {/* Reviews Tab */}
         {activeTab === 'reviews' && (
-          <div className="py-6 px-4" role="tabpanel" aria-label="Reviews">
-            <div className="max-w-2xl mx-auto">
-              {/* Rating summary */}
-              {reviews.length > 0 && (
-                <div className="bg-white rounded-2xl border border-stone-200 p-5 mb-4 text-center">
-                  <div className="text-5xl font-extrabold text-amber-500">{sitter.avg_rating}</div>
-                  <div className="flex justify-center gap-0.5 my-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className={`w-4 h-4 ${i < Math.round(sitter.avg_rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-stone-200'}`} />
-                    ))}
-                  </div>
-                  <p className="text-sm text-stone-500">Based on {sitter.review_count} reviews</p>
-                  <div className="mt-4">
-                    <SubRatingBars reviews={reviews} />
-                  </div>
-                </div>
-              )}
-
-              {/* Individual reviews */}
-              <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-                {reviews.map((review, idx) => (
-                  <div key={review.id} className={`p-5 ${idx < reviews.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                    <div className="flex items-center gap-2.5 mb-2">
-                      <img
-                        src={review.reviewer_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.reviewer_name ?? 'U')}&size=36`}
-                        alt={review.reviewer_name ?? 'Reviewer'}
-                        className="w-9 h-9 rounded-full"
-                      />
-                      <div>
-                        <div className="text-sm font-semibold text-stone-900">{review.reviewer_name}</div>
-                        <div className="text-xs text-stone-500">{new Date(review.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-0.5 mb-1.5">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-200'}`} />
-                      ))}
-                    </div>
-                    <SubRatingPills review={review} />
-                    {review.comment && <p className="text-sm text-stone-600 leading-relaxed mt-1.5">{review.comment}</p>}
-                    {review.response_text && review.response_at && (
-                      <ReviewResponse
-                        responseText={review.response_text}
-                        responseAt={review.response_at}
-                        respondentName={sitter.name}
-                      />
-                    )}
-                    {user && user.id !== review.reviewer_id && (
-                      <button
-                        onClick={() => setReportingReviewId(review.id)}
-                        className="mt-2 text-xs font-medium text-stone-400 hover:text-red-500 flex items-center gap-1 transition-colors"
-                      >
-                        <Flag className="w-3 h-3" />
-                        Report
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {reviews.length === 0 && importedReviews.length === 0 && (
-                  <div className="p-8 text-center">
-                    <p className="text-stone-500 italic">
-                      {user ? 'No reviews yet.' : 'Log in to see reviews.'}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {importedReviews.length > 0 && (
-                <div className="mt-4 bg-white rounded-2xl border border-stone-200 p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <h3 className="text-lg font-bold text-stone-900">Imported Reviews</h3>
-                    <ImportedReviewBadge platform={importedReviews[0].platform} />
-                  </div>
-                  <div className="space-y-4">
-                    {importedReviews.map((review) => (
-                      <div key={review.id} className="border-b border-stone-100 pb-4 last:border-0 last:pb-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-sm text-stone-900">{review.reviewer_name}</span>
-                          <div className="flex text-amber-400 text-xs">
-                            {[...Array(5)].map((_, i) => (
-                              <Star key={i} className={`w-3 h-3 ${i < (review.rating ?? 5) ? 'fill-current' : 'text-stone-200'}`} />
-                            ))}
-                          </div>
-                          {review.review_date && (
-                            <span className="text-xs text-stone-400 ml-auto">{review.review_date}</span>
-                          )}
-                        </div>
-                        {review.comment && <p className="text-sm text-stone-600">{review.comment}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <ReviewsSection
+            sitter={sitter}
+            reviews={reviews}
+            importedReviews={importedReviews}
+            currentUser={user}
+            onReportReview={setReportingReviewId}
+          />
         )}
 
         {/* Availability Tab */}
         {activeTab === 'availability' && (
-          <div className="py-6 px-4" ref={bookingRef} role="tabpanel" aria-label="Availability">
-            <div className="max-w-2xl mx-auto space-y-6">
-              {/* Location */}
-              {sitter.lat != null && sitter.lng != null && (
-                <div className="bg-white rounded-2xl border border-stone-200 p-5">
-                  <h3 className="text-lg font-bold text-stone-900 mb-3">Location</h3>
-                  <Suspense fallback={
-                    <div className="h-48 bg-stone-100 rounded-xl flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-                    </div>
-                  }>
-                    <SitterLocationMap
-                      lat={sitter.lat}
-                      lng={sitter.lng}
-                      name={sitter.name}
-                      serviceRadiusMiles={sitter.service_radius_miles}
-                    />
-                  </Suspense>
-                  <p className="text-xs text-stone-400 mt-2">
-                    {cityName ? `${cityName} — ` : ''}Approximate location shown for privacy
-                    {sitter.service_radius_miles && ` · Serves within ${sitter.service_radius_miles} miles`}
-                  </p>
-                </div>
-              )}
-
-              {/* House Rules */}
-              {sitter.house_rules && (
-                <div className="bg-white rounded-2xl border border-stone-200 p-5">
-                  <h3 className="text-lg font-bold text-stone-900 mb-3">House Rules</h3>
-                  <p className="text-sm text-stone-600 whitespace-pre-line leading-relaxed">{sitter.house_rules}</p>
-                </div>
-              )}
-
-              {/* Booking Card — hidden on own profile */}
-              {!isOwnProfile && (
-              <div className="bg-white rounded-2xl border border-stone-200 p-6">
-                <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
-                <FirstBookingNudge />
-
-                {depositCredit && (
-                  <div className="mb-6 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                    <span>You have a <strong>{formatCents(depositCredit.amount_cents)} credit</strong> from your meet & greet — it will be applied to your next booking!</span>
-                  </div>
-                )}
-
-                {user && !user.emergency_contact_name && (
-                  <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
-                    <Link to="/settings#section-account" className="font-semibold underline hover:text-amber-800">Add an emergency contact</Link> in your settings — sitters need someone to reach in case of a pet emergency.
-                  </div>
-                )}
-
-                {user && pets.length > 0 && (
-                  <div className="space-y-2 mb-6">
-                    <label className="block text-sm font-medium text-stone-700">Your Pets</label>
-                    <PetSelector
-                      pets={pets}
-                      selectedPetIds={selectedPetIds}
-                      onSelectionChange={setSelectedPetIds}
-                    />
-                  </div>
-                )}
-                {user && pets.length === 0 && (
-                  <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
-                    <Link to="/profile#section-pets" className="font-semibold underline hover:text-amber-800">Add a pet to your profile</Link> before booking.
-                  </div>
-                )}
-
-                <div className="space-y-4 mb-6">
-                  <label className="block text-sm font-medium text-stone-700">Service</label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {bookingServices.map((service) => (
-                      <button
-                        key={service.id}
-                        onClick={() => setSelectedService(service.id)}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          selectedService === service.id
-                            ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
-                            : 'border-stone-200 hover:border-emerald-200'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-stone-900">
-                            {getServiceLabel(service.type, service.species ? [service.species] : undefined)}
-                          </span>
-                          <span className="font-bold text-emerald-600">{service.price_cents === 0 ? 'Free' : formatCents(service.price_cents)}</span>
-                        </div>
-                        <p className="text-xs text-stone-500 mt-1">{service.description}</p>
-                        {(service.additional_pet_price_cents || 0) > 0 && (
-                          <p className="text-xs text-stone-400 mt-0.5">+{formatCents(service.additional_pet_price_cents!)}/extra pet</p>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-4 mb-6">
-                  <label className="block text-sm font-medium text-stone-700">Date</label>
-                  <BookingCalendar
-                    sitterId={sitter.id}
-                    selectedDate={selectedDate}
-                    onDateSelect={handleDateSelect}
-                    onAvailabilityLoaded={handleAvailabilityLoaded}
-                  />
-                </div>
-
-                {selectedDate && (
-                  <div className="space-y-2 mb-6">
-                    <label className="block text-sm font-medium text-stone-700">Time</label>
-                    <TimeSlotPicker
-                      selectedDate={selectedDate}
-                      availability={availability}
-                      selectedTime={selectedTime}
-                      onTimeSelect={setSelectedTime}
-                    />
-                  </div>
-                )}
-
-                {selectedPetIds.length > 0 && selectedService && (() => {
-                  const svc = bookingServices.find((s) => s.id === selectedService);
-                  if (!svc || svc.price_cents === 0) return null;
-                  const selectedPets = pets.filter((p) => selectedPetIds.includes(p.id));
-                  const hasPuppyPet = selectedPets.some((p) => isPuppy(p.age));
-                  const holidayDate = selectedDate ? isUSHoliday(selectedDate) : false;
-
-                  // Filter add-ons applicable to the selected service type
-                  const applicableAddons = sitterAddons.filter((a) => {
-                    const def = getAddonBySlug(a.addon_slug);
-                    return def && def.applicableServices.includes(svc.type as any);
-                  });
-
-                  const addonItems = sitterAddons
-                    .filter((a) => selectedAddonIds.has(a.id))
-                    .map((a) => ({ slug: a.addon_slug, priceCents: a.price_cents }));
-
-                  // Apply loyalty discount if applicable
-                  const loyaltyTier = loyaltyInfo
-                    ? findApplicableTier(
-                        loyaltyInfo.tiers.map((t) => ({ sitter_id: sitter!.id, ...t })),
-                        loyaltyInfo.completed_bookings
-                      )
-                    : null;
-
-                  const pricing = calculateAdvancedPrice({
-                    basePriceCents: svc.price_cents,
-                    additionalPetPriceCents: svc.additional_pet_price_cents || 0,
-                    petCount: selectedPetIds.length,
-                    isHoliday: holidayDate,
-                    holidayRateCents: svc.holiday_rate_cents,
-                    hasPuppy: hasPuppyPet,
-                    puppyRateCents: svc.puppy_rate_cents,
-                    pickupDropoff: wantsPickup,
-                    pickupDropoffFeeCents: svc.pickup_dropoff_fee_cents,
-                    groomingAddon: wantsGrooming,
-                    groomingAddonFeeCents: svc.grooming_addon_fee_cents,
-                    addons: addonItems,
-                    discountPercent: loyaltyTier?.discount_percent,
-                    discountReason: loyaltyTier
-                      ? `Loyalty: ${loyaltyTier.discount_percent}% off (${loyaltyInfo!.completed_bookings}+ bookings)`
-                      : undefined,
-                  });
-
-                  const toggleAddon = (addonId: number) => {
-                    setSelectedAddonIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(addonId)) {
-                        next.delete(addonId);
-                      } else {
-                        next.add(addonId);
-                      }
-                      return next;
-                    });
-                  };
-
-                  return (
-                    <div className="mb-6 space-y-3">
-                      {/* Add-ons — dynamic from sitter's catalog */}
-                      {(applicableAddons.length > 0 || svc.pickup_dropoff_fee_cents || svc.grooming_addon_fee_cents) && (
-                        <div className="p-3 bg-white border border-stone-200 rounded-xl space-y-2">
-                          <div className="text-xs font-bold text-stone-500 uppercase tracking-wider">Add-ons</div>
-                          {/* Legacy add-ons (backward compat until fully migrated) */}
-                          {svc.pickup_dropoff_fee_cents != null && svc.pickup_dropoff_fee_cents > 0 && !applicableAddons.some((a) => a.addon_slug === 'pickup_dropoff') && (
-                            <label className="flex items-center justify-between cursor-pointer text-sm">
-                              <span className="flex items-center gap-2">
-                                <input type="checkbox" checked={wantsPickup} onChange={(e) => setWantsPickup(e.target.checked)} className="rounded text-emerald-600" />
-                                🚗 Pickup & drop-off
-                              </span>
-                              <span className="text-stone-500">+{formatCents(svc.pickup_dropoff_fee_cents)}</span>
-                            </label>
-                          )}
-                          {svc.grooming_addon_fee_cents != null && svc.grooming_addon_fee_cents > 0 && !applicableAddons.some((a) => a.addon_slug === 'full_grooming') && (
-                            <label className="flex items-center justify-between cursor-pointer text-sm">
-                              <span className="flex items-center gap-2">
-                                <input type="checkbox" checked={wantsGrooming} onChange={(e) => setWantsGrooming(e.target.checked)} className="rounded text-emerald-600" />
-                                💇 Grooming add-on
-                              </span>
-                              <span className="text-stone-500">+{formatCents(svc.grooming_addon_fee_cents)}</span>
-                            </label>
-                          )}
-                          {/* New catalog add-ons */}
-                          {applicableAddons.map((addon) => {
-                            const def = getAddonBySlug(addon.addon_slug);
-                            const isSelected = selectedAddonIds.has(addon.id);
-                            return (
-                              <label
-                                key={addon.id}
-                                className={`flex items-center justify-between cursor-pointer text-sm p-2 rounded-lg transition-colors ${
-                                  isSelected ? 'bg-emerald-50 border border-emerald-200' : 'hover:bg-stone-50'
-                                }`}
-                              >
-                                <span className="flex items-center gap-2 min-w-0">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => toggleAddon(addon.id)}
-                                    className="rounded text-emerald-600 flex-shrink-0"
-                                  />
-                                  <span className="min-w-0">
-                                    <span className="text-stone-800">{def?.emoji} {def?.label ?? addon.addon_slug}</span>
-                                    {addon.notes && (
-                                      <span className="block text-xs text-stone-400 mt-0.5 truncate">{addon.notes}</span>
-                                    )}
-                                  </span>
-                                </span>
-                                <span className={`whitespace-nowrap ml-2 ${isSelected ? 'text-emerald-700 font-medium' : 'text-stone-400'}`}>
-                                  {addon.price_cents === 0 ? 'Free' : `+${formatCents(addon.price_cents)}`}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Price breakdown */}
-                      <div className="p-3 bg-stone-50 rounded-xl space-y-1">
-                        <div className="flex justify-between text-sm text-stone-600">
-                          <span>
-                            {pricing.breakdown.holidayApplied ? 'Holiday rate' : pricing.breakdown.puppyApplied ? 'Puppy/kitten rate' : 'Base price'}
-                          </span>
-                          <span>{formatCents(pricing.breakdown.baseCents)}</span>
-                        </div>
-                        {pricing.breakdown.extraPetsCents > 0 && (
-                          <div className="flex justify-between text-sm text-stone-600">
-                            <span>{selectedPetIds.length - 1} extra pet{selectedPetIds.length > 2 ? 's' : ''}</span>
-                            <span>{formatCents(pricing.breakdown.extraPetsCents)}</span>
-                          </div>
-                        )}
-                        {pricing.breakdown.pickupDropoffCents > 0 && (
-                          <div className="flex justify-between text-sm text-stone-600">
-                            <span>Pickup & drop-off</span>
-                            <span>{formatCents(pricing.breakdown.pickupDropoffCents)}</span>
-                          </div>
-                        )}
-                        {pricing.breakdown.groomingCents > 0 && (
-                          <div className="flex justify-between text-sm text-stone-600">
-                            <span>Grooming add-on</span>
-                            <span>{formatCents(pricing.breakdown.groomingCents)}</span>
-                          </div>
-                        )}
-                        {pricing.breakdown.addonDetails.map((a) => {
-                          const addonDef = getAddonBySlug(a.slug);
-                          return (
-                            <div key={a.slug} className="flex justify-between text-sm text-stone-600">
-                              <span>{addonDef?.emoji} {addonDef?.label ?? a.slug}</span>
-                              <span>{a.priceCents === 0 ? 'Free' : formatCents(a.priceCents)}</span>
-                            </div>
-                          );
-                        })}
-                        {pricing.breakdown.discountCents > 0 && (
-                          <div className="flex justify-between text-sm text-emerald-600">
-                            <span>Loyalty discount ({pricing.breakdown.discountPercent}%)</span>
-                            <span>-{formatCents(pricing.breakdown.discountCents)}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between text-sm font-bold text-stone-900 pt-1 border-t border-stone-200">
-                          <span>Total</span>
-                          <span>{formatCents(pricing.totalCents)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Camera & Monitoring info — shown during booking flow */}
-                {sitter && (sitter.camera_preference === 'requires' || sitter.camera_preference === 'prefers') && (
-                  <CameraInfoCard
-                    sitterCameraPreference={sitter.camera_preference}
-                    viewAs="owner"
-                  />
-                )}
-
-                {bookingError && (
-                  <div role="alert" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs mb-4">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="flex-grow">{bookingError}</span>
-                    <button onClick={() => setBookingError(null)} aria-label="Dismiss error" className="text-red-400 hover:text-red-600 font-medium">Dismiss</button>
-                  </div>
-                )}
-
-                <button
-                  onClick={handleBooking}
-                  disabled={bookingLoading || !selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
-                  className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {bookingLoading ? 'Submitting...' : selectedService && services.find((s) => s.id === selectedService)?.price_cents === 0 ? 'Request Booking' : 'Request Booking & Pay'}
-                </button>
-
-                <button
-                  onClick={() => setShowInquiry(true)}
-                  className="w-full mt-3 border border-emerald-600 text-emerald-700 py-3 rounded-xl font-bold hover:bg-emerald-50 transition-colors"
-                >
-                  Send Inquiry
-                </button>
-
-                <p className="text-xs text-center text-stone-400 mt-4">
-                  {selectedService && services.find((s) => s.id === selectedService)?.price_cents === 0
-                    ? 'This is a free service — no payment required.'
-                    : 'You won\'t be charged until the sitter confirms.'}
-                </p>
-                <p className="text-xs text-center text-stone-400 mt-1">
-                  Times shown in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
-                </p>
-
-                {sitter.cancellation_policy && (
-                  <div className="mt-4 p-3 bg-stone-50 rounded-xl">
-                    <p className="text-xs font-medium text-stone-600 flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Cancellation: <span className="capitalize">{sitter.cancellation_policy}</span>
-                    </p>
-                    <p className="text-xs text-stone-400 mt-1">
-                      {getPolicyDescription(sitter.cancellation_policy)}
-                    </p>
-                  </div>
-                )}
-              </div>
-              )}
-            </div>
-          </div>
+          <BookingSection
+            sitter={sitter}
+            services={services}
+            sitterAddons={sitterAddons}
+            pets={pets}
+            selectedPetIds={selectedPetIds}
+            onPetSelectionChange={setSelectedPetIds}
+            availability={availability}
+            loyaltyInfo={loyaltyInfo}
+            depositCredit={depositCredit}
+            isOwnProfile={isOwnProfile}
+            user={user}
+            token={token}
+            cityName={cityName}
+            bookingRef={bookingRef}
+            onAvailabilityLoaded={handleAvailabilityLoaded}
+          />
         )}
       </div>
-
-      {/* Inquiry Dialog */}
-      {sitter && (
-        <InquiryForm
-          open={showInquiry}
-          onOpenChange={setShowInquiry}
-          sitterId={sitter.id}
-          sitterName={sitter.name}
-          services={services}
-          pets={pets}
-        />
-      )}
 
       {/* Create Post Dialog */}
       <CreatePostDialog
@@ -898,52 +372,11 @@ export default function SitterProfile() {
         onPostCreated={() => setPostsKey((k) => k + 1)}
       />
 
-      {/* Payment Dialog */}
-      <AlertDialog open={showPayment} onOpenChange={(open) => { if (!open) setShowPayment(false); }}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-emerald-600" />
-              Complete Payment
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Your booking has been created. Complete payment to confirm.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {clientSecret && paymentAmount > 0 ? (
-            <PaymentForm
-              clientSecret={clientSecret}
-              amount={paymentAmount}
-              onSuccess={() => {
-                setShowPayment(false);
-                navigate('/home');
-              }}
-              onError={(msg) => setBookingError(msg)}
-            />
-          ) : paymentLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-            </div>
-          ) : paymentError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{paymentError}</AlertDescription>
-            </Alert>
-          ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setShowPayment(false);
-              navigate('/home');
-            }}>
-              Pay Later
-            </AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {reportingReviewId !== null && (
+      {/* Report Review Dialog */}
+      {reportingReviewId != null && (
         <ReportReviewDialog
           reviewId={reportingReviewId}
-          open={true}
+          open={reportingReviewId != null}
           onOpenChange={(open) => { if (!open) setReportingReviewId(null); }}
           token={token}
         />
@@ -951,3 +384,4 @@ export default function SitterProfile() {
     </div>
   );
 }
+
