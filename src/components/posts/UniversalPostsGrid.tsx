@@ -155,6 +155,17 @@ export default function UniversalPostsGrid({ destinationType, destinationId, onT
                 ))}
               </div>
             )}
+            {/* Cross-post indicator */}
+            {post.destinations && post.destinations.filter(d => d.destination_type !== 'profile').length > 0 && (
+              <div className="flex flex-wrap gap-1.5 text-xs text-stone-400">
+                <span>Also in:</span>
+                {post.destinations.filter(d => d.destination_type !== 'profile').map((d, i) => (
+                  <span key={i} className="bg-stone-50 px-1.5 py-0.5 rounded text-stone-500">
+                    {d.destination_name || (d.destination_type === 'pet' ? 'Pet profile' : 'Space')}
+                  </span>
+                ))}
+              </div>
+            )}
             {/* Like + comment count */}
             <div className="flex items-center gap-4 pt-2 border-t border-stone-100">
               <LikeButton postId={post.id} initialLiked={post.user_liked || false} initialCount={post.like_count || 0} token={token} />

@@ -910,10 +910,11 @@ export interface Post {
 }
 
 export interface PostDestination {
-  id: number;
+  id?: number;
   post_id: number;
   destination_type: PostDestinationType;
   destination_id: number;
+  destination_name?: string;
 }
 
 export interface PostPetTag {
