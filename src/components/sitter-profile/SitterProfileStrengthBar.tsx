@@ -14,7 +14,7 @@ const SECTION_MAP: Record<string, string> = {
   'Add services': 'services',
   'Set availability': 'availability',
   'Set location': 'location',
-  'Add photos (6+)': 'photos',
+  'Upload photos': 'photos',
   'Get a review': 'reviews',
   'Home info': 'home',
 };

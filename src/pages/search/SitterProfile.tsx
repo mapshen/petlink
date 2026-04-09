@@ -59,6 +59,7 @@ export default function SitterProfile() {
   const [reportingReviewId, setReportingReviewId] = useState<number | null>(null);
   const [postsKey, setPostsKey] = useState(0);
   const [sitterAddons, setSitterAddons] = useState<SitterAddon[]>([]);
+  const [sitterPhotos, setSitterPhotos] = useState<SitterPhoto[]>([]);
   const [depositCredit, setDepositCredit] = useState<{ booking_id: number; amount_cents: number } | null>(null);
   const [loyaltyInfo, setLoyaltyInfo] = useState<{ tiers: { min_bookings: number; discount_percent: number }[]; completed_bookings: number } | null>(null);
   const bookingRef = useRef<HTMLDivElement>(null);
@@ -154,6 +155,14 @@ export default function SitterProfile() {
   }, [sitterId, sitterLat, sitterLng]);
 
   useEffect(() => {
+    if (!sitterId) return;
+    fetch(`${API_BASE}/sitter-photos/${sitterId}`)
+      .then(r => r.ok ? r.json() : { photos: [] })
+      .then(data => setSitterPhotos(data.photos || []))
+      .catch(() => {});
+  }, [sitterId]);
+
+  useEffect(() => {
     if (!user || !token) return;
     const fetchPets = async () => {
       try {
@@ -222,7 +231,7 @@ export default function SitterProfile() {
           <SitterProfileStrengthBar
             user={sitter}
             services={services}
-            photos={[]}
+            photos={sitterPhotos}
             onEditSection={startEditing}
           />
           <OwnerInsightsStrip token={token} />
