@@ -27,7 +27,10 @@ export default function addonRoutes(router: Router, publicLimiter: RateLimitRequ
         res.status(400).json({ error: 'Invalid sitter ID' });
         return;
       }
-      const addons = await sql`SELECT id, addon_slug, price_cents, notes FROM sitter_addons WHERE sitter_id = ${sitterId} ORDER BY created_at`;
+      const species = req.query.species as string | undefined;
+      const addons = species
+        ? await sql`SELECT id, addon_slug, price_cents, notes, species FROM sitter_addons WHERE sitter_id = ${sitterId} AND (species IS NULL OR species = ${species}) ORDER BY created_at`
+        : await sql`SELECT id, addon_slug, price_cents, notes, species FROM sitter_addons WHERE sitter_id = ${sitterId} ORDER BY created_at`;
       res.json({ addons });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to fetch sitter add-ons');
@@ -48,7 +51,7 @@ export default function addonRoutes(router: Router, publicLimiter: RateLimitRequ
         return;
       }
 
-      const { addon_slug, price_cents, notes } = req.body;
+      const { addon_slug, price_cents, notes, species } = req.body;
 
       // Enforce canOfferFree business rule
       const def = getAddonBySlug(addon_slug);
@@ -57,10 +60,13 @@ export default function addonRoutes(router: Router, publicLimiter: RateLimitRequ
         return;
       }
 
-      // Use ON CONFLICT to avoid race condition on duplicate check
+      // ON CONFLICT uses the original (sitter_id, addon_slug) constraint for backward compat.
+      // The new unique index (sitter_id, addon_slug, COALESCE(species, '')) prevents
+      // species-specific duplicates via a unique_violation caught below.
+      const speciesVal = species ?? null;
       const [addon] = await sql`
-        INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents, notes)
-        VALUES (${req.userId}, ${addon_slug}, ${price_cents}, ${notes ?? null})
+        INSERT INTO sitter_addons (sitter_id, addon_slug, price_cents, notes, species)
+        VALUES (${req.userId}, ${addon_slug}, ${price_cents}, ${notes ?? null}, ${speciesVal})
         ON CONFLICT (sitter_id, addon_slug) DO NOTHING
         RETURNING *
       `;
@@ -84,7 +90,7 @@ export default function addonRoutes(router: Router, publicLimiter: RateLimitRequ
         return;
       }
 
-      const { price_cents, notes } = req.body;
+      const { price_cents, notes, species } = req.body;
 
       // Enforce canOfferFree business rule
       const def = getAddonBySlug(addon.addon_slug);
@@ -93,11 +99,17 @@ export default function addonRoutes(router: Router, publicLimiter: RateLimitRequ
         return;
       }
 
-      const [updated] = await sql`
-        UPDATE sitter_addons SET price_cents = ${price_cents}, notes = ${notes ?? null}
-        WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
-        RETURNING *
-      `;
+      const [updated] = species !== undefined
+        ? await sql`
+          UPDATE sitter_addons SET price_cents = ${price_cents}, notes = ${notes ?? null}, species = ${species ?? null}
+          WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
+          RETURNING *
+        `
+        : await sql`
+          UPDATE sitter_addons SET price_cents = ${price_cents}, notes = ${notes ?? null}
+          WHERE id = ${req.params.id} AND sitter_id = ${req.userId}
+          RETURNING *
+        `;
       res.json({ addon: updated });
     } catch (error) {
       logger.error({ err: sanitizeError(error) }, 'Failed to update add-on');

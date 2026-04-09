@@ -594,6 +594,7 @@ export async function initDb() {
 
   // Schema migrations for existing databases (columns now baked into CREATE TABLE above)
   await sql`ALTER TYPE service_type ADD VALUE IF NOT EXISTS 'daycare'`.catch(() => {});
+  await sql`ALTER TYPE service_type ADD VALUE IF NOT EXISTS 'boarding'`.catch(() => {});
   await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'litter_box'`.catch(() => {});
   await sql`ALTER TYPE walk_event_type ADD VALUE IF NOT EXISTS 'habitat_check'`.catch(() => {});
 
@@ -1365,6 +1366,7 @@ export async function initDb() {
 
   // Issue #368: Sitter mentor program
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_mentor BOOLEAN DEFAULT false`.catch(() => {});
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS children_ages TEXT`.catch(() => {});
   await sql`
     CREATE TABLE IF NOT EXISTS mentorships (
       id SERIAL PRIMARY KEY,
@@ -1471,6 +1473,10 @@ export async function initDb() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_ec_access_booking_user ON emergency_contact_access_log (booking_id, accessed_by)`.catch(() => {});
+
+  // Per-species addon pricing: add species column and new unique index
+  await sql`ALTER TABLE sitter_addons ADD COLUMN IF NOT EXISTS species TEXT`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sitter_addons_species ON sitter_addons (sitter_id, addon_slug, COALESCE(species, ''))`.catch(() => {});
 
   // Global sitter fields and FK constraints are now in the CREATE TABLE above.
 

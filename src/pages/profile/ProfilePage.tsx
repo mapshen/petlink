@@ -12,7 +12,7 @@ import PhotosTab from './PhotosTab';
 import AvailabilityTab from './AvailabilityTab';
 import LocationTab from './LocationTab';
 import PoliciesTab from './PoliciesTab';
-import AddonsTab from './AddonsTab';
+import HomeEnvironmentTab from './HomeEnvironmentTab';
 import SitterPreview from '../../components/profile/SitterPreview';
 import ProfileStrength from '../../components/profile/ProfileStrength';
 import ProfileSidebar from './ProfileSidebar';
@@ -76,7 +76,7 @@ export default function ProfilePage() {
       case 'about': return <ProfileTab />;
       case 'services': return <SpeciesProfilesTab />;
       case 'pets': return <PetsTab />;
-      case 'addons': return <AddonsTab />;
+      case 'home_environment': return <HomeEnvironmentTab />;
       case 'availability': return <AvailabilityTab />;
       case 'location': return <LocationTab />;
       case 'photos': return <PhotosTab />;

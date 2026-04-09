@@ -3,20 +3,20 @@
  * Shared between server and client.
  */
 
-export type ServiceType = 'walking' | 'sitting' | 'drop-in' | 'grooming' | 'meet_greet' | 'daycare';
+export type ServiceType = 'walking' | 'sitting' | 'boarding' | 'drop-in' | 'grooming' | 'meet_greet' | 'daycare';
 export type PetSpecies = 'dog' | 'cat' | 'bird' | 'reptile' | 'small_animal';
 
 /** Which service types are available for each species */
 export const SPECIES_SERVICES: Record<PetSpecies, readonly ServiceType[]> = {
-  dog: ['meet_greet', 'walking', 'daycare', 'sitting', 'drop-in', 'grooming'],
-  cat: ['meet_greet', 'sitting', 'drop-in', 'grooming'],
-  bird: ['meet_greet', 'sitting', 'drop-in'],
-  reptile: ['meet_greet', 'sitting', 'drop-in'],
-  small_animal: ['meet_greet', 'sitting', 'drop-in', 'grooming'],
+  dog: ['meet_greet', 'walking', 'daycare', 'sitting', 'boarding', 'drop-in', 'grooming'],
+  cat: ['meet_greet', 'sitting', 'boarding', 'drop-in', 'grooming'],
+  bird: ['meet_greet', 'sitting', 'boarding', 'drop-in'],
+  reptile: ['meet_greet', 'sitting', 'boarding', 'drop-in'],
+  small_animal: ['meet_greet', 'sitting', 'boarding', 'drop-in', 'grooming'],
 };
 
 /** All valid service types */
-export const ALL_SERVICE_TYPES: readonly ServiceType[] = ['meet_greet', 'walking', 'daycare', 'sitting', 'drop-in', 'grooming'];
+export const ALL_SERVICE_TYPES: readonly ServiceType[] = ['meet_greet', 'walking', 'daycare', 'sitting', 'boarding', 'drop-in', 'grooming'];
 
 /** Service labels — species-neutral, clean names */
 const GENERIC_LABELS: Record<ServiceType, string> = {
@@ -24,6 +24,7 @@ const GENERIC_LABELS: Record<ServiceType, string> = {
   walking: 'Walking',
   daycare: 'Daycare',
   sitting: 'House Sitting',
+  boarding: 'Boarding',
   'drop-in': 'Drop-in Visit',
   grooming: 'Grooming',
 };
@@ -34,6 +35,7 @@ const GENERIC_LABELS_PLURAL: Record<ServiceType, string> = {
   walking: 'Walkers',
   daycare: 'Daycare Providers',
   sitting: 'House Sitters',
+  boarding: 'Boarders',
   'drop-in': 'Drop-in Visits',
   grooming: 'Groomers',
 };

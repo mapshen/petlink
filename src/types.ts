@@ -157,6 +157,7 @@ export interface User {
   share_phone_for_bookings?: boolean;
   is_mentor?: boolean;
   // Camera policy fields (Issue #373)
+  children_ages?: string | null;
   has_cameras?: boolean;
   camera_locations?: string[];
   camera_policy_note?: string | null;
@@ -210,7 +211,7 @@ export interface PetVaccination {
 export interface Service {
   id: number;
   sitter_id: number;
-  type: 'walking' | 'sitting' | 'drop-in' | 'grooming' | 'meet_greet' | 'daycare';
+  type: 'walking' | 'sitting' | 'boarding' | 'drop-in' | 'grooming' | 'meet_greet' | 'daycare';
   /** Price in integer cents (e.g., 2500 = $25.00) */
   price_cents: number;
   description?: string;
@@ -312,6 +313,7 @@ export interface SitterAddon {
   addon_slug: string;
   price_cents: number;
   notes?: string | null;
+  species?: string | null;
   created_at: string;
 }
 
