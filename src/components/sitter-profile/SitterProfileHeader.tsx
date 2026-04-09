@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, ShieldCheck, Crown, Heart, MessageSquare, Clock, Users, CheckCircle, Calendar } from 'lucide-react';
+import { MapPin, ShieldCheck, Crown, Heart, MessageSquare, Clock, Users, CheckCircle, Calendar, Eye, EyeOff } from 'lucide-react';
 import { formatResponseTime } from '../../shared/response-time';
 import type { User, SitterSpeciesProfile, ProfileMember } from '../../types';
 import { getDisplayName, buildCombinedName } from '../../shared/display-name';
@@ -18,6 +18,9 @@ interface Props {
   readonly onMessageClick: () => void;
   readonly speciesProfiles?: SitterSpeciesProfile[];
   readonly profileMembers?: ProfileMember[];
+  readonly isOwner?: boolean;
+  readonly viewAsVisitor?: boolean;
+  readonly onToggleViewMode?: () => void;
 }
 
 const BIO_TRUNCATE_LIMIT = 150;
@@ -58,6 +61,9 @@ export default function SitterProfileHeader({
   onMessageClick,
   speciesProfiles = [],
   profileMembers = [],
+  isOwner = false,
+  viewAsVisitor = false,
+  onToggleViewMode,
 }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const showFavorite = currentUser != null && currentUser.id !== sitter.id;
@@ -221,12 +227,24 @@ export default function SitterProfileHeader({
 
           {/* Action buttons */}
           <div className="flex gap-2">
-            <button
-              onClick={onBookClick}
-              className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors"
-            >
-              Book Now
-            </button>
+            {isOwner && onToggleViewMode && (
+              <button
+                onClick={onToggleViewMode}
+                className="bg-stone-100 text-stone-700 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-stone-200 transition-colors flex items-center gap-1.5"
+              >
+                {viewAsVisitor ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {viewAsVisitor ? 'Back to editing' : 'View as visitor'}
+              </button>
+            )}
+            {(!isOwner || viewAsVisitor) && (
+              <button
+                onClick={isOwner ? undefined : onBookClick}
+                disabled={isOwner}
+                className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Book Now
+              </button>
+            )}
             {currentUser && (
               <button
                 onClick={onMessageClick}
