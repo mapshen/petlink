@@ -31,13 +31,13 @@ export default function UniversalCreatePostDialog({
 
   useEffect(() => {
     if (!open || !token) return;
-    Promise.all([
-      fetch(`${API_BASE}/pets`, { headers: getAuthHeaders(token) }).then(r => r.json()).then(d => d.pets || []),
-      fetch(`${API_BASE}/forum/categories`, { headers: getAuthHeaders(token) }).then(r => r.json()).then(d => d.categories || []),
-    ]).then(([petData, spaceData]) => {
-      setPets(petData);
-      setSpaces(spaceData);
-    }).catch(() => {});
+    Promise.allSettled([
+      fetch(`${API_BASE}/pets`, { headers: getAuthHeaders(token) }).then(r => r.json()),
+      fetch(`${API_BASE}/forum/categories`, { headers: getAuthHeaders(token) }).then(r => r.json()),
+    ]).then(([petsResult, spacesResult]) => {
+      if (petsResult.status === 'fulfilled') setPets(petsResult.value.pets || []);
+      if (spacesResult.status === 'fulfilled') setSpaces(spacesResult.value.categories || []);
+    });
   }, [open, token]);
 
   useEffect(() => {
