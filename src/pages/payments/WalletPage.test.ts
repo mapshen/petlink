@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildExpensePayload, isReceiptImage } from './expenseUtils';
 import { buildRecurringExpensePayload } from '../../components/payment/RecurringExpenses';
+import { ALL_WALLET_SECTIONS, type WalletSectionDef } from './walletSections';
 
 describe('buildExpensePayload', () => {
   it('includes receipt_url when provided', () => {
@@ -97,6 +98,68 @@ describe('isReceiptImage', () => {
   it('is case-insensitive', () => {
     expect(isReceiptImage('https://cdn.example.com/receipt.JPG')).toBe(true);
     expect(isReceiptImage('https://cdn.example.com/receipt.PNG')).toBe(true);
+  });
+});
+
+/**
+ * Section visibility tests mirroring SettingsPage.test.ts pattern.
+ * Replicates the filtering logic from WalletPage.tsx.
+ */
+function visibleSections(isSitter: boolean): readonly WalletSectionDef[] {
+  return ALL_WALLET_SECTIONS.filter((s) => {
+    if (s.mode === 'both') return true;
+    if (s.mode === 'sitter') return isSitter;
+    return false;
+  });
+}
+
+describe('WalletPage section visibility', () => {
+  it('owner mode sees 3 billing sections (payments, payment-history, credits)', () => {
+    const sections = visibleSections(false);
+    const ids = sections.map((s) => s.id);
+    expect(ids).toEqual(['payments', 'payment-history', 'credits']);
+    expect(ids).toHaveLength(3);
+  });
+
+  it('sitter mode with sitter role sees all 9 sections', () => {
+    const sections = visibleSections(true);
+    const ids = sections.map((s) => s.id);
+    expect(ids).toEqual([
+      'overview', 'earnings', 'expenses', 'tax', 'payouts',
+      'payments', 'payment-history', 'credits', 'subscription',
+    ]);
+    expect(ids).toHaveLength(9);
+  });
+
+  it('sitter mode without sitter role sees 3 billing sections (same as owner)', () => {
+    // isSitter is mode === "sitter" && hasSitterRole — false when role missing
+    const sections = visibleSections(false);
+    const ids = sections.map((s) => s.id);
+    expect(ids).toEqual(['payments', 'payment-history', 'credits']);
+  });
+
+  it('business group has 5 sections', () => {
+    const business = ALL_WALLET_SECTIONS.filter((s) => s.group === 'business');
+    expect(business).toHaveLength(5);
+    expect(business.map((s) => s.id)).toEqual([
+      'overview', 'earnings', 'expenses', 'tax', 'payouts',
+    ]);
+  });
+
+  it('billing group has 4 sections (3 both + 1 sitter)', () => {
+    const billing = ALL_WALLET_SECTIONS.filter((s) => s.group === 'billing');
+    expect(billing).toHaveLength(4);
+    expect(billing.map((s) => s.id)).toEqual([
+      'payments', 'payment-history', 'credits', 'subscription',
+    ]);
+  });
+
+  it('all section IDs are correct', () => {
+    const allIds = ALL_WALLET_SECTIONS.map((s) => s.id);
+    expect(allIds).toEqual([
+      'overview', 'earnings', 'expenses', 'tax', 'payouts',
+      'payments', 'payment-history', 'credits', 'subscription',
+    ]);
   });
 });
 

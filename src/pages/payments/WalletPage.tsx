@@ -94,11 +94,13 @@ export default function WalletPage() {
     }
   };
 
-  const renderSidebarGroup = (label: string, sections: readonly WalletSectionDef[]) => (
-    <div key={label}>
-      <span className="block px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-stone-400">
-        {label}
-      </span>
+  const renderSidebarGroup = (label: string | null, sections: readonly WalletSectionDef[]) => (
+    <div key={label ?? 'ungrouped'}>
+      {label && (
+        <span className="block px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-stone-400">
+          {label}
+        </span>
+      )}
       {sections.map((s) => {
         const Icon = s.icon;
         return (
@@ -153,26 +155,7 @@ export default function WalletPage() {
                   <div className="my-1 border-t border-stone-100" />
                 </>
               )}
-              {hasBusinessSections
-                ? renderSidebarGroup('Billing', billingSections)
-                : billingSections.map((s) => {
-                    const Icon = s.icon;
-                    return (
-                      <a
-                        key={s.id}
-                        href={`#section-${s.id}`}
-                        aria-current={effectiveActive === s.id ? 'true' : undefined}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
-                          effectiveActive === s.id
-                            ? 'bg-emerald-50 text-emerald-700 font-medium'
-                            : 'text-stone-500 hover:bg-stone-50 hover:text-stone-900'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4 flex-shrink-0" />
-                        {s.label}
-                      </a>
-                    );
-                  })}
+              {renderSidebarGroup(hasBusinessSections ? 'Billing' : null, billingSections)}
             </nav>
           </div>
         </div>
