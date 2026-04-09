@@ -1423,6 +1423,7 @@ export async function initDb() {
     )
   `.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_forum_threads_category ON forum_threads (category_id, created_at DESC)`.catch(() => {});
+  await sql`CREATE INDEX IF NOT EXISTS idx_forum_threads_created ON forum_threads (created_at DESC)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_forum_threads_author ON forum_threads (author_id)`.catch(() => {});
 
   await sql`
@@ -1454,13 +1455,11 @@ export async function initDb() {
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       emoji TEXT NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW(),
-      CHECK ((thread_id IS NOT NULL AND reply_id IS NULL) OR (thread_id IS NULL AND reply_id IS NOT NULL)),
-      UNIQUE(thread_id, user_id, emoji),
-      UNIQUE(reply_id, user_id, emoji)
+      CHECK ((thread_id IS NOT NULL AND reply_id IS NULL) OR (thread_id IS NULL AND reply_id IS NOT NULL))
     )
   `.catch(() => {});
-  await sql`CREATE INDEX IF NOT EXISTS idx_forum_reactions_thread ON forum_reactions (thread_id) WHERE thread_id IS NOT NULL`.catch(() => {});
-  await sql`CREATE INDEX IF NOT EXISTS idx_forum_reactions_reply ON forum_reactions (reply_id) WHERE reply_id IS NOT NULL`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS uq_forum_reactions_thread ON forum_reactions (thread_id, user_id, emoji) WHERE thread_id IS NOT NULL`.catch(() => {});
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS uq_forum_reactions_reply ON forum_reactions (reply_id, user_id, emoji) WHERE reply_id IS NOT NULL`.catch(() => {});
 
   // Seed community spaces (idempotent, upsert)
   await sql`

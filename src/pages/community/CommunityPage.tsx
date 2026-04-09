@@ -104,22 +104,32 @@ export default function CommunityPage() {
   const [spaces, setSpaces] = useState<CommunitySpace[]>([]);
   const [trending, setTrending] = useState<TrendingThread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
+    setError(null);
     Promise.all([
       fetch(`${API_BASE}/forum/categories`, { headers: getAuthHeaders(token) }).then(r => r.ok ? r.json() : { categories: [] }),
       fetch(`${API_BASE}/forum/trending`, { headers: getAuthHeaders(token) }).then(r => r.ok ? r.json() : { threads: [] }),
     ]).then(([catData, trendData]) => {
       setSpaces(catData.categories || []);
       setTrending(trendData.threads || []);
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(() => setError('Failed to load community spaces')).finally(() => setLoading(false));
   }, [token]);
 
   if (loading) {
     return (
       <div className="max-w-[960px] mx-auto py-8 px-4 flex justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-[960px] mx-auto py-8 px-4 text-center">
+        <p className="text-stone-500">{error}</p>
       </div>
     );
   }

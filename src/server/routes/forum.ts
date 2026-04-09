@@ -53,7 +53,11 @@ export default function forumRoutes(router: Router): void {
   router.get('/forum/trending', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
-      const userRoles: string[] = user?.roles || [];
+      if (!user) {
+        res.status(403).json({ error: 'Authentication required' });
+        return;
+      }
+      const userRoles: string[] = user.roles || [];
 
       const threads = await sql`
         SELECT
@@ -153,6 +157,12 @@ export default function forumRoutes(router: Router): void {
         return;
       }
 
+      // Sitter-gated spaces require approved sitter status
+      if (category.role_gate?.includes('sitter') && user.approval_status !== 'approved') {
+        res.status(403).json({ error: 'Your sitter account must be approved to post' });
+        return;
+      }
+
       const [thread] = await sql`
         INSERT INTO forum_threads (category_id, author_id, title, content)
         VALUES (${category_id}, ${req.userId}, ${title}, ${content})
@@ -226,7 +236,7 @@ export default function forumRoutes(router: Router): void {
   // ---- Reply to thread (role-gated via thread's category) ----
   router.post('/forum/threads/:id/replies', authMiddleware, validate(createForumReplySchema), async (req: AuthenticatedRequest, res) => {
     try {
-      const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      const [user] = await sql`SELECT roles, approval_status FROM users WHERE id = ${req.userId}`;
 
       const threadId = Number(req.params.id);
       if (!Number.isInteger(threadId) || threadId <= 0) {
@@ -253,6 +263,12 @@ export default function forumRoutes(router: Router): void {
         return;
       }
 
+      // Sitter-gated spaces require approved sitter status for replies
+      if (thread.role_gate?.includes('sitter') && user?.approval_status !== 'approved') {
+        res.status(403).json({ error: 'Your sitter account must be approved to reply' });
+        return;
+      }
+
       const { content } = req.body;
       const [reply] = await sql`
         INSERT INTO forum_replies (thread_id, author_id, content)
@@ -268,7 +284,9 @@ export default function forumRoutes(router: Router): void {
     }
   });
 
-  // ---- Add reaction to thread or reply ----
+  const ALLOWED_REACTIONS = ['👍', '❤️', '😂', '🎉', '😮', '🔥', '🫂', '💪', '😅'];
+
+  // ---- Add reaction to thread or reply (role-gated) ----
   router.post('/forum/reactions', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
       const { thread_id, reply_id, emoji } = req.body;
@@ -276,22 +294,38 @@ export default function forumRoutes(router: Router): void {
         res.status(400).json({ error: 'Provide either thread_id or reply_id' });
         return;
       }
-      if (!emoji || typeof emoji !== 'string' || emoji.length > 10) {
-        res.status(400).json({ error: 'Invalid emoji' });
+      if (!emoji || !ALLOWED_REACTIONS.includes(emoji)) {
+        res.status(400).json({ error: 'Invalid reaction emoji' });
+        return;
+      }
+      const targetId = Number(thread_id || reply_id);
+      if (!Number.isInteger(targetId) || targetId <= 0) {
+        res.status(400).json({ error: 'Invalid target ID' });
+        return;
+      }
+
+      // Check role gate for the target's space
+      const [user] = await sql`SELECT roles FROM users WHERE id = ${req.userId}`;
+      const lookupSql = thread_id
+        ? sql`SELECT fc.role_gate FROM forum_threads ft JOIN forum_categories fc ON fc.id = ft.category_id WHERE ft.id = ${targetId}`
+        : sql`SELECT fc.role_gate FROM forum_replies fr JOIN forum_threads ft ON ft.id = fr.thread_id JOIN forum_categories fc ON fc.id = ft.category_id WHERE fr.id = ${targetId}`;
+      const [target] = await lookupSql;
+      if (!target || !canAccessSpace(user?.roles || [], target.role_gate)) {
+        res.status(403).json({ error: 'You do not have access to this space' });
         return;
       }
 
       if (thread_id) {
         await sql`
           INSERT INTO forum_reactions (thread_id, user_id, emoji)
-          VALUES (${thread_id}, ${req.userId}, ${emoji})
-          ON CONFLICT (thread_id, user_id, emoji) DO NOTHING
+          VALUES (${targetId}, ${req.userId}, ${emoji})
+          ON CONFLICT DO NOTHING
         `;
       } else {
         await sql`
           INSERT INTO forum_reactions (reply_id, user_id, emoji)
-          VALUES (${reply_id}, ${req.userId}, ${emoji})
-          ON CONFLICT (reply_id, user_id, emoji) DO NOTHING
+          VALUES (${targetId}, ${req.userId}, ${emoji})
+          ON CONFLICT DO NOTHING
         `;
       }
 
@@ -302,13 +336,19 @@ export default function forumRoutes(router: Router): void {
     }
   });
 
-  // ---- Remove reaction ----
+  // ---- Remove reaction (via query params) ----
   router.delete('/forum/reactions', authMiddleware, async (req: AuthenticatedRequest, res) => {
     try {
-      const { thread_id, reply_id, emoji } = req.body;
+      const thread_id = req.query.thread_id ? Number(req.query.thread_id) : null;
+      const reply_id = req.query.reply_id ? Number(req.query.reply_id) : null;
+      const emoji = req.query.emoji as string;
+      if ((!thread_id && !reply_id) || (thread_id && reply_id) || !emoji) {
+        res.status(400).json({ error: 'Provide either thread_id or reply_id plus emoji as query params' });
+        return;
+      }
       if (thread_id) {
         await sql`DELETE FROM forum_reactions WHERE thread_id = ${thread_id} AND user_id = ${req.userId} AND emoji = ${emoji}`;
-      } else if (reply_id) {
+      } else {
         await sql`DELETE FROM forum_reactions WHERE reply_id = ${reply_id} AND user_id = ${req.userId} AND emoji = ${emoji}`;
       }
       res.json({ success: true });
