@@ -1,12 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { isNavActive } from './Layout';
 
 interface NavItem {
   readonly name: string;
   readonly path: string;
-}
-
-function isNavItemActive(itemPath: string, currentPath: string): boolean {
-  return currentPath === itemPath;
 }
 
 function getVisibleNavItems(
@@ -31,17 +28,31 @@ function getVisibleNavItems(
 }
 
 describe('MobileMenu nav item logic', () => {
-  describe('isNavItemActive', () => {
-    it('returns true when paths match', () => {
-      expect(isNavItemActive('/search', '/search')).toBe(true);
+  describe('isNavActive', () => {
+    it('returns true when paths match exactly', () => {
+      expect(isNavActive('/search', 'Search', '/search')).toBe(true);
     });
 
     it('returns false when paths differ', () => {
-      expect(isNavItemActive('/search', '/home')).toBe(false);
+      expect(isNavActive('/search', 'Search', '/home')).toBe(false);
     });
 
-    it('does not match partial paths', () => {
-      expect(isNavItemActive('/search', '/search/results')).toBe(false);
+    it('does not match partial paths for non-Profile items', () => {
+      expect(isNavActive('/search', 'Search', '/search/results')).toBe(false);
+    });
+
+    it('matches /owner/* paths for Profile nav item', () => {
+      expect(isNavActive('/owner/jessica-r', 'Profile', '/owner/jessica-r')).toBe(true);
+      expect(isNavActive('/profile', 'Profile', '/owner/jessica-r')).toBe(true);
+    });
+
+    it('matches /sitter/* paths for Profile nav item', () => {
+      expect(isNavActive('/sitter/sarah-m', 'Profile', '/sitter/sarah-m')).toBe(true);
+      expect(isNavActive('/profile', 'Profile', '/sitter/sarah-m')).toBe(true);
+    });
+
+    it('does not match /owner/* for non-Profile items', () => {
+      expect(isNavActive('/home', 'Home', '/owner/jessica-r')).toBe(false);
     });
   });
 

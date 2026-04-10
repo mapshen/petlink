@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from 'lucide-react';
 import type { ProfileType } from '../../types';
 
 interface ProfileViewHeaderProps {
@@ -6,6 +7,8 @@ interface ProfileViewHeaderProps {
   profileType: ProfileType;
   subtitle?: string;
   isOwner: boolean;
+  viewAsVisitor?: boolean;
+  onToggleViewMode?: () => void;
   badges?: React.ReactNode;
   stats?: React.ReactNode;
   children?: React.ReactNode;
@@ -23,6 +26,8 @@ export default function ProfileViewHeader({
   profileType,
   subtitle,
   isOwner,
+  viewAsVisitor = false,
+  onToggleViewMode,
   badges,
   stats,
   children,
@@ -30,9 +35,27 @@ export default function ProfileViewHeader({
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-4 relative group">
       {isOwner && (
-        <div className="absolute top-3 right-3 text-xs text-stone-400 bg-stone-50 px-2 py-1 rounded-full">
-          Your profile
-        </div>
+        viewAsVisitor && onToggleViewMode ? (
+          <button
+            onClick={onToggleViewMode}
+            className="absolute top-3 right-3 bg-stone-100 text-stone-700 px-3 py-1.5 rounded-xl text-xs font-medium hover:bg-stone-200 transition-colors flex items-center gap-1.5"
+          >
+            <EyeOff className="w-3.5 h-3.5" aria-hidden="true" />
+            Back to editing
+          </button>
+        ) : onToggleViewMode ? (
+          <button
+            onClick={onToggleViewMode}
+            className="absolute top-3 right-3 bg-stone-100 text-stone-700 px-3 py-1.5 rounded-xl text-xs font-medium hover:bg-stone-200 transition-colors flex items-center gap-1.5"
+          >
+            <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+            View as visitor
+          </button>
+        ) : !viewAsVisitor ? (
+          <div className="absolute top-3 right-3 text-xs text-stone-400 bg-stone-50 px-2 py-1 rounded-full">
+            Your profile
+          </div>
+        ) : null
       )}
       <div className="flex gap-5 items-start">
         <div className="w-20 h-20 rounded-full bg-stone-100 flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden">

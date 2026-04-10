@@ -334,13 +334,6 @@ export async function initDb() {
       UNIQUE(booking_id, reviewer_id)
     )
   `;
-  // Migration: add hidden columns to existing reviews table
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ`.catch(() => {});
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS hidden_by INTEGER REFERENCES users(id)`.catch(() => {});
-  // Migration: add private flags columns to existing reviews table
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS private_flags TEXT[] DEFAULT '{}'`.catch(() => {});
-  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS private_note TEXT`.catch(() => {});
-
   await sql`
     CREATE TABLE IF NOT EXISTS availability (
       id SERIAL PRIMARY KEY,
@@ -743,10 +736,6 @@ export async function initDb() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_imported_profiles_sitter_id ON imported_profiles (sitter_id)`.catch(() => {});
-  // Migration: add verification_status column if table only has legacy 'verified' boolean
-  await sql`ALTER TABLE imported_profiles ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'pending'`.catch(() => {});
-  // Backfill verification_status from legacy verified column
-  await sql`UPDATE imported_profiles SET verification_status = 'verified' WHERE verified = true AND (verification_status IS NULL OR verification_status = 'pending')`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_imported_reviews_sitter_id ON imported_reviews (sitter_id)`.catch(() => {});
   // Allow manual imported reviews without an imported_profile
   await sql`ALTER TABLE imported_reviews ALTER COLUMN imported_profile_id DROP NOT NULL`.catch(() => {});
@@ -1007,11 +996,6 @@ export async function initDb() {
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS meet_greet_notes TEXT`.catch(() => {});
   await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS deposit_reminder_count INTEGER DEFAULT 0`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_deposit_status ON bookings (deposit_status) WHERE deposit_status IS NOT NULL`.catch(() => {});
-
-  // Issue #348: Day-before booking reminders
-  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_reminder_sent_at TIMESTAMPTZ`.catch(() => {});
-  await sql`ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS booking_reminders BOOLEAN DEFAULT TRUE`.catch(() => {});
-  await sql`ALTER TABLE notification_preferences ADD COLUMN IF NOT EXISTS booking_reminders_email BOOLEAN DEFAULT TRUE`.catch(() => {});
 
   // Issue #337: Onboarding reminders
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_started_at TIMESTAMPTZ`.catch(() => {});
@@ -1599,8 +1583,6 @@ export async function initDb() {
   // Indexes for search performance
   await sql`CREATE INDEX IF NOT EXISTS idx_services_species ON services (species)`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets (owner_id)`.catch(() => {});
-  // Pet slug migration, index, and backfill
-  await sql`ALTER TABLE pets ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE`.catch(() => {});
   await sql`CREATE INDEX IF NOT EXISTS idx_pets_slug ON pets (slug) WHERE slug IS NOT NULL`.catch(() => {});
   await sql`
     UPDATE pets SET slug = LOWER(REPLACE(REPLACE(name, ' ', '-'), '''', '')) || '-' || id

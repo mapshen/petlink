@@ -7,9 +7,11 @@ import { useEditableProfile } from '../../hooks/useEditableProfile';
 import ProfileViewHeader from './ProfileViewHeader';
 import EditableSection from '../sitter-profile/EditableSection';
 import UniversalPostsGrid from '../posts/UniversalPostsGrid';
+import OwnerProfileStrengthBar from './OwnerProfileStrengthBar';
 import type { ProfileType, Pet } from '../../types';
 
 const ProfileTab = lazy(() => import('../../pages/profile/ProfileTab'));
+const PetsTab = lazy(() => import('../../pages/profile/PetsTab'));
 
 interface ProfileViewProps {
   profileType: ProfileType;
@@ -138,10 +140,18 @@ type OwnerTab = 'posts' | 'reviews';
 
 function OwnerProfile({ data }: { data: OwnerProfileData }) {
   const [activeTab, setActiveTab] = useState<OwnerTab>('posts');
-  const { editingSection, viewAsVisitor, startEditing, stopEditing } = useEditableProfile();
+  const { editingSection, viewAsVisitor, startEditing, stopEditing, toggleViewAsVisitor } = useEditableProfile();
 
   return (
     <>
+      {data.isOwner && !viewAsVisitor && (
+        <OwnerProfileStrengthBar
+          owner={data.owner}
+          pets={data.pets}
+          onEditSection={startEditing}
+        />
+      )}
+
       <EditableSection
         sectionId="header"
         isOwner={data.isOwner}
@@ -160,6 +170,8 @@ function OwnerProfile({ data }: { data: OwnerProfileData }) {
           avatarUrl={data.owner.avatar_url}
           profileType="owner"
           isOwner={data.isOwner}
+          viewAsVisitor={viewAsVisitor}
+          onToggleViewMode={data.isOwner ? toggleViewAsVisitor : undefined}
           subtitle={`Member since ${new Date(data.owner.created_at).getFullYear()}`}
         >
           {data.owner.bio && (
@@ -169,17 +181,35 @@ function OwnerProfile({ data }: { data: OwnerProfileData }) {
         </ProfileViewHeader>
       </EditableSection>
 
-      {data.pets.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-4">
-          <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
-            Pets ({data.pets.length})
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {data.pets.map(pet => (
-              <PetCard key={pet.id} pet={pet} />
-            ))}
+      {(data.pets.length > 0 || (data.isOwner && !viewAsVisitor)) && (
+        <EditableSection
+          sectionId="pets"
+          isOwner={data.isOwner}
+          isEditing={editingSection === 'pets'}
+          viewAsVisitor={viewAsVisitor}
+          onEdit={startEditing}
+          onClose={stopEditing}
+          editContent={
+            <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+              <PetsTab />
+            </Suspense>
+          }
+        >
+          <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6 mb-4">
+            <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-4">
+              Pets ({data.pets.length})
+            </h3>
+            {data.pets.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {data.pets.map(pet => (
+                  <PetCard key={pet.id} pet={pet} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-stone-400 text-center py-4">Add your first pet to get started</p>
+            )}
           </div>
-        </div>
+        </EditableSection>
       )}
 
       {/* Tabs */}

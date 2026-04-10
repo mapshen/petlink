@@ -30,11 +30,6 @@ export default function ProfilePage() {
   const hasSitterRole = user?.roles?.includes('sitter') ?? false;
   const isSitter = mode === 'sitter' && hasSitterRole;
 
-  // Sitters edit their profile on the public sitter page (WYSIWYG)
-  if (isSitter && user?.slug && !loading) {
-    return <Navigate to={`/sitter/${user.slug}`} replace />;
-  }
-
   const visibleSections = useMemo(
     () =>
       ALL_SECTIONS.filter((s) => {
@@ -75,6 +70,14 @@ export default function ProfilePage() {
       sectionRefs.current.delete(id);
     }
   }, []);
+
+  // WYSIWYG redirects — both roles edit on their public profile page
+  if (isSitter && user?.slug && !loading) {
+    return <Navigate to={`/sitter/${user.slug}`} replace />;
+  }
+  if (!isSitter && user?.slug && !loading) {
+    return <Navigate to={`/owner/${user.slug}`} replace />;
+  }
 
   const renderSectionContent = (sectionId: string) => {
     switch (sectionId) {
