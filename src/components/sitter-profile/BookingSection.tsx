@@ -19,8 +19,14 @@ import { getAddonBySlug } from '../../shared/addon-catalog';
 import { getPolicyDescription } from '../../shared/cancellation';
 import PriceBreakdown from './PriceBreakdown';
 import PaymentDialog from './PaymentDialog';
+import PoliciesView from './PoliciesView';
+import EditableSection from './EditableSection';
+import type { EditProps } from './SpeciesDetails';
 
 const SitterLocationMap = lazy(() => import('../map/SitterLocationMap'));
+const LocationTab = lazy(() => import('../../pages/profile/LocationTab'));
+const PoliciesTab = lazy(() => import('../../pages/profile/PoliciesTab'));
+const AvailabilityTab = lazy(() => import('../../pages/profile/AvailabilityTab'));
 
 export interface BookingSectionProps {
   sitter: User;
@@ -39,6 +45,7 @@ export interface BookingSectionProps {
   bookingRef: React.RefObject<HTMLDivElement>;
   onAvailabilityLoaded: (data: Availability[]) => void;
   initialServiceId?: number | null;
+  editProps?: EditProps;
 }
 
 export default function BookingSection({
@@ -58,6 +65,7 @@ export default function BookingSection({
   bookingRef,
   onAvailabilityLoaded,
   initialServiceId,
+  editProps,
 }: BookingSectionProps) {
   const navigate = useNavigate();
 
@@ -102,6 +110,14 @@ export default function BookingSection({
       setSelectedService(bookingServices.length > 0 ? bookingServices[0].id : null);
     }
   }, [bookingServices, selectedService]);
+
+  // React to highlight clicks / initialServiceId changes
+  useEffect(() => {
+    if (initialServiceId != null) {
+      const matched = services.find(s => s.id === initialServiceId);
+      if (matched) setSelectedService(matched.id);
+    }
+  }, [initialServiceId, services]);
 
   // Clear add-on selections when switching service type
   useEffect(() => {
@@ -215,59 +231,27 @@ export default function BookingSection({
 
   return (
     <>
-      <div className="py-6 px-4" ref={bookingRef} role="tabpanel" aria-label="Availability">
+      <div className="py-6 px-4" ref={bookingRef} role="tabpanel" aria-label="Booking">
         <div className="max-w-2xl mx-auto space-y-6">
-          {/* Location */}
-          {sitter.lat != null && sitter.lng != null && (
-            <div className="bg-white rounded-2xl border border-stone-200 p-5">
-              <h3 className="text-lg font-bold text-stone-900 mb-3">Location</h3>
-              <Suspense fallback={
-                <div className="h-48 bg-stone-100 rounded-xl flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-                </div>
-              }>
-                <SitterLocationMap
-                  lat={sitter.lat}
-                  lng={sitter.lng}
-                  name={sitter.name}
-                  serviceRadiusMiles={sitter.service_radius_miles}
-                />
-              </Suspense>
-              <p className="text-xs text-stone-400 mt-2">
-                {cityName ? `${cityName} — ` : ''}Approximate location shown for privacy
-                {sitter.service_radius_miles && ` · Serves within ${sitter.service_radius_miles} miles`}
-              </p>
-            </div>
-          )}
-
-          {/* House Rules */}
-          {sitter.house_rules && (
-            <div className="bg-white rounded-2xl border border-stone-200 p-5">
-              <h3 className="text-lg font-bold text-stone-900 mb-3">House Rules</h3>
-              <p className="text-sm text-stone-600 whitespace-pre-line leading-relaxed">{sitter.house_rules}</p>
-            </div>
-          )}
-
-          {/* Booking Card -- hidden on own profile */}
-          {!isOwnProfile && (
+          {/* Booking Card — shown to everyone */}
           <div className="bg-white rounded-2xl border border-stone-200 p-6">
             <h3 className="text-xl font-bold mb-6 text-stone-900">Book {sitter.name}</h3>
-            <FirstBookingNudge />
+            {!isOwnProfile && <FirstBookingNudge />}
 
-            {depositCredit && (
+            {!isOwnProfile && depositCredit && (
               <div className="mb-6 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                 <span>You have a <strong>{formatCents(depositCredit.amount_cents)} credit</strong> from your meet & greet — it will be applied to your next booking!</span>
               </div>
             )}
 
-            {user && !user.emergency_contact_name && (
+            {!isOwnProfile && user && !user.emergency_contact_name && (
               <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
                 <Link to="/settings#section-account" className="font-semibold underline hover:text-amber-800">Add an emergency contact</Link> in your settings — sitters need someone to reach in case of a pet emergency.
               </div>
             )}
 
-            {user && pets.length > 0 && (
+            {!isOwnProfile && user && pets.length > 0 && (
               <div className="space-y-2 mb-6">
                 <label className="block text-sm font-medium text-stone-700">Your Pets</label>
                 <PetSelector
@@ -277,7 +261,7 @@ export default function BookingSection({
                 />
               </div>
             )}
-            {user && pets.length === 0 && (
+            {!isOwnProfile && user && pets.length === 0 && (
               <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
                 <Link to="/profile#section-pets" className="font-semibold underline hover:text-amber-800">Add a pet to your profile</Link> before booking.
               </div>
@@ -311,15 +295,30 @@ export default function BookingSection({
               </div>
             </div>
 
-            <div className="space-y-4 mb-6">
-              <label className="block text-sm font-medium text-stone-700">Date</label>
-              <BookingCalendar
-                sitterId={sitter.id}
-                selectedDate={selectedDate}
-                onDateSelect={handleDateSelect}
-                onAvailabilityLoaded={onAvailabilityLoaded}
-              />
-            </div>
+            {/* Calendar — pencil → AvailabilityTab for slot management */}
+            <EditableSection
+              sectionId="availability"
+              isOwner={editProps?.isOwner ?? false}
+              isEditing={editProps?.editingSection === 'availability'}
+              viewAsVisitor={editProps?.viewAsVisitor ?? true}
+              onEdit={editProps?.onEdit ?? (() => {})}
+              onClose={editProps?.onClose ?? (() => {})}
+              editContent={
+                <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+                  <AvailabilityTab />
+                </Suspense>
+              }
+            >
+              <div className="space-y-4 mb-6">
+                <label className="block text-sm font-medium text-stone-700">Date</label>
+                <BookingCalendar
+                  sitterId={sitter.id}
+                  selectedDate={selectedDate}
+                  onDateSelect={handleDateSelect}
+                  onAvailabilityLoaded={onAvailabilityLoaded}
+                />
+              </div>
+            </EditableSection>
 
             {selectedDate && (
               <div className="space-y-2 mb-6">
@@ -333,14 +332,13 @@ export default function BookingSection({
               </div>
             )}
 
-            {selectedPetIds.length > 0 && selectedService && (() => {
+            {!isOwnProfile && selectedPetIds.length > 0 && selectedService && (() => {
               const svc = bookingServices.find((s) => s.id === selectedService);
               if (!svc || svc.price_cents === 0) return null;
               const selectedPets = pets.filter((p) => selectedPetIds.includes(p.id));
               const hasPuppyPet = selectedPets.some((p) => isPuppy(p.age));
               const holidayDate = selectedDate ? isUSHoliday(selectedDate) : false;
 
-              // Filter add-ons applicable to the selected service type
               const applicableAddons = sitterAddons.filter((a) => {
                 const def = getAddonBySlug(a.addon_slug);
                 return def && def.applicableServices.includes(svc.type as any);
@@ -350,7 +348,6 @@ export default function BookingSection({
                 .filter((a) => selectedAddonIds.has(a.id))
                 .map((a) => ({ slug: a.addon_slug, priceCents: a.price_cents }));
 
-              // Apply loyalty discount if applicable
               const loyaltyTier = loyaltyInfo
                 ? findApplicableTier(
                     loyaltyInfo.tiers.map((t) => ({ sitter_id: sitter.id, ...t })),
@@ -379,11 +376,9 @@ export default function BookingSection({
 
               return (
                 <div className="mb-6 space-y-3">
-                  {/* Add-ons -- dynamic from sitter's catalog */}
                   {(applicableAddons.length > 0 || svc.pickup_dropoff_fee_cents || svc.grooming_addon_fee_cents) && (
                     <div className="p-3 bg-white border border-stone-200 rounded-xl space-y-2">
                       <div className="text-xs font-bold text-stone-500 uppercase tracking-wider">Add-ons</div>
-                      {/* Legacy add-ons (backward compat until fully migrated) */}
                       {svc.pickup_dropoff_fee_cents != null && svc.pickup_dropoff_fee_cents > 0 && !applicableAddons.some((a) => a.addon_slug === 'pickup_dropoff') && (
                         <label className="flex items-center justify-between cursor-pointer text-sm">
                           <span className="flex items-center gap-2">
@@ -402,7 +397,6 @@ export default function BookingSection({
                           <span className="text-stone-500">+{formatCents(svc.grooming_addon_fee_cents)}</span>
                         </label>
                       )}
-                      {/* New catalog add-ons */}
                       {applicableAddons.map((addon) => {
                         const def = getAddonBySlug(addon.addon_slug);
                         const isSelected = selectedAddonIds.has(addon.id);
@@ -414,17 +408,10 @@ export default function BookingSection({
                             }`}
                           >
                             <span className="flex items-center gap-2 min-w-0">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleAddon(addon.id)}
-                                className="rounded text-emerald-600 flex-shrink-0"
-                              />
+                              <input type="checkbox" checked={isSelected} onChange={() => toggleAddon(addon.id)} className="rounded text-emerald-600 flex-shrink-0" />
                               <span className="min-w-0">
                                 <span className="text-stone-800">{def?.emoji} {def?.label ?? addon.addon_slug}</span>
-                                {addon.notes && (
-                                  <span className="block text-xs text-stone-400 mt-0.5 truncate">{addon.notes}</span>
-                                )}
+                                {addon.notes && <span className="block text-xs text-stone-400 mt-0.5 truncate">{addon.notes}</span>}
                               </span>
                             </span>
                             <span className={`whitespace-nowrap ml-2 ${isSelected ? 'text-emerald-700 font-medium' : 'text-stone-400'}`}>
@@ -435,23 +422,13 @@ export default function BookingSection({
                       })}
                     </div>
                   )}
-
-                  {/* Price breakdown */}
-                  <PriceBreakdown
-                    breakdown={pricing.breakdown}
-                    totalCents={pricing.totalCents}
-                    extraPetCount={selectedPetIds.length - 1}
-                  />
+                  <PriceBreakdown breakdown={pricing.breakdown} totalCents={pricing.totalCents} extraPetCount={selectedPetIds.length - 1} />
                 </div>
               );
             })()}
 
-            {/* Camera & Monitoring info -- shown during booking flow */}
-            {sitter && (sitter.camera_preference === 'requires' || sitter.camera_preference === 'prefers') && (
-              <CameraInfoCard
-                sitterCameraPreference={sitter.camera_preference}
-                viewAs="owner"
-              />
+            {!isOwnProfile && sitter && (sitter.camera_preference === 'requires' || sitter.camera_preference === 'prefers') && (
+              <CameraInfoCard sitterCameraPreference={sitter.camera_preference} viewAs="owner" />
             )}
 
             {bookingError && (
@@ -463,42 +440,93 @@ export default function BookingSection({
             )}
 
             <button
-              onClick={handleBooking}
-              disabled={bookingLoading || !selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
+              onClick={isOwnProfile ? undefined : handleBooking}
+              disabled={isOwnProfile || bookingLoading || !selectedService || !selectedDate || !selectedTime || selectedPetIds.length === 0}
               className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bookingLoading ? 'Submitting...' : selectedService && services.find((s) => s.id === selectedService)?.price_cents === 0 ? 'Request Booking' : 'Request Booking & Pay'}
             </button>
 
-            <button
-              onClick={() => setShowInquiry(true)}
-              className="w-full mt-3 border border-emerald-600 text-emerald-700 py-3 rounded-xl font-bold hover:bg-emerald-50 transition-colors"
-            >
-              Send Inquiry
-            </button>
+            {!isOwnProfile && (
+              <button
+                onClick={() => setShowInquiry(true)}
+                className="w-full mt-3 border border-emerald-600 text-emerald-700 py-3 rounded-xl font-bold hover:bg-emerald-50 transition-colors"
+              >
+                Send Inquiry
+              </button>
+            )}
 
-            <p className="text-xs text-center text-stone-400 mt-4">
-              {selectedService && services.find((s) => s.id === selectedService)?.price_cents === 0
-                ? 'This is a free service — no payment required.'
-                : 'You won\'t be charged until the sitter confirms.'}
-            </p>
-            <p className="text-xs text-center text-stone-400 mt-1">
-              Times shown in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
-            </p>
+            {isOwnProfile && (
+              <p className="text-xs text-center text-stone-400 mt-3 italic">This is how visitors see your booking flow</p>
+            )}
 
-            {sitter.cancellation_policy && (
-              <div className="mt-4 p-3 bg-stone-50 rounded-xl">
-                <p className="text-xs font-medium text-stone-600 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Cancellation: <span className="capitalize">{sitter.cancellation_policy}</span>
+            {!isOwnProfile && (
+              <>
+                <p className="text-xs text-center text-stone-400 mt-4">
+                  {selectedService && services.find((s) => s.id === selectedService)?.price_cents === 0
+                    ? 'This is a free service — no payment required.'
+                    : 'You won\'t be charged until the sitter confirms.'}
                 </p>
-                <p className="text-xs text-stone-400 mt-1">
-                  {getPolicyDescription(sitter.cancellation_policy)}
+                <p className="text-xs text-center text-stone-400 mt-1">
+                  Times shown in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
                 </p>
-              </div>
+              </>
             )}
           </div>
+
+          {/* Location — pencil → LocationTab */}
+          {sitter.lat != null && sitter.lng != null && (
+            <EditableSection
+              sectionId="location"
+              isOwner={editProps?.isOwner ?? false}
+              isEditing={editProps?.editingSection === 'location'}
+              viewAsVisitor={editProps?.viewAsVisitor ?? true}
+              onEdit={editProps?.onEdit ?? (() => {})}
+              onClose={editProps?.onClose ?? (() => {})}
+              editContent={
+                <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+                  <LocationTab />
+                </Suspense>
+              }
+            >
+              <div className="bg-white rounded-2xl border border-stone-200 p-5">
+                <h3 className="text-lg font-bold text-stone-900 mb-3">Location</h3>
+                <Suspense fallback={
+                  <div className="h-48 bg-stone-100 rounded-xl flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+                  </div>
+                }>
+                  <SitterLocationMap
+                    lat={sitter.lat}
+                    lng={sitter.lng}
+                    name={sitter.name}
+                    serviceRadiusMiles={sitter.service_radius_miles}
+                  />
+                </Suspense>
+                <p className="text-xs text-stone-400 mt-2">
+                  {cityName ? `${cityName} — ` : ''}Approximate location shown for privacy
+                  {sitter.service_radius_miles && ` · Serves within ${sitter.service_radius_miles} miles`}
+                </p>
+              </div>
+            </EditableSection>
           )}
+
+          {/* Policies — pencil → PoliciesTab */}
+          <EditableSection
+            sectionId="policies"
+            isOwner={editProps?.isOwner ?? false}
+            isEditing={editProps?.editingSection === 'policies'}
+            viewAsVisitor={editProps?.viewAsVisitor ?? true}
+            onEdit={editProps?.onEdit ?? (() => {})}
+            onClose={editProps?.onClose ?? (() => {})}
+            editContent={
+              <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+                <PoliciesTab />
+              </Suspense>
+            }
+          >
+            <PoliciesView sitter={sitter} loyaltyInfo={loyaltyInfo} />
+          </EditableSection>
         </div>
       </div>
 

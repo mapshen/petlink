@@ -1,14 +1,14 @@
 import { LayoutGrid, Star, Calendar } from 'lucide-react';
 import { SPECIES_ICONS, formatSpecies } from '../../shared/species-utils';
 
-export const FIXED_TABS = ['posts', 'reviews', 'availability'] as const;
+export const FIXED_TABS = ['posts', 'reviews', 'booking'] as const;
 export type FixedTabId = typeof FIXED_TABS[number];
 export type TabId = FixedTabId | `species-${string}`;
 
 const FIXED_TAB_CONFIG: Record<FixedTabId, { label: string; icon: typeof LayoutGrid }> = {
   posts: { label: 'Posts', icon: LayoutGrid },
   reviews: { label: 'Reviews', icon: Star },
-  availability: { label: 'Availability', icon: Calendar },
+  booking: { label: 'Booking', icon: Calendar },
 };
 
 interface Props {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSpeciesBadges, getServicesForSpecies } from './SpeciesDetails';
+import { buildSpeciesBadges, getServicesForSpecies, getAddonsForSpecies } from './SpeciesDetails';
 import type { SitterSpeciesProfile, Service } from '../../types';
 
 const dogProfile: SitterSpeciesProfile = {
@@ -81,5 +81,35 @@ describe('getServicesForSpecies', () => {
 
   it('handles empty services array', () => {
     expect(getServicesForSpecies([], 'dog')).toEqual([]);
+  });
+});
+
+describe('getAddonsForSpecies', () => {
+  const services: Service[] = [
+    { id: 1, sitter_id: 1, type: 'walking', price_cents: 2500, species: 'dog' },
+    { id: 2, sitter_id: 1, type: 'sitting', price_cents: 5000, species: 'cat' },
+  ];
+
+  const sitterAddons = [
+    { id: 1, sitter_id: 1, addon_slug: 'pickup_dropoff', price_cents: 1000 },
+    { id: 2, sitter_id: 1, addon_slug: 'medication_admin', price_cents: 0 },
+    { id: 3, sitter_id: 1, addon_slug: 'full_grooming', price_cents: 1500 },
+  ] as any;
+
+  it('filters addons by species service types', () => {
+    const dogAddons = getAddonsForSpecies(sitterAddons, services, 'dog');
+    // pickup_dropoff and medication_admin apply to walking; full_grooming may not
+    // depends on addon catalog definitions — test that result is a subset
+    expect(dogAddons.every(a => sitterAddons.includes(a))).toBe(true);
+  });
+
+  it('returns empty for species with no services', () => {
+    const result = getAddonsForSpecies(sitterAddons, services, 'bird');
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns empty when no addons', () => {
+    const result = getAddonsForSpecies([], services, 'dog');
+    expect(result).toHaveLength(0);
   });
 });

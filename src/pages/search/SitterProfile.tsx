@@ -21,13 +21,6 @@ import { reverseGeocode } from '../../lib/geo';
 
 const ProfileTab = lazy(() => import('../profile/ProfileTab'));
 const SpeciesProfilesTab = lazy(() => import('../profile/SpeciesProfilesTab'));
-const HomeEnvironmentTab = lazy(() => import('../profile/HomeEnvironmentTab'));
-const AvailabilityTab = lazy(() => import('../profile/AvailabilityTab'));
-const LocationTab = lazy(() => import('../profile/LocationTab'));
-const PhotosTab = lazy(() => import('../profile/PhotosTab'));
-const PoliciesTab = lazy(() => import('../profile/PoliciesTab'));
-import { getAddonBySlug } from '../../shared/addon-catalog';
-import { formatCents } from '../../lib/money';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useTurnstile } from '../../hooks/useTurnstile';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
@@ -62,10 +55,11 @@ export default function SitterProfile() {
   const [sitterPhotos, setSitterPhotos] = useState<SitterPhoto[]>([]);
   const [depositCredit, setDepositCredit] = useState<{ booking_id: number; amount_cents: number } | null>(null);
   const [loyaltyInfo, setLoyaltyInfo] = useState<{ tiers: { min_bookings: number; discount_percent: number }[]; completed_bookings: number } | null>(null);
+  const [highlightServiceId, setHighlightServiceId] = useState<number | null>(null);
   const bookingRef = useRef<HTMLDivElement>(null);
 
   const scrollToBooking = useCallback(() => {
-    setActiveTab('availability');
+    setActiveTab('booking');
     setTimeout(() => {
       bookingRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
@@ -268,6 +262,7 @@ export default function SitterProfile() {
         />
       </EditableSection>
 
+      {/* Service Highlights — IG story circles above tabs */}
       <EditableSection
         sectionId="services"
         isOwner={isOwnProfile}
@@ -281,44 +276,41 @@ export default function SitterProfile() {
           </Suspense>
         }
       >
-        <ServiceHighlights
-          services={services}
-          selectedSpecies={selectedSpecies}
-          onServiceClick={() => scrollToBooking()}
-        />
-      </EditableSection>
-
-      {sitterAddons.length > 0 && (
-        <div className="bg-white border-b border-stone-200 px-6 py-3">
+        <div className="bg-white border-b border-stone-200 px-6 py-4">
           <div className="max-w-[960px] mx-auto">
-            <div className="flex items-center gap-3 overflow-x-auto">
-              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">Add-ons</span>
-              {sitterAddons.map((addon) => {
-                const def = getAddonBySlug(addon.addon_slug);
-                return (
-                  <div key={addon.id} className="flex items-center gap-1.5 bg-stone-50 px-2.5 py-1.5 rounded-lg flex-shrink-0">
-                    <span className="text-sm">{def?.emoji}</span>
-                    <div>
-                      <div className="text-xs font-medium text-stone-800">{def?.shortLabel ?? addon.addon_slug}</div>
-                      <div className="text-[10px] text-emerald-600 font-medium">
-                        {addon.price_cents === 0 ? 'Free' : `+${formatCents(addon.price_cents)}`}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ServiceHighlights
+              services={services}
+              selectedSpecies={selectedSpecies}
+              onServiceClick={(service) => {
+                setHighlightServiceId(service.id);
+                setActiveTab('booking');
+                setTimeout(() => bookingRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+              }}
+              showAddButton={showEditMode}
+              onAddClick={() => startEditing('services')}
+            />
           </div>
         </div>
-      )}
+      </EditableSection>
 
-      <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} speciesTabs={speciesTabs} />
+      <ProfileTabs activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setHighlightServiceId(null); }} speciesTabs={speciesTabs} />
 
       {/* Tab Content */}
       <div className="max-w-[960px] mx-auto">
         {/* Species Tab */}
         {selectedSpeciesProfile && (
-          <SpeciesDetails profile={selectedSpeciesProfile} services={services} />
+          <SpeciesDetails
+            profile={selectedSpeciesProfile}
+            services={services}
+            sitterAddons={sitterAddons}
+            editProps={isOwnProfile ? {
+              isOwner: isOwnProfile,
+              editingSection,
+              viewAsVisitor,
+              onEdit: startEditing,
+              onClose: stopEditing,
+            } : undefined}
+          />
         )}
 
         {/* Posts Tab */}
@@ -351,7 +343,7 @@ export default function SitterProfile() {
         )}
 
         {/* Availability Tab */}
-        {activeTab === 'availability' && (
+        {activeTab === 'booking' && (
           <BookingSection
             sitter={sitter}
             services={services}
@@ -368,7 +360,14 @@ export default function SitterProfile() {
             cityName={cityName}
             bookingRef={bookingRef}
             onAvailabilityLoaded={handleAvailabilityLoaded}
-            initialServiceId={serviceIdParam ? Number(serviceIdParam) : null}
+            initialServiceId={highlightServiceId ?? (serviceIdParam ? Number(serviceIdParam) : null)}
+            editProps={isOwnProfile ? {
+              isOwner: isOwnProfile,
+              editingSection,
+              viewAsVisitor,
+              onEdit: startEditing,
+              onClose: stopEditing,
+            } : undefined}
           />
         )}
       </div>
