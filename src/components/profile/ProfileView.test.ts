@@ -126,8 +126,9 @@ describe('ProfileView data contracts', () => {
 
   describe('owner profile WYSIWYG editability', () => {
     it('shows pets section for owner with no pets (editable empty state)', () => {
+      const viewAsVisitor = false;
       const ownerWithNoPets = { ...mockOwnerData, isOwner: true, pets: [] };
-      const showPets = ownerWithNoPets.pets.length > 0 || (ownerWithNoPets.isOwner && !false /* viewAsVisitor */);
+      const showPets = ownerWithNoPets.pets.length > 0 || (ownerWithNoPets.isOwner && !viewAsVisitor);
       expect(showPets).toBe(true);
     });
 

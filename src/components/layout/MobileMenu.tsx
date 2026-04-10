@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LogOut, Settings, User } from 'lucide-react';
 import ModeToggle from './ModeToggle';
+import { isNavActive } from './Layout';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -75,7 +76,7 @@ export default function MobileMenu({ open, onClose, navItems, user, onLogout }: 
               to={item.path}
               className={cn(
                 'flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors',
-                location.pathname === item.path || (item.name === 'Profile' && (location.pathname.startsWith('/owner/') || location.pathname.startsWith('/sitter/')))
+                isNavActive(item.path, item.name, location.pathname)
                   ? 'text-emerald-600 bg-emerald-50'
                   : 'text-stone-600 hover:bg-stone-50'
               )}

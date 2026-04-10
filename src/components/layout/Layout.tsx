@@ -12,6 +12,12 @@ function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
+export function isNavActive(itemPath: string, itemName: string, pathname: string): boolean {
+  if (pathname === itemPath) return true;
+  if (itemName === 'Profile') return pathname.startsWith('/owner/') || pathname.startsWith('/sitter/');
+  return false;
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -64,8 +70,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to={item.path}
                 className={cn(
                   "flex items-center gap-2 text-sm font-medium transition-colors hover:text-emerald-600",
-                  location.pathname === item.path || (item.name === 'Profile' && (location.pathname.startsWith('/owner/') || location.pathname.startsWith('/sitter/')))
-                    ? "text-emerald-600" : "text-stone-500"
+                  isNavActive(item.path, item.name, location.pathname) ? "text-emerald-600" : "text-stone-500"
                 )}
               >
                 <item.icon className="w-4 h-4" />
