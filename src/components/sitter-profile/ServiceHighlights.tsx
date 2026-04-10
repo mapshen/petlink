@@ -47,6 +47,7 @@ export default function ServiceHighlights({
         <button
           key={service.id}
           onClick={() => onServiceClick(service)}
+          aria-label={`${getServiceLabel(service.type)}: ${service.price_cents === 0 ? 'Free' : formatCents(service.price_cents)}`}
           className="flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer group"
         >
           <div className="w-16 h-16 rounded-full border-2 border-emerald-500 p-0.5 relative">
@@ -70,6 +71,7 @@ export default function ServiceHighlights({
       {showAddButton && (
         <button
           onClick={onAddClick}
+          aria-label="Add a new service"
           className="flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer"
         >
           <div className="w-16 h-16 rounded-full border-2 border-dashed border-stone-300 flex items-center justify-center text-stone-400 hover:border-emerald-400 hover:text-emerald-500 transition-colors">

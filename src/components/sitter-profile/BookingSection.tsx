@@ -28,6 +28,20 @@ const LocationTab = lazy(() => import('../../pages/profile/LocationTab'));
 const PoliciesTab = lazy(() => import('../../pages/profile/PoliciesTab'));
 const AvailabilityTab = lazy(() => import('../../pages/profile/AvailabilityTab'));
 
+const EditorSpinner = () => (
+  <div className="h-32 flex items-center justify-center">
+    <div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" />
+  </div>
+);
+
+const NO_EDIT: EditProps = {
+  isOwner: false,
+  editingSection: null,
+  viewAsVisitor: true,
+  onEdit: () => {},
+  onClose: () => {},
+};
+
 export interface BookingSectionProps {
   sitter: User;
   services: Service[];
@@ -68,6 +82,7 @@ export default function BookingSection({
   editProps,
 }: BookingSectionProps) {
   const navigate = useNavigate();
+  const edit = editProps ?? NO_EDIT;
 
   // Booking-specific state
   const [selectedService, setSelectedService] = useState<number | null>(() => {
@@ -298,13 +313,13 @@ export default function BookingSection({
             {/* Calendar — pencil → AvailabilityTab for slot management */}
             <EditableSection
               sectionId="availability"
-              isOwner={editProps?.isOwner ?? false}
-              isEditing={editProps?.editingSection === 'availability'}
-              viewAsVisitor={editProps?.viewAsVisitor ?? true}
-              onEdit={editProps?.onEdit ?? (() => {})}
-              onClose={editProps?.onClose ?? (() => {})}
+              isOwner={edit.isOwner}
+              isEditing={edit.editingSection === 'availability'}
+              viewAsVisitor={edit.viewAsVisitor}
+              onEdit={edit.onEdit}
+              onClose={edit.onClose}
               editContent={
-                <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+                <Suspense fallback={<EditorSpinner />}>
                   <AvailabilityTab />
                 </Suspense>
               }
@@ -478,13 +493,13 @@ export default function BookingSection({
           {sitter.lat != null && sitter.lng != null && (
             <EditableSection
               sectionId="location"
-              isOwner={editProps?.isOwner ?? false}
-              isEditing={editProps?.editingSection === 'location'}
-              viewAsVisitor={editProps?.viewAsVisitor ?? true}
-              onEdit={editProps?.onEdit ?? (() => {})}
-              onClose={editProps?.onClose ?? (() => {})}
+              isOwner={edit.isOwner}
+              isEditing={edit.editingSection === 'location'}
+              viewAsVisitor={edit.viewAsVisitor}
+              onEdit={edit.onEdit}
+              onClose={edit.onClose}
               editContent={
-                <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+                <Suspense fallback={<EditorSpinner />}>
                   <LocationTab />
                 </Suspense>
               }
@@ -514,13 +529,13 @@ export default function BookingSection({
           {/* Policies — pencil → PoliciesTab */}
           <EditableSection
             sectionId="policies"
-            isOwner={editProps?.isOwner ?? false}
-            isEditing={editProps?.editingSection === 'policies'}
-            viewAsVisitor={editProps?.viewAsVisitor ?? true}
-            onEdit={editProps?.onEdit ?? (() => {})}
-            onClose={editProps?.onClose ?? (() => {})}
+            isOwner={edit.isOwner}
+            isEditing={edit.editingSection === 'policies'}
+            viewAsVisitor={edit.viewAsVisitor}
+            onEdit={edit.onEdit}
+            onClose={edit.onClose}
             editContent={
-              <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+              <Suspense fallback={<EditorSpinner />}>
                 <PoliciesTab />
               </Suspense>
             }

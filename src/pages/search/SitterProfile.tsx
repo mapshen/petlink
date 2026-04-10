@@ -200,7 +200,18 @@ export default function SitterProfile() {
   const selectedSpecies = activeTab.startsWith('species-') ? activeTab.replace('species-', '') : null;
   const selectedSpeciesProfile = selectedSpecies ? speciesProfiles.find((p) => p.species === selectedSpecies) : null;
 
+  const handleTabChange = useCallback((tab: TabId) => {
+    setActiveTab(tab);
+    setHighlightServiceId(null);
+  }, []);
 
+  const editPropsValue = useMemo(() => isOwnProfile ? {
+    isOwner: isOwnProfile,
+    editingSection,
+    viewAsVisitor,
+    onEdit: startEditing,
+    onClose: stopEditing,
+  } : undefined, [isOwnProfile, editingSection, viewAsVisitor, startEditing, stopEditing]);
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div></div>;
   if (!sitter) return (
@@ -293,7 +304,7 @@ export default function SitterProfile() {
         </div>
       </EditableSection>
 
-      <ProfileTabs activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setHighlightServiceId(null); }} speciesTabs={speciesTabs} />
+      <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} speciesTabs={speciesTabs} />
 
       {/* Tab Content */}
       <div className="max-w-[960px] mx-auto">
@@ -303,13 +314,7 @@ export default function SitterProfile() {
             profile={selectedSpeciesProfile}
             services={services}
             sitterAddons={sitterAddons}
-            editProps={isOwnProfile ? {
-              isOwner: isOwnProfile,
-              editingSection,
-              viewAsVisitor,
-              onEdit: startEditing,
-              onClose: stopEditing,
-            } : undefined}
+            editProps={editPropsValue}
           />
         )}
 
@@ -361,13 +366,7 @@ export default function SitterProfile() {
             bookingRef={bookingRef}
             onAvailabilityLoaded={handleAvailabilityLoaded}
             initialServiceId={highlightServiceId ?? (serviceIdParam ? Number(serviceIdParam) : null)}
-            editProps={isOwnProfile ? {
-              isOwner: isOwnProfile,
-              editingSection,
-              viewAsVisitor,
-              onEdit: startEditing,
-              onClose: stopEditing,
-            } : undefined}
+            editProps={editPropsValue}
           />
         )}
       </div>

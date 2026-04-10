@@ -76,9 +76,16 @@ export function getAddonsForSpecies(sitterAddons: SitterAddon[], services: Servi
   });
 }
 
+const EditorSpinner = () => (
+  <div className="h-32 flex items-center justify-center">
+    <div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" />
+  </div>
+);
+
 export default function SpeciesDetails({ profile, services, sitterAddons = [], editProps }: Props) {
   const isDog = profile.species === 'dog';
   const speciesServices = getServicesForSpecies(services, profile.species);
+  const speciesAddons = getAddonsForSpecies(sitterAddons, services, profile.species);
 
   return (
     <div className="py-6 px-4" role="tabpanel" aria-label={`${formatSpecies(profile.species)} details`}>
@@ -151,61 +158,30 @@ export default function SpeciesDetails({ profile, services, sitterAddons = [], e
         )}
 
         {/* Add-ons for this species */}
-        {(() => {
-          const speciesAddons = getAddonsForSpecies(sitterAddons, services, profile.species);
-          return speciesAddons.length > 0 ? (
-            <CollapsibleSection title="Add-ons">
-              <div className="space-y-2">
-                {speciesAddons.map(addon => {
-                  const def = getAddonBySlug(addon.addon_slug);
-                  return (
-                    <div key={addon.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl">
-                      <div className="flex items-center gap-2">
-                        <span>{def?.emoji}</span>
-                        <span className="text-sm font-semibold text-stone-900">{def?.label ?? addon.addon_slug}</span>
-                      </div>
-                      <span className="text-sm font-bold text-emerald-600">
-                        {addon.price_cents === 0 ? 'Free' : `+${formatCents(addon.price_cents)}`}
-                      </span>
+        {speciesAddons.length > 0 && (
+          <CollapsibleSection title="Add-ons">
+            <div className="space-y-2">
+              {speciesAddons.map(addon => {
+                const def = getAddonBySlug(addon.addon_slug);
+                return (
+                  <div key={addon.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <span>{def?.emoji}</span>
+                      <span className="text-sm font-semibold text-stone-900">{def?.label ?? addon.addon_slug}</span>
                     </div>
-                  );
-                })}
-              </div>
-            </CollapsibleSection>
-          ) : null;
-        })()}
+                    <span className="text-sm font-bold text-emerald-600">
+                      {addon.price_cents === 0 ? 'Free' : `+${formatCents(addon.price_cents)}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleSection>
+        )}
 
         {/* Environment (dog-specific) */}
-        {isDog && (
-          editProps ? (
-            <EditableSection
-              sectionId="home-environment"
-              isOwner={editProps.isOwner}
-              isEditing={editProps.editingSection === 'home-environment'}
-              viewAsVisitor={editProps.viewAsVisitor}
-              onEdit={editProps.onEdit}
-              onClose={editProps.onClose}
-              editContent={
-                <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
-                  <HomeEnvironmentTab />
-                </Suspense>
-              }
-            >
-              <CollapsibleSection title="Home & Environment">
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <EnvironmentItem label="Yard" value={profile.has_yard} />
-                  <EnvironmentItem label="Fenced yard" value={profile.has_fenced_yard} />
-                  <EnvironmentItem label="Dogs on furniture" value={profile.dogs_on_furniture} />
-                  <EnvironmentItem label="Dogs on bed" value={profile.dogs_on_bed} />
-                  {profile.potty_break_frequency && (
-                    <div className="col-span-2 text-stone-600">
-                      <span className="font-medium">Potty breaks:</span> {profile.potty_break_frequency}
-                    </div>
-                  )}
-                </div>
-              </CollapsibleSection>
-            </EditableSection>
-          ) : (
+        {isDog && (() => {
+          const homeEnvContent = (
             <CollapsibleSection title="Home & Environment">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <EnvironmentItem label="Yard" value={profile.has_yard} />
@@ -219,8 +195,21 @@ export default function SpeciesDetails({ profile, services, sitterAddons = [], e
                 )}
               </div>
             </CollapsibleSection>
-          )
-        )}
+          );
+          return editProps ? (
+            <EditableSection
+              sectionId="home-environment"
+              isOwner={editProps.isOwner}
+              isEditing={editProps.editingSection === 'home-environment'}
+              viewAsVisitor={editProps.viewAsVisitor}
+              onEdit={editProps.onEdit}
+              onClose={editProps.onClose}
+              editContent={<Suspense fallback={<EditorSpinner />}><HomeEnvironmentTab /></Suspense>}
+            >
+              {homeEnvContent}
+            </EditableSection>
+          ) : homeEnvContent;
+        })()}
 
         {/* Pet Preferences */}
         <CollapsibleSection title="Pet Preferences">
