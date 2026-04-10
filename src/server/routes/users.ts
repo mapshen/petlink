@@ -410,8 +410,8 @@ export default function userRoutes(router: Router): void {
         `,
         sql`
           SELECT
-            COUNT(*)::int FILTER (WHERE status = 'completed') AS completed_bookings,
-            COUNT(*)::int FILTER (WHERE status = 'cancelled' AND cancelled_by = 'owner') AS cancelled_count,
+            (COUNT(*) FILTER (WHERE status = 'completed'))::int AS completed_bookings,
+            (COUNT(*) FILTER (WHERE status = 'cancelled' AND cancelled_by = 'owner'))::int AS cancelled_count,
             COUNT(*)::int AS total_bookings
           FROM bookings WHERE owner_id = ${owner.id}
         `,
