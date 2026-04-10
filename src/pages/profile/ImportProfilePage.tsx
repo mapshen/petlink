@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
+import { useProfilePath } from '../../hooks/useProfilePath';
 import { API_BASE } from '../../config';
 import { ArrowLeft, ArrowRight, Check, Copy, Loader2, Star, ExternalLink } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -13,6 +14,7 @@ type Step = 'url' | 'preview' | 'verify' | 'confirm' | 'done';
 
 export default function ImportProfilePage() {
   const { user, token, loading: authLoading } = useAuth();
+  const profilePath = useProfilePath();
   const [step, setStep] = useState<Step>('url');
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -138,7 +140,7 @@ export default function ImportProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <Link to="/profile" className="text-sm text-stone-500 hover:text-emerald-600 flex items-center gap-1 mb-6">
+      <Link to={profilePath} className="text-sm text-stone-500 hover:text-emerald-600 flex items-center gap-1 mb-6">
         <ArrowLeft className="w-4 h-4" /> Back to Profile
       </Link>
 
@@ -304,7 +306,7 @@ export default function ImportProfilePage() {
             )}
 
             <div className="pt-2 text-center">
-              <Link to="/profile">
+              <Link to={profilePath}>
                 <Button>View Your Profile</Button>
               </Link>
             </div>

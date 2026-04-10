@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useProfilePath } from '../../hooks/useProfilePath';
 import { PawPrint, MapPin, Calendar, MessageSquare, Wallet, Shield, LogOut, Menu, X, HelpCircle, User, Settings } from 'lucide-react';
 import ModeToggle from './ModeToggle';
 import MobileMenu from './MobileMenu';
@@ -14,6 +15,7 @@ function cn(...inputs: (string | undefined | null | false)[]) {
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const profilePath = useProfilePath();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
@@ -23,7 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Home', path: '/home', icon: Calendar },
     { name: 'Search', path: '/search', icon: MapPin },
     { name: 'Messages', path: '/messages', icon: MessageSquare },
-    { name: 'Profile', path: '/profile', icon: User },
+    { name: 'Profile', path: profilePath, icon: User },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
     ...(user.is_admin ? [{ name: 'Admin', path: '/admin', icon: Shield }] : []),
   ] : [
@@ -62,7 +64,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to={item.path}
                 className={cn(
                   "flex items-center gap-2 text-sm font-medium transition-colors hover:text-emerald-600",
-                  location.pathname === item.path ? "text-emerald-600" : "text-stone-500"
+                  location.pathname === item.path || (item.name === 'Profile' && (location.pathname.startsWith('/owner/') || location.pathname.startsWith('/sitter/')))
+                    ? "text-emerald-600" : "text-stone-500"
                 )}
               >
                 <item.icon className="w-4 h-4" />

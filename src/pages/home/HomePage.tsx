@@ -15,6 +15,7 @@ import { API_BASE } from '../../config';
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useOnboardingStatus } from '../../hooks/useOnboardingStatus';
+import { useProfilePath } from '../../hooks/useProfilePath';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useReviewDialog } from '../../hooks/useReviewDialog';
 import CareTasksChecklist from '../../components/booking/CareTasksChecklist';
@@ -49,6 +50,7 @@ import {
 export default function HomePage() {
   useDocumentTitle('Home');
   const { user, token } = useAuth();
+  const profilePath = useProfilePath();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
@@ -263,7 +265,7 @@ export default function HomePage() {
             <div className="text-sm font-semibold text-amber-800">Your sitter application is under review</div>
             <div className="text-xs text-amber-600">We'll notify you once approved. You can edit your profile while waiting.</div>
           </div>
-          <Link to="/profile" className="text-xs font-semibold text-emerald-600 hover:underline whitespace-nowrap">Edit Profile</Link>
+          <Link to={profilePath} className="text-xs font-semibold text-emerald-600 hover:underline whitespace-nowrap">Edit Profile</Link>
         </div>
       )}
 

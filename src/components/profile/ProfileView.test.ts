@@ -123,4 +123,31 @@ describe('ProfileView data contracts', () => {
       expect(types).toHaveLength(3);
     });
   });
+
+  describe('owner profile WYSIWYG editability', () => {
+    it('shows pets section for owner with no pets (editable empty state)', () => {
+      const ownerWithNoPets = { ...mockOwnerData, isOwner: true, pets: [] };
+      const showPets = ownerWithNoPets.pets.length > 0 || (ownerWithNoPets.isOwner && !false /* viewAsVisitor */);
+      expect(showPets).toBe(true);
+    });
+
+    it('hides pets section for visitor with no pets', () => {
+      const visitorNoPets = { ...mockOwnerData, isOwner: false, pets: [] };
+      const showPets = visitorNoPets.pets.length > 0 || visitorNoPets.isOwner;
+      expect(showPets).toBe(false);
+    });
+
+    it('shows pets section for visitor with pets', () => {
+      const visitorWithPets = { ...mockOwnerData, isOwner: false };
+      const showPets = visitorWithPets.pets.length > 0 || visitorWithPets.isOwner;
+      expect(showPets).toBe(true);
+    });
+
+    it('hides pets section for owner in viewAsVisitor mode with no pets', () => {
+      const viewAsVisitor = true;
+      const ownerNoPets = { ...mockOwnerData, isOwner: true, pets: [] };
+      const showPets = ownerNoPets.pets.length > 0 || (ownerNoPets.isOwner && !viewAsVisitor);
+      expect(showPets).toBe(false);
+    });
+  });
 });

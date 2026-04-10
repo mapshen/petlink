@@ -35,6 +35,11 @@ export default function ProfilePage() {
     return <Navigate to={`/sitter/${user.slug}`} replace />;
   }
 
+  // Owners edit their profile on the public owner page (WYSIWYG)
+  if (!isSitter && user?.slug && !loading) {
+    return <Navigate to={`/owner/${user.slug}`} replace />;
+  }
+
   const visibleSections = useMemo(
     () =>
       ALL_SECTIONS.filter((s) => {

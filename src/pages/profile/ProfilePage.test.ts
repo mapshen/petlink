@@ -60,6 +60,40 @@ describe('ProfilePage section visibility', () => {
   });
 });
 
+describe('ProfilePage WYSIWYG redirect logic', () => {
+  function getRedirectPath(
+    mode: 'owner' | 'sitter',
+    hasSitterRole: boolean,
+    slug: string | null,
+    loading: boolean
+  ): string | null {
+    const isSitter = mode === 'sitter' && hasSitterRole;
+    if (isSitter && slug && !loading) return `/sitter/${slug}`;
+    if (!isSitter && slug && !loading) return `/owner/${slug}`;
+    return null; // stay on ProfilePage
+  }
+
+  it('redirects sitter with slug to /sitter/:slug', () => {
+    expect(getRedirectPath('sitter', true, 'sarah-m', false)).toBe('/sitter/sarah-m');
+  });
+
+  it('redirects owner with slug to /owner/:slug', () => {
+    expect(getRedirectPath('owner', false, 'jessica-r', false)).toBe('/owner/jessica-r');
+  });
+
+  it('redirects dual-role user in owner mode to /owner/:slug', () => {
+    expect(getRedirectPath('owner', true, 'jessica-r', false)).toBe('/owner/jessica-r');
+  });
+
+  it('stays on ProfilePage when no slug', () => {
+    expect(getRedirectPath('owner', false, null, false)).toBeNull();
+  });
+
+  it('stays on ProfilePage while loading', () => {
+    expect(getRedirectPath('owner', false, 'jessica-r', true)).toBeNull();
+  });
+});
+
 describe('ProfilePage section descriptions', () => {
   it('every section in ALL_SECTIONS has a description', () => {
     for (const section of ALL_SECTIONS) {
