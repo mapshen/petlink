@@ -76,7 +76,7 @@ export function getAddonsForSpecies(sitterAddons: SitterAddon[], services: Servi
   });
 }
 
-const EditorSpinner = () => (
+export const EditorSpinner = () => (
   <div className="h-32 flex items-center justify-center">
     <div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" />
   </div>

@@ -28,11 +28,7 @@ const LocationTab = lazy(() => import('../../pages/profile/LocationTab'));
 const PoliciesTab = lazy(() => import('../../pages/profile/PoliciesTab'));
 const AvailabilityTab = lazy(() => import('../../pages/profile/AvailabilityTab'));
 
-const EditorSpinner = () => (
-  <div className="h-32 flex items-center justify-center">
-    <div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" />
-  </div>
-);
+import { EditorSpinner } from './SpeciesDetails';
 
 const NO_EDIT: EditProps = {
   isOwner: false,

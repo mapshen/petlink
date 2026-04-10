@@ -8,7 +8,7 @@ import { User, Pet, Service, Review, Availability, SitterPhoto, ImportedReview, 
 import SitterProfileHeader from '../../components/sitter-profile/SitterProfileHeader';
 import ServiceHighlights from '../../components/sitter-profile/ServiceHighlights';
 import ProfileTabs, { type TabId } from '../../components/sitter-profile/ProfileTabs';
-import SpeciesDetails from '../../components/sitter-profile/SpeciesDetails';
+import SpeciesDetails, { EditorSpinner } from '../../components/sitter-profile/SpeciesDetails';
 import PostsGrid from '../../components/sitter-profile/PostsGrid';
 import CreatePostDialog from '../../components/sitter-profile/CreatePostDialog';
 import { useAuth, getAuthHeaders } from '../../context/AuthContext';
@@ -251,7 +251,7 @@ export default function SitterProfile() {
         onEdit={startEditing}
         onClose={stopEditing}
         editContent={
-          <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+          <Suspense fallback={<EditorSpinner />}>
             <ProfileTab />
           </Suspense>
         }
@@ -282,7 +282,7 @@ export default function SitterProfile() {
         onEdit={startEditing}
         onClose={stopEditing}
         editContent={
-          <Suspense fallback={<div className="h-32 flex items-center justify-center"><div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" /></div>}>
+          <Suspense fallback={<EditorSpinner />}>
             <SpeciesProfilesTab />
           </Suspense>
         }
