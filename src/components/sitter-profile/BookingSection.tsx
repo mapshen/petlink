@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { User, Pet, Service, Availability, SitterAddon } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
 import { getAuthHeaders } from '../../context/AuthContext';
-import { AlertCircle, CreditCard, ShieldCheck } from 'lucide-react';
+import { AlertCircle, CreditCard } from 'lucide-react';
 import { API_BASE } from '../../config';
 import BookingCalendar from '../booking/BookingCalendar';
 import TimeSlotPicker from '../booking/TimeSlotPicker';
@@ -16,7 +16,6 @@ import { calculateAdvancedPrice, isUSHoliday, isPuppy } from '../../shared/prici
 import { findApplicableTier } from '../../shared/loyalty-discount';
 import { formatCents } from '../../lib/money';
 import { getAddonBySlug } from '../../shared/addon-catalog';
-import { getPolicyDescription } from '../../shared/cancellation';
 import PriceBreakdown from './PriceBreakdown';
 import PaymentDialog from './PaymentDialog';
 import PoliciesView from './PoliciesView';
