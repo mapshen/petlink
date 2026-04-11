@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import type { SitterSpeciesProfile, Service } from '../../types';
+import type { SitterSpeciesProfile, Service, SitterAddon } from '../../types';
 import { getServiceLabel } from '../../shared/service-labels';
 import { formatSpecies } from '../../shared/species-utils';
 import { formatCents } from '../../lib/money';
 import { formatSkill } from './SitterProfileHeader';
+import { getAddonBySlug } from '../../shared/addon-catalog';
+import EditableSection from './EditableSection';
+
+const HomeEnvironmentTab = lazy(() => import('../../pages/profile/HomeEnvironmentTab'));
 
 const SERVICE_ICONS: Record<string, string> = { walking: '🚶', sitting: '🏠', 'drop-in': '👋', daycare: '☀️', grooming: '✂️', meet_greet: '🤝', boarding: '🏡' };
 const SIZE_LABELS: Record<string, string> = { small: 'Small (0-15 lbs)', medium: 'Medium (16-40 lbs)', large: 'Large (41-100 lbs)', giant: 'Giant (101+ lbs)' };
@@ -48,14 +52,40 @@ function CollapsibleSection({ title, defaultOpen = true, children }: { readonly 
   );
 }
 
+export interface EditProps {
+  readonly isOwner: boolean;
+  readonly editingSection: string | null;
+  readonly viewAsVisitor: boolean;
+  readonly onEdit: (sectionId: string) => void;
+  readonly onClose: () => void;
+}
+
 interface Props {
   readonly profile: SitterSpeciesProfile;
   readonly services: Service[];
+  readonly sitterAddons?: SitterAddon[];
+  readonly editProps?: EditProps;
 }
 
-export default function SpeciesDetails({ profile, services }: Props) {
+export function getAddonsForSpecies(sitterAddons: SitterAddon[], services: Service[], species: string): SitterAddon[] {
+  const speciesServiceTypes = new Set(services.filter(s => s.species === species).map(s => s.type));
+  return sitterAddons.filter(addon => {
+    const def = getAddonBySlug(addon.addon_slug);
+    if (!def) return false;
+    return def.applicableServices.some(svcType => speciesServiceTypes.has(svcType));
+  });
+}
+
+export const EditorSpinner = () => (
+  <div className="h-32 flex items-center justify-center">
+    <div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full" />
+  </div>
+);
+
+export default function SpeciesDetails({ profile, services, sitterAddons = [], editProps }: Props) {
   const isDog = profile.species === 'dog';
   const speciesServices = getServicesForSpecies(services, profile.species);
+  const speciesAddons = getAddonsForSpecies(sitterAddons, services, profile.species);
 
   return (
     <div className="py-6 px-4" role="tabpanel" aria-label={`${formatSpecies(profile.species)} details`}>
@@ -127,22 +157,59 @@ export default function SpeciesDetails({ profile, services }: Props) {
           </CollapsibleSection>
         )}
 
-        {/* Environment (dog-specific) */}
-        {isDog && (
-          <CollapsibleSection title="Home Environment">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <EnvironmentItem label="Yard" value={profile.has_yard} />
-              <EnvironmentItem label="Fenced yard" value={profile.has_fenced_yard} />
-              <EnvironmentItem label="Dogs on furniture" value={profile.dogs_on_furniture} />
-              <EnvironmentItem label="Dogs on bed" value={profile.dogs_on_bed} />
-              {profile.potty_break_frequency && (
-                <div className="col-span-2 text-stone-600">
-                  <span className="font-medium">Potty breaks:</span> {profile.potty_break_frequency}
-                </div>
-              )}
+        {/* Add-ons for this species */}
+        {speciesAddons.length > 0 && (
+          <CollapsibleSection title="Add-ons">
+            <div className="space-y-2">
+              {speciesAddons.map(addon => {
+                const def = getAddonBySlug(addon.addon_slug);
+                return (
+                  <div key={addon.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <span>{def?.emoji}</span>
+                      <span className="text-sm font-semibold text-stone-900">{def?.label ?? addon.addon_slug}</span>
+                    </div>
+                    <span className="text-sm font-bold text-emerald-600">
+                      {addon.price_cents === 0 ? 'Free' : `+${formatCents(addon.price_cents)}`}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </CollapsibleSection>
         )}
+
+        {/* Environment (dog-specific) */}
+        {isDog && (() => {
+          const homeEnvContent = (
+            <CollapsibleSection title="Home & Environment">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <EnvironmentItem label="Yard" value={profile.has_yard} />
+                <EnvironmentItem label="Fenced yard" value={profile.has_fenced_yard} />
+                <EnvironmentItem label="Dogs on furniture" value={profile.dogs_on_furniture} />
+                <EnvironmentItem label="Dogs on bed" value={profile.dogs_on_bed} />
+                {profile.potty_break_frequency && (
+                  <div className="col-span-2 text-stone-600">
+                    <span className="font-medium">Potty breaks:</span> {profile.potty_break_frequency}
+                  </div>
+                )}
+              </div>
+            </CollapsibleSection>
+          );
+          return editProps ? (
+            <EditableSection
+              sectionId="home-environment"
+              isOwner={editProps.isOwner}
+              isEditing={editProps.editingSection === 'home-environment'}
+              viewAsVisitor={editProps.viewAsVisitor}
+              onEdit={editProps.onEdit}
+              onClose={editProps.onClose}
+              editContent={<Suspense fallback={<EditorSpinner />}><HomeEnvironmentTab /></Suspense>}
+            >
+              {homeEnvContent}
+            </EditableSection>
+          ) : homeEnvContent;
+        })()}
 
         {/* Pet Preferences */}
         <CollapsibleSection title="Pet Preferences">

@@ -1,7 +1,54 @@
 import { describe, it, expect } from 'vitest';
-import { ALL_SERVICE_TYPES } from './ServiceHighlights';
+import { getHighlightServices } from './ServiceHighlights';
 import { getServiceLabel } from '../../shared/service-labels';
 import type { Service } from '../../types';
+
+const services: Service[] = [
+  { id: 1, sitter_id: 2, type: 'walking', species: 'dog', price_cents: 2500 },
+  { id: 2, sitter_id: 2, type: 'boarding', species: 'dog', price_cents: 6500 },
+  { id: 3, sitter_id: 2, type: 'sitting', species: 'cat', price_cents: 3500 },
+  { id: 4, sitter_id: 2, type: 'meet_greet', price_cents: 0 },
+  { id: 5, sitter_id: 2, type: 'boarding', species: 'cat', price_cents: 5000 },
+];
+
+describe('getHighlightServices', () => {
+  it('excludes meet_greet from highlights', () => {
+    const result = getHighlightServices(services, null);
+    expect(result.find(s => s.type === 'meet_greet')).toBeUndefined();
+  });
+
+  it('returns all non-meet_greet services when no species filter', () => {
+    const result = getHighlightServices(services, null);
+    expect(result).toHaveLength(4);
+  });
+
+  it('filters by species when selectedSpecies is set', () => {
+    const dogServices = getHighlightServices(services, 'dog');
+    expect(dogServices).toHaveLength(2);
+    expect(dogServices.every(s => s.species === 'dog')).toBe(true);
+  });
+
+  it('returns only cat services for cat filter', () => {
+    const catServices = getHighlightServices(services, 'cat');
+    expect(catServices).toHaveLength(2);
+    expect(catServices.every(s => s.species === 'cat')).toBe(true);
+  });
+
+  it('returns empty array when no services match species', () => {
+    const result = getHighlightServices(services, 'bird');
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns empty array for empty services', () => {
+    const result = getHighlightServices([], null);
+    expect(result).toHaveLength(0);
+  });
+
+  it('preserves service order', () => {
+    const result = getHighlightServices(services, null);
+    expect(result.map(s => s.type)).toEqual(['walking', 'boarding', 'sitting', 'boarding']);
+  });
+});
 
 describe('getServiceLabel (shared)', () => {
   it('returns species-neutral labels', () => {
@@ -12,45 +59,7 @@ describe('getServiceLabel (shared)', () => {
     expect(getServiceLabel('meet_greet')).toBe('Meet & Greet');
   });
 
-  it('ignores species parameter and returns same labels', () => {
-    expect(getServiceLabel('walking', ['dog'])).toBe('Walking');
-    expect(getServiceLabel('sitting', ['cat'])).toBe('House Sitting');
-  });
-
-  it('handles unknown type gracefully', () => {
+  it('handles boarding type', () => {
     expect(getServiceLabel('boarding')).toBe('Boarding');
-  });
-});
-
-describe('ALL_SERVICE_TYPES', () => {
-  it('contains all 7 service types', () => {
-    expect(ALL_SERVICE_TYPES).toEqual(['meet_greet', 'walking', 'sitting', 'drop-in', 'daycare', 'grooming', 'boarding']);
-  });
-});
-
-describe('ServiceHighlights logic', () => {
-  const services: Service[] = [
-    { id: 1, sitter_id: 2, type: 'walking', price_cents: 2500, description: '30 min walk' },
-    { id: 2, sitter_id: 2, type: 'sitting', price_cents: 5000, description: 'Overnight sitting' },
-  ];
-
-  it('identifies active service types', () => {
-    const activeTypes = new Set(services.map((s) => s.type));
-    expect(activeTypes.has('walking')).toBe(true);
-    expect(activeTypes.has('sitting')).toBe(true);
-    expect(activeTypes.has('drop-in')).toBe(false);
-  });
-
-  it('shows price for active services', () => {
-    const walkingService = services.find((s) => s.type === 'walking');
-    expect(walkingService?.price_cents).toBe(2500);
-  });
-
-  it('shows free for meet_greet', () => {
-    const meetGreetServices: Service[] = [
-      { id: 3, sitter_id: 2, type: 'meet_greet', price_cents: 0 },
-    ];
-    const mg = meetGreetServices.find((s) => s.type === 'meet_greet');
-    expect(mg?.price_cents).toBe(0);
   });
 });

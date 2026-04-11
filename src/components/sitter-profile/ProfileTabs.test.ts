@@ -9,7 +9,7 @@ describe('ProfileTabs constants', () => {
   it('contains posts, reviews, availability', () => {
     expect(FIXED_TABS).toContain('posts');
     expect(FIXED_TABS).toContain('reviews');
-    expect(FIXED_TABS).toContain('availability');
+    expect(FIXED_TABS).toContain('booking');
   });
 
   it('defaults to posts as first fixed tab', () => {
